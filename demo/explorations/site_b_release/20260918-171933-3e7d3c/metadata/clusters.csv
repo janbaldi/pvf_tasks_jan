@@ -1,0 +1,129 @@
+Cluster,Parameter,Representative,Is representative,Action,Outcome,Output column,Retained in dataset,Rows fitted,Adjusted R2,Regressors,Smallest shared batches in cluster
+Cluster 01,<f_cells_per_bag>,<washed_cells>,False,linear,OLS on 4 retained parameters,<f_cells_per_bag>_resid,True,27,0.9882201315907313,"<washed_cells>, <harvest_cells>, <f_cells_out_of_formulation>, <f_seeded_spread:min>",27
+Cluster 01,<f_glucose_slope>,<washed_cells>,False,linear,OLS on 5 retained parameters,<f_glucose_slope>_resid,True,27,0.8683670972796531,"<washed_cells>, <harvest_cells>, <f_cells_out_of_formulation>, <f_seeded_spread:min>, <f_cells_per_bag>",27
+Cluster 01,<washed_cells>,<washed_cells>,True,linear,kept as the representative,<washed_cells>,True,27,,,27
+Cluster 01,<harvest_cells>,<washed_cells>,False,linear,OLS on 1 retained parameter,<harvest_cells>_resid,True,27,0.9686752466815001,<washed_cells>,27
+Cluster 01,<f_seeded_spread:min>,<washed_cells>,False,linear,OLS on 3 retained parameters,<f_seeded_spread:min>_resid,True,27,0.8348311868806111,"<washed_cells>, <harvest_cells>, <f_cells_out_of_formulation>",27
+Cluster 01,<f_cells_out_of_formulation>,<washed_cells>,False,linear,OLS on 2 retained parameters,<f_cells_out_of_formulation>_resid,True,27,0.9662667865926028,"<washed_cells>, <harvest_cells>",27
+Cluster 02,<d6_glucose_a>,<f_lactate_glucose_ratio:6>,False,linear,OLS on 3 retained parameters,<d6_glucose_a>_resid,True,27,0.8907353907135956,"<f_lactate_glucose_ratio:6>, <d6_lactate_a>, <d8_glucose_a>",18
+Cluster 02,<d6_lactate_a>,<f_lactate_glucose_ratio:6>,False,linear,OLS on 1 retained parameter,<d6_lactate_a>_resid,True,27,0.9483273599673636,<f_lactate_glucose_ratio:6>,18
+Cluster 02,<d8_glucose_a>,<f_lactate_glucose_ratio:6>,False,linear,OLS on 2 retained parameters,<d8_glucose_a>_resid,True,27,0.8494427768555259,"<f_lactate_glucose_ratio:6>, <d6_lactate_a>",18
+Cluster 02,<d8_glucose_b>,<f_lactate_glucose_ratio:6>,False,linear,OLS on 4 retained parameters,<d8_glucose_b>_resid,True,18,0.8458654903751217,"<f_lactate_glucose_ratio:6>, <d6_lactate_a>, <d8_glucose_a>, <d6_glucose_a>",18
+Cluster 02,<f_lactate_glucose_ratio:6>,<f_lactate_glucose_ratio:6>,True,linear,kept as the representative,<f_lactate_glucose_ratio:6>,True,27,,,18
+Cluster 03,<culture_bags>,<coa_prefix><coa_p24>,False,linear,OLS on 3 retained parameters,<culture_bags>_resid,True,27,1.0,"<coa_prefix><coa_p24>, <coa_prefix><coa_donor:<coa_car_metric>-2>, <coa_prefix><coa_dna_size>",27
+Cluster 03,<coa_prefix><coa_donor:<coa_car_metric>-2>,<coa_prefix><coa_p24>,False,linear,OLS on 1 retained parameter,<coa_prefix><coa_donor:<coa_car_metric>-2>_resid,True,27,0.9061654135338337,<coa_prefix><coa_p24>,27
+Cluster 03,<coa_prefix><coa_dna_size>,<coa_prefix><coa_p24>,False,linear,OLS on 2 retained parameters,<coa_prefix><coa_dna_size>_resid,True,27,1.0,"<coa_prefix><coa_p24>, <coa_prefix><coa_donor:<coa_car_metric>-2>",27
+Cluster 03,<coa_prefix><coa_p24>,<coa_prefix><coa_p24>,True,linear,kept as the representative,<coa_prefix><coa_p24>,True,27,,,27
+Cluster 04,<fp_car_pct>,<f_vcn_per_cell>,False,linear,OLS on 1 retained parameter,<fp_car_pct>_resid,True,27,0.9587540147403287,<f_vcn_per_cell>,27
+Cluster 04,<harvest_car_pct>,<f_vcn_per_cell>,False,linear,OLS on 2 retained parameters,<harvest_car_pct>_resid,True,27,0.9543183307131219,"<f_vcn_per_cell>, <fp_car_pct>",27
+Cluster 04,<vcn>,<f_vcn_per_cell>,False,linear,OLS on 3 retained parameters,<vcn>_resid,True,27,0.9900793378051103,"<f_vcn_per_cell>, <fp_car_pct>, <harvest_car_pct>",27
+Cluster 04,<f_vcn_per_cell>,<f_vcn_per_cell>,True,linear,kept as the representative,<f_vcn_per_cell>,True,27,,,27
+Cluster 05,<f_lactate_per_cell_3>,<f_lactate_auc>,False,linear,OLS on 1 retained parameter,<f_lactate_per_cell_3>_resid,True,27,0.9688126861957811,<f_lactate_auc>,27
+Cluster 05,<f_lactate_per_cell_1>,<f_lactate_auc>,False,linear,OLS on 2 retained parameters,<f_lactate_per_cell_1>_resid,True,27,1.0,"<f_lactate_auc>, <f_lactate_per_cell_3>",27
+Cluster 05,<f_lactate_auc>,<f_lactate_auc>,True,linear,kept as the representative,<f_lactate_auc>,True,27,,,27
+Cluster 06,<f_glucose_per_cell_1>,<f_glucose_per_cell_1>,True,linear,kept as the representative,<f_glucose_per_cell_1>,True,27,,,27
+Cluster 06,<f_glucose_per_cell_2>,<f_glucose_per_cell_1>,False,linear,OLS on 1 retained parameter,<f_glucose_per_cell_2>_resid,True,27,0.985744181037242,<f_glucose_per_cell_1>,27
+Cluster 06,<formulation_medium_volume>,<f_glucose_per_cell_1>,False,linear,OLS on 2 retained parameters,<formulation_medium_volume>_resid,True,27,0.8466221332041368,"<f_glucose_per_cell_1>, <f_glucose_per_cell_2>",27
+Cluster 07,<f_moi_b>,<f_moi_pool>,False,linear,OLS on 2 retained parameters,<f_moi_b>_resid,True,18,0.9197974733575852,"<f_moi_pool>, <f_moi_quality>",18
+Cluster 07,<f_moi_pool>,<f_moi_pool>,True,linear,kept as the representative,<f_moi_pool>,True,27,,,18
+Cluster 07,<f_moi_quality>,<f_moi_pool>,False,linear,OLS on 1 retained parameter,<f_moi_quality>_resid,True,27,0.9797036932114058,<f_moi_pool>,18
+Cluster 08,<f_pt_cd4_share>,<f_pt_cd4_share>,True,linear,kept as the representative,<f_pt_cd4_share>,True,27,,,27
+Cluster 08,<f_pt_cd4_cells>,<f_pt_cd4_share>,False,linear,OLS on 2 retained parameters,<f_pt_cd4_cells>_resid,True,27,0.8133623462568605,"<f_pt_cd4_share>, <pt_cd4_pct>",27
+Cluster 08,<pt_cd4_pct>,<f_pt_cd4_share>,False,linear,OLS on 1 retained parameter,<pt_cd4_pct>_resid,True,27,0.8475597742882656,<f_pt_cd4_share>,27
+Cluster 09,<f_pct_lost_formulation>,<f_pct_lost_formulation>,True,linear,kept as the representative,<f_pct_lost_formulation>,True,27,,,27
+Cluster 09,<f_cells_lost_formulation>,<f_pct_lost_formulation>,False,linear,OLS on 1 retained parameter,<f_cells_lost_formulation>_resid,True,27,0.9864127078596416,<f_pct_lost_formulation>,27
+Cluster 10,<f_clump_burden_mix>,<f_clump_burden_mix>,True,linear,kept as the representative,<f_clump_burden_mix>,True,26,,,26
+Cluster 10,<clumps_mix_count>,<f_clump_burden_mix>,False,linear,OLS on 1 retained parameter,<clumps_mix_count>_resid,True,26,0.8309666270613381,<f_clump_burden_mix>,26
+Cluster 11,<f_clump_count_reduction>,<f_clump_count_reduction>,True,linear,kept as the representative,<f_clump_count_reduction>,True,27,,,27
+Cluster 11,<clumps_post_count>,<f_clump_count_reduction>,False,linear,OLS on 1 retained parameter,<clumps_post_count>_resid,True,27,0.45863424381225815,<f_clump_count_reduction>,27
+Cluster 12,<f_viability_wash>,<f_viability_wash>,True,linear,kept as the representative,<f_viability_wash>,True,27,,,27
+Cluster 12,<f_viability_d3_d10_pts>,<f_viability_wash>,False,linear,OLS on 1 retained parameter,<f_viability_d3_d10_pts>_resid,True,27,0.5458109220909839,<f_viability_wash>,27
+Cluster 13,<f_contact_deviation_1>,<f_contact_deviation_1>,True,linear,kept as the representative,<f_contact_deviation_1>,True,27,,,27
+Cluster 13,<f_contact_within_1>,<f_contact_deviation_1>,False,linear,OLS on 1 retained parameter,<f_contact_within_1>_resid,True,27,0.7786955636363637,<f_contact_deviation_1>,27
+Cluster 14,<f_contact_deviation_2>,<f_contact_deviation_2>,True,linear,kept as the representative,<f_contact_deviation_2>,True,27,,,27
+Cluster 14,<f_contact_within_2>,<f_contact_deviation_2>,False,linear,OLS on 1 retained parameter,<f_contact_within_2>_resid,True,27,0.7381907998794908,<f_contact_deviation_2>,27
+Cluster 15,<f_contact_deviation_3>,<f_contact_deviation_3>,True,linear,kept as the representative,<f_contact_deviation_3>,True,27,,,27
+Cluster 15,<f_contact_within_3>,<f_contact_deviation_3>,False,linear,OLS on 1 retained parameter,<f_contact_within_3>_resid,True,27,0.7828779220779221,<f_contact_deviation_3>,27
+Cluster 16,<f_seeding_error>,<f_seeding_error>,True,linear,kept as the representative,<f_seeding_error>,True,27,,,27
+Cluster 16,<f_seeding_within>,<f_seeding_error>,False,linear,OLS on 1 retained parameter,<f_seeding_within>_resid,True,27,0.5728079934170035,<f_seeding_error>,27
+Cluster 17,<d3_viability>,<d3_viability>,True,linear,kept as the representative,<d3_viability>,True,27,,,27
+Cluster 17,<f_viability_drop_rel>,<d3_viability>,False,linear,OLS on 1 retained parameter,<f_viability_drop_rel>_resid,True,27,0.7412805028732192,<d3_viability>,27
+Cluster 18,<cells_available>,<cells_available>,True,linear,kept as the representative,<cells_available>,True,27,,,27
+Cluster 18,<f_seeded_spread:std>,<cells_available>,False,linear,OLS on 1 retained parameter,<f_seeded_spread:std>_resid,True,27,0.9225391912435169,<cells_available>,27
+Cluster 19,<il2_activity_d6>,<il2_activity_d6>,True,linear,kept as the representative,<il2_activity_d6>,True,27,,,27
+Cluster 19,<f_il2_d6>,<il2_activity_d6>,False,linear,OLS on 1 retained parameter,<f_il2_d6>_resid,True,27,0.781399489760288,<il2_activity_d6>,27
+Cluster 20,<d6_glucose_b>,<d6_glucose_b>,True,linear,kept as the representative,<d6_glucose_b>,True,18,,,18
+Cluster 20,<d6_lactate_b>,<d6_glucose_b>,False,linear,OLS on 1 retained parameter,<d6_lactate_b>_resid,True,18,0.7227174532912708,<d6_glucose_b>,18
+Cluster 21,<il2_activity_d8>,<il2_activity_d8>,True,linear,kept as the representative,<il2_activity_d8>,True,27,,,27
+Cluster 21,<f_il2_d8>,<il2_activity_d8>,False,linear,OLS on 1 retained parameter,<f_il2_d8>_resid,True,27,0.6793244790470865,<il2_activity_d8>,27
+Cluster 22,<d8_lactate_a>,<d8_lactate_a>,True,linear,kept as the representative,<d8_lactate_a>,True,27,,,27
+Cluster 22,<harvest_lactate>,<d8_lactate_a>,False,linear,OLS on 1 retained parameter,<harvest_lactate>_resid,True,27,0.6455097630658233,<d8_lactate_a>,27
+Cluster 23,<formulated_concentration>,<formulated_concentration>,True,linear,kept as the representative,<formulated_concentration>,True,27,,,27
+Cluster 23,<washed_concentration>,<formulated_concentration>,False,linear,OLS on 1 retained parameter,<washed_concentration>_resid,True,27,0.8752021691707067,<formulated_concentration>,27
+Cluster 24,<f_incubation_d3_d6>,<f_incubation_d3_d6>,True,linear,kept as the representative,<f_incubation_d3_d6>,True,27,,,27
+Cluster 24,<prior_lines>,<f_incubation_d3_d6>,False,linear,OLS on 1 retained parameter,<prior_lines>_resid,True,27,0.6971208556149733,<f_incubation_d3_d6>,27
+Cluster 25,<coa_prefix><coa_donor:<coa_car_metric>-1>,<coa_prefix><coa_donor:<coa_car_metric>-1>,True,linear,kept as the representative,<coa_prefix><coa_donor:<coa_car_metric>-1>,True,27,,,27
+Cluster 25,<coa_prefix>pH,<coa_prefix><coa_donor:<coa_car_metric>-1>,False,linear,OLS on 1 retained parameter,<coa_prefix>pH_resid,True,27,0.9628571428571426,<coa_prefix><coa_donor:<coa_car_metric>-1>,27
+Cluster 26,<coa_prefix>HCP,<coa_prefix>HCP,True,linear,kept as the representative,<coa_prefix>HCP,True,27,,,27
+Cluster 26,<f_coa_impurity_index>,<coa_prefix>HCP,False,linear,OLS on 1 retained parameter,<f_coa_impurity_index>_resid,True,27,0.9386784114383752,<coa_prefix>HCP,27
+Cluster 27,<f_moi_a>,<f_moi_a>,True,linear,kept as the representative,<f_moi_a>,True,27,,,27
+Cluster 27,<f_log_moi_a>,<f_moi_a>,False,linear,OLS on 1 retained parameter,<f_log_moi_a>_resid,True,27,0.9838850330946166,<f_moi_a>,27
+Cluster 28,<f_pw_cd4_share>,<f_pw_cd4_share>,True,linear,kept as the representative,<f_pw_cd4_share>,True,27,,,27
+Cluster 28,<pw_cd4_pct>,<f_pw_cd4_share>,False,linear,OLS on 1 retained parameter,<pw_cd4_pct>_resid,True,27,0.9600167734758475,<f_pw_cd4_share>,27
+Cluster 29,<f_pw_cd8_share>,<f_pw_cd8_share>,True,linear,kept as the representative,<f_pw_cd8_share>,True,27,,,27
+Cluster 29,<pw_cd8_pct>,<f_pw_cd8_share>,False,linear,OLS on 1 retained parameter,<pw_cd8_pct>_resid,True,27,0.954308887085873,<f_pw_cd8_share>,27
+Cluster 30,<f_vector_volume_spread:mean>,<f_vector_volume_spread:mean>,True,linear,kept as the representative,<f_vector_volume_spread:mean>,True,27,,,27
+Cluster 30,<f_vector_volume_spread:min>,<f_vector_volume_spread:mean>,False,linear,OLS on 1 retained parameter,<f_vector_volume_spread:min>_resid,True,27,0.8001708560970261,<f_vector_volume_spread:mean>,27
+,<contact_time_a>,<contact_time_a>,True,none,correlates with nothing above the threshold,<contact_time_a>,True,,,,
+,<contact_time_b>,<contact_time_b>,True,none,correlates with nothing above the threshold,<contact_time_b>,True,,,,
+,<f_car_yield>,<f_car_yield>,True,none,correlates with nothing above the threshold,<f_car_yield>,True,,,,
+,<f_clump_burden_post>,<f_clump_burden_post>,True,none,correlates with nothing above the threshold,<f_clump_burden_post>,True,,,,
+,<f_clump_burden_pre>,<f_clump_burden_pre>,True,none,correlates with nothing above the threshold,<f_clump_burden_pre>,True,,,,
+,<f_clump_size_reduction>,<f_clump_size_reduction>,True,none,correlates with nothing above the threshold,<f_clump_size_reduction>,True,,,,
+,<f_achievable_dose>,<f_achievable_dose>,True,none,correlates with nothing above the threshold,<f_achievable_dose>,True,,,,
+,<f_car_cells>,<f_car_cells>,True,none,correlates with nothing above the threshold,<f_car_cells>,True,,,,
+,<f_clump_bag_count>,<f_clump_bag_count>,True,none,correlates with nothing above the threshold,<f_clump_bag_count>,True,,,,
+,<f_viability_d3_d10_rel>,<f_viability_d3_d10_rel>,True,none,correlates with nothing above the threshold,<f_viability_d3_d10_rel>,True,,,,
+,<mixing_cycles>,<mixing_cycles>,True,none,correlates with nothing above the threshold,<mixing_cycles>,True,,,,
+,<contact_time>,<contact_time>,True,none,correlates with nothing above the threshold,<contact_time>,True,,,,
+,Day 6 <co2_marker>,Day 6 <co2_marker>,True,none,correlates with nothing above the threshold,Day 6 <co2_marker>,True,,,,
+,Day 6 <co2_marker> dev_from_5.0pct,Day 6 <co2_marker> dev_from_5.0pct,True,none,correlates with nothing above the threshold,Day 6 <co2_marker> dev_from_5.0pct,True,,,,
+,<il2_content_d6>,<il2_content_d6>,True,none,correlates with nothing above the threshold,<il2_content_d6>,True,,,,
+,Day 6 <temperature_marker>,Day 6 <temperature_marker>,True,none,correlates with nothing above the threshold,Day 6 <temperature_marker>,True,,,,
+,Day 6 <temperature_marker> dev_from_37.0C,Day 6 <temperature_marker> dev_from_37.0C,True,none,correlates with nothing above the threshold,Day 6 <temperature_marker> dev_from_37.0C,True,,,,
+,<il2_content_d8>,<il2_content_d8>,True,none,correlates with nothing above the threshold,<il2_content_d8>,True,,,,
+,<endotoxin>,<endotoxin>,True,none,correlates with nothing above the threshold,<endotoxin>,True,,,,
+,<formulated_viability>,<formulated_viability>,True,none,correlates with nothing above the threshold,<formulated_viability>,True,,,,
+,<f_flow_accuracy>,<f_flow_accuracy>,True,none,correlates with nothing above the threshold,<f_flow_accuracy>,True,,,,
+,<washed_viability>,<washed_viability>,True,none,correlates with nothing above the threshold,<washed_viability>,True,,,,
+,<harvest_viability>,<harvest_viability>,True,none,correlates with nothing above the threshold,<harvest_viability>,True,,,,
+,<f_incubation_d6_d8>,<f_incubation_d6_d8>,True,none,correlates with nothing above the threshold,<f_incubation_d6_d8>,True,,,,
+,<f_incubation_d8_d10>,<f_incubation_d8_d10>,True,none,correlates with nothing above the threshold,<f_incubation_d8_d10>,True,,,,
+,<f_lactate_slope>,<f_lactate_slope>,True,none,correlates with nothing above the threshold,<f_lactate_slope>,True,,,,
+,<f_log_pw_cd4_cd8>,<f_log_pw_cd4_cd8>,True,none,correlates with nothing above the threshold,<f_log_pw_cd4_cd8>,True,,,,
+,<f_mixing_x_clumps>,<f_mixing_x_clumps>,True,none,correlates with nothing above the threshold,<f_mixing_x_clumps>,True,,,,
+,<f_pt_cd3_cells>,<f_pt_cd3_cells>,True,none,correlates with nothing above the threshold,<f_pt_cd3_cells>,True,,,,
+,<pt_cd4_cd8_ratio>,<pt_cd4_cd8_ratio>,True,none,correlates with nothing above the threshold,<pt_cd4_cd8_ratio>,True,,,,
+,<pt_cd3_pct>,<pt_cd3_pct>,True,none,correlates with nothing above the threshold,<pt_cd3_pct>,True,,,,
+,<pw_cd3_pct>,<pw_cd3_pct>,True,none,correlates with nothing above the threshold,<pw_cd3_pct>,True,,,,
+,<pw_viability>,<pw_viability>,True,none,correlates with nothing above the threshold,<pw_viability>,True,,,,
+,<f_post_formulation_dose>,<f_post_formulation_dose>,True,none,correlates with nothing above the threshold,<f_post_formulation_dose>,True,,,,
+,<clumps_post_size>,<clumps_post_size>,True,none,correlates with nothing above the threshold,<clumps_post_size>,True,,,,
+,<clumps_mix_size>,<clumps_mix_size>,True,none,correlates with nothing above the threshold,<clumps_mix_size>,True,,,,
+,<clumps_pre_count>,<clumps_pre_count>,True,none,correlates with nothing above the threshold,<clumps_pre_count>,True,,,,
+,<clumps_pre_size>,<clumps_pre_size>,True,none,correlates with nothing above the threshold,<clumps_pre_size>,True,,,,
+,<recovery>,<recovery>,True,none,correlates with nothing above the threshold,<recovery>,True,,,,
+,<subject_weight>,<subject_weight>,True,none,correlates with nothing above the threshold,<subject_weight>,True,,,,
+,<f_formulated_total_concentration>,<f_formulated_total_concentration>,True,none,correlates with nothing above the threshold,<f_formulated_total_concentration>,True,,,,
+,<cells_per_bag>,<cells_per_bag>,True,none,correlates with nothing above the threshold,<cells_per_bag>,True,,,,
+,<f_vector_volume_spread:cv>,<f_vector_volume_spread:cv>,True,none,correlates with nothing above the threshold,<f_vector_volume_spread:cv>,True,,,,
+,<f_vector_volume_spread:max>,<f_vector_volume_spread:max>,True,none,correlates with nothing above the threshold,<f_vector_volume_spread:max>,True,,,,
+,<vector_volume_a>,<vector_volume_a>,True,none,correlates with nothing above the threshold,<vector_volume_a>,True,,,,
+,<bag_volume>,<bag_volume>,True,none,correlates with nothing above the threshold,<bag_volume>,True,,,,
+,<cpdl>,<cpdl>,True,none,correlates with nothing above the threshold,<cpdl>,True,,,,
+,<f_cells_lost_wash>,<f_cells_lost_wash>,True,none,correlates with nothing above the threshold,<f_cells_lost_wash>,True,,,,
+,<vector_volume_b>,<vector_volume_b>,True,none,correlates with nothing above the threshold,<vector_volume_b>,True,,,,
+,<f_incubation_d0_d1>,,False,skipped,constant,,True,27,,,
+,<f_incubation_d1_d3>,,False,skipped,constant,,True,27,,,
+,<f_incubation_total>,,False,skipped,constant,,True,27,,,
+,<f_d3_clumps>,,False,skipped,constant,,True,15,,,

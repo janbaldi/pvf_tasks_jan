@@ -1,0 +1,200 @@
+Parameter,Decision,Reason,Stage
+Patient Lot/Batch #,excluded,"the identifier, kept as metadata rather than encoded",role
+<vector_lot>,excluded,"the grouping column, kept as metadata rather than encoded",role
+<fp_car_pct>,excluded,"the target, kept as metadata rather than encoded",role
+<subject_weight>,excluded,dose per kilogram already carries it,task exclusion
+<endotoxin>,excluded,not available at the prediction point (harvest (day 10)): release testing,availability
+<recovery>,excluded,not available at the prediction point (harvest (day 10)): computed from the final formulation,availability
+Mycoplasma,excluded,not available at the prediction point (harvest (day 10)): release testing,availability
+<oos_type>,excluded,not available at the prediction point (harvest (day 10)): recorded by the investigation that follows a failure,availability
+<nonconformance>,excluded,not available at the prediction point (harvest (day 10)): recorded after disposition,availability
+Disposition,excluded,"not available at the prediction point (harvest (day 10)): release decision, weeks after the batch is made",availability
+<f_vcn_per_cell>,excluded,computed from the target: <fp_car_pct> → <f_vcn_per_cell>,target lineage
+<f_flow_accuracy>,excluded,computed from the target: <fp_car_pct> → <f_flow_accuracy>,target lineage
+<f_coa_impurity_index>,excluded,"standardised within its own site's batches, so its value depends on which batches were processed with it — exploratory only",site-relative
+<patient_id>,excluded,"14 categories over 14 batches (k/n 1.00 > 0.5) — an identifier, not a category",categorical routing
+<incubator_id>,excluded,"9 categories over 14 batches (k/n 0.64 > 0.5) — an identifier, not a category",categorical routing
+<testing_done>,excluded,"one category, or none",categorical routing
+Type,excluded,"one category, or none",categorical routing
+<coa_prefix><coa_site_format>,excluded,"one category, or none",categorical routing
+<f_seeding_pct>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 14 shared batches),near-duplicate
+<cells_seeded_a>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 14 shared batches),near-duplicate
+<cells_seeded_b>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 14 shared batches),near-duplicate
+<cells_available>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 14 shared batches),near-duplicate
+<dose_per_kg>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 14 shared batches),near-duplicate
+<f_dose_all>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 14 shared batches),near-duplicate
+<dose_cells>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 14 shared batches),near-duplicate
+<f_glucose_auc>,excluded,duplicates '<f_glucose_per_cell_2>' (R²=0.9949 over 14 shared batches),near-duplicate
+<f_harvest_lactate_norm>,excluded,duplicates '<f_lactate_per_cell_3>' (R²=1.0 over 14 shared batches),near-duplicate
+<f_lactate_auc>,excluded,duplicates '<f_lactate_per_cell_3>' (R²=0.9955 over 14 shared batches),near-duplicate
+<pt_viable_cells>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 14 shared batches),near-duplicate
+<f_seeded_spread:max>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 14 shared batches),near-duplicate
+<f_seeded_spread:mean>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 14 shared batches),near-duplicate
+<f_seeded_spread:min>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 14 shared batches),near-duplicate
+<f_seeded_spread:std>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 14 shared batches),near-duplicate
+<vsvg_cells>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 14 shared batches),near-duplicate
+<f_vector_volume_spread:std>,excluded,duplicates '<f_vector_volume_spread:cv>' (R²=0.9994 over 14 shared batches),near-duplicate
+<f_viability_expansion>,excluded,duplicates '<f_viability_d3_d10_rel>' (R²=1.0 over 14 shared batches),near-duplicate
+<f_viability_drop_pts>,excluded,duplicates '<f_viability_drop_rel>' (R²=0.9994 over 14 shared batches),near-duplicate
+<formulation_cell_volume>,excluded,duplicates '<formulation_medium_volume>' (R²=1.0 over 14 shared batches),near-duplicate
+<f_cells_lost_formulation>,excluded,duplicates '<f_pct_lost_formulation>' (R²=0.9941 over 14 shared batches),near-duplicate
+<f_cells_into_formulation>,excluded,duplicates '<washed_cells>' (R²=1.0 over 14 shared batches),near-duplicate
+<coa_prefix><coa_donor:<coa_car_metric>-1>,excluded,"'<coa_prefix><coa_donor:<coa_car_metric>-1>' has 7 values, below the 8 this task requires",sparsity
+<coa_prefix><coa_donor:<coa_car_metric>-2>,excluded,"'<coa_prefix><coa_donor:<coa_car_metric>-2>' has 7 values, below the 8 this task requires",sparsity
+<coa_prefix><coa_dna_size>,excluded,"'<coa_prefix><coa_dna_size>' has 7 values, below the 8 this task requires",sparsity
+<coa_prefix><coa_impurities_4>,excluded,"'<coa_prefix><coa_impurities_4>' has 7 values, below the 8 this task requires",sparsity
+<coa_prefix><coa_impurities_5>,excluded,"'<coa_prefix><coa_impurities_5>' has 7 values, below the 8 this task requires",sparsity
+<coa_prefix>HCP,excluded,"'<coa_prefix>HCP' has 7 values, below the 8 this task requires",sparsity
+<coa_prefix><coa_donor:IFNg-1>,excluded,"'<coa_prefix><coa_donor:IFNg-1>' has 7 values, below the 8 this task requires",sparsity
+<coa_prefix><coa_donor:IFNg-2>,excluded,"'<coa_prefix><coa_donor:IFNg-2>' has 7 values, below the 8 this task requires",sparsity
+<coa_prefix><coa_titer>,excluded,"'<coa_prefix><coa_titer>' has 7 values, below the 8 this task requires",sparsity
+<coa_prefix>Osmolality,excluded,"'<coa_prefix>Osmolality' has 7 values, below the 8 this task requires",sparsity
+<coa_prefix><coa_pi_ratio>,excluded,"'<coa_prefix><coa_pi_ratio>' has 7 values, below the 8 this task requires",sparsity
+<coa_prefix><coa_p24>,excluded,"'<coa_prefix><coa_p24>' has 7 values, below the 8 this task requires",sparsity
+<coa_prefix>Volume,excluded,"'<coa_prefix>Volume' has 7 values, below the 8 this task requires",sparsity
+<coa_prefix>cDNA,excluded,"'<coa_prefix>cDNA' has 7 values, below the 8 this task requires",sparsity
+<coa_prefix>pDNA,excluded,"'<coa_prefix>pDNA' has 7 values, below the 8 this task requires",sparsity
+<coa_prefix>pH,excluded,"'<coa_prefix>pH' has 7 values, below the 8 this task requires",sparsity
+<f_moi_a>,excluded,"'<f_moi_a>' has 7 values, below the 8 this task requires",sparsity
+<f_moi_b>,excluded,"'<f_moi_b>' has 7 values, below the 8 this task requires",sparsity
+<f_moi_pool>,excluded,"'<f_moi_pool>' has 7 values, below the 8 this task requires",sparsity
+<f_moi_quality>,excluded,"'<f_moi_quality>' has 7 values, below the 8 this task requires",sparsity
+<f_log_moi_a>,excluded,"'<f_log_moi_a>' has 7 values, below the 8 this task requires",sparsity
+<f_log_moi_b>,excluded,"'<f_log_moi_b>' has 7 values, below the 8 this task requires",sparsity
+<f_log_moi_pool>,excluded,"'<f_log_moi_pool>' has 7 values, below the 8 this task requires",sparsity
+<d3_clump_pattern>,included,binary,encoding
+<clump_bags_1>,included,binary,encoding
+<clump_bags_2>,included,binary,encoding
+<clump_bags_3>,included,binary,encoding
+Country,included,binary,encoding
+<pre_activation_clumps_yn>,included,binary,encoding
+<clinical_site_id>,included,binary,encoding
+<cytokine_lot>,included,binary,encoding
+<clinical_site>,included,one-hot,encoding
+<clinical_site>,included,one-hot,encoding
+<clinical_site>,included,one-hot,encoding
+<clinical_site>,included,one-hot,encoding
+<media_lot>,included,one-hot,encoding
+<media_lot>,included,one-hot,encoding
+<media_lot>,included,one-hot,encoding
+<media_lot>,included,one-hot,encoding
+<media_lot>,included,one-hot,encoding
+<f_growth_profile>,included,one-hot,encoding
+<f_growth_profile>,included,one-hot,encoding
+<f_growth_profile>,included,one-hot,encoding
+<f_growth_profile>,included,one-hot,encoding
+<f_cd4_profile>,included,one-hot,encoding
+<f_cd4_profile>,included,one-hot,encoding
+<f_cd4_profile>,included,one-hot,encoding
+<f_cd4_profile>,included,one-hot,encoding
+<team>,included,target encoding,encoding
+<ordinal_parameter>,included,ordinal,encoding
+<culture_bags>,included,numeric,encoding
+<f_pct_lost_formulation>,included,numeric,encoding
+<contact_time_a>,included,duration,encoding
+<contact_time_b>,included,duration,encoding
+<f_cells_per_bag>,included,numeric,encoding
+<f_car_yield>,included,numeric,encoding
+<f_clump_burden_post>,included,numeric,encoding
+<f_clump_burden_mix>,included,numeric,encoding
+<f_clump_burden_pre>,included,numeric,encoding
+<f_clump_count_reduction>,included,numeric,encoding
+<f_clump_size_reduction>,included,numeric,encoding
+<f_achievable_dose>,included,numeric,encoding
+<f_glucose_per_cell_3>,included,numeric,encoding
+<f_lactate_per_cell_3>,included,numeric,encoding
+<f_car_cells>,included,numeric,encoding
+<f_viability_wash>,included,numeric,encoding
+<f_clump_bag_count>,included,numeric,encoding
+<f_viability_d3_d10_rel>,included,numeric,encoding
+<f_contact_deviation_1>,included,numeric,encoding
+<f_contact_deviation_2>,included,numeric,encoding
+<f_contact_deviation_3>,included,numeric,encoding
+<f_contact_within_1>,included,numeric,encoding
+<f_contact_within_2>,included,numeric,encoding
+<f_contact_within_3>,included,numeric,encoding
+<f_seeding_error>,included,numeric,encoding
+<f_seeding_within>,included,numeric,encoding
+<f_glucose_per_cell_1>,included,numeric,encoding
+<f_lactate_per_cell_1>,included,numeric,encoding
+<f_glucose_per_cell_2>,included,numeric,encoding
+<mixing_cycles>,included,numeric,encoding
+<d3_viability>,included,numeric,encoding
+<vessel_count>,included,numeric,encoding
+<il2_activity_d6>,included,numeric,encoding
+Day 6 <co2_marker>,included,numeric,encoding
+Day 6 <co2_marker> dev_from_5.0pct,included,numeric,encoding
+<d6_glucose_a>,included,numeric,encoding
+<d6_glucose_b>,included,numeric,encoding
+<il2_content_d6>,included,numeric,encoding
+<d6_lactate_a>,included,numeric,encoding
+<d6_lactate_b>,included,numeric,encoding
+Day 6 <temperature_marker>,included,numeric,encoding
+Day 6 <temperature_marker> dev_from_37.0C,included,numeric,encoding
+<il2_activity_d8>,included,numeric,encoding
+<d8_glucose_a>,included,numeric,encoding
+<d8_glucose_b>,included,numeric,encoding
+<il2_content_d8>,included,numeric,encoding
+<d8_lactate_a>,included,numeric,encoding
+<f_viability_drop_rel>,included,numeric,encoding
+<formulated_viability>,included,numeric,encoding
+<formulated_concentration>,included,numeric,encoding
+<f_glucose_slope>,included,numeric,encoding
+<harvest_glucose>,included,numeric,encoding
+<harvest_lactate>,included,numeric,encoding
+<washed_viability>,included,numeric,encoding
+<washed_concentration>,included,numeric,encoding
+<washed_cells>,included,numeric,encoding
+<harvest_viability>,included,numeric,encoding
+<harvest_car_pct>,included,numeric,encoding
+<harvest_cells>,included,numeric,encoding
+<f_il2_d6>,included,numeric,encoding
+<f_il2_d8>,included,numeric,encoding
+<f_incubation_d0_d1>,included,numeric,encoding
+<f_incubation_d1_d3>,included,numeric,encoding
+<f_incubation_d3_d6>,included,numeric,encoding
+<f_incubation_d6_d8>,included,numeric,encoding
+<f_incubation_d8_d10>,included,numeric,encoding
+<f_incubation_total>,included,numeric,encoding
+<f_lactate_slope>,included,numeric,encoding
+<f_lactate_glucose_ratio:10>,included,numeric,encoding
+<f_lactate_glucose_ratio:6>,included,numeric,encoding
+<f_log_pw_cd4_cd8>,included,numeric,encoding
+<f_mixing_x_clumps>,included,numeric,encoding
+<f_pw_cd4_share>,included,numeric,encoding
+<f_pw_cd8_share>,included,numeric,encoding
+<f_pt_cd4_share>,included,numeric,encoding
+<f_pt_cd3_cells>,included,numeric,encoding
+<f_pt_cd4_cells>,included,numeric,encoding
+<pt_cd4_cd8_ratio>,included,numeric,encoding
+<pt_cd3_pct>,included,numeric,encoding
+<pt_cd4_pct>,included,numeric,encoding
+<pw_cd3_pct>,included,numeric,encoding
+<pw_cd4_pct>,included,numeric,encoding
+<pw_cd8_pct>,included,numeric,encoding
+<pw_viability>,included,numeric,encoding
+<f_post_formulation_dose>,included,numeric,encoding
+<clumps_post_count>,included,numeric,encoding
+<clumps_post_size>,included,numeric,encoding
+<clumps_mix_count>,included,numeric,encoding
+<clumps_mix_size>,included,numeric,encoding
+<clumps_pre_count>,included,numeric,encoding
+<clumps_pre_size>,included,numeric,encoding
+<vcn>,included,numeric,encoding
+<f_seeded_spread:cv>,included,numeric,encoding
+<seeding_density_a>,included,numeric,encoding
+<f_formulated_total_concentration>,included,numeric,encoding
+<f_vector_volume_spread:cv>,included,numeric,encoding
+<f_vector_volume_spread:max>,included,numeric,encoding
+<f_vector_volume_spread:mean>,included,numeric,encoding
+<f_vector_volume_spread:min>,included,numeric,encoding
+<f_viability_d3_d10_pts>,included,numeric,encoding
+<formulation_medium_volume>,included,numeric,encoding
+<vector_volume_a>,included,numeric,encoding
+<vector_volume_b>,included,numeric,encoding
+<bag_volume>,included,numeric,encoding
+<cpdl>,included,numeric,encoding
+<f_cells_lost_wash>,included,numeric,encoding
+<f_cells_out_of_formulation>,included,numeric,encoding
+<contact_time>,included,duration,encoding
+<f_d3_clumps>,included,numeric,encoding

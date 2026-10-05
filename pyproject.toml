@@ -1,0 +1,35 @@
+[project]
+name = "pvf"
+version = "0.1.0"
+description = "CAR-T manufacturing data: the PTF schema, the PVF it defines, and model-ready datasets"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "scipy>=1.13",          # hierarchical clustering and the curve fits
+    "scikit-learn>=1.5",    # regressions, folds and R2
+    "plotly>=5.22",
+    "openpyxl>=3.1",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+]
+
+[project.scripts]
+pvf = "pvf.cli:main"
+
+# streamlit is deliberately absent: the report runs it in the browser from a
+# CDN, so only the page module imports it, and only inside Pyodide.
+
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pvf"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]

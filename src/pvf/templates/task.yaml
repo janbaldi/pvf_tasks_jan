@@ -1,0 +1,62 @@
+# A task: one cohort, one target, one question asked of the PVF.
+# Created by `pvf new-task`. Check it with:   pvf check --task __FILE__
+# Run it with:                                pvf tasks --task __FILE__
+#
+# Relative paths are relative to this file. Quote any column name that has a
+# '#', ':' or '%' in it — unquoted, `Patient Lot/Batch #` ends at the '#'.
+
+# The workspace this task reads its PVF and PTF from, and writes its runs into.
+# (Or name them yourself: inputs: {pvf: ..., ptf: ...} and output: {root: ...}.)
+workspace: __WORKSPACE__
+
+task:
+  name: __NAME__                  # the folder the runs are written to
+  question: "__QUESTION__"
+  purpose: __PURPOSE__            # exploratory | predictive
+  seed: 20260917
+
+cohort:
+  sites: []                       # e.g. [Ghent]; empty means every site
+  filters: []                     # applied in order; operators: equals, not_equals, in,
+                                  # not_in, min, max, is_null, not_null. For example:
+  # - {column: Type, op: equals, value: Commercial, reason: manufactured commercially}
+  # - {column: Non-Conformance Type, op: not_in, value: [termination, withdrawal],
+  #    normalise: true, missing: include, reason: not terminated or withdrawn}
+
+target:
+  column: "__TARGET__"
+  type: __TARGET_TYPE__           # numeric | binary
+  # positive_class: Released      # required for a binary target
+  # negative_class: Discarded
+
+columns:
+  id: 'Patient Lot/Batch #'       # identifies a batch; never a predictor
+  group: Vector Lot               # grouping metadata, for grouped splits
+  # patient: Patient ID           # keeps a patient's batches on one side of a split
+  # include: []                   # an explicit predictor list, if you have one
+  exclude: []                     # [{column: ..., reason: ...}]
+
+# Only for a predictive task: what is known at the moment of prediction.
+# With an 'Available At' column in the PTF, everything from a later stage — or
+# with no stage — is left out. Stages: D0 D1 D3 D6 D8 D10 Harvest Wash
+# Formulation "Final product" Post-thaw Release Post-release.
+availability:
+  cutoff: __CUTOFF__
+  unavailable: []                 # extra exclusions: [{column: ..., reason: ...}]
+  available: []                   # parameters allowed whatever their stage
+
+clustering:
+  action: report_only             # off | report_only | representative | linear | nonlinear
+  method: spearman
+  threshold: 0.7
+  min_overlap: 10
+
+# A validation split and/or cross-validation folds, fitted with the seed above.
+split:
+  strategy: __SPLIT__             # grouped | chronological | (empty: none)
+  validation_fraction: 0.25
+  folds: 5                        # written to data/splits.csv; 0 for none
+
+# encoding:  {missing_indicators: false, impute: none, target_min_rows_per_category: 5}
+# quality:   {min_non_missing: 20, duplicate_r2_threshold: 0.99, near_constant_tolerance: 0.0001}
+# missingness: {enabled: true}

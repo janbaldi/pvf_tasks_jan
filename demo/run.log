@@ -1,33 +1,35 @@
 
 ━━ PTF ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-14:24:45  STEP   io          Loading PTF
-                             demo/PTF.xlsx
-14:24:45  OK     io          PTF loaded — 204 parameters
+15:08:17  STEP   io          Loading PTF
+                             /home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx
+15:08:18  OK     io          PTF loaded — 204 parameters, with an 'Available At' column
                              numeric: 162  |  categorical: 26  |  datetime: 11  |  duration: 3  |
                              ratio: 1  |  [None, Low, Medium, High]: 1
-14:24:45  STEP   io          Loading Ghent PHF
-                             demo/phf_ghent.xlsx
-14:24:45  OK     io          Ghent PHF loaded — 40 rows × 93 columns
-14:24:45  STEP   io          Loading Raritan PHF
-                             demo/phf_raritan.xlsx
-14:24:45  OK     io          Raritan PHF loaded — 30 rows × 93 columns
-14:24:45  STEP   io          Loading site parameter name mapping
-                             demo/parameter_requirements.xlsx
-14:24:45  WARN   io          1 mapping rows have no Ghent name and were dropped
+15:08:18  STEP   io          Loading Ghent PHF
+                             /home/user/pvf_tasks_jan/demo/data/raw/phf_ghent.xlsx
+15:08:18  OK     io          Ghent PHF loaded — 40 rows × 93 columns
+15:08:18  STEP   io          Loading Raritan PHF
+                             /home/user/pvf_tasks_jan/demo/data/raw/phf_raritan.xlsx
+15:08:18  OK     io          Raritan PHF loaded — 30 rows × 93 columns
+15:08:18  STEP   io          Loading site parameter name mapping
+                             /home/user/pvf_tasks_jan/demo/data/raw/parameter_requirements.xlsx
+15:08:18  INFO   io          1 mapping rows excluded by config
+                             Non-Conformance Type Calc.
+15:08:18  WARN   io          1 mapping rows have no Ghent name and were dropped
                              Local Site Code
-14:24:45  OK     io          Site mapping loaded — 5 usable mappings
-14:24:45  STEP   io          Loading the investigations Power Query workbook
-                             demo/investigations_power_query.xlsx
-14:24:45  STEP   ptf         Comparing source parameters against the PTF
-14:24:45  WARN   ptf         Ghent PHF: 1 of 93 columns are not PTF parameters
+15:08:18  OK     io          Site mapping loaded — 5 usable mappings
+15:08:18  STEP   io          Loading the investigations Power Query workbook
+                             /home/user/pvf_tasks_jan/demo/data/raw/investigations_power_query.xlsx
+15:08:18  STEP   ptf         Comparing source parameters against the PTF
+15:08:18  WARN   ptf         Ghent PHF: 1 of 93 columns are not PTF parameters
                              Local Comment
-14:24:45  WARN   ptf         Raritan batch data: 2 of 93 columns are not PTF parameters
+15:08:18  WARN   ptf         Raritan batch data: 2 of 93 columns are not PTF parameters
                              Local Site Code, CMD Comment
-14:24:45  WARN   ptf         Investigations Power Query: 3 of 5 columns are not PTF parameters
+15:08:18  WARN   ptf         Investigations Power Query: 3 of 5 columns are not PTF parameters
                              Query[Investigation ID], Query[Root Cause Category], Days to Close
-14:24:45  OK     ptf         6 names across the sources are new to the PTF, 6 of them distinct
-14:24:45  OK     ptf         6 new parameter names written to demo/new_parameters.csv
-14:24:45  OK     cli         Report written to demo/reports/ptf_report.html
+15:08:18  OK     ptf         6 names across the sources are new to the PTF, 6 of them distinct
+15:08:18  OK     ptf         6 new parameter names written to /home/user/pvf_tasks_jan/demo/data/processed/new_parameters.csv
+15:08:18  OK     cli         Report written to /home/user/pvf_tasks_jan/demo/outputs/reports/ptf_report.html
 
 Ghent PHF: columns the PTF does not list (1)
   - Local Comment
@@ -42,9 +44,9 @@ Investigations Power Query: columns the PTF does not list (3)
   - Days to Close
 
 Written
-  Report          demo/reports/ptf_report.html
-  Manifest        demo/ptf_manifest.json
-  New parameters  demo/new_parameters.csv
+  Report          /home/user/pvf_tasks_jan/demo/outputs/reports/ptf_report.html
+  Manifest        /home/user/pvf_tasks_jan/demo/data/processed/ptf_manifest.json
+  New parameters  /home/user/pvf_tasks_jan/demo/data/processed/new_parameters.csv
 
 ━━ Finished in 0:00:00 · 4 warnings · 0 errors ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   WARN   io          1 mapping rows have no Ghent name and were dropped
@@ -53,36 +55,39 @@ Written
   WARN   ptf         Investigations Power Query: 3 of 5 columns are not PTF parameters
 
 ━━ PVF build ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-14:24:45  INFO   cli         Mode: DEV
+15:08:18  INFO   cli         Mode: DEV
 
 ── 01 · Loading ────────────────────────────────────────────────────────────────────────────────────
-14:24:45  STEP   io          Loading PTF
-                             demo/PTF.xlsx
-14:24:45  OK     io          PTF loaded — 204 parameters
+15:08:18  STEP   io          Loading PTF
+                             /home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx
+15:08:18  OK     io          PTF loaded — 204 parameters, with an 'Available At' column
                              numeric: 162  |  categorical: 26  |  datetime: 11  |  duration: 3  |
                              ratio: 1  |  [None, Low, Medium, High]: 1
-14:24:45  STEP   io          Loading Ghent PHF
-                             demo/phf_ghent.xlsx
-14:24:45  OK     io          Ghent PHF loaded — 40 rows × 93 columns
-14:24:45  STEP   io          Loading Raritan PHF
-                             demo/phf_raritan.xlsx
-14:24:45  OK     io          Raritan PHF loaded — 30 rows × 93 columns
-14:24:45  STEP   io          Loading site parameter name mapping
-                             demo/parameter_requirements.xlsx
-14:24:45  WARN   io          1 mapping rows have no Ghent name and were dropped
+15:08:18  STEP   io          Loading Ghent PHF
+                             /home/user/pvf_tasks_jan/demo/data/raw/phf_ghent.xlsx
+15:08:18  OK     io          Ghent PHF loaded — 40 rows × 93 columns
+15:08:18  STEP   io          Loading Raritan PHF
+                             /home/user/pvf_tasks_jan/demo/data/raw/phf_raritan.xlsx
+15:08:18  OK     io          Raritan PHF loaded — 30 rows × 93 columns
+15:08:18  STEP   io          Loading site parameter name mapping
+                             /home/user/pvf_tasks_jan/demo/data/raw/parameter_requirements.xlsx
+15:08:18  INFO   io          1 mapping rows excluded by config
+                             Non-Conformance Type Calc.
+15:08:18  WARN   io          1 mapping rows have no Ghent name and were dropped
                              Local Site Code
-14:24:45  OK     io          Site mapping loaded — 5 usable mappings
-14:24:45  STEP   io          Applying column mapping to Raritan
-14:24:45  WARN   io          Two columns claim one name: 'Country Name' is kept as 'Country_1'
-14:24:45  OK     io          Raritan column mapping applied
+15:08:18  OK     io          Site mapping loaded — 5 usable mappings
+15:08:18  STEP   io          Applying column mapping to Raritan
+15:08:18  WARN   io          Two columns claim one name: 'Country Name' is kept as 'Country_1'
+15:08:18  OK     io          Raritan column mapping applied
                              1 columns renamed to avoid duplicates
-14:24:45  STEP   io          Loading re-manufacturing treatment-line supplement
-                             demo/remfg.xlsx
-14:24:45  OK     io          Re-MFG supplement loaded — 30 rows
-14:24:45  INFO   io          Supplement joined on Patient Lot/Batch # — Number of Prior Lines of Therapy
-14:24:45  STEP   io          Loading LV CoA data
-                             demo/lv_coa.xlsx
-14:24:45  INFO   io          Derived 17 LV CoA columns from other certificate columns (not PTF parameters; their lineage is in features.coa_lineage())
+15:08:18  STEP   io          Loading re-manufacturing treatment-line supplement
+                             /home/user/pvf_tasks_jan/demo/data/raw/remfg.xlsx
+15:08:18  OK     io          Re-MFG supplement loaded — 30 rows
+15:08:18  INFO   io          Supplement joined on Patient Lot/Batch # — Number of Prior Lines of Therapy
+15:08:18  STEP   io          Loading vector certificates of analysis
+                             /home/user/pvf_tasks_jan/demo/data/raw/lv_coa.xlsx
+15:08:18  OK     io          LVV CoA data loaded — 4 rows × 22 columns
+15:08:18  INFO   io          Derived 17 LV CoA columns from other certificate columns (not PTF parameters; their lineage is in features.coa_lineage())
                              LV CoA HCP below LOQ ← LV CoA HCP; LV CoA Delivered Dose per GRex ← LV
                              CoA LV Titer (unadjusted), LV CoA LV Titer, LV CoA Volume; LV CoA Titer
                              Adjustment Factor ← LV CoA LV Titer, LV CoA LV Titer (unadjusted); LV
@@ -93,142 +98,148 @@ Written
                              ← LV CoA CAR% - Donor 1, LV CoA CAR% - Donor 2; LV CoA CAR% Donor MIN ←
                              LV CoA CAR% - Donor 1, LV CoA CAR% - Donor 2; LV CoA CAR% Donor DIFF ←
                              LV CoA CAR% - Donor 1, LV CoA CAR% - Donor 2
-14:24:45  OK     io          LV CoA loaded — 3 lots × 35 columns
-14:24:45  STEP   io          Loading raw materials & consumables
-                             demo/raw_materials.csv
-14:24:45  OK     io          Raw materials loaded — 2 identifier columns
+15:08:18  OK     io          LV CoA loaded — 3 lots × 35 columns
+15:08:18  STEP   io          Loading raw materials & consumables
+                             /home/user/pvf_tasks_jan/demo/data/raw/raw_materials.csv
+15:08:18  OK     io          Raw materials loaded — 2 identifier columns
 
 ── 02 · Cleaning ───────────────────────────────────────────────────────────────────────────────────
-14:24:45  STEP   clean       Stripping whitespace and \xa0 characters
-14:24:45  OK     clean       String hygiene done — 181 cells modified
-14:24:45  STEP   clean       Applying integrity corrections
-14:24:45  INFO   clean       [Raritan] Post-Mixing Clumps: # of Clumps: replaced '45691' with NaN (1 rows)
-14:24:45  INFO   clean       [Raritan] Country: set to 'Israel' for clinical site 107306 (10 rows)
-14:24:45  INFO   clean       [Raritan] Type: set every row to 'Commercial' (30 rows)
-14:24:45  INFO   clean       [Raritan] OOS Type: 10 string normalisations applied
-14:24:45  INFO   clean       [Ghent] OOS Type: normalised 'IFN Gamma Potency' → 'IFN Gamma'
-14:24:45  INFO   clean       [Ghent] Pre-Activation Clumps: Y/N?: set to 'No' for lot QCGS03V
-14:24:45  INFO   clean       [Ghent] Mycoplasma: normalised 'mycoplasma not detected' → 'not detected'
-14:24:45  INFO   clean       [Raritan] Non-Conformance Type: normalised 'withdrawn' → 'withdrawal'
-14:24:45  OK     clean       8 integrity corrections applied
-14:24:45  STEP   clean       Coercing numeric columns (censored values → limit)
-14:24:46  WARN   clean       [Ghent] Endotoxin (EU/mL): 10 censored values → the limit itself (0.5 for '<0.5')
+15:08:18  STEP   clean       Stripping whitespace and \xa0 characters
+15:08:18  OK     clean       String hygiene done — 181 cells modified
+15:08:18  STEP   clean       Applying integrity corrections
+15:08:18  INFO   clean       [Raritan] Post-Mixing Clumps: # of Clumps: set to missing where Post-Mixing Clumps: # of Clumps is '45691' (1 rows)
+15:08:18  INFO   clean       [Raritan] Country: set to 'Israel' where Clinical Site is '107306' (10 rows)
+15:08:18  INFO   clean       [Raritan] Type: set to 'Commercial' on every row (30 rows)
+15:08:18  INFO   clean       [Raritan] OOS Type: 10 text replacements (23 rows)
+15:08:18  INFO   clean       [Ghent] OOS Type: 1 text replacements (0 rows)
+15:08:18  INFO   clean       [Ghent] Pre-Activation Clumps: Y/N?: set to 'No' where Patient Lot/Batch # is 'QCGS03V' (1 rows)
+15:08:18  INFO   clean       [Ghent] Mycoplasma: replaced 'mycoplasma not detected' → 'not detected' (40 rows)
+15:08:18  INFO   clean       [Raritan] Non-Conformance Type: replaced 'withdrawn' → 'withdrawal' (4 rows)
+15:08:18  OK     clean       8 integrity corrections applied
+15:08:18  STEP   clean       Coercing numeric columns (censored values → limit)
+15:08:18  WARN   clean       [Ghent] Endotoxin (EU/mL): 10 censored values → the limit itself (0.5 for '<0.5')
                              <0.5
-14:24:46  WARN   clean       [Raritan] Endotoxin (EU/mL): 8 censored values → the limit itself (0.5 for '<0.5')
+15:08:18  WARN   clean       [Raritan] Endotoxin (EU/mL): 8 censored values → the limit itself (0.5 for '<0.5')
                              <0.5
-14:24:46  WARN   clean       [Ghent] Recovery (%): 1 non-numeric values coerced → NaN
+15:08:18  WARN   clean       [Ghent] Recovery (%): 1 non-numeric values coerced → NaN
                              ['not measured']
-14:24:46  OK     clean       Numeric coercion done — 3 column actions
-14:24:46  STEP   clean       Coercing datetime columns
-14:24:46  WARN   clean       [Ghent] Date and Time Cells Removed From Incubator Day 8: 1 values failed datetime parse
+15:08:18  OK     clean       Numeric coercion done — 3 column actions
+15:08:18  STEP   clean       Coercing datetime columns
+15:08:18  WARN   clean       [Ghent] Date and Time Cells Removed From Incubator Day 8: 1 values failed datetime parse
                              ['not recorded']
-14:24:46  OK     clean       Datetime coercion done — 1 columns had parse failures
-14:24:46  STEP   clean       Coercing duration columns (a bare number means minutes)
-14:24:46  WARN   clean       [Ghent] Amount of Time G-Rex B in Incubator (120min+/-30 min): 1 values failed duration parse
+15:08:18  OK     clean       Datetime coercion done — 1 columns had parse failures
+15:08:18  STEP   clean       Coercing duration columns (a bare number means minutes)
+15:08:18  WARN   clean       [Ghent] Amount of Time G-Rex B in Incubator (120min+/-30 min): 1 values failed duration parse
                              ['not started']
-14:24:46  OK     clean       Duration coercion done — 1 columns had parse failures
-14:24:46  STEP   clean       Extracting ratio values (right side of ':', which is normalised to 1)
-14:24:46  INFO   clean       [Ghent] Post Thaw CD4:CD8 Ratio: extracted right-side of ratio
-14:24:46  INFO   clean       [Raritan] Post Thaw CD4:CD8 Ratio: extracted right-side of ratio
-14:24:46  OK     clean       Ratio coercion done — 2 column-site pairs updated
-14:24:46  STEP   clean       Applying numeric scale corrections
-14:24:46  INFO   clean       [Raritan] Total Viable Cells/bag: divided by 1e+06
-14:24:46  INFO   clean       [Ghent] Target Final Seeding Density per Area (VC/cm^2) G-Rex A: divided by 1e+06
-14:24:46  OK     clean       6 scale corrections applied
-14:24:46  STEP   clean       Validating percentage columns (0–100 range)
-14:24:46  WARN   clean       [Ghent] Recovery (%): 1 values outside [0,100]
+15:08:18  OK     clean       Duration coercion done — 1 columns had parse failures
+15:08:18  STEP   clean       Extracting ratio values (right side of ':', which is normalised to 1)
+15:08:18  INFO   clean       [Ghent] Post Thaw CD4:CD8 Ratio: extracted right-side of ratio
+15:08:18  INFO   clean       [Raritan] Post Thaw CD4:CD8 Ratio: extracted right-side of ratio
+15:08:18  OK     clean       Ratio coercion done — 2 column-site pairs updated
+15:08:18  STEP   clean       Applying numeric scale corrections
+15:08:18  INFO   clean       [Raritan] Total Viable Cells/bag: divided by 1e+06 (30 rows)
+15:08:18  INFO   clean       [Raritan] Total Viable Cells for Recovery (cells): not in this run's data — correction 'Raritan/Total Viable Cells for Recovery (cells)/divide_by' had nothing to do
+15:08:18  INFO   clean       [Raritan] Final Formulation CS5 Viable Cell Concentration A (cells/mL): not in this run's data — correction 'Raritan/Final Formulation CS5 Viable Cell Concentration A (cells/mL)/divide_by' had nothing to do
+15:08:18  INFO   clean       [Raritan] Final Formulation CS5 Viable Cell Concentration B (cells/mL): not in this run's data — correction 'Raritan/Final Formulation CS5 Viable Cell Concentration B (cells/mL)/divide_by' had nothing to do
+15:08:18  INFO   clean       [Ghent] Target Final Seeding Density per Area (VC/cm^2) G-Rex A: divided by 1e+06 (40 rows)
+15:08:18  INFO   clean       [Ghent] Target Final Seeding Density per Area (VC/cm^2) G-Rex B: not in this run's data — correction 'Ghent/Target Final Seeding Density per Area (VC/cm^2) G-Rex B/divide_by' had nothing to do
+15:08:18  OK     clean       2 scale corrections applied
+15:08:18  STEP   clean       Validating percentage columns (0–100 range)
+15:08:18  WARN   clean       [Ghent] Recovery (%): 1 values outside [0,100]
                              [105.0]
-14:24:46  STEP   clean       Filling 1 configured yes/no columns
-14:24:46  INFO   clean       [Ghent] Pre-Activation Clumps: Y/N?: 10 blanks → 'No' (from config)
-14:24:46  INFO   clean       [Raritan] Pre-Activation Clumps: Y/N?: 10 blanks → 'N' (from config)
-14:24:46  OK     clean       Yes/No filling done — 2 column-site pairs
-14:24:46  STEP   clean       Checking categorical column consistency (Ghent vs Raritan)
-14:24:46  WARN   clean       Categorical mismatch: 'Patient Lot/Batch #'
+15:08:18  STEP   clean       Filling 1 configured yes/no columns
+15:08:18  INFO   clean       [Ghent] Pre-Activation Clumps: Y/N?: 10 blanks → 'No' (from config)
+15:08:18  INFO   clean       [Raritan] Pre-Activation Clumps: Y/N?: 10 blanks → 'N' (from config)
+15:08:18  OK     clean       Yes/No filling done — 2 column-site pairs
+15:08:18  STEP   clean       Checking categorical column consistency (Ghent vs Raritan)
+15:08:18  WARN   clean       Categorical mismatch: 'Patient Lot/Batch #'
                              Ghent-only: ['GH001', 'GH002', 'GH003', 'GH004', 'GH005']  |
                              Raritan-only: ['RA000', 'RA001', 'RA002', 'RA003', 'RA004']
-14:24:46  WARN   clean       Categorical mismatch: 'Vector Lot'
+15:08:18  WARN   clean       Categorical mismatch: 'Vector Lot'
                              Ghent-only: ['LV-909']  |  Raritan-only: ['LV-103']
-14:24:46  WARN   clean       Categorical mismatch: 'Mycoplasma'
+15:08:18  WARN   clean       Categorical mismatch: 'Mycoplasma'
                              Ghent-only: ['not detected']  |  Raritan-only: ['mycoplasma not
                              detected']
-14:24:46  WARN   clean       Categorical mismatch: 'OOS Type'
+15:08:18  WARN   clean       Categorical mismatch: 'OOS Type'
                              Ghent-only: ['CAR', 'Low Dose', 'VIability']  |  Raritan-only: ['CAR%',
                              'Dose', 'Viability']
-14:24:46  WARN   clean       Categorical mismatch: 'Non-Conformance Type'
+15:08:18  WARN   clean       Categorical mismatch: 'Non-Conformance Type'
                              Ghent-only: ['withdrawn']  |  Raritan-only: ['withdrawal']
-14:24:46  WARN   clean       Categorical mismatch: 'Clinical Site'
+15:08:18  WARN   clean       Categorical mismatch: 'Clinical Site'
                              Ghent-only: ['AZ Sint-Jan', 'UZ Gent', 'UZ Leuven']  |  Raritan-only:
                              ['107306', 'MSKCC', 'XYZ']
-14:24:46  WARN   clean       Categorical mismatch: 'Country'
+15:08:18  WARN   clean       Categorical mismatch: 'Country'
                              Ghent-only: ['Belgium', 'Netherlands']  |  Raritan-only: ['Israel',
                              'United States']
-14:24:46  WARN   clean       Categorical mismatch: 'Type'
+15:08:18  WARN   clean       Categorical mismatch: 'Type'
                              Ghent-only: ['Clinical']  |  Raritan-only: []
-14:24:46  WARN   clean       Categorical mismatch: 'Disposition'
+15:08:18  WARN   clean       Categorical mismatch: 'Disposition'
                              Ghent-only: ['Rejected']  |  Raritan-only: ['Discarded']
-14:24:46  WARN   clean       Categorical mismatch: 'Pre-Activation Clumps: Y/N?'
+15:08:18  WARN   clean       Categorical mismatch: 'Pre-Activation Clumps: Y/N?'
                              Ghent-only: ['No', 'Yes']  |  Raritan-only: ['N', 'Y']
-14:24:46  WARN   clean       10 categorical columns have different levels across sites
+15:08:18  WARN   clean       10 categorical columns have different levels across sites
 
 ── 03 · Joining sources ────────────────────────────────────────────────────────────────────────────
-14:24:46  INFO   enrich      sources.databricks is off — the Acridine Orange parameters are not in this run
-14:24:46  STEP   enrich      Merging LV CoA data
-14:24:46  INFO   enrich      [Ghent] LV CoA coverage: 27/40 batches (67.5%)
-14:24:46  INFO   enrich      [Raritan] LV CoA coverage: 30/30 batches (100.0%)
-14:24:46  OK     enrich      LV CoA merge complete
-14:24:46  STEP   enrich      Merging raw materials and consumables
-14:24:46  OK     enrich      Raw materials merged — 2 identifier columns added
-14:24:46  STEP   enrich      Enriching clinical site identifiers
-14:24:46  INFO   enrich      [Ghent] Clinical Site ID extracted from Patient ID
-14:24:46  WARN   enrich      [Raritan] 1 clinical site acronyms have no mapping
+15:08:18  INFO   enrich      sources.databricks is off — the Acridine Orange parameters are not in this run
+15:08:18  STEP   enrich      Merging LV CoA data
+15:08:18  INFO   enrich      [Ghent] LV CoA coverage: 27/40 batches (67.5%)
+15:08:18  INFO   enrich      [Raritan] LV CoA coverage: 30/30 batches (100.0%)
+15:08:18  OK     enrich      LV CoA merge complete
+15:08:18  STEP   enrich      Merging raw materials and consumables
+15:08:18  OK     enrich      Raw materials merged — 2 identifier columns added
+15:08:18  STEP   enrich      Enriching clinical site identifiers
+15:08:18  INFO   enrich      [Ghent] Clinical Site ID extracted from Patient ID
+15:08:18  WARN   enrich      [Raritan] 1 clinical site acronyms have no mapping
                              XYZ
-14:24:46  STEP   enrich      Harmonising country names
-14:24:46  OK     enrich      Country harmonisation complete
+15:08:18  STEP   enrich      Harmonising country names
+15:08:18  OK     enrich      Country harmonisation complete
 
 ── 04 · Derived features ───────────────────────────────────────────────────────────────────────────
-14:24:46  STEP   features    [Ghent] Computing derived features
-14:24:46  INFO   features    [Ghent] features — 85 created, 0 already present, 3 blocked, 2 not in PTF, 0 failed
-14:24:46  WARN   features    [Ghent] Log (PT CD4:CD8) blocked
+15:08:18  STEP   features    [Ghent] Computing derived features
+15:08:18  INFO   features    [Ghent] features — 85 created, 0 already present, 3 blocked, 2 not in PTF, 0 failed
+15:08:18  WARN   features    [Ghent] Log (PT CD4:CD8) blocked
                              missing: Post Thaw FLOW CD8+ (%)
-14:24:46  WARN   features    [Ghent] D8 Lact / E6 cells blocked
+15:08:18  WARN   features    [Ghent] D8 Lact / E6 cells blocked
                              missing: Day 8 Lactate G-Rex B (g/L)
-14:24:46  WARN   features    [Ghent] Lactate_to_Glucose_perE6_ratio_D8 blocked
+15:08:18  WARN   features    [Ghent] Lactate_to_Glucose_perE6_ratio_D8 blocked
                              missing: D8 Lact / E6 cells
-14:24:46  WARN   features    [Ghent] 2 features are not PTF parameters and were not computed
+15:08:18  WARN   features    [Ghent] 2 features are not PTF parameters and were not computed
                              MOI_per_CD3_pool, Shift
-14:24:46  OK     features    [Ghent] Derived features complete
-14:24:46  STEP   features    [Raritan] Computing derived features
-14:24:46  INFO   features    [Raritan] features — 83 created, 0 already present, 5 blocked, 2 not in PTF, 0 failed
-14:24:46  WARN   features    [Raritan] Log (PT CD4:CD8) blocked
+15:08:18  OK     features    [Ghent] Derived features complete
+15:08:18  STEP   features    [Raritan] Computing derived features
+15:08:18  INFO   features    [Raritan] features — 83 created, 0 already present, 5 blocked, 2 not in PTF, 0 failed
+15:08:18  WARN   features    [Raritan] Log (PT CD4:CD8) blocked
                              missing: Post Thaw FLOW CD8+ (%)
-14:24:46  WARN   features    [Raritan] D8 Lact / E6 cells blocked
+15:08:18  WARN   features    [Raritan] D8 Lact / E6 cells blocked
                              missing: Day 8 Lactate G-Rex B (g/L)
-14:24:46  WARN   features    [Raritan] D10 Glucose / E6 cells blocked
+15:08:18  WARN   features    [Raritan] D10 Glucose / E6 cells blocked
                              missing: Harvest Glucose (g/L)
-14:24:46  WARN   features    [Raritan] Lactate_to_Glucose_perE6_ratio_D8 blocked
+15:08:18  WARN   features    [Raritan] Lactate_to_Glucose_perE6_ratio_D8 blocked
                              missing: D8 Lact / E6 cells
-14:24:46  WARN   features    [Raritan] Lactate_to_Glucose_perE6_ratio_D10 blocked
+15:08:18  WARN   features    [Raritan] Lactate_to_Glucose_perE6_ratio_D10 blocked
                              missing: D10 Glucose / E6 cells
-14:24:46  WARN   features    [Raritan] 2 features are not PTF parameters and were not computed
+15:08:18  WARN   features    [Raritan] 2 features are not PTF parameters and were not computed
                              MOI_per_CD3_pool, Shift
-14:24:46  OK     features    [Raritan] Derived features complete
+15:08:18  OK     features    [Raritan] Derived features complete
 
 ── 05 · Merge and checks ───────────────────────────────────────────────────────────────────────────
-14:24:46  STEP   merge       Merging Ghent and Raritan into PVF
-14:24:46  OK     merge       Merged — 70 rows × 221 columns  (40 Ghent + 30 Raritan)
-14:24:46  STEP   merge       Running sanity checks on merged PVF
-14:24:46  WARN   merge       5 PTF parameters absent from merged PVF
+15:08:18  STEP   merge       Merging Ghent and Raritan into PVF
+15:08:18  OK     merge       Merged — 70 rows × 221 columns  (40 Ghent + 30 Raritan)
+15:08:18  STEP   merge       Running sanity checks on merged PVF
+15:08:18  OK     merge       Every batch number appears once
+15:08:18  WARN   merge       5 PTF parameters absent from merged PVF
                              Log (PT CD4:CD8), D8 Lact / E6 cells,
                              Lactate_to_Glucose_perE6_ratio_D8, Sterility, Mycoplasma Method
-14:24:46  INFO   merge       1 Ghent-only columns (not in PTF mapping)
+15:08:18  INFO   merge       1 Ghent-only columns (not in PTF mapping)
                              Local Comment
-14:24:46  INFO   merge       3 Raritan-only columns (not in PTF mapping)
+15:08:18  INFO   merge       3 Raritan-only columns (not in PTF mapping)
                              Country_1, Local Site Code, CMD Comment
-14:24:46  OK     merge       Sanity checks complete
+15:08:18  OK     merge       Sanity checks complete
 
 ── 06 · Output ─────────────────────────────────────────────────────────────────────────────────────
-14:24:46  OK     cli         PVF written to demo/PVF.xlsx
-14:24:46  OK     cli         Report written to demo/reports/build_report.html
+15:08:19  OK     cli         PVF written to /home/user/pvf_tasks_jan/demo/data/processed/PVF.xlsx
+15:08:19  OK     cli         PVF (Parquet) written to /home/user/pvf_tasks_jan/demo/data/processed/PVF.parquet
+15:08:19  OK     cli         Report written to /home/user/pvf_tasks_jan/demo/outputs/reports/build_report.html
 
 PTF parameters that are not in the PVF (5)
   - Log (PT CD4:CD8)
@@ -238,9 +249,10 @@ PTF parameters that are not in the PVF (5)
   - Mycoplasma Method
 
 Written — 70 batches × 221 columns
-  PVF       demo/PVF.xlsx
-  Report    demo/reports/build_report.html
-  Manifest  demo/pvf_manifest.json
+  PVF            /home/user/pvf_tasks_jan/demo/data/processed/PVF.xlsx
+  PVF (Parquet)  /home/user/pvf_tasks_jan/demo/data/processed/PVF.parquet
+  Report         /home/user/pvf_tasks_jan/demo/outputs/reports/build_report.html
+  Manifest       /home/user/pvf_tasks_jan/demo/data/processed/pvf_manifest.json
 
 ━━ Finished in 0:00:01 · 31 warnings · 0 errors ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   WARN   io          1 mapping rows have no Ghent name and were dropped
@@ -276,266 +288,281 @@ Written — 70 batches × 221 columns
   WARN   merge       5 PTF parameters absent from merged PVF
 
 ━━ Task 'ghent_car_expression' ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-14:24:46  INFO   package     Writing run 20260920-142446-4909d0 into demo/tasks/ghent_car_expression/20260920-142446-4909d0.incomplete
-14:24:46  STEP   io          Loading PVF
-                             demo/PVF.xlsx
-14:24:46  OK     io          PVF loaded — 70 batches × 221 parameters
-14:24:46  STEP   io          Loading PTF
-                             demo/PTF.xlsx
-14:24:46  OK     io          PTF loaded — 204 parameters
+15:08:19  INFO   package     Writing run 20261005-150819-bbdfdd into /home/user/pvf_tasks_jan/demo/outputs/tasks/ghent_car_expression/20261005-150819-bbdfdd.incomplete
+15:08:19  STEP   io          Loading PVF
+                             /home/user/pvf_tasks_jan/demo/data/processed/PVF.xlsx
+15:08:19  OK     io          PVF loaded — 70 batches × 221 parameters
+15:08:19  STEP   io          Loading PTF
+                             /home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx
+15:08:19  OK     io          PTF loaded — 204 parameters, with an 'Available At' column
                              numeric: 162  |  categorical: 26  |  datetime: 11  |  duration: 3  |
                              ratio: 1  |  [None, Low, Medium, High]: 1
-14:24:46  STEP   dataset     Selecting the cohort for 'ghent_car_expression'
-14:24:46  INFO   dataset     manufactured at Ghent: 40 of 70 batches left
-14:24:46  INFO   dataset     manufactured commercially: 36 of 40 batches left
-14:24:46  INFO   dataset     manufacturing and testing finished: 36 of 36 batches left
-14:24:46  INFO   dataset     not terminated or withdrawn, however it is spelled: 22 of 36 batches left
-14:24:46  OK     dataset     Cohort: 22 of 70 batches
-14:24:47  WARN   dataset     1 batches have no usable target and are not in the dataset
-14:24:47  STEP   dataset     Choosing the predictors
-14:24:47  OK     dataset     186 predictors from 199 PVF parameters (13 excluded, 5 not in the PVF)
-14:24:47  INFO   dataset     Split (grouped): 14 training, 7 validation — whole groups of Vector Lot: LV-101
-14:24:47  STEP   dataset     Encoding categorical parameters
-14:24:47  INFO   encode      day 3 clump pattern: 'Many small' → 1, 'Few small' → 0
-14:24:47  INFO   encode      Day 10 Clump Present Bag 1: 'Yes' → 1, 'No' → 0
-14:24:47  INFO   encode      Day 10 Clump Present Bag 2: 'Yes' → 1, 'No' → 0
-14:24:47  INFO   encode      Day 10 Clump Present Bag 3: 'Yes' → 1, 'No' → 0
-14:24:47  INFO   encode      Country: 'Netherlands' → 1, 'Belgium' → 0
-14:24:47  INFO   encode      Pre-Activation Clumps: Y/N?: 'Yes' → 1, 'No' → 0
-14:24:47  INFO   encode      Clinical Site ID: '1202' → 1, '1201' → 0
-14:24:47  INFO   encode      IL-2 Lot: 'IL2-202' → 1, 'IL2-201' → 0
-14:24:47  INFO   encode      Shift Team → shift_team_target_enc
-14:24:47  STEP   dataset     Handling numeric parameters
-14:24:47  INFO   encode      Day 3 Incubation Time (120min+/-30 min): 1 values at or below zero → missing
-14:24:47  INFO   encode      D3 % cells seeded / target duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 14 batches) — dropped
-14:24:47  INFO   encode      Day 3 Actual Viable Cells Seeded G-Rex A duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 14 batches) — dropped
-14:24:47  INFO   encode      Day 3 Actual Viable Cells Seeded G-Rex B duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 14 batches) — dropped
-14:24:47  INFO   encode      Day 3 Total Viable Cells Available for Seeding G-Rex (cells) duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 14 batches) — dropped
-14:24:47  INFO   encode      Dose (CAR+ viable cells/kg) duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 14 batches) — dropped
-14:24:47  INFO   encode      Dose (CAR+ viable cells/kg) all weights duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 14 batches) — dropped
-14:24:47  INFO   encode      Dose: Number of CAR+ Viable T-Cells (cells) duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 14 batches) — dropped
-14:24:47  INFO   encode      Glucose_perE6_AUC_D6_D10 duplicates D8 Glucose / E6 cells (R²=0.9949 over 14 batches) — dropped
-14:24:47  INFO   encode      Harvest Lactate Normalized duplicates D10 Lact / E6 cells (R²=1.0000 over 14 batches) — dropped
-14:24:48  INFO   encode      Lactate_perE6_AUC_D6_D10 duplicates D10 Lact / E6 cells (R²=0.9955 over 14 batches) — dropped
-14:24:48  INFO   encode      Post Thaw Viable Cell Count after sampling(cells) duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 14 batches) — dropped
-14:24:49  INFO   encode      Seeded_cells_max_AB duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 14 batches) — dropped
-14:24:49  INFO   encode      Seeded_cells_mean_AB duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 14 batches) — dropped
-14:24:49  INFO   encode      Seeded_cells_min_AB duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 14 batches) — dropped
-14:24:49  INFO   encode      Seeded_cells_std_AB duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 14 batches) — dropped
-14:24:49  INFO   encode      Total Viable Cells for Expansion after VSVg Sampling (cells) duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 14 batches) — dropped
-14:24:49  INFO   encode      Vector_volume_std_AB_mL duplicates Vector_volume_cv_AB_mL (R²=0.9994 over 14 batches) — dropped
-14:24:49  INFO   encode      Viability change during expansion duplicates D3-D10 viability change (%) (R²=1.0000 over 14 batches) — dropped
-14:24:50  INFO   encode      Viability_drop_D3_vs_D0_pct duplicates Drop viability D3 vs D0 (%) (R²=0.9994 over 14 batches) — dropped
-14:24:50  INFO   encode      Volume of Cells Used for Formulation (mL) duplicates Volume CS5 Used for Formulation (mL) (R²=1.0000 over 14 batches) — dropped
-14:24:50  INFO   encode      number of viable cells lost during formulation duplicates % cells lost during formulation (R²=0.9941 over 14 batches) — dropped
-14:24:50  INFO   encode      total viable cells used for formulation duplicates Harvest Post Wash Viable Cell Count (cells) (R²=1.0000 over 14 batches) — dropped
-14:24:51  STEP   decorrelate Looking for groups of parameters that move together
-14:24:51  INFO   decorrelate 30 parameters cannot take part in clustering
-                             # of Culture Bags (constant), D3_seeding_within_5pct (constant), Day 3
-                             Number of G-Rex to seed (constant), Incubation D0-D1 (min) (constant),
+15:08:19  STEP   dataset     Selecting the cohort for 'ghent_car_expression'
+15:08:19  INFO   dataset     manufactured at Ghent: 40 of 70 batches left
+15:08:19  INFO   dataset     manufactured commercially: 36 of 40 batches left
+15:08:19  INFO   dataset     manufacturing and testing finished: 36 of 36 batches left
+15:08:19  INFO   dataset     not terminated or withdrawn, however it is spelled: 22 of 36 batches left
+15:08:19  OK     dataset     Cohort: 22 of 70 batches
+15:08:19  WARN   dataset     1 batches have no usable target and are not in the dataset
+15:08:19  STEP   missingness Looking for parameters that go missing together over 21 batches
+15:08:20  OK     missingness 5 groups of parameters missing together, 5 of them with an explainer scoring ≥ 0.1
+                             53 of 221 columns in range; 16 categorical parameters scored as
+                             explainers
+15:08:20  STEP   dataset     Choosing the predictors
+15:08:20  OK     dataset     142 predictors from 199 PVF parameters (57 excluded, 5 not in the PVF)
+15:08:20  WARN   dataset     split.folds: 3 folds asked for, 2 groups allow 2
+15:08:20  INFO   dataset     Split (grouped): 14 training, 7 validation — whole groups of Vector Lot, drawn with seed 20260917: LV-909; 2 folds over the training rows
+15:08:20  STEP   dataset     Encoding categorical parameters
+15:08:20  INFO   encode      Day 10 Clump Present Bag 1: 'Yes' → 1, 'No' → 0
+15:08:20  INFO   encode      Day 10 Clump Present Bag 2: 'Yes' → 1, 'No' → 0
+15:08:20  INFO   encode      Day 10 Clump Present Bag 3: 'Yes' → 1, 'No' → 0
+15:08:20  INFO   encode      Country: 'Netherlands' → 1, 'Belgium' → 0
+15:08:20  INFO   encode      Pre-Activation Clumps: Y/N?: 'Yes' → 1, 'No' → 0
+15:08:20  INFO   encode      Clinical Site ID: '1201' → 1, '1200' → 0
+15:08:20  INFO   encode      IL-2 Lot: 'IL2-201' → 1, 'IL2-200' → 0
+15:08:20  INFO   encode      LV CoA Site/Format: 'Raritan/500mL' → 1, 'Ghent/250mL' → 0
+15:08:20  STEP   dataset     Handling numeric parameters
+15:08:20  INFO   encode      D3 % cells seeded / target duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 14 batches) — dropped
+15:08:20  INFO   encode      Day 3 Actual Viable Cells Seeded G-Rex A duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 14 batches) — dropped
+15:08:20  INFO   encode      Day 3 Number of G-Rex to seed duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+15:08:20  INFO   encode      Glucose_perE6_AUC_D6_D10 duplicates D6 Glucose / E6 cells (R²=0.9923 over 14 batches) — dropped
+15:08:20  INFO   encode      Harvest Lactate Normalized duplicates D10 Lact / E6 cells (R²=1.0000 over 14 batches) — dropped
+15:08:20  INFO   encode      LV CoA CAR% - Donor 1 duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+15:08:20  INFO   encode      LV CoA CAR% - Donor 2 duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+15:08:20  INFO   encode      LV CoA DNA size duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+15:08:20  INFO   encode      LV CoA E1a cDNA duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+15:08:20  INFO   encode      LV CoA E1b cDNA duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+15:08:20  INFO   encode      LV CoA HCP duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+15:08:20  INFO   encode      LV CoA IFNg - Donor 1 duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+15:08:20  INFO   encode      LV CoA IFNg - Donor 2 duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+15:08:20  INFO   encode      LV CoA LV Titer duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+15:08:20  INFO   encode      LV CoA Osmolality duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+15:08:20  INFO   encode      LV CoA PI Ratio duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+15:08:20  INFO   encode      LV CoA Physical Titer p24 ELISA duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+15:08:20  INFO   encode      LV CoA Volume duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+15:08:20  INFO   encode      LV CoA cDNA duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+15:08:20  INFO   encode      LV CoA pDNA duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+15:08:20  INFO   encode      LV CoA pH duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+15:08:20  INFO   encode      Lactate_perE6_AUC_D6_D10 duplicates D10 Lact / E6 cells (R²=0.9961 over 14 batches) — dropped
+15:08:21  INFO   encode      Seeded_cells_cv_AB duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+15:08:21  INFO   encode      Seeded_cells_max_AB duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 14 batches) — dropped
+15:08:21  INFO   encode      Seeded_cells_mean_AB duplicates Avg_cells_per_bag_D3 (R²=0.9965 over 14 batches) — dropped
+15:08:21  INFO   encode      Total Viable Cells for Expansion after VSVg Sampling (cells) duplicates Day 3 Total Viable Cells Available for Seeding G-Rex (cells) (R²=1.0000 over 14 batches) — dropped
+15:08:21  INFO   encode      Vector_volume_std_AB_mL duplicates Vector_volume_cv_AB_mL (R²=0.9999 over 14 batches) — dropped
+15:08:21  INFO   encode      Viability change during expansion duplicates D3-D10 viability change (%) (R²=1.0000 over 14 batches) — dropped
+15:08:21  INFO   encode      log_MOI_eff_G-Rex_A duplicates MOI_eff_G-Rex_A (R²=0.9960 over 14 batches) — dropped
+15:08:21  INFO   encode      log_MOI_eff_pool duplicates MOI_eff_pool (R²=0.9986 over 14 batches) — dropped
+15:08:22  STEP   decorrelate Looking for groups of parameters that move together
+15:08:22  INFO   decorrelate 12 parameters cannot take part in clustering
+                             D3_seeding_within_5pct (constant), Incubation D0-D1 (min) (constant),
                              Incubation D1-D3 (constant), Incubation_total_D3_to_D10_min (constant),
-                             D3_clumps_flag (constant), LV CoA CAR% - Donor 1 (fewer than 8 usable
-                             values), LV CoA CAR% - Donor 2 (fewer than 8 usable values), LV CoA DNA
-                             size (fewer than 8 usable values)
-14:24:56  INFO   decorrelate Cluster 01: 12 parameters, represented by 'Lactate_to_Glucose_perE6_ratio_D6' (report_only)
-14:24:57  INFO   decorrelate Cluster 02: 10 parameters, represented by 'Avg_cells_per_bag_D3' (report_only)
-14:24:57  INFO   decorrelate Cluster 03: 4 parameters, represented by 'D10 Lact / E6 cells' (report_only)
-14:24:57  INFO   decorrelate Cluster 04: 3 parameters, represented by 'Post-Massaging: # of Clumps' (report_only)
-14:24:57  INFO   decorrelate Cluster 05: 3 parameters, represented by 'Harvest Pre-Wash Flow CAR+ Expression (%)' (report_only)
-14:24:57  INFO   decorrelate Cluster 06: 3 parameters, represented by 'Final Formulation CS5 Viable Cell Concentration Average (cells/mL)' (report_only)
-14:24:57  INFO   decorrelate Cluster 07: 3 parameters, represented by 'PE CD3+CD8+ (%)' (report_only)
-14:24:57  INFO   decorrelate Cluster 08: 3 parameters, represented by 'Vector_volume_max_AB_mL' (report_only)
-14:24:57  INFO   decorrelate Cluster 09: 2 parameters, represented by '% cells lost during formulation' (report_only)
-14:24:57  INFO   decorrelate Cluster 10: 2 parameters, represented by 'Amount of Time G-Rex A in Incubator (120min+/-30 min)' (report_only)
-14:24:57  INFO   decorrelate Cluster 11: 2 parameters, represented by 'Amount of Time G-Rex B in Incubator (120min+/-30 min)' (report_only)
-14:24:57  INFO   decorrelate Cluster 12: 2 parameters, represented by 'CAR T produced per cell engaged D3' (report_only)
-14:24:57  INFO   decorrelate Cluster 13: 2 parameters, represented by 'Clump_burden_weighted_post_mixing' (report_only)
-14:24:57  INFO   decorrelate Cluster 14: 2 parameters, represented by 'Clump_size_reduction_fraction' (report_only)
-14:24:57  INFO   decorrelate Cluster 15: 2 parameters, represented by 'D10 Achievable Dose (E6 CAR+ viable T-cells)' (report_only)
-14:24:57  INFO   decorrelate Cluster 16: 2 parameters, represented by 'D3-D10 viability change (%)' (report_only)
-14:24:57  INFO   decorrelate Cluster 17: 2 parameters, represented by 'D3_contact_time_deviation' (report_only)
-14:24:57  INFO   decorrelate Cluster 18: 2 parameters, represented by 'D3_contact_time_deviation_G-Rex_A' (report_only)
-14:24:57  INFO   decorrelate Cluster 19: 2 parameters, represented by 'D3_contact_time_deviation_G-Rex_B' (report_only)
-14:24:57  INFO   decorrelate Cluster 20: 2 parameters, represented by 'Day 6 Activity of IL-2 (IU/mg)' (report_only)
-14:24:57  INFO   decorrelate Cluster 21: 2 parameters, represented by 'Day 6 CO2 Saturation (%) dev_from_5.0pct' (report_only)
-14:24:57  INFO   decorrelate Cluster 22: 2 parameters, represented by 'Day 8 Activity of IL-2 (IU/mg)' (report_only)
-14:24:57  INFO   decorrelate Cluster 23: 2 parameters, represented by 'Drop viability D3 vs D0 (%)' (report_only)
-14:24:57  INFO   decorrelate Cluster 24: 2 parameters, represented by 'Incubation D3-D6 (min)' (report_only)
-14:24:57  INFO   decorrelate Cluster 25: 2 parameters, represented by 'Mixing_cycles_x_pre_activation_clump_count' (report_only)
-14:24:57  INFO   decorrelate Cluster 26: 2 parameters, represented by 'PE CD3+CD4+ (%)' (report_only)
-14:24:57  INFO   decorrelate Cluster 27: 2 parameters, represented by 'PT Total  CD3+ (Viable Cells)' (report_only)
-14:24:57  INFO   decorrelate Cluster 28: 2 parameters, represented by 'PT Total CD4+ (Viable Cells)' (report_only)
-14:24:57  INFO   decorrelate Cluster 29: 2 parameters, represented by 'Vector_volume_min_AB_mL' (report_only)
-14:24:57  OK     decorrelate 29 clusters covering 83 parameters (report_only)
-14:24:57  WARN   encode      Clump Severity: 'Severe' is not one of its PTF categories (1 batches) — left missing
-14:24:57  WARN   encode      Clump Severity: 'Severe' is not one of its PTF categories (1 batches) — left missing
-14:24:57  INFO   encode      Day 3 Incubation Time (120min+/-30 min): 1 values at or below zero → missing
-14:24:57  INFO   dataset     23 columns have too few values and were dropped
-14:24:57  WARN   encode      shift_team_target_enc: 8 of 14 rows were encoded with their fold's prior because the category was not in that fold's training rows — the category is largely confounded with what the folds respect
-14:24:57  WARN   encode      Clump Severity: 'Severe' is not one of its PTF categories (1 batches) — left missing
-14:24:57  INFO   encode      Day 3 Incubation Time (120min+/-30 min): 1 values at or below zero → missing
-14:24:57  WARN   encode      Clump Severity: 'Severe' is not one of its PTF categories (1 batches) — left missing
-14:24:57  OK     dataset     Task 'ghent_car_expression': 21 batches × 123 columns, predicting 'fp_flow_car'
-14:24:58  OK     package     Task package written to demo/tasks/ghent_car_expression/20260920-142446-4909d0
+                             D3_clumps_flag (constant), Day 3 Actual Viable Cells Seeded G-Rex B
+                             (fewer than 8 usable values), Day 6 Glucose G-Rex B (g/L) (fewer than 8
+                             usable values), Day 6 Lactate G-Rex B (g/L) (fewer than 8 usable
+                             values), Day 8 Glucose G-Rex B (g/L) (fewer than 8 usable values),
+                             MOI_eff_G-Rex_B (fewer than 8 usable values)
+15:08:24  INFO   decorrelate Cluster 01: 8 parameters, represented by 'Avg_cells_per_bag_D3' (report_only)
+15:08:24  INFO   decorrelate Cluster 02: 6 parameters, represented by 'Lactate_to_Glucose_perE6_ratio_D10' (report_only)
+15:08:24  INFO   decorrelate Cluster 03: 5 parameters, represented by 'Day 6 Lactate G-Rex A (g/L)' (report_only)
+15:08:24  INFO   decorrelate Cluster 04: 4 parameters, represented by 'Seeded_cells_std_AB' (report_only)
+15:08:24  INFO   decorrelate Cluster 05: 3 parameters, represented by 'Day 3 Incubation Time (120min+/-30 min)' (report_only)
+15:08:24  INFO   decorrelate Cluster 06: 3 parameters, represented by 'Pre-Activation Clumps: # of Clumps before massage' (report_only)
+15:08:24  INFO   decorrelate Cluster 07: 3 parameters, represented by 'D10 Lact / E6 cells' (report_only)
+15:08:24  INFO   decorrelate Cluster 08: 3 parameters, represented by 'MOI_eff_G-Rex_A' (report_only)
+15:08:24  INFO   decorrelate Cluster 09: 2 parameters, represented by 'Clump_burden_weighted_post_massage' (report_only)
+15:08:24  INFO   decorrelate Cluster 10: 2 parameters, represented by 'Clump_burden_weighted_post_mixing' (report_only)
+15:08:24  INFO   decorrelate Cluster 11: 2 parameters, represented by 'D3-D10 viability change (%)' (report_only)
+15:08:24  INFO   decorrelate Cluster 12: 2 parameters, represented by 'D3_contact_time_deviation' (report_only)
+15:08:24  INFO   decorrelate Cluster 13: 2 parameters, represented by 'D3_contact_time_deviation_G-Rex_A' (report_only)
+15:08:24  INFO   decorrelate Cluster 14: 2 parameters, represented by 'D3_contact_time_deviation_G-Rex_B' (report_only)
+15:08:24  INFO   decorrelate Cluster 15: 2 parameters, represented by 'Day 6 Activity of IL-2 (IU/mg)' (report_only)
+15:08:24  INFO   decorrelate Cluster 16: 2 parameters, represented by 'Day 8 Activity of IL-2 (IU/mg)' (report_only)
+15:08:24  INFO   decorrelate Cluster 17: 2 parameters, represented by 'Vector_volume_max_AB_mL' (report_only)
+15:08:24  INFO   decorrelate Cluster 18: 2 parameters, represented by 'Vector_volume_min_AB_mL' (report_only)
+15:08:24  OK     decorrelate 18 clusters covering 55 parameters (report_only)
+15:08:24  WARN   encode      Clump Severity: 'Severe' is not one of its PTF categories (1 batches) — left missing
+15:08:24  WARN   encode      Clump Severity: 'Severe' is not one of its PTF categories (1 batches) — left missing
+15:08:25  INFO   dataset     7 columns have too few values and were dropped
+15:08:25  INFO   dataset     9 columns are constant on the fitted rows and were dropped
+15:08:25  WARN   encode      Clump Severity: 'Severe' is not one of its PTF categories (1 batches) — left missing
+15:08:25  WARN   encode      Clump Severity: 'Severe' is not one of its PTF categories (1 batches) — left missing
+15:08:25  INFO   encode      Day 3 Incubation Time (120min+/-30 min): 1 values at or below zero → missing
+15:08:25  WARN   dataset     Only 3 distinct Vector Lot values: any grouped validation rests on 3 groups, not on 21 batches
+15:08:25  WARN   dataset     95 predictor columns for 14 fitted batches (p/n = 6.8): a model needs strong regularisation, and its performance has to be estimated by cross-validation, not in-sample
+15:08:25  OK     dataset     Task 'ghent_car_expression': 21 batches × 83 columns, predicting 'fp_flow_car'
+15:08:25  OK     package     Task package written to /home/user/pvf_tasks_jan/demo/outputs/tasks/ghent_car_expression/20261005-150819-bbdfdd
 
-Written — 21 batches × 127 columns
-  Task folder  demo/tasks/ghent_car_expression/20260920-142446-4909d0
-  Report       demo/tasks/ghent_car_expression/20260920-142446-4909d0/report/report.html
-  Dataset      demo/tasks/ghent_car_expression/20260920-142446-4909d0/data/dataset.csv
-  Manifest     demo/tasks/ghent_car_expression/20260920-142446-4909d0/manifest.json
+Written — 21 batches × 88 columns
+  Task folder  /home/user/pvf_tasks_jan/demo/outputs/tasks/ghent_car_expression/20261005-150819-bbdfdd
+  Report       /home/user/pvf_tasks_jan/demo/outputs/tasks/ghent_car_expression/20261005-150819-bbdfdd/report/report.html
+  Dataset      /home/user/pvf_tasks_jan/demo/outputs/tasks/ghent_car_expression/20261005-150819-bbdfdd/data/dataset.csv
+  Manifest     /home/user/pvf_tasks_jan/demo/outputs/tasks/ghent_car_expression/20261005-150819-bbdfdd/manifest.json
 
-━━ Finished in 0:00:11 · 6 warnings · 0 errors ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━ Finished in 0:00:06 · 8 warnings · 0 errors ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   WARN   dataset     1 batches have no usable target and are not in the dataset
+  WARN   dataset     split.folds: 3 folds asked for, 2 groups allow 2
   WARN   encode      Clump Severity: 'Severe' is not one of its PTF categories (1 batches) — left missing  (×4)
-  WARN   encode      shift_team_target_enc: 8 of 14 rows were encoded with their fold's prior because the category was not in that fold's training rows — the category is largely confounded with what the folds respect
+  WARN   dataset     Only 3 distinct Vector Lot values: any grouped validation rests on 3 groups, not on 21 batches
+  WARN   dataset     95 predictor columns for 14 fitted batches (p/n = 6.8): a model needs strong regularisation, and its performance has to be estimated by cross-validation, not in-sample
 
 ━━ Task 'raritan_release' ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-14:24:59  INFO   package     Writing run 20260920-142459-f20009 into demo/explorations/raritan_release/20260920-142459-f20009.incomplete
-14:24:59  STEP   io          Loading PVF
-                             demo/PVF.xlsx
-14:25:00  OK     io          PVF loaded — 70 batches × 221 parameters
-14:25:00  STEP   io          Loading PTF
-                             demo/PTF.xlsx
-14:25:00  OK     io          PTF loaded — 204 parameters
+15:08:25  INFO   package     Writing run 20261005-150825-66da31 into /home/user/pvf_tasks_jan/demo/outputs/explorations/raritan_release/20261005-150825-66da31.incomplete
+15:08:25  STEP   io          Loading PVF
+                             /home/user/pvf_tasks_jan/demo/data/processed/PVF.xlsx
+15:08:25  OK     io          PVF loaded — 70 batches × 221 parameters
+15:08:25  STEP   io          Loading PTF
+                             /home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx
+15:08:25  OK     io          PTF loaded — 204 parameters, with an 'Available At' column
                              numeric: 162  |  categorical: 26  |  datetime: 11  |  duration: 3  |
                              ratio: 1  |  [None, Low, Medium, High]: 1
-14:25:00  STEP   dataset     Selecting the cohort for 'raritan_release'
-14:25:00  INFO   dataset     manufactured at Raritan: 30 of 70 batches left
-14:25:00  INFO   dataset     manufacturing and testing finished: 27 of 30 batches left
-14:25:00  OK     dataset     Cohort: 27 of 70 batches
-14:25:00  INFO   dataset     Target 'Disposition': 'Released' → 1 (15 batches), 'Discarded' → 0 (12)
-14:25:00  STEP   dataset     Choosing the predictors
-14:25:00  OK     dataset     195 predictors from 199 PVF parameters (4 excluded, 5 not in the PVF)
-14:25:00  STEP   dataset     Encoding categorical parameters
-14:25:00  INFO   encode      day 3 clump pattern: 'Many small' → 1, 'Few small' → 0
-14:25:00  INFO   encode      Day 10 Clump Present Bag 1: 'Yes' → 1, 'No' → 0
-14:25:00  INFO   encode      Day 10 Clump Present Bag 2: 'Yes' → 1, 'No' → 0
-14:25:00  INFO   encode      Day 10 Clump Present Bag 3: 'Yes' → 1, 'No' → 0
-14:25:00  INFO   encode      Country: 'United States of America' → 1, 'Israel' → 0
-14:25:00  INFO   encode      Pre-Activation Clumps: Y/N?: 'Y' → 1, 'N' → 0
-14:25:00  INFO   encode      LV CoA Site/Format: 'Raritan/500mL' → 1, 'Ghent/250mL' → 0
-14:25:00  INFO   encode      Shift Team → shift_team_target_enc
-14:25:00  INFO   encode      Incubator ID: 9 categories → 16 buckets
-14:25:00  STEP   dataset     Handling numeric parameters
-14:25:00  INFO   encode      D3 % cells seeded / target duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 27 batches) — dropped
-14:25:00  INFO   encode      Day 3 Actual Viable Cells Seeded G-Rex A duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 27 batches) — dropped
-14:25:00  INFO   encode      Day 3 Number of G-Rex to seed duplicates # of Culture Bags (R²=1.0000 over 27 batches) — dropped
-14:25:00  INFO   encode      Dose (CAR+ viable cells/kg) duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 27 batches) — dropped
-14:25:00  INFO   encode      Dose (CAR+ viable cells/kg) all weights duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 27 batches) — dropped
-14:25:00  INFO   encode      Dose: Number of CAR+ Viable T-Cells (cells) duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 27 batches) — dropped
-14:25:00  INFO   encode      Glucose_perE6_AUC_D6_D10 duplicates D6 Glucose / E6 cells (R²=0.9975 over 27 batches) — dropped
-14:25:00  INFO   encode      Harvest Lactate Normalized duplicates D10 Lact / E6 cells (R²=1.0000 over 27 batches) — dropped
-14:25:01  INFO   encode      LV CoA E1a cDNA duplicates LV CoA CAR% - Donor 1 (R²=1.0000 over 27 batches) — dropped
-14:25:01  INFO   encode      LV CoA E1b cDNA duplicates LV CoA DNA size (R²=1.0000 over 27 batches) — dropped
-14:25:01  INFO   encode      LV CoA IFNg - Donor 1 duplicates LV CoA CAR% - Donor 1 (R²=0.9980 over 27 batches) — dropped
-14:25:01  INFO   encode      LV CoA IFNg - Donor 2 duplicates LV CoA HCP (R²=0.9993 over 27 batches) — dropped
-14:25:01  INFO   encode      LV CoA LV Titer duplicates LV CoA CAR% - Donor 2 (R²=1.0000 over 27 batches) — dropped
-14:25:01  INFO   encode      LV CoA Osmolality duplicates LV CoA CAR% - Donor 1 (R²=1.0000 over 27 batches) — dropped
-14:25:01  INFO   encode      LV CoA PI Ratio duplicates LV CoA DNA size (R²=1.0000 over 27 batches) — dropped
-14:25:01  INFO   encode      LV CoA Volume duplicates LV CoA DNA size (R²=1.0000 over 27 batches) — dropped
-14:25:01  INFO   encode      LV CoA cDNA duplicates LV CoA Physical Titer p24 ELISA (R²=1.0000 over 27 batches) — dropped
-14:25:01  INFO   encode      LV CoA pDNA duplicates LV CoA HCP (R²=0.9999 over 27 batches) — dropped
-14:25:02  INFO   encode      Post Thaw Viable Cell Count after sampling(cells) duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 27 batches) — dropped
-14:25:03  INFO   encode      Seeded_cells_cv_AB duplicates # of Culture Bags (R²=1.0000 over 27 batches) — dropped
-14:25:03  INFO   encode      Seeded_cells_max_AB duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 27 batches) — dropped
-14:25:03  INFO   encode      Seeded_cells_mean_AB duplicates Avg_cells_per_bag_D3 (R²=0.9972 over 27 batches) — dropped
-14:25:03  INFO   encode      Total Viable Cells for Expansion after VSVg Sampling (cells) duplicates Day 3 Total Viable Cells Available for Seeding G-Rex (cells) (R²=1.0000 over 27 batches) — dropped
-14:25:04  INFO   encode      Vector_volume_std_AB_mL duplicates Vector_volume_cv_AB_mL (R²=0.9969 over 27 batches) — dropped
-14:25:04  INFO   encode      Viability change during expansion duplicates D3-D10 viability change (%) (R²=1.0000 over 27 batches) — dropped
-14:25:04  INFO   encode      Viability_drop_D3_vs_D0_pct duplicates Drop viability D3 vs D0 (%) (R²=0.9990 over 27 batches) — dropped
-14:25:04  INFO   encode      Volume of Cells Used for Formulation (mL) duplicates Volume CS5 Used for Formulation (mL) (R²=1.0000 over 27 batches) — dropped
-14:25:04  INFO   encode      log_MOI_eff_pool duplicates MOI_eff_pool (R²=0.9951 over 27 batches) — dropped
-14:25:05  INFO   encode      total viable cells used for formulation duplicates Harvest Post Wash Viable Cell Count (cells) (R²=1.0000 over 27 batches) — dropped
-14:25:05  INFO   encode      Day 3 Actual Viable Cells Seeded G-Rex B duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 18 batches) — dropped
-14:25:05  INFO   encode      log_MOI_eff_G-Rex_B duplicates MOI_eff_G-Rex_B (R²=0.9929 over 18 batches) — dropped
-14:25:05  STEP   decorrelate Looking for groups of parameters that move together
-14:25:05  INFO   decorrelate 4 parameters cannot take part in clustering
+15:08:25  STEP   dataset     Selecting the cohort for 'raritan_release'
+15:08:25  INFO   dataset     manufactured at Raritan: 30 of 70 batches left
+15:08:25  INFO   dataset     manufacturing and testing finished: 27 of 30 batches left
+15:08:25  OK     dataset     Cohort: 27 of 70 batches
+15:08:25  INFO   dataset     Target 'Disposition': 'Released' → 1 (15 batches), 'Discarded' → 0 (12)
+15:08:25  STEP   missingness Looking for parameters that go missing together over 27 batches
+15:08:26  OK     missingness 2 groups of parameters missing together, 1 of them with an explainer scoring ≥ 0.1
+                             12 of 221 columns in range; 17 categorical parameters scored as
+                             explainers
+15:08:26  STEP   dataset     Choosing the predictors
+15:08:26  OK     dataset     195 predictors from 199 PVF parameters (4 excluded, 5 not in the PVF)
+15:08:26  STEP   dataset     Encoding categorical parameters
+15:08:26  INFO   encode      day 3 clump pattern: 'Many small' → 1, 'Few small' → 0
+15:08:26  INFO   encode      Day 10 Clump Present Bag 1: 'Yes' → 1, 'No' → 0
+15:08:26  INFO   encode      Day 10 Clump Present Bag 2: 'Yes' → 1, 'No' → 0
+15:08:26  INFO   encode      Day 10 Clump Present Bag 3: 'Yes' → 1, 'No' → 0
+15:08:26  INFO   encode      Country: 'United States of America' → 1, 'Israel' → 0
+15:08:26  INFO   encode      Pre-Activation Clumps: Y/N?: 'Y' → 1, 'N' → 0
+15:08:26  INFO   encode      LV CoA Site/Format: 'Raritan/500mL' → 1, 'Ghent/250mL' → 0
+15:08:26  INFO   encode      Shift Team → shift_team_target_enc
+15:08:26  INFO   encode      Incubator ID: 9 categories → 16 buckets
+15:08:26  STEP   dataset     Handling numeric parameters
+15:08:26  INFO   encode      D3 % cells seeded / target duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 27 batches) — dropped
+15:08:26  INFO   encode      Day 3 Actual Viable Cells Seeded G-Rex A duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 27 batches) — dropped
+15:08:26  INFO   encode      Day 3 Number of G-Rex to seed duplicates # of Culture Bags (R²=1.0000 over 27 batches) — dropped
+15:08:26  INFO   encode      Dose (CAR+ viable cells/kg) duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 27 batches) — dropped
+15:08:26  INFO   encode      Dose (CAR+ viable cells/kg) all weights duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 27 batches) — dropped
+15:08:26  INFO   encode      Dose: Number of CAR+ Viable T-Cells (cells) duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 27 batches) — dropped
+15:08:26  INFO   encode      Glucose_perE6_AUC_D6_D10 duplicates D6 Glucose / E6 cells (R²=0.9975 over 27 batches) — dropped
+15:08:26  INFO   encode      Harvest Lactate Normalized duplicates D10 Lact / E6 cells (R²=1.0000 over 27 batches) — dropped
+15:08:27  INFO   encode      LV CoA E1a cDNA duplicates LV CoA CAR% - Donor 1 (R²=1.0000 over 27 batches) — dropped
+15:08:27  INFO   encode      LV CoA E1b cDNA duplicates LV CoA DNA size (R²=1.0000 over 27 batches) — dropped
+15:08:27  INFO   encode      LV CoA IFNg - Donor 1 duplicates LV CoA CAR% - Donor 1 (R²=0.9980 over 27 batches) — dropped
+15:08:27  INFO   encode      LV CoA IFNg - Donor 2 duplicates LV CoA HCP (R²=0.9993 over 27 batches) — dropped
+15:08:27  INFO   encode      LV CoA LV Titer duplicates LV CoA CAR% - Donor 2 (R²=1.0000 over 27 batches) — dropped
+15:08:27  INFO   encode      LV CoA Osmolality duplicates LV CoA CAR% - Donor 1 (R²=1.0000 over 27 batches) — dropped
+15:08:27  INFO   encode      LV CoA PI Ratio duplicates LV CoA DNA size (R²=1.0000 over 27 batches) — dropped
+15:08:27  INFO   encode      LV CoA Volume duplicates LV CoA DNA size (R²=1.0000 over 27 batches) — dropped
+15:08:27  INFO   encode      LV CoA cDNA duplicates LV CoA Physical Titer p24 ELISA (R²=1.0000 over 27 batches) — dropped
+15:08:27  INFO   encode      LV CoA pDNA duplicates LV CoA HCP (R²=0.9999 over 27 batches) — dropped
+15:08:28  INFO   encode      Post Thaw Viable Cell Count after sampling(cells) duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 27 batches) — dropped
+15:08:28  INFO   encode      Seeded_cells_cv_AB duplicates # of Culture Bags (R²=1.0000 over 27 batches) — dropped
+15:08:28  INFO   encode      Seeded_cells_max_AB duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 27 batches) — dropped
+15:08:28  INFO   encode      Seeded_cells_mean_AB duplicates Avg_cells_per_bag_D3 (R²=0.9972 over 27 batches) — dropped
+15:08:29  INFO   encode      Total Viable Cells for Expansion after VSVg Sampling (cells) duplicates Day 3 Total Viable Cells Available for Seeding G-Rex (cells) (R²=1.0000 over 27 batches) — dropped
+15:08:29  INFO   encode      Vector_volume_std_AB_mL duplicates Vector_volume_cv_AB_mL (R²=0.9969 over 27 batches) — dropped
+15:08:29  INFO   encode      Viability change during expansion duplicates D3-D10 viability change (%) (R²=1.0000 over 27 batches) — dropped
+15:08:29  INFO   encode      Viability_drop_D3_vs_D0_pct duplicates Drop viability D3 vs D0 (%) (R²=0.9990 over 27 batches) — dropped
+15:08:29  INFO   encode      Volume of Cells Used for Formulation (mL) duplicates Volume CS5 Used for Formulation (mL) (R²=1.0000 over 27 batches) — dropped
+15:08:30  INFO   encode      log_MOI_eff_pool duplicates MOI_eff_pool (R²=0.9951 over 27 batches) — dropped
+15:08:30  INFO   encode      total viable cells used for formulation duplicates Harvest Post Wash Viable Cell Count (cells) (R²=1.0000 over 27 batches) — dropped
+15:08:30  INFO   encode      Day 3 Actual Viable Cells Seeded G-Rex B duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 18 batches) — dropped
+15:08:30  INFO   encode      log_MOI_eff_G-Rex_B duplicates MOI_eff_G-Rex_B (R²=0.9929 over 18 batches) — dropped
+15:08:30  STEP   decorrelate Looking for groups of parameters that move together
+15:08:30  INFO   decorrelate 4 parameters cannot take part in clustering
                              Incubation D0-D1 (min) (constant), Incubation D1-D3 (constant),
                              Incubation_total_D3_to_D10_min (constant), D3_clumps_flag (constant)
-14:25:14  INFO   decorrelate 5 parameter pairs share fewer than 8 batches — their relationship is unknown and they were not merged
-14:25:14  INFO   decorrelate Harvest Pre-Wash Viable Cell Count after Sampling (cells): residualised on 1 parameters, adjusted R² 0.969
-14:25:14  INFO   decorrelate total viable cells in formulated suspension: residualised on 2 parameters, adjusted R² 0.966
-14:25:14  INFO   decorrelate Seeded_cells_min_AB: residualised on 3 parameters, adjusted R² 0.835
-14:25:14  INFO   decorrelate Avg_cells_per_bag_D3: residualised on 4 parameters, adjusted R² 0.988
-14:25:14  INFO   decorrelate Glucose_perE6_slope_D6_D10: residualised on 5 parameters, adjusted R² 0.868
-14:25:14  INFO   decorrelate Cluster 01: 6 parameters, represented by 'Harvest Post Wash Viable Cell Count (cells)' (linear)
-14:25:14  INFO   decorrelate Day 6 Lactate G-Rex A (g/L): residualised on 1 parameters, adjusted R² 0.948
-14:25:14  INFO   decorrelate Day 8 Glucose G-Rex A (g/L): residualised on 2 parameters, adjusted R² 0.849
-14:25:14  INFO   decorrelate Day 6 Glucose G-Rex A (g/L): residualised on 3 parameters, adjusted R² 0.891
-14:25:14  INFO   decorrelate Day 8 Glucose G-Rex B (g/L): residualised on 4 parameters, adjusted R² 0.846
-14:25:14  INFO   decorrelate Cluster 02: 5 parameters, represented by 'Lactate_to_Glucose_perE6_ratio_D6' (linear)
-14:25:14  INFO   decorrelate LV CoA CAR% - Donor 2: residualised on 1 parameters, adjusted R² 0.906
-14:25:14  INFO   decorrelate LV CoA DNA size: residualised on 2 parameters, adjusted R² 1.000
-14:25:14  INFO   decorrelate # of Culture Bags: residualised on 3 parameters, adjusted R² 1.000
-14:25:14  INFO   decorrelate Cluster 03: 4 parameters, represented by 'LV CoA Physical Titer p24 ELISA' (linear)
-14:25:14  INFO   decorrelate FP Flow CAR+ (%): residualised on 1 parameters, adjusted R² 0.959
-14:25:14  INFO   decorrelate Harvest Pre-Wash Flow CAR+ Expression (%): residualised on 2 parameters, adjusted R² 0.954
-14:25:14  INFO   decorrelate Provirus Vector Copy Number (copies/transduced cell): residualised on 3 parameters, adjusted R² 0.990
-14:25:14  INFO   decorrelate Cluster 04: 4 parameters, represented by 'VCN/cell' (linear)
-14:25:14  INFO   decorrelate D10 Lact / E6 cells: residualised on 1 parameters, adjusted R² 0.969
-14:25:14  INFO   decorrelate D6 Lact / E6 cells: residualised on 2 parameters, adjusted R² 1.000
-14:25:14  INFO   decorrelate Cluster 05: 3 parameters, represented by 'Lactate_perE6_AUC_D6_D10' (linear)
-14:25:14  INFO   decorrelate D8 Glucose / E6 cells: residualised on 1 parameters, adjusted R² 0.986
-14:25:14  INFO   decorrelate Volume CS5 Used for Formulation (mL): residualised on 2 parameters, adjusted R² 0.847
-14:25:14  INFO   decorrelate Cluster 06: 3 parameters, represented by 'D6 Glucose / E6 cells' (linear)
-14:25:14  INFO   decorrelate MOI_eff_quality_adjusted: residualised on 1 parameters, adjusted R² 0.980
-14:25:14  INFO   decorrelate MOI_eff_G-Rex_B: residualised on 2 parameters, adjusted R² 0.920
-14:25:14  INFO   decorrelate Cluster 07: 3 parameters, represented by 'MOI_eff_pool' (linear)
-14:25:14  INFO   decorrelate Post Thaw FLOW CD4+ (%): residualised on 1 parameters, adjusted R² 0.848
-14:25:14  INFO   decorrelate PT Total CD4+ (Viable Cells): residualised on 2 parameters, adjusted R² 0.813
-14:25:14  INFO   decorrelate Cluster 08: 3 parameters, represented by 'PT CD3+CD4+ (%)' (linear)
-14:25:14  INFO   decorrelate number of viable cells lost during formulation: residualised on 1 parameters, adjusted R² 0.986
-14:25:14  INFO   decorrelate Cluster 09: 2 parameters, represented by '% cells lost during formulation' (linear)
-14:25:14  INFO   decorrelate Post-Mixing Clumps: # of Clumps: residualised on 1 parameters, adjusted R² 0.831
-14:25:14  INFO   decorrelate Cluster 10: 2 parameters, represented by 'Clump_burden_weighted_post_mixing' (linear)
-14:25:14  INFO   decorrelate Post-Massaging: # of Clumps: residualised on 1 parameters, adjusted R² 0.459
-14:25:14  INFO   decorrelate Cluster 11: 2 parameters, represented by 'Clump_count_reduction_fraction' (linear)
-14:25:14  INFO   decorrelate Viability_change_D3_to_D10_pct: residualised on 1 parameters, adjusted R² 0.546
-14:25:14  INFO   decorrelate Cluster 12: 2 parameters, represented by 'D10 harvest - D10 wash viability change (%)' (linear)
-14:25:14  INFO   decorrelate D3_contact_time_within_window: residualised on 1 parameters, adjusted R² 0.779
-14:25:14  INFO   decorrelate Cluster 13: 2 parameters, represented by 'D3_contact_time_deviation' (linear)
-14:25:14  INFO   decorrelate D3_contact_time_within_window_G-Rex_A: residualised on 1 parameters, adjusted R² 0.738
-14:25:14  INFO   decorrelate Cluster 14: 2 parameters, represented by 'D3_contact_time_deviation_G-Rex_A' (linear)
-14:25:14  INFO   decorrelate D3_contact_time_within_window_G-Rex_B: residualised on 1 parameters, adjusted R² 0.783
-14:25:14  INFO   decorrelate Cluster 15: 2 parameters, represented by 'D3_contact_time_deviation_G-Rex_B' (linear)
-14:25:14  INFO   decorrelate D3_seeding_within_5pct: residualised on 1 parameters, adjusted R² 0.573
-14:25:14  INFO   decorrelate Cluster 16: 2 parameters, represented by 'D3_seeding_error_pct' (linear)
-14:25:14  INFO   decorrelate Drop viability D3 vs D0 (%): residualised on 1 parameters, adjusted R² 0.741
-14:25:14  INFO   decorrelate Cluster 17: 2 parameters, represented by 'Day 3 Average of Pooled Viability (%)' (linear)
-14:25:14  INFO   decorrelate Seeded_cells_std_AB: residualised on 1 parameters, adjusted R² 0.923
-14:25:15  INFO   decorrelate Cluster 18: 2 parameters, represented by 'Day 3 Total Viable Cells Available for Seeding G-Rex (cells)' (linear)
-14:25:15  INFO   decorrelate IL2_IU_total_D6: residualised on 1 parameters, adjusted R² 0.781
-14:25:15  INFO   decorrelate Cluster 19: 2 parameters, represented by 'Day 6 Activity of IL-2 (IU/mg)' (linear)
-14:25:15  INFO   decorrelate Day 6 Lactate G-Rex B (g/L): residualised on 1 parameters, adjusted R² 0.723
-14:25:15  INFO   decorrelate Cluster 20: 2 parameters, represented by 'Day 6 Glucose G-Rex B (g/L)' (linear)
-14:25:15  INFO   decorrelate IL2_IU_total_D8: residualised on 1 parameters, adjusted R² 0.679
-14:25:15  INFO   decorrelate Cluster 21: 2 parameters, represented by 'Day 8 Activity of IL-2 (IU/mg)' (linear)
-14:25:15  INFO   decorrelate Harvest Lactate (g/L): residualised on 1 parameters, adjusted R² 0.646
-14:25:15  INFO   decorrelate Cluster 22: 2 parameters, represented by 'Day 8 Lactate G-Rex A (g/L)' (linear)
-14:25:15  INFO   decorrelate Harvest Post Wash Viable Cell Concentration Average (cells/mL): residualised on 1 parameters, adjusted R² 0.875
-14:25:15  INFO   decorrelate Cluster 23: 2 parameters, represented by 'Final Formulation CS5 Viable Cell Concentration Average (cells/mL)' (linear)
-14:25:15  INFO   decorrelate Number of Prior Lines of Therapy: residualised on 1 parameters, adjusted R² 0.697
-14:25:15  INFO   decorrelate Cluster 24: 2 parameters, represented by 'Incubation D3-D6 (min)' (linear)
-14:25:15  INFO   decorrelate LV CoA pH: residualised on 1 parameters, adjusted R² 0.963
-14:25:15  INFO   decorrelate Cluster 25: 2 parameters, represented by 'LV CoA CAR% - Donor 1' (linear)
-14:25:15  INFO   decorrelate LVCoA_Impurity_Index_zsum: residualised on 1 parameters, adjusted R² 0.939
-14:25:15  INFO   decorrelate Cluster 26: 2 parameters, represented by 'LV CoA HCP' (linear)
-14:25:15  INFO   decorrelate log_MOI_eff_G-Rex_A: residualised on 1 parameters, adjusted R² 0.984
-14:25:15  INFO   decorrelate Cluster 27: 2 parameters, represented by 'MOI_eff_G-Rex_A' (linear)
-14:25:15  INFO   decorrelate Post Wash POS FLOW CD4+ (%): residualised on 1 parameters, adjusted R² 0.960
-14:25:15  INFO   decorrelate Cluster 28: 2 parameters, represented by 'PE CD3+CD4+ (%)' (linear)
-14:25:15  INFO   decorrelate Post Wash POS FLOW CD8+ (%): residualised on 1 parameters, adjusted R² 0.954
-14:25:15  INFO   decorrelate Cluster 29: 2 parameters, represented by 'PE CD3+CD8+ (%)' (linear)
-14:25:15  INFO   decorrelate Vector_volume_min_AB_mL: residualised on 1 parameters, adjusted R² 0.800
-14:25:15  INFO   decorrelate Cluster 30: 2 parameters, represented by 'Vector_volume_mean_AB_mL' (linear)
-14:25:15  OK     decorrelate 30 clusters covering 75 parameters (linear)
-14:25:15  OK     dataset     Task 'raritan_release': 27 batches × 183 columns, predicting 'disposition_is_released'
-14:25:17  OK     package     Task package written to demo/explorations/raritan_release/20260920-142459-f20009
+15:08:38  INFO   decorrelate 5 parameter pairs share fewer than 8 batches — their relationship is unknown and they were not merged
+15:08:38  INFO   decorrelate Harvest Pre-Wash Viable Cell Count after Sampling (cells): residualised on 1 parameters, adjusted R² 0.969
+15:08:38  INFO   decorrelate total viable cells in formulated suspension: residualised on 2 parameters, adjusted R² 0.966
+15:08:38  INFO   decorrelate Seeded_cells_min_AB: residualised on 3 parameters, adjusted R² 0.835
+15:08:38  INFO   decorrelate Avg_cells_per_bag_D3: residualised on 4 parameters, adjusted R² 0.988
+15:08:38  INFO   decorrelate Glucose_perE6_slope_D6_D10: residualised on 5 parameters, adjusted R² 0.868
+15:08:38  INFO   decorrelate Cluster 01: 6 parameters, represented by 'Harvest Post Wash Viable Cell Count (cells)' (linear)
+15:08:38  INFO   decorrelate Day 6 Lactate G-Rex A (g/L): residualised on 1 parameters, adjusted R² 0.948
+15:08:38  INFO   decorrelate Day 8 Glucose G-Rex A (g/L): residualised on 2 parameters, adjusted R² 0.849
+15:08:38  INFO   decorrelate Day 6 Glucose G-Rex A (g/L): residualised on 3 parameters, adjusted R² 0.891
+15:08:38  INFO   decorrelate Day 8 Glucose G-Rex B (g/L): residualised on 4 parameters, adjusted R² 0.846
+15:08:38  INFO   decorrelate Cluster 02: 5 parameters, represented by 'Lactate_to_Glucose_perE6_ratio_D6' (linear)
+15:08:38  INFO   decorrelate LV CoA CAR% - Donor 2: residualised on 1 parameters, adjusted R² 0.906
+15:08:38  INFO   decorrelate LV CoA DNA size: residualised on 2 parameters, adjusted R² 0.961
+15:08:38  INFO   decorrelate # of Culture Bags: residualised on 3 parameters, adjusted R² 0.879
+15:08:38  INFO   decorrelate Cluster 03: 4 parameters, represented by 'LV CoA Physical Titer p24 ELISA' (linear)
+15:08:38  INFO   decorrelate FP Flow CAR+ (%): residualised on 1 parameters, adjusted R² 0.959
+15:08:38  INFO   decorrelate Harvest Pre-Wash Flow CAR+ Expression (%): residualised on 2 parameters, adjusted R² 0.954
+15:08:38  INFO   decorrelate Provirus Vector Copy Number (copies/transduced cell): residualised on 3 parameters, adjusted R² 0.990
+15:08:38  INFO   decorrelate Cluster 04: 4 parameters, represented by 'VCN/cell' (linear)
+15:08:38  INFO   decorrelate D10 Lact / E6 cells: residualised on 1 parameters, adjusted R² 0.969
+15:08:38  INFO   decorrelate D6 Lact / E6 cells: residualised on 2 parameters, adjusted R² 1.000
+15:08:38  INFO   decorrelate Cluster 05: 3 parameters, represented by 'Lactate_perE6_AUC_D6_D10' (linear)
+15:08:38  INFO   decorrelate D8 Glucose / E6 cells: residualised on 1 parameters, adjusted R² 0.986
+15:08:38  INFO   decorrelate Volume CS5 Used for Formulation (mL): residualised on 2 parameters, adjusted R² 0.847
+15:08:38  INFO   decorrelate Cluster 06: 3 parameters, represented by 'D6 Glucose / E6 cells' (linear)
+15:08:38  INFO   decorrelate MOI_eff_quality_adjusted: residualised on 1 parameters, adjusted R² 0.980
+15:08:38  INFO   decorrelate MOI_eff_G-Rex_B: residualised on 2 parameters, adjusted R² 0.920
+15:08:38  INFO   decorrelate Cluster 07: 3 parameters, represented by 'MOI_eff_pool' (linear)
+15:08:38  INFO   decorrelate Post Thaw FLOW CD4+ (%): residualised on 1 parameters, adjusted R² 0.848
+15:08:38  INFO   decorrelate PT Total CD4+ (Viable Cells): residualised on 2 parameters, adjusted R² 0.813
+15:08:38  INFO   decorrelate Cluster 08: 3 parameters, represented by 'PT CD3+CD4+ (%)' (linear)
+15:08:38  INFO   decorrelate number of viable cells lost during formulation: residualised on 1 parameters, adjusted R² 0.986
+15:08:38  INFO   decorrelate Cluster 09: 2 parameters, represented by '% cells lost during formulation' (linear)
+15:08:38  INFO   decorrelate Post-Mixing Clumps: # of Clumps: residualised on 1 parameters, adjusted R² 0.831
+15:08:38  INFO   decorrelate Cluster 10: 2 parameters, represented by 'Clump_burden_weighted_post_mixing' (linear)
+15:08:38  INFO   decorrelate Post-Massaging: # of Clumps: residualised on 1 parameters, adjusted R² 0.459
+15:08:38  INFO   decorrelate Cluster 11: 2 parameters, represented by 'Clump_count_reduction_fraction' (linear)
+15:08:38  INFO   decorrelate Viability_change_D3_to_D10_pct: residualised on 1 parameters, adjusted R² 0.546
+15:08:38  INFO   decorrelate Cluster 12: 2 parameters, represented by 'D10 harvest - D10 wash viability change (%)' (linear)
+15:08:38  INFO   decorrelate D3_contact_time_within_window: residualised on 1 parameters, adjusted R² 0.779
+15:08:38  INFO   decorrelate Cluster 13: 2 parameters, represented by 'D3_contact_time_deviation' (linear)
+15:08:38  INFO   decorrelate D3_contact_time_within_window_G-Rex_A: residualised on 1 parameters, adjusted R² 0.738
+15:08:39  INFO   decorrelate Cluster 14: 2 parameters, represented by 'D3_contact_time_deviation_G-Rex_A' (linear)
+15:08:39  INFO   decorrelate D3_contact_time_within_window_G-Rex_B: residualised on 1 parameters, adjusted R² 0.783
+15:08:39  INFO   decorrelate Cluster 15: 2 parameters, represented by 'D3_contact_time_deviation_G-Rex_B' (linear)
+15:08:39  INFO   decorrelate D3_seeding_within_5pct: residualised on 1 parameters, adjusted R² 0.573
+15:08:39  INFO   decorrelate Cluster 16: 2 parameters, represented by 'D3_seeding_error_pct' (linear)
+15:08:39  INFO   decorrelate Drop viability D3 vs D0 (%): residualised on 1 parameters, adjusted R² 0.741
+15:08:39  INFO   decorrelate Cluster 17: 2 parameters, represented by 'Day 3 Average of Pooled Viability (%)' (linear)
+15:08:39  INFO   decorrelate Seeded_cells_std_AB: residualised on 1 parameters, adjusted R² 0.923
+15:08:39  INFO   decorrelate Cluster 18: 2 parameters, represented by 'Day 3 Total Viable Cells Available for Seeding G-Rex (cells)' (linear)
+15:08:39  INFO   decorrelate IL2_IU_total_D6: residualised on 1 parameters, adjusted R² 0.781
+15:08:39  INFO   decorrelate Cluster 19: 2 parameters, represented by 'Day 6 Activity of IL-2 (IU/mg)' (linear)
+15:08:39  INFO   decorrelate Day 6 Lactate G-Rex B (g/L): residualised on 1 parameters, adjusted R² 0.723
+15:08:39  INFO   decorrelate Cluster 20: 2 parameters, represented by 'Day 6 Glucose G-Rex B (g/L)' (linear)
+15:08:39  INFO   decorrelate IL2_IU_total_D8: residualised on 1 parameters, adjusted R² 0.679
+15:08:39  INFO   decorrelate Cluster 21: 2 parameters, represented by 'Day 8 Activity of IL-2 (IU/mg)' (linear)
+15:08:39  INFO   decorrelate Harvest Lactate (g/L): residualised on 1 parameters, adjusted R² 0.646
+15:08:39  INFO   decorrelate Cluster 22: 2 parameters, represented by 'Day 8 Lactate G-Rex A (g/L)' (linear)
+15:08:39  INFO   decorrelate Harvest Post Wash Viable Cell Concentration Average (cells/mL): residualised on 1 parameters, adjusted R² 0.875
+15:08:39  INFO   decorrelate Cluster 23: 2 parameters, represented by 'Final Formulation CS5 Viable Cell Concentration Average (cells/mL)' (linear)
+15:08:39  INFO   decorrelate Number of Prior Lines of Therapy: residualised on 1 parameters, adjusted R² 0.697
+15:08:39  INFO   decorrelate Cluster 24: 2 parameters, represented by 'Incubation D3-D6 (min)' (linear)
+15:08:39  INFO   decorrelate LV CoA pH: residualised on 1 parameters, adjusted R² 0.963
+15:08:39  INFO   decorrelate Cluster 25: 2 parameters, represented by 'LV CoA CAR% - Donor 1' (linear)
+15:08:39  INFO   decorrelate LVCoA_Impurity_Index_zsum: residualised on 1 parameters, adjusted R² 0.939
+15:08:39  INFO   decorrelate Cluster 26: 2 parameters, represented by 'LV CoA HCP' (linear)
+15:08:39  INFO   decorrelate log_MOI_eff_G-Rex_A: residualised on 1 parameters, adjusted R² 0.984
+15:08:39  INFO   decorrelate Cluster 27: 2 parameters, represented by 'MOI_eff_G-Rex_A' (linear)
+15:08:39  INFO   decorrelate Post Wash POS FLOW CD4+ (%): residualised on 1 parameters, adjusted R² 0.960
+15:08:39  INFO   decorrelate Cluster 28: 2 parameters, represented by 'PE CD3+CD4+ (%)' (linear)
+15:08:39  INFO   decorrelate Post Wash POS FLOW CD8+ (%): residualised on 1 parameters, adjusted R² 0.954
+15:08:39  INFO   decorrelate Cluster 29: 2 parameters, represented by 'PE CD3+CD8+ (%)' (linear)
+15:08:39  INFO   decorrelate Vector_volume_min_AB_mL: residualised on 1 parameters, adjusted R² 0.800
+15:08:39  INFO   decorrelate Cluster 30: 2 parameters, represented by 'Vector_volume_mean_AB_mL' (linear)
+15:08:39  OK     decorrelate 30 clusters covering 75 parameters (linear)
+15:08:39  INFO   dataset     20 columns are constant on the fitted rows and were dropped
+15:08:40  WARN   dataset     Only 3 distinct Vector Lot values: any grouped validation rests on 3 groups, not on 27 batches
+15:08:40  WARN   dataset     176 predictor columns for 27 fitted batches (p/n = 6.5): a model needs strong regularisation, and its performance has to be estimated by cross-validation, not in-sample
+15:08:40  WARN   dataset     12 batches in the smaller class for 176 predictor columns (0.07 events per variable, against the usual 10 or more)
+15:08:40  OK     dataset     Task 'raritan_release': 27 batches × 176 columns, predicting 'disposition_is_released'
+15:08:41  OK     package     Task package written to /home/user/pvf_tasks_jan/demo/outputs/explorations/raritan_release/20261005-150825-66da31
 
-Written — 27 batches × 186 columns
-  Task folder  demo/explorations/raritan_release/20260920-142459-f20009
-  Report       demo/explorations/raritan_release/20260920-142459-f20009/report/report.html
-  Dataset      demo/explorations/raritan_release/20260920-142459-f20009/data/dataset.csv
-  Manifest     demo/explorations/raritan_release/20260920-142459-f20009/manifest.json
+Written — 27 batches × 179 columns
+  Task folder  /home/user/pvf_tasks_jan/demo/outputs/explorations/raritan_release/20261005-150825-66da31
+  Report       /home/user/pvf_tasks_jan/demo/outputs/explorations/raritan_release/20261005-150825-66da31/report/report.html
+  Dataset      /home/user/pvf_tasks_jan/demo/outputs/explorations/raritan_release/20261005-150825-66da31/data/dataset.csv
+  Manifest     /home/user/pvf_tasks_jan/demo/outputs/explorations/raritan_release/20261005-150825-66da31/manifest.json
 
-━━ Finished in 0:00:17 · 0 warnings · 0 errors ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━ Finished in 0:00:15 · 3 warnings · 0 errors ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  WARN   dataset     Only 3 distinct Vector Lot values: any grouped validation rests on 3 groups, not on 27 batches
+  WARN   dataset     176 predictor columns for 27 fitted batches (p/n = 6.5): a model needs strong regularisation, and its performance has to be estimated by cross-validation, not in-sample
+  WARN   dataset     12 batches in the smaller class for 176 predictor columns (0.07 events per variable, against the usual 10 or more)

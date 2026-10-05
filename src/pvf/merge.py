@@ -21,6 +21,7 @@ class MergeReport:
     ptf_missing: list[str] = field(default_factory=list)
     ghent_only_cols: list[str] = field(default_factory=list)
     raritan_only_cols: list[str] = field(default_factory=list)
+    duplicate_batches: list[str] = field(default_factory=list)
 
 
 def merge_sites(phf: dict[str, pd.DataFrame]) -> pd.DataFrame:
@@ -58,6 +59,22 @@ def run_sanity_checks(
         total_columns=result.shape[1],
         site_rows={site: len(df) for site, df in phf.items()},
     )
+
+    # A batch that appears twice is counted twice by every task that keeps it.
+    key = "Patient Lot/Batch #"
+    if key in result.columns:
+        ids = result[key].astype("string")
+        repeated = ids[ids.notna() & ids.duplicated(keep=False)]
+        report.duplicate_batches = sorted(set(repeated))
+        if report.duplicate_batches:
+            log.warn(
+                MODULE,
+                f"{len(report.duplicate_batches)} batch numbers appear more than once in the PVF; "
+                "a task whose cohort keeps both rows will refuse to run",
+                ", ".join(report.duplicate_batches[:10]),
+            )
+        else:
+            log.success(MODULE, "Every batch number appears once")
 
     # PTF columns missing from merged result
     report.ptf_missing = [c for c in ptf_cols if c not in result.columns]

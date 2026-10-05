@@ -1,0 +1,56 @@
+# A demo workspace written by `pvf init --demo`. Every source under data/raw is
+# made up. Every path below is relative to this file.
+seed: 20260917
+paths:
+  ptf: data/raw/PTF.xlsx
+  phf_ghent: data/raw/phf_ghent.xlsx
+  phf_raritan: data/raw/phf_raritan.xlsx
+  param_mapping: data/raw/parameter_requirements.xlsx
+  remfg: data/raw/remfg.xlsx
+  lv_coa: data/raw/lv_coa.xlsx
+  raw_materials: data/raw/raw_materials.csv
+  investigations: data/raw/investigations_power_query.xlsx
+  site_maps:
+  - data/raw/site_map_hannelore.xlsx
+  - data/raw/site_map_meeting.xlsx
+  pvf: data/processed/PVF.xlsx
+  new_parameters: data/processed/new_parameters.csv
+  reports: outputs/reports
+  tasks: outputs/tasks
+  task_files: tasks
+sources:
+  location: local
+  databricks: false
+  fallback_to_local: false
+upload:
+  enabled: false
+ptf:
+  write_new_parameters: true
+build:
+  write_parquet: true
+cleaning:
+  corrections: corrections.yaml
+  censored: limit
+  censored_flags: false
+  duration_unit: minutes
+  raritan_type_commercial: true
+  yes_no_defaults:
+    'Pre-Activation Clumps: Y/N?': 'No'
+mapping:
+  exclude:
+  - Non-Conformance Type Calc.
+features:
+  co2_target: 5.0
+  temp_target: 37.0
+  contact_target: 120.0
+  contact_tolerance: 30.0
+  seeding_tolerance: 5.0
+  cpdl_low: 4.0
+  cpdl_high: 5.0
+  lactate_low: 12.5
+  lactate_high: 30.0
+  cd4_low: 40.0
+  cd4_high: 60.0
+lv_coa:
+  ph_nominal: 7.2
+  osmo_nominal: 300.0

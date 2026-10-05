@@ -23,9 +23,13 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
+from . import corrections
 from .logger import log
 
 MODULE = "clean"
+
+#: The suffix of the indicator a censored value leaves behind, when asked for.
+CENSORED_SUFFIX = " censored"
 
 #: What a value recorded as "< x" becomes. The operator is information: under the
 #: limit of quantitation is low, not unknown, and not exactly the limit either.
@@ -50,6 +54,8 @@ class CleaningReport:
     categorical_diffs: list[dict] = field(default_factory=list)
     pct_out_of_range: list[dict] = field(default_factory=list)
     censored: list[dict] = field(default_factory=list)
+    censored_flags: list[str] = field(default_factory=list)
+    scale_changes: list[dict] = field(default_factory=list)
     settings: dict = field(default_factory=dict)
 
 
@@ -91,116 +97,37 @@ def strip_strings(phf: dict[str, pd.DataFrame], ptf_cols: list[str]) -> Cleaning
 
 
 def apply_integrity_corrections(
-    phf: dict[str, pd.DataFrame], settings: dict | None = None
+    phf: dict[str, pd.DataFrame],
+    settings: dict | None = None,
+    rules: list[corrections.Rule] | None = None,
 ) -> list[dict]:
     """The known data-quality fixes, each with how many rows it touched.
 
     These are business corrections someone established against the source
-    systems, not general truths. The one that rewrites every Raritan batch's
-    ``Type`` is the clearest case, so it is a setting: a task that is not about
-    the commercial cohort should not have the column silently overwritten for it.
+    systems, not general truths, so they are a table in the workspace
+    (``cleaning.corrections``), not code. ``raritan_type_commercial: false`` and
+    ``cleaning.disable`` switch named rules off.
     """
     settings = settings or {}
     log.step(MODULE, "Applying integrity corrections")
-    changes: list[dict] = []
-
-    def record(site, col, description, rows=None, why=""):
-        changes.append(
-            {
-                "site": site,
-                "column": col,
-                "correction": description,
-                "rows": int(rows) if rows is not None else "",
-                "why": why,
-            }
-        )
-        log.info(MODULE, f"[{site}] {col}: {description}" + (f" ({rows} rows)" if rows else ""))
-
-    r = phf["Raritan"]
-    g = phf["Ghent"]
-
-    # A clump count that is really a date Excel mangled. Compared as text,
-    # because whether the column arrives as text or as a number is decided by
-    # Excel's type inference, not by the value being wrong.
-    mask = r["Post-Mixing Clumps: # of Clumps"].astype(str).str.strip() == "45691"
-    if mask.any():
-        r.loc[mask, "Post-Mixing Clumps: # of Clumps"] = np.nan
-        record(
-            "Raritan",
-            "Post-Mixing Clumps: # of Clumps",
-            "replaced '45691' with NaN",
-            mask.sum(),
-            "a clump count Excel turned into a date serial",
-        )
-
-    # Wrong country
-    mask = r["Clinical Site"] == "107306"
-    if mask.any():
-        r.loc[mask, "Country"] = "Israel"
-        record(
-            "Raritan",
-            "Country",
-            "set to 'Israel' for clinical site 107306",
-            mask.sum(),
-            "the site is in Israel; the export has the wrong country",
-        )
-
-    if settings.get("raritan_type_commercial", True):
-        wrong = int((r["Type"].astype("string") != "Commercial").sum())
-        r["Type"] = "Commercial"
-        record(
-            "Raritan",
-            "Type",
-            "set every row to 'Commercial'",
-            wrong,
-            settings.get(
-                "raritan_type_commercial_reason",
-                "the Raritan export does not fill Type, and everything it holds is "
-                "commercial manufacturing",
-            ),
-        )
-    else:
-        log.info(MODULE, "[Raritan] Type is left as the source recorded it")
-
-    # OOS Type string normalisation — Raritan
-    oos_replacements_raritan = [
-        ("VIability", "Viability"),
-        ("Low Dose", "Dose"),
-        ("Phenotype (%CD3+, %NK)", "CD3%,NK Cell%"),
-        ("Phenotype (NK%)", "NK Cell%"),
-        ("Concentration", "Viable Cell Concentration"),
-        ("CAR", "CAR%"),
-        ("CAR%%", "CAR%"),
-        ("Phenotype", "CD3%"),
-        ("Potency", "IFN Gamma Potency"),
-        ("IFN Gamma Potency", "IFN Gamma"),
-    ]
-    for old, new in oos_replacements_raritan:
-        r["OOS Type"] = r["OOS Type"].str.replace(old, new, regex=False)
-    record("Raritan", "OOS Type", f"{len(oos_replacements_raritan)} string normalisations applied")
-
-    # OOS Type string normalisation — Ghent
-    g["OOS Type"] = g["OOS Type"].str.replace("IFN Gamma Potency", "IFN Gamma", regex=False)
-    record("Ghent", "OOS Type", "normalised 'IFN Gamma Potency' → 'IFN Gamma'")
-
-    # Ghent known bad cell
-    mask = g["Patient Lot/Batch #"] == "QCGS03V"
-    if mask.any():
-        g.loc[mask, "Pre-Activation Clumps: Y/N?"] = "No"
-        record("Ghent", "Pre-Activation Clumps: Y/N?", "set to 'No' for lot QCGS03V")
-
-    # Mycoplasma string fix
-    # Assigned back rather than replaced in place: an in-place call on a column
-    # selected out of a frame updates a copy and leaves the frame untouched.
-    g["Mycoplasma"] = g["Mycoplasma"].replace("mycoplasma not detected", "not detected")
-    record("Ghent", "Mycoplasma", "normalised 'mycoplasma not detected' → 'not detected'")
-
-    # Raritan NC type
-    r["Non-Conformance Type"] = r["Non-Conformance Type"].replace("withdrawn", "withdrawal")
-    record("Raritan", "Non-Conformance Type", "normalised 'withdrawn' → 'withdrawal'")
-
+    rules = corrections.load(settings.get("corrections")) if rules is None else rules
+    changes = corrections.apply(
+        phf, rules, corrections.INTEGRITY, _disabled(settings), _reasons(settings)
+    )
     log.success(MODULE, f"{len(changes)} integrity corrections applied")
     return changes
+
+
+def _disabled(settings: dict) -> set[str]:
+    disabled = {str(name) for name in settings.get("disable") or []}
+    if not settings.get("raritan_type_commercial", True):
+        disabled.add("raritan_type_commercial")
+    return disabled
+
+
+def _reasons(settings: dict) -> dict[str, str]:
+    reason = settings.get("raritan_type_commercial_reason")
+    return {"raritan_type_commercial": str(reason)} if reason else {}
 
 
 # ── 2b. Numeric coercion ──────────────────────────────────────────────────────
@@ -212,6 +139,7 @@ def coerce_numeric(
     ptf_mapping: dict[str, str],
     censored: str = "limit",
     report: "CleaningReport | None" = None,
+    flags: bool = False,
 ) -> list[dict]:
     """Make every column the PTF calls numeric a number, and say what that cost.
 
@@ -220,6 +148,10 @@ def coerce_numeric(
     Which of the three it becomes is ``cleaning.censored`` in config, and the
     count of affected values is recorded either way — silently dropping the
     operator changes what the number means.
+
+    With ``flags`` (``cleaning.censored_flags``) every column that had censored
+    values gets a companion ``<column> censored`` column, 1 where the value was
+    censored, so the operator survives whichever policy rewrote the number.
 
     A column that is mostly text still gets coerced. The old behaviour left it as
     object strings, which then broke every correlation and comparison downstream
@@ -252,6 +184,11 @@ def coerce_numeric(
             flagged = marks["value"].notna()
             values = pd.to_numeric(text.where(~flagged), errors="coerce")
 
+            if flagged.any() and flags:
+                name = f"{col}{CENSORED_SUFFIX}"
+                df[name] = flagged.astype("Int8").where(df[col].notna() | flagged, pd.NA)
+                if report is not None and name not in report.censored_flags:
+                    report.censored_flags.append(name)
             if flagged.any():
                 limits = pd.to_numeric(
                     marks.loc[flagged, "value"].str.replace(",", ".", regex=False),
@@ -473,27 +410,21 @@ def coerce_ratios(
 # ── 2f. Manual numeric scale corrections ─────────────────────────────────────
 
 
-def apply_scale_corrections(phf: dict[str, pd.DataFrame]) -> None:
+def apply_scale_corrections(
+    phf: dict[str, pd.DataFrame],
+    settings: dict | None = None,
+    rules: list[corrections.Rule] | None = None,
+) -> list[dict]:
+    """Site-specific numeric scale fixes from the corrections table.
+
+    For example, Raritan stores certain cell counts without the 1e6 divisor.
     """
-    Site-specific numeric scale fixes identified during QC
-    (e.g. Raritan stores certain cell counts without 1e6 divisor).
-    """
+    settings = settings or {}
     log.step(MODULE, "Applying numeric scale corrections")
-
-    corrections = [
-        ("Raritan", "Total Viable Cells/bag", 1e6),
-        ("Raritan", "Total Viable Cells for Recovery (cells)", 1e6),
-        ("Raritan", "Final Formulation CS5 Viable Cell Concentration A (cells/mL)", 1e6),
-        ("Raritan", "Final Formulation CS5 Viable Cell Concentration B (cells/mL)", 1e6),
-        ("Ghent", "Target Final Seeding Density per Area (VC/cm^2) G-Rex A", 1e6),
-        ("Ghent", "Target Final Seeding Density per Area (VC/cm^2) G-Rex B", 1e6),
-    ]
-    for site, col, divisor in corrections:
-        if col in phf[site].columns:
-            phf[site][col] /= divisor
-            log.info(MODULE, f"[{site}] {col}: divided by {divisor:.0e}")
-
-    log.success(MODULE, f"{len(corrections)} scale corrections applied")
+    rules = corrections.load(settings.get("corrections")) if rules is None else rules
+    changes = corrections.apply(phf, rules, corrections.SCALE, _disabled(settings))
+    log.success(MODULE, f"{len(changes)} scale corrections applied")
+    return changes
 
 
 # ── 2g. Percentage range validation ──────────────────────────────────────────
@@ -633,23 +564,33 @@ def run_all(
 ) -> CleaningReport:
     """Run every cleaning pass in order and return a composite report."""
     settings = settings or {}
+    rules = corrections.load(settings.get("corrections"))
     report = strip_strings(phf, ptf_cols)
     report.settings = {
         "censored": settings.get("censored", "limit"),
+        "censored_flags": bool(settings.get("censored_flags", False)),
         "duration_unit": settings.get("duration_unit", "minutes"),
         "yes_no_defaults": settings.get("yes_no_defaults") or {},
         "raritan_type_commercial": settings.get("raritan_type_commercial", True),
+        "corrections": str(settings.get("corrections") or corrections.default_path()),
+        "corrections_rules": len(rules),
+        "disabled_corrections": sorted(_disabled(settings)),
     }
-    report.integrity_changes = apply_integrity_corrections(phf, settings)
+    report.integrity_changes = apply_integrity_corrections(phf, settings, rules)
     report.numeric_coercions = coerce_numeric(
-        phf, ptf_cols, ptf_mapping, censored=report.settings["censored"], report=report
+        phf,
+        ptf_cols,
+        ptf_mapping,
+        censored=report.settings["censored"],
+        report=report,
+        flags=report.settings["censored_flags"],
     )
     report.datetime_failures = coerce_datetimes(phf, ptf_cols, ptf_mapping)
     report.duration_failures = coerce_durations(
         phf, ptf_cols, ptf_mapping, numeric_unit=report.settings["duration_unit"]
     )
     coerce_ratios(phf, ptf_cols, ptf_mapping)
-    apply_scale_corrections(phf)
+    report.scale_changes = apply_scale_corrections(phf, settings, rules)
     report.pct_out_of_range = validate_percentages(phf, ptf_cols)
     report.yesno_imputations = fill_yes_no(phf, report.settings["yes_no_defaults"])
     report.categorical_diffs = check_categorical_consistency(phf, ptf_cols, ptf_mapping)

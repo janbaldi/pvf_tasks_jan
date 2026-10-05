@@ -1,0 +1,195 @@
+{
+  "manifest_version": 2,
+  "stage": "task",
+  "status": "complete",
+  "run_id": "20261005-150825-66da31",
+  "started": "2026-10-05T15:08:25",
+  "finished": "2026-10-05T15:08:41",
+  "config": {
+    "path": "/home/user/pvf_tasks_jan/demo/tasks/task_release_outcome.yaml",
+    "digest": "e6a853418cb1de7ba55f46de277ce2f56042f50546aab94cb0c09e3a19763eee"
+  },
+  "inputs": [
+    {
+      "label": "pvf",
+      "location": "/home/user/pvf_tasks_jan/demo/data/processed/PVF.xlsx",
+      "kind": "local file",
+      "digest": "35c962e11f5ed1d9c519ce5dd548c08fe6c9e527ae3a01bd07282f9187b9fbcc",
+      "digest_of": "file bytes",
+      "note": ""
+    },
+    {
+      "label": "ptf",
+      "location": "/home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx",
+      "kind": "local file",
+      "digest": "db04afebbe50145d8a3a11ce0bd90afaad86a5bafcf507a552d048dd48f126b3",
+      "digest_of": "file bytes",
+      "note": ""
+    }
+  ],
+  "outputs": [
+    {
+      "what": "effective task settings",
+      "path": "config/task.yaml",
+      "bytes": 2222,
+      "sha256": "28d7fce941111fba8674c720a17ff6709d63c1b61bdb500e3307d45b59a74001"
+    },
+    {
+      "what": "dataset",
+      "path": "data/dataset.csv",
+      "bytes": 51544,
+      "sha256": "7c38c68eba2aa095031a97d4413f4b36209f946707135615b654115668d0fd44"
+    },
+    {
+      "what": "untransformed predictors",
+      "path": "data/raw_features.csv",
+      "bytes": 37193,
+      "sha256": "031efe77d4b0f2fcb796ab4a892fe5076c11d3169c38a4c4a0987493a76d7d81"
+    },
+    {
+      "what": "run log",
+      "path": "logs/run.log",
+      "bytes": 16501,
+      "sha256": "1ad0cff0210a984e65adc9513faf306a89b71305a335a288d3443a46f5121dd9"
+    },
+    {
+      "what": "correlated groups",
+      "path": "metadata/clusters.csv",
+      "bytes": 22734,
+      "sha256": "0c94498fc30c0ddafd98f3917eab4d94f150a01300055dbc8d40ea6f7f4cec8d"
+    },
+    {
+      "what": "cohort membership",
+      "path": "metadata/cohort.csv",
+      "bytes": 2189,
+      "sha256": "e80ec3c05ed7d2ddcceb1eacf6ea7bf60368d66a011a94274b3c85c2ead37577"
+    },
+    {
+      "what": "column dictionary",
+      "path": "metadata/columns.csv",
+      "bytes": 36736,
+      "sha256": "f2d255d02f59e61386e3a237882db838d84ca7de6a2b74ff323c0386bdf5f692"
+    },
+    {
+      "what": "parameter decisions",
+      "path": "metadata/decisions.csv",
+      "bytes": 17705,
+      "sha256": "241e2426873fd567197927428c3e549edc74b4a79e281e8a7f980c50589c5433"
+    },
+    {
+      "what": "feature dictionary",
+      "path": "metadata/features.csv",
+      "bytes": 31258,
+      "sha256": "052106f83b9385387fcff9bbb712f25e625baa7529d87af204ab95632959d3b8"
+    },
+    {
+      "what": "parameters missing together",
+      "path": "metadata/missingness.csv",
+      "bytes": 989,
+      "sha256": "1a86f9f2c6fad84a53348d3dd9651aebde3f2496747367af37c4a615218e1934"
+    },
+    {
+      "what": "fitted preprocessing",
+      "path": "metadata/recipe.json",
+      "bytes": 116117,
+      "sha256": "0b28c6f633b36d677cec03f8067d9178ac0c5eb80de90f05caa92653c7d0f704"
+    },
+    {
+      "what": "PTF stage manifest",
+      "path": "provenance/ptf_manifest.json",
+      "bytes": 5824,
+      "sha256": "bf92c34b9892135b05f33ceaf78b342db11720b3e4653a64dcc1b5c59b905d52"
+    },
+    {
+      "what": "build stage manifest",
+      "path": "provenance/pvf_manifest.json",
+      "bytes": 10802,
+      "sha256": "aca111e0c1d37b526cf479bc8fcb7a99c7826d7ebd05d0d7e636bb846407106f"
+    },
+    {
+      "what": "report",
+      "path": "report/report.html",
+      "bytes": 697310,
+      "sha256": "9472b8a158224b532088c5df65d4300fccc582b0ed0a3907e54b452ae572b6f0"
+    },
+    {
+      "what": "report data",
+      "path": "report/report_payload.json",
+      "bytes": 1264684,
+      "sha256": "03ca93d2d93f811bec5c22d290a8ae8d5dc96a9c4e9f1d4419ce2a4428cc2890"
+    }
+  ],
+  "warnings": [
+    "Only 3 distinct Vector Lot values: any grouped validation rests on 3 groups, not on 27 batches",
+    "176 predictor columns for 27 fitted batches (p/n = 6.5): a model needs strong regularisation, and its performance has to be estimated by cross-validation, not in-sample",
+    "12 batches in the smaller class for 176 predictor columns (0.07 events per variable, against the usual 10 or more)"
+  ],
+  "errors": [],
+  "task": "raritan_release",
+  "mode": "full package",
+  "question": "What does a released Raritan batch look like, next to a discarded one?",
+  "purpose": "exploratory",
+  "workspace": "/home/user/pvf_tasks_jan/demo/pvf.yaml",
+  "dataset_role": "exploratory transformed data, preprocessed over all 27 batches in the cohort \u2014 not a table to cross-validate on as it stands",
+  "upstream_manifests": {
+    "ptf": "provenance/ptf_manifest.json",
+    "pvf": "provenance/pvf_manifest.json"
+  },
+  "counts": {
+    "pvf_rows": 70,
+    "cohort_rows": 27,
+    "dataset_rows": 27,
+    "dataset_columns": 179,
+    "predictor_columns": 176,
+    "transformed_columns": 176,
+    "candidates": 195,
+    "clusters": 30,
+    "decisions": 235,
+    "training_rows": 27,
+    "validation_rows": 0,
+    "folds": 0
+  },
+  "split": {},
+  "provenance": {
+    "run_date": "2026-10-05T15:08:25",
+    "git_commit": "ecc2e282dc5dc5a9e41775075785cf7351f5236f-dirty",
+    "seed": 20260917,
+    "config": "/home/user/pvf_tasks_jan/demo/tasks/task_release_outcome.yaml",
+    "config_digest": "e6a853418cb1de7ba55f46de277ce2f56042f50546aab94cb0c09e3a19763eee",
+    "sources": [
+      {
+        "label": "pvf",
+        "location": "/home/user/pvf_tasks_jan/demo/data/processed/PVF.xlsx",
+        "kind": "local file",
+        "digest": "35c962e11f5ed1d9c519ce5dd548c08fe6c9e527ae3a01bd07282f9187b9fbcc",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "ptf",
+        "location": "/home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx",
+        "kind": "local file",
+        "digest": "db04afebbe50145d8a3a11ce0bd90afaad86a5bafcf507a552d048dd48f126b3",
+        "digest_of": "file bytes",
+        "note": ""
+      }
+    ],
+    "inputs": {
+      "pvf": "35c962e11f5ed1d9c519ce5dd548c08fe6c9e527ae3a01bd07282f9187b9fbcc",
+      "ptf": "db04afebbe50145d8a3a11ce0bd90afaad86a5bafcf507a552d048dd48f126b3"
+    },
+    "environment": {
+      "python": "3.12.3",
+      "platform": "Linux-6.18.44-fc-v70-x86_64-with-glibc2.39",
+      "pandas": "3.0.6",
+      "numpy": "2.5.3",
+      "scipy": "1.18.1",
+      "scikit-learn": "1.9.1",
+      "plotly": "7.1.0",
+      "openpyxl": "3.1.5",
+      "pyyaml": "6.0.3",
+      "python-dotenv": "1.2.4",
+      "stlite (report runtime)": "1.8.1"
+    }
+  }
+}

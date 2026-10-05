@@ -1,0 +1,211 @@
+{
+  "manifest_version": 2,
+  "stage": "task",
+  "status": "complete",
+  "run_id": "20261005-150819-bbdfdd",
+  "started": "2026-10-05T15:08:19",
+  "finished": "2026-10-05T15:08:25",
+  "config": {
+    "path": "/home/user/pvf_tasks_jan/demo/tasks/task_car_expression.yaml",
+    "digest": "c7d411c9ac788abea65b5eac5307802970f92775f2e8aa7ba56c24dfd28de036"
+  },
+  "inputs": [
+    {
+      "label": "pvf",
+      "location": "/home/user/pvf_tasks_jan/demo/data/processed/PVF.xlsx",
+      "kind": "local file",
+      "digest": "35c962e11f5ed1d9c519ce5dd548c08fe6c9e527ae3a01bd07282f9187b9fbcc",
+      "digest_of": "file bytes",
+      "note": ""
+    },
+    {
+      "label": "ptf",
+      "location": "/home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx",
+      "kind": "local file",
+      "digest": "db04afebbe50145d8a3a11ce0bd90afaad86a5bafcf507a552d048dd48f126b3",
+      "digest_of": "file bytes",
+      "note": ""
+    }
+  ],
+  "outputs": [
+    {
+      "what": "effective task settings",
+      "path": "config/task.yaml",
+      "bytes": 2669,
+      "sha256": "8f9e822a6fe8e1b926674dca8743c2da21fe184acc3bba19bb3c9bf0018209fe"
+    },
+    {
+      "what": "dataset",
+      "path": "data/dataset.csv",
+      "bytes": 16322,
+      "sha256": "54f7609d0a47d95aa67c2fc36ab6ea086c77a29ce69ccf22bf9d5ae714692218"
+    },
+    {
+      "what": "split assignments",
+      "path": "data/splits.csv",
+      "bytes": 383,
+      "sha256": "bb553f1b4e38de038e03a99b51d2e2ff0fe0ff557000fe7ca43fb5175e646fed"
+    },
+    {
+      "what": "transformed predictors",
+      "path": "data/transformed.csv",
+      "bytes": 16065,
+      "sha256": "29e3a01817671292f263720dc223863312fbc233a35b083a530ab750660915b5"
+    },
+    {
+      "what": "run log",
+      "path": "logs/run.log",
+      "bytes": 10687,
+      "sha256": "54d822a143440e602cc2c97809b03bf1904863bbb6cd803edf0d12f89301b40c"
+    },
+    {
+      "what": "correlated groups",
+      "path": "metadata/clusters.csv",
+      "bytes": 11533,
+      "sha256": "279b64bd94826472f936a0aef315b8c208493d01396cec83766fa4e65692ee33"
+    },
+    {
+      "what": "cohort membership",
+      "path": "metadata/cohort.csv",
+      "bytes": 2752,
+      "sha256": "fbcc089d9a1cb3356737eddcc13b83eab9cfb48da92b71af73ae3c8417650bd3"
+    },
+    {
+      "what": "column dictionary",
+      "path": "metadata/columns.csv",
+      "bytes": 11133,
+      "sha256": "43d86bf920549f12962999cf0c2344ad17d0d8449a7d1f1d1f2627d6c0b76d45"
+    },
+    {
+      "what": "parameter decisions",
+      "path": "metadata/decisions.csv",
+      "bytes": 17443,
+      "sha256": "912f2419e92e914db8448fa75180f1a1815aa21b629de4ba9349cacdd49e1fea"
+    },
+    {
+      "what": "feature dictionary",
+      "path": "metadata/features.csv",
+      "bytes": 8941,
+      "sha256": "272c61fe8e1252efaa126372a4c9316cdbf1dbf997743a22866dd2ac0ac7e08a"
+    },
+    {
+      "what": "parameters missing together",
+      "path": "metadata/missingness.csv",
+      "bytes": 4416,
+      "sha256": "633356f7d2d35cffd5e20371eb897feced840586ef21383a86b1d63368894abd"
+    },
+    {
+      "what": "fitted preprocessing",
+      "path": "metadata/recipe.json",
+      "bytes": 38744,
+      "sha256": "c7cc038954f9787da27f35403a9e04c11a3ba3619d63ca666d6320f70208a2f2"
+    },
+    {
+      "what": "PTF stage manifest",
+      "path": "provenance/ptf_manifest.json",
+      "bytes": 5824,
+      "sha256": "bf92c34b9892135b05f33ceaf78b342db11720b3e4653a64dcc1b5c59b905d52"
+    },
+    {
+      "what": "build stage manifest",
+      "path": "provenance/pvf_manifest.json",
+      "bytes": 10802,
+      "sha256": "aca111e0c1d37b526cf479bc8fcb7a99c7826d7ebd05d0d7e636bb846407106f"
+    },
+    {
+      "what": "report",
+      "path": "report/report.html",
+      "bytes": 290349,
+      "sha256": "b0e35f067cae8bb67dd7c4bada98593e1daf69e4103e9af40b67423afd319466"
+    },
+    {
+      "what": "report data",
+      "path": "report/report_payload.json",
+      "bytes": 586581,
+      "sha256": "30134c8a4199c2e23a26c799f709e48f7efa0474a0aa0ede2d0810f8c33e18f5"
+    }
+  ],
+  "warnings": [
+    "split.folds: 3 folds asked for, 2 groups allow 2",
+    "Only 3 distinct Vector Lot values: any grouped validation rests on 3 groups, not on 21 batches",
+    "95 predictor columns for 14 fitted batches (p/n = 6.8): a model needs strong regularisation, and its performance has to be estimated by cross-validation, not in-sample",
+    "1 batches have no usable target and are not in the dataset",
+    "Clump Severity: 'Severe' is not one of its PTF categories (1 batches) \u2014 left missing"
+  ],
+  "errors": [],
+  "task": "ghent_car_expression",
+  "mode": "full package",
+  "question": "Which manufacturing parameters go with final product CAR+ expression at Ghent?",
+  "purpose": "predictive",
+  "workspace": "/home/user/pvf_tasks_jan/demo/pvf.yaml",
+  "dataset_role": "raw modelling inputs; the transformed view is produced by recipe.json, fitted on 14 training batches (whole groups of Vector Lot, drawn with seed 20260917: LV-909)",
+  "upstream_manifests": {
+    "ptf": "provenance/ptf_manifest.json",
+    "pvf": "provenance/pvf_manifest.json"
+  },
+  "counts": {
+    "pvf_rows": 70,
+    "cohort_rows": 21,
+    "dataset_rows": 21,
+    "dataset_columns": 88,
+    "predictor_columns": 83,
+    "transformed_columns": 95,
+    "candidates": 142,
+    "clusters": 18,
+    "decisions": 202,
+    "training_rows": 14,
+    "validation_rows": 7,
+    "folds": 2
+  },
+  "split": {
+    "strategy": "grouped",
+    "detail": "whole groups of Vector Lot, drawn with seed 20260917: LV-909",
+    "training": 14,
+    "validation": 7,
+    "seed": 20260917,
+    "folds": 2,
+    "fold_strategy": "grouped"
+  },
+  "provenance": {
+    "run_date": "2026-10-05T15:08:19",
+    "git_commit": "ecc2e282dc5dc5a9e41775075785cf7351f5236f-dirty",
+    "seed": 20260917,
+    "config": "/home/user/pvf_tasks_jan/demo/tasks/task_car_expression.yaml",
+    "config_digest": "c7d411c9ac788abea65b5eac5307802970f92775f2e8aa7ba56c24dfd28de036",
+    "sources": [
+      {
+        "label": "pvf",
+        "location": "/home/user/pvf_tasks_jan/demo/data/processed/PVF.xlsx",
+        "kind": "local file",
+        "digest": "35c962e11f5ed1d9c519ce5dd548c08fe6c9e527ae3a01bd07282f9187b9fbcc",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "ptf",
+        "location": "/home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx",
+        "kind": "local file",
+        "digest": "db04afebbe50145d8a3a11ce0bd90afaad86a5bafcf507a552d048dd48f126b3",
+        "digest_of": "file bytes",
+        "note": ""
+      }
+    ],
+    "inputs": {
+      "pvf": "35c962e11f5ed1d9c519ce5dd548c08fe6c9e527ae3a01bd07282f9187b9fbcc",
+      "ptf": "db04afebbe50145d8a3a11ce0bd90afaad86a5bafcf507a552d048dd48f126b3"
+    },
+    "environment": {
+      "python": "3.12.3",
+      "platform": "Linux-6.18.44-fc-v70-x86_64-with-glibc2.39",
+      "pandas": "3.0.6",
+      "numpy": "2.5.3",
+      "scipy": "1.18.1",
+      "scikit-learn": "1.9.1",
+      "plotly": "7.1.0",
+      "openpyxl": "3.1.5",
+      "pyyaml": "6.0.3",
+      "python-dotenv": "1.2.4",
+      "stlite (report runtime)": "1.8.1"
+    }
+  }
+}

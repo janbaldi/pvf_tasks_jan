@@ -1,0 +1,48 @@
+# A demo task written by `pvf init --demo`. Paths are relative to this file.
+workspace: ../pvf.yaml
+task:
+  name: raritan_release
+  question: What does a released Raritan batch look like, next to a discarded one?
+  purpose: exploratory
+  seed: 20260917
+output:
+  root: ../outputs/explorations
+cohort:
+  sites:
+  - Raritan
+  filters:
+  - column: Manufacturing and Release Testing Completed? (Y/N)
+    op: equals
+    value: Y
+    reason: manufacturing and testing finished
+target:
+  column: Disposition
+  type: binary
+  positive_class: Released
+  negative_class: Discarded
+columns:
+  id: 'Patient Lot/Batch #'
+  group: Vector Lot
+  exclude:
+  - column: OOS Type
+    reason: it is the reason for the disposition
+encoding:
+  onehot_max_categories: 5
+  target_max_categories: 6
+  target_encoding_smoothing: 5.0
+  target_encoding_folds: 5
+  hashing_max_buckets: 16
+  target_min_rows_per_category: 3
+  hashing_min_rows: 20
+  missing_indicators: true
+quality:
+  min_non_missing: 8
+  duplicate_r2_threshold: 0.99
+  duplicate_min_overlap: 8
+clustering:
+  action: linear
+  method: spearman
+  threshold: 0.8
+  min_overlap: 8
+report:
+  preview_rows: 10

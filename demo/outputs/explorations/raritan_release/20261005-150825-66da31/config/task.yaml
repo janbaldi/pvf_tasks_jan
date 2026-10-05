@@ -1,0 +1,107 @@
+# The effective settings of this run, defaults included.
+task:
+  name: raritan_release
+  question: What does a released Raritan batch look like, next to a discarded one?
+  purpose: exploratory
+  seed: 20260917
+inputs:
+  pvf: /home/user/pvf_tasks_jan/demo/data/processed/PVF.xlsx
+  ptf: /home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx
+output:
+  root: /home/user/pvf_tasks_jan/demo/outputs/explorations
+cohort:
+  sites:
+  - Raritan
+  site_column: Site Merged
+  filters:
+  - column: Manufacturing and Release Testing Completed? (Y/N)
+    op: equals
+    value: Y
+    missing: exclude
+    normalise: false
+    reason: manufacturing and testing finished
+  date_column: ''
+  date_from: ''
+  date_to: ''
+target:
+  column: Disposition
+  type: binary
+  positive_class: Released
+  negative_class: Discarded
+  missing: drop
+columns:
+  id: 'Patient Lot/Batch #'
+  group: Vector Lot
+  patient: ''
+  include: []
+  exclude:
+  - column: OOS Type
+    reason: it is the reason for the disposition
+availability:
+  cutoff: ''
+  reviewed: false
+  unavailable: []
+  available: []
+  stages:
+  - D0
+  - D1
+  - D3
+  - D6
+  - D8
+  - D10
+  - Harvest
+  - Wash
+  - Formulation
+  - Final product
+  - Post-thaw
+  - Release
+  - Post-release
+encoding:
+  one_hot: true
+  target_encoding: true
+  feature_hashing: true
+  one_hot_top_x: 10
+  onehot_max_categories: 5
+  target_max_categories: 6
+  max_cardinality_ratio: 0.5
+  target_encoding_smoothing: 5.0
+  target_encoding_folds: 5
+  target_encoding_fallback: hashing
+  hashing_min_buckets: 8
+  hashing_max_buckets: 16
+  hashing_signed: true
+  missing_category: missing
+  target_min_rows_per_category: 3.0
+  hashing_min_rows: 20
+  missing_indicators: true
+  impute: none
+quality:
+  min_non_missing: 8
+  duplicate_r2_threshold: 0.99
+  duplicate_min_overlap: 8
+  near_constant_tolerance: 0.0001
+  proxy_correlation: 0.95
+clustering:
+  action: linear
+  method: spearman
+  threshold: 0.8
+  min_size: 2
+  min_overlap: 8
+  prefer: []
+split:
+  strategy: ''
+  validation_fraction: 0.25
+  order_column: ''
+  folds: 0
+  stratify: true
+missingness:
+  enabled: true
+  threshold: 0.9
+  min_rate: 0.05
+  max_rate: 0.95
+  min_size: 2
+  min_strength: 0.1
+  max_categories: 20
+report:
+  preview_rows: 10
+  max_table_rows: 500

@@ -1,0 +1,81 @@
+# Known data corrections, applied by `pvf build` while cleaning the site files.
+#
+# Each rule: site, column, ONE action, and optionally a condition and a reason.
+#   set: <value>            replace the value (null → missing)
+#   replace_text: [[a, b]]  substring replacements, applied in order
+#   replace_values: {a: b}  whole-value replacements
+#   divide_by: <number>     rescale a numeric column (applied after type coercion)
+#   when: {equals: v}                  only rows where this column is v (as text)
+#   when: {column: other, equals: v}   only rows where another column is v
+# A named rule can be switched off with `cleaning.disable: [name]` in pvf.yaml.
+
+corrections:
+  - name: clump_count_date_serial
+    site: Raritan
+    column: "Post-Mixing Clumps: # of Clumps"
+    when: {equals: "45691"}
+    set: null
+    reason: a clump count Excel turned into a date serial
+
+  - name: israel_country
+    site: Raritan
+    column: Country
+    when: {column: Clinical Site, equals: "107306"}
+    set: Israel
+    reason: the site is in Israel; the export has the wrong country
+
+  - name: raritan_type_commercial
+    site: Raritan
+    column: Type
+    set: Commercial
+    reason: the Raritan export does not fill Type, and everything it holds is commercial manufacturing
+
+  - name: raritan_oos_type_spelling
+    site: Raritan
+    column: OOS Type
+    replace_text:
+      - [VIability, Viability]
+      - [Low Dose, Dose]
+      - ["Phenotype (%CD3+, %NK)", "CD3%,NK Cell%"]
+      - [Phenotype (NK%), NK Cell%]
+      - [Concentration, Viable Cell Concentration]
+      - [CAR, CAR%]
+      - [CAR%%, CAR%]
+      - [Phenotype, CD3%]
+      - [Potency, IFN Gamma Potency]
+      - [IFN Gamma Potency, IFN Gamma]
+    reason: Raritan spells OOS types its own way
+
+  - name: ghent_oos_type_spelling
+    site: Ghent
+    column: OOS Type
+    replace_text:
+      - [IFN Gamma Potency, IFN Gamma]
+    reason: one spelling for one OOS type
+
+  - name: qcgs03v_pre_activation_clumps
+    site: Ghent
+    column: "Pre-Activation Clumps: Y/N?"
+    when: {column: "Patient Lot/Batch #", equals: QCGS03V}
+    set: "No"
+    reason: a known bad cell for lot QCGS03V
+
+  - name: ghent_mycoplasma_spelling
+    site: Ghent
+    column: Mycoplasma
+    replace_values: {mycoplasma not detected: not detected}
+    reason: one spelling for a negative result
+
+  - name: raritan_withdrawal_spelling
+    site: Raritan
+    column: Non-Conformance Type
+    replace_values: {withdrawn: withdrawal}
+    reason: one spelling for a withdrawal
+
+  # Scale: some counts are stored without their 1e6 divisor.
+  - {site: Raritan, column: Total Viable Cells/bag, divide_by: 1000000, reason: stored without the 1e6 divisor}
+  - {site: Raritan, column: Total Viable Cells for Recovery (cells), divide_by: 1000000, reason: stored without the 1e6 divisor}
+  - {site: Raritan, column: Final Formulation CS5 Viable Cell Concentration A (cells/mL), divide_by: 1000000, reason: stored without the 1e6 divisor}
+  - {site: Raritan, column: Final Formulation CS5 Viable Cell Concentration B (cells/mL), divide_by: 1000000, reason: stored without the 1e6 divisor}
+  - {site: Ghent, column: "Target Final Seeding Density per Area (VC/cm^2) G-Rex A", divide_by: 1000000, reason: stored without the 1e6 divisor}
+  - {site: Ghent, column: "Target Final Seeding Density per Area (VC/cm^2) G-Rex B", divide_by: 1000000, reason: stored without the 1e6 divisor}

@@ -668,7 +668,7 @@ def test_a_report_that_fails_cannot_leave_a_finished_package(tmp_path, monkeypat
     directory = tmp_path / "demo"
     config_path = dummy_data.write_config(directory)
     config = cli.load_config(config_path)
-    cli.run_build(config, mode="dev", config_path=config_path)
+    cli.run_build(config, mode="dev")
     spec = taskconfig.load(directory / dummy_data.TASK_FILES[0])
 
     def explode(*args, **kwargs):
@@ -676,7 +676,7 @@ def test_a_report_that_fails_cannot_leave_a_finished_package(tmp_path, monkeypat
 
     monkeypatch.setattr(report, "build_task_payload", explode)
     with pytest.raises(RuntimeError, match="the report broke"):
-        cli.run_task(spec)
+        cli.run_task(config, spec)
 
     folders = list((spec.output_root / spec.name).iterdir())
     assert folders and all(f.name.endswith(package.FAILED_SUFFIX) for f in folders)
@@ -692,23 +692,32 @@ def test_a_report_that_fails_cannot_leave_a_finished_package(tmp_path, monkeypat
 def test_a_sharepoint_read_is_recorded_by_location_not_by_a_local_hash(tmp_path):
     """The bug this covers: with sources.location: sharepoint, provenance hashed
     the local copies named in config, which did not exist, and warned per file."""
-    config = {"paths": {"phf_ghent": str(tmp_path / "absent" / "PHF.xlsm")}}
+    from pvf import config as workspace
+
+    config = {
+        "paths": {"phf_ghent": str(tmp_path / "absent" / "PHF.xlsm")},
+        "sources": {"location": "sharepoint"},
+        "sharepoint": {"phf_ghent": {"path": "Batch data/PHF.xlsm", "drive_id": "DRIVE_X"}},
+    }
     frame = pd.DataFrame({"Patient Lot/Batch #": ["A", "B"], "Value": [1.0, 2.0]})
+    reader = lambda **kwargs: frame  # noqa: E731 — stands in for io_sharepoint
     mark = cli.log.mark()
 
-    source = cli._source(config, "phf_ghent", frame, remote=True)
+    source = workspace.source(config, "phf_ghent", reader)
+    assert source.read() is frame
+    record = source.record(frame)
 
-    assert source.kind == "remote"
-    assert source.location.startswith("SharePoint DRIVE_ID_GHENT: Batch data/PHF.xlsm")
-    assert source.digest == provenance.frame_digest(frame)
-    assert source.digest_of == "the table as it was consumed"
+    assert record.kind == "remote"
+    assert record.location.startswith("SharePoint DRIVE_X: Batch data/PHF.xlsm [BR Data]")
+    assert record.digest == provenance.frame_digest(frame)
+    assert record.digest_of == "the table as it was consumed"
     assert not [e for e in cli.log.since(mark) if e.level == "WARN"]
-    # A source SharePoint does not hold is still hashed where it was read.
+    # A source with no SharePoint entry is still read, and hashed, where it is.
     local = tmp_path / "raw.csv"
     local.write_text("a\n1\n", encoding="utf-8")
     config["paths"]["raw_materials"] = str(local)
-    assert cli._source(config, "raw_materials", frame, remote=True).kind == "local file"
-    assert cli._source(config, "phf_ghent", None, remote=True).kind == "not read"
+    assert workspace.source(config, "raw_materials", reader).record(frame).kind == "local file"
+    assert workspace.source(config, "phf_ghent", reader).record(None).kind == "not read"
 
 
 # ---------------------------------------------------------------------------

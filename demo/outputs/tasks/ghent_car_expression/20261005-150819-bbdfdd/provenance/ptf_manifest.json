@@ -1,0 +1,176 @@
+{
+  "manifest_version": 2,
+  "stage": "ptf",
+  "status": "complete",
+  "run_id": "20261005-150817-860e27",
+  "started": "2026-10-05T15:08:17",
+  "finished": "2026-10-05T15:08:18",
+  "config": {
+    "path": "/home/user/pvf_tasks_jan/demo/pvf.yaml",
+    "digest": "0f49b62002574f4a6c84c919a3d8c6ceda134002c85c9cd6b372b853a33052b0"
+  },
+  "inputs": [
+    {
+      "label": "ptf",
+      "location": "/home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx",
+      "kind": "local file",
+      "digest": "db04afebbe50145d8a3a11ce0bd90afaad86a5bafcf507a552d048dd48f126b3",
+      "digest_of": "file bytes",
+      "note": ""
+    },
+    {
+      "label": "phf_ghent",
+      "location": "/home/user/pvf_tasks_jan/demo/data/raw/phf_ghent.xlsx",
+      "kind": "local file",
+      "digest": "a6dca3ee3fdcb31f42302eb5e404545a458cf31a27c0a353f80bdee7c7c7c38b",
+      "digest_of": "file bytes",
+      "note": ""
+    },
+    {
+      "label": "phf_raritan",
+      "location": "/home/user/pvf_tasks_jan/demo/data/raw/phf_raritan.xlsx",
+      "kind": "local file",
+      "digest": "b56c64235cc3610cb7d52f287c69a90bfdb9a221abacac86fed6ee1c872c39b1",
+      "digest_of": "file bytes",
+      "note": ""
+    },
+    {
+      "label": "param_mapping",
+      "location": "/home/user/pvf_tasks_jan/demo/data/raw/parameter_requirements.xlsx",
+      "kind": "local file",
+      "digest": "2587ee3f3ea96cee4416346146afe6b111c2dbae9c3eb6e68aa296cce9cd3006",
+      "digest_of": "file bytes",
+      "note": ""
+    },
+    {
+      "label": "investigations",
+      "location": "/home/user/pvf_tasks_jan/demo/data/raw/investigations_power_query.xlsx",
+      "kind": "local file",
+      "digest": "a65dd43c6fca6ee43010ed22bf277ea2ce38208f96f2286b493f639da71ecdfe",
+      "digest_of": "file bytes",
+      "note": ""
+    }
+  ],
+  "outputs": [
+    {
+      "what": "report",
+      "path": "../../outputs/reports/ptf_report.html",
+      "bytes": 21310,
+      "sha256": "0d26af7282abe14dd4c8fb719800a7f984e1567fc1cc476f542f48f295104b2b"
+    },
+    {
+      "what": "new parameters",
+      "path": "new_parameters.csv",
+      "bytes": 117,
+      "sha256": "8d4cf3113d91f93785c365662f20cc5b32000896bd657dd8debd6c899e8de7f7"
+    }
+  ],
+  "warnings": [
+    "1 mapping rows have no Ghent name and were dropped",
+    "Ghent PHF: 1 of 93 columns are not PTF parameters",
+    "Raritan batch data: 2 of 93 columns are not PTF parameters",
+    "Investigations Power Query: 3 of 5 columns are not PTF parameters"
+  ],
+  "errors": [],
+  "ptf": {
+    "location": "/home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx",
+    "parameters": 204
+  },
+  "sources_compared": {
+    "Ghent PHF": 93,
+    "Raritan batch data": 93,
+    "Investigations Power Query": 5
+  },
+  "sources_not_read": [],
+  "not_in_ptf": {
+    "Ghent PHF": [
+      "Local Comment"
+    ],
+    "Raritan batch data": [
+      "Local Site Code",
+      "CMD Comment"
+    ],
+    "Investigations Power Query": [
+      "Query[Investigation ID]",
+      "Query[Root Cause Category]",
+      "Days to Close"
+    ]
+  },
+  "new_parameters": [
+    "Local Comment",
+    "Local Site Code",
+    "CMD Comment",
+    "Query[Investigation ID]",
+    "Query[Root Cause Category]",
+    "Days to Close"
+  ],
+  "provenance": {
+    "run_date": "2026-10-05T15:08:18",
+    "git_commit": "ecc2e282dc5dc5a9e41775075785cf7351f5236f-dirty",
+    "seed": 20260917,
+    "config": "/home/user/pvf_tasks_jan/demo/pvf.yaml",
+    "config_digest": "0f49b62002574f4a6c84c919a3d8c6ceda134002c85c9cd6b372b853a33052b0",
+    "sources": [
+      {
+        "label": "ptf",
+        "location": "/home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx",
+        "kind": "local file",
+        "digest": "db04afebbe50145d8a3a11ce0bd90afaad86a5bafcf507a552d048dd48f126b3",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "phf_ghent",
+        "location": "/home/user/pvf_tasks_jan/demo/data/raw/phf_ghent.xlsx",
+        "kind": "local file",
+        "digest": "a6dca3ee3fdcb31f42302eb5e404545a458cf31a27c0a353f80bdee7c7c7c38b",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "phf_raritan",
+        "location": "/home/user/pvf_tasks_jan/demo/data/raw/phf_raritan.xlsx",
+        "kind": "local file",
+        "digest": "b56c64235cc3610cb7d52f287c69a90bfdb9a221abacac86fed6ee1c872c39b1",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "param_mapping",
+        "location": "/home/user/pvf_tasks_jan/demo/data/raw/parameter_requirements.xlsx",
+        "kind": "local file",
+        "digest": "2587ee3f3ea96cee4416346146afe6b111c2dbae9c3eb6e68aa296cce9cd3006",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "investigations",
+        "location": "/home/user/pvf_tasks_jan/demo/data/raw/investigations_power_query.xlsx",
+        "kind": "local file",
+        "digest": "a65dd43c6fca6ee43010ed22bf277ea2ce38208f96f2286b493f639da71ecdfe",
+        "digest_of": "file bytes",
+        "note": ""
+      }
+    ],
+    "inputs": {
+      "ptf": "db04afebbe50145d8a3a11ce0bd90afaad86a5bafcf507a552d048dd48f126b3",
+      "phf_ghent": "a6dca3ee3fdcb31f42302eb5e404545a458cf31a27c0a353f80bdee7c7c7c38b",
+      "phf_raritan": "b56c64235cc3610cb7d52f287c69a90bfdb9a221abacac86fed6ee1c872c39b1",
+      "param_mapping": "2587ee3f3ea96cee4416346146afe6b111c2dbae9c3eb6e68aa296cce9cd3006",
+      "investigations": "a65dd43c6fca6ee43010ed22bf277ea2ce38208f96f2286b493f639da71ecdfe"
+    },
+    "environment": {
+      "python": "3.12.3",
+      "platform": "Linux-6.18.44-fc-v70-x86_64-with-glibc2.39",
+      "pandas": "3.0.6",
+      "numpy": "2.5.3",
+      "scipy": "1.18.1",
+      "scikit-learn": "1.9.1",
+      "plotly": "7.1.0",
+      "openpyxl": "3.1.5",
+      "pyyaml": "6.0.3",
+      "python-dotenv": "1.2.4",
+      "stlite (report runtime)": "1.8.1"
+    }
+  }
+}

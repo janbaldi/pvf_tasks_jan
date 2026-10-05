@@ -1,0 +1,1223 @@
+{
+  "recipe_version": 2,
+  "fitted_on": "14 training batches (whole groups of Vector Lot, drawn with seed 20260917: LV-909)",
+  "rows_fitted": 14,
+  "settings": {
+    "one_hot": true,
+    "target_encoding": true,
+    "feature_hashing": true,
+    "one_hot_top_x": 10,
+    "onehot_max_categories": 5,
+    "target_max_categories": 6,
+    "max_cardinality_ratio": 0.5,
+    "target_encoding_smoothing": 5.0,
+    "target_encoding_folds": 5,
+    "target_encoding_fallback": "hashing",
+    "hashing_min_buckets": 8,
+    "hashing_max_buckets": 16,
+    "hashing_signed": true,
+    "missing_category": "missing",
+    "target_min_rows_per_category": 5.0,
+    "hashing_min_rows": 100,
+    "missing_indicators": false,
+    "impute": "none",
+    "cluster_corr_method": "spearman",
+    "cluster_corr_threshold": 0.7,
+    "cluster_min_size": 2,
+    "cluster_min_overlap": 8,
+    "min_non_missing": 8,
+    "duplicate_r2_threshold": 0.99,
+    "duplicate_min_overlap": 8,
+    "near_constant_tolerance": 0.0001,
+    "proxy_correlation": 0.95,
+    "seed": 20260917
+  },
+  "binary": {
+    "Day 10 Clump Present Bag 1": {
+      "name": "Day 10 Clump Present Bag 1_Yes",
+      "positive": "Yes",
+      "negative": "No"
+    },
+    "Day 10 Clump Present Bag 2": {
+      "name": "Day 10 Clump Present Bag 2_Yes",
+      "positive": "Yes",
+      "negative": "No"
+    },
+    "Day 10 Clump Present Bag 3": {
+      "name": "Day 10 Clump Present Bag 3_Yes",
+      "positive": "Yes",
+      "negative": "No"
+    },
+    "Country": {
+      "name": "Country_Netherlands",
+      "positive": "Netherlands",
+      "negative": "Belgium"
+    },
+    "Pre-Activation Clumps: Y/N?": {
+      "name": "Pre-Activation Clumps: Y/N?_Yes",
+      "positive": "Yes",
+      "negative": "No"
+    },
+    "Clinical Site ID": {
+      "name": "Clinical Site ID_1201",
+      "positive": "1201",
+      "negative": "1200"
+    },
+    "IL-2 Lot": {
+      "name": "IL-2 Lot_IL2-201",
+      "positive": "IL2-201",
+      "negative": "IL2-200"
+    },
+    "LV CoA Site/Format": {
+      "name": "LV CoA Site/Format_Raritan/500mL",
+      "positive": "Raritan/500mL",
+      "negative": "Ghent/250mL"
+    }
+  },
+  "one_hot": {
+    "Shift Team": {
+      "categories": [
+        "C",
+        "F",
+        "A",
+        "D",
+        "E",
+        "B"
+      ],
+      "other": "Other",
+      "outputs": {
+        "C": "Shift Team_C",
+        "F": "Shift Team_F",
+        "A": "Shift Team_A",
+        "D": "Shift Team_D",
+        "E": "Shift Team_E",
+        "B": "Shift Team_B",
+        "Other": "Shift Team_Other"
+      }
+    },
+    "Clinical Site": {
+      "categories": [
+        "UZ Gent",
+        "UZ Leuven",
+        "AZ Sint-Jan"
+      ],
+      "other": "Other",
+      "outputs": {
+        "UZ Gent": "Clinical Site_UZ Gent",
+        "UZ Leuven": "Clinical Site_UZ Leuven",
+        "AZ Sint-Jan": "Clinical Site_AZ Sint-Jan",
+        "Other": "Clinical Site_Other"
+      }
+    },
+    "Media Lot": {
+      "categories": [
+        "MED-100",
+        "MED-101",
+        "MED-103",
+        "MED-102"
+      ],
+      "other": "Other",
+      "outputs": {
+        "MED-100": "Media Lot_MED-100",
+        "MED-101": "Media Lot_MED-101",
+        "MED-103": "Media Lot_MED-103",
+        "MED-102": "Media Lot_MED-102",
+        "Other": "Media Lot_Other"
+      }
+    },
+    "growth profile": {
+      "categories": [
+        "normal",
+        "overgrowth",
+        "undergrowth"
+      ],
+      "other": "Other",
+      "outputs": {
+        "normal": "growth profile_normal",
+        "overgrowth": "growth profile_overgrowth",
+        "undergrowth": "growth profile_undergrowth",
+        "Other": "growth profile_Other"
+      }
+    }
+  },
+  "target_encoding": {},
+  "hashing": {},
+  "ordinal": {
+    "Clump Severity": {
+      "categories": [
+        "None",
+        "Low",
+        "Medium",
+        "High"
+      ],
+      "name": "Clump Severity"
+    }
+  },
+  "durations": [
+    "Day 3 Incubation Time (120min+/-30 min)",
+    "Amount of Time G-Rex A in Incubator (120min+/-30 min)",
+    "Amount of Time G-Rex B in Incubator (120min+/-30 min)"
+  ],
+  "numeric": [
+    "Day 3 Number of G-Rex to seed",
+    "Total Viable Cells for Expansion after VSVg Sampling (cells)",
+    "Day 3 Total Viable Cells Available for Seeding G-Rex (cells)",
+    "Day 3 Actual Viable Cells Seeded G-Rex A",
+    "Day 3 Actual Viable Cells Seeded G-Rex B",
+    "# of Culture Bags",
+    "Volume Vector Added to G-Rex A (mL)",
+    "Volume Vector Added to G-Rex B (mL)",
+    "Day 6 Lactate G-Rex A (g/L)",
+    "Day 6 Lactate G-Rex B (g/L)",
+    "Day 8 Lactate G-Rex A (g/L)",
+    "Harvest Lactate (g/L)",
+    "Day 6 Glucose G-Rex A (g/L)",
+    "Day 6 Glucose G-Rex B (g/L)",
+    "Day 8 Glucose G-Rex A (g/L)",
+    "Day 8 Glucose G-Rex B (g/L)",
+    "Harvest Glucose (g/L)",
+    "cPDL (D3 to D10)",
+    "Day 3 Average of Pooled Viability (%)",
+    "Harvest Pre-Wash Cell Viability (%)",
+    "Harvest Pre-Wash Viable Cell Count after Sampling (cells)",
+    "Harvest Pre-Wash Flow CAR+ Expression (%)",
+    "Day 3 Incubation Time (120min+/-30 min)",
+    "Amount of Time G-Rex A in Incubator (120min+/-30 min)",
+    "Amount of Time G-Rex B in Incubator (120min+/-30 min)",
+    "Pre-Activation Clumps: # of Clumps before massage",
+    "Pre-Activation Clumps: Size of Clumps before massage",
+    "Post-Massaging: # of Clumps",
+    "Post-Massaging: Size of Clumps",
+    "Post-Mixing Clumps: # of Clumps",
+    "Post-Mixing Clumps: Size of Clumps",
+    "Day 1 Number of Mixing Cycles Post Activation",
+    "Day 6 Activity of IL-2 (IU/mg)",
+    "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+    "Day 8 Activity of IL-2 (IU/mg)",
+    "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+    "Day 6 CO2 Saturation (%)",
+    "Target Final Seeding Density per Area (VC/cm^2) G-Rex A",
+    "Total Viable Cells/bag",
+    "Number of Prior Lines of Therapy",
+    "LV CoA LV Titer",
+    "LV CoA Physical Titer p24 ELISA",
+    "LV CoA PI Ratio",
+    "LV CoA CAR% - Donor 1",
+    "LV CoA CAR% - Donor 2",
+    "LV CoA IFNg - Donor 1",
+    "LV CoA IFNg - Donor 2",
+    "LV CoA pH",
+    "LV CoA Osmolality",
+    "LV CoA Volume",
+    "LV CoA DNA size",
+    "LV CoA HCP",
+    "LV CoA pDNA",
+    "LV CoA cDNA",
+    "LV CoA E1a cDNA",
+    "LV CoA E1b cDNA",
+    "Harvest Lactate Normalized",
+    "D6 Lact / E6 cells",
+    "D10 Lact / E6 cells",
+    "D6 Glucose / E6 cells",
+    "D8 Glucose / E6 cells",
+    "D10 Glucose / E6 cells",
+    "Lactate_perE6_slope_D6_D10",
+    "Lactate_perE6_AUC_D6_D10",
+    "Glucose_perE6_slope_D6_D10",
+    "Glucose_perE6_AUC_D6_D10",
+    "Lactate_to_Glucose_perE6_ratio_D6",
+    "Lactate_to_Glucose_perE6_ratio_D10",
+    "D3-D10 viability change (%)",
+    "Viability change during expansion",
+    "D3 % cells seeded / target",
+    "D3_seeding_error_pct",
+    "D3_seeding_within_5pct",
+    "Avg_cells_per_bag_D3",
+    "Seeded_cells_mean_AB",
+    "Seeded_cells_min_AB",
+    "Seeded_cells_max_AB",
+    "Seeded_cells_std_AB",
+    "Seeded_cells_cv_AB",
+    "Vector_volume_mean_AB_mL",
+    "Vector_volume_min_AB_mL",
+    "Vector_volume_max_AB_mL",
+    "Vector_volume_std_AB_mL",
+    "Vector_volume_cv_AB_mL",
+    "MOI_eff_G-Rex_A",
+    "log_MOI_eff_G-Rex_A",
+    "MOI_eff_G-Rex_B",
+    "log_MOI_eff_G-Rex_B",
+    "MOI_eff_pool",
+    "log_MOI_eff_pool",
+    "MOI_eff_quality_adjusted",
+    "D3_contact_time_deviation",
+    "D3_contact_time_within_window",
+    "D3_contact_time_deviation_G-Rex_A",
+    "D3_contact_time_within_window_G-Rex_A",
+    "D3_contact_time_deviation_G-Rex_B",
+    "D3_contact_time_within_window_G-Rex_B",
+    "Incubation D0-D1 (min)",
+    "Incubation D1-D3",
+    "Incubation D3-D6 (min)",
+    "Incubation D6-D8 (min)",
+    "Incubation D8-D10 (min)",
+    "Incubation_total_D3_to_D10_min",
+    "Clump_count_reduction_fraction",
+    "Clump_size_reduction_fraction",
+    "Clump_burden_weighted_pre",
+    "Clump_burden_weighted_post_massage",
+    "Clump_burden_weighted_post_mixing",
+    "Mixing_cycles_x_pre_activation_clump_count",
+    "D3_clumps_flag",
+    "D10_clump_bag_count",
+    "CAR T produced per cell engaged D3",
+    "IL2_IU_total_D6",
+    "IL2_IU_total_D8"
+  ],
+  "retained_numeric": [
+    "# of Culture Bags",
+    "Amount of Time G-Rex A in Incubator (120min+/-30 min)",
+    "Amount of Time G-Rex B in Incubator (120min+/-30 min)",
+    "Avg_cells_per_bag_D3",
+    "CAR T produced per cell engaged D3",
+    "Clump_burden_weighted_post_massage",
+    "Clump_burden_weighted_post_mixing",
+    "Clump_burden_weighted_pre",
+    "Clump_count_reduction_fraction",
+    "Clump_size_reduction_fraction",
+    "D10 Glucose / E6 cells",
+    "D10 Lact / E6 cells",
+    "D10_clump_bag_count",
+    "D3-D10 viability change (%)",
+    "D3_contact_time_deviation",
+    "D3_contact_time_deviation_G-Rex_A",
+    "D3_contact_time_deviation_G-Rex_B",
+    "D3_contact_time_within_window",
+    "D3_contact_time_within_window_G-Rex_A",
+    "D3_contact_time_within_window_G-Rex_B",
+    "D3_seeding_error_pct",
+    "D3_seeding_within_5pct",
+    "D6 Glucose / E6 cells",
+    "D6 Lact / E6 cells",
+    "D8 Glucose / E6 cells",
+    "Day 1 Number of Mixing Cycles Post Activation",
+    "Day 3 Average of Pooled Viability (%)",
+    "Day 3 Incubation Time (120min+/-30 min)",
+    "Day 3 Total Viable Cells Available for Seeding G-Rex (cells)",
+    "Day 6 Activity of IL-2 (IU/mg)",
+    "Day 6 CO2 Saturation (%)",
+    "Day 6 Glucose G-Rex A (g/L)",
+    "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+    "Day 6 Lactate G-Rex A (g/L)",
+    "Day 8 Activity of IL-2 (IU/mg)",
+    "Day 8 Glucose G-Rex A (g/L)",
+    "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+    "Day 8 Lactate G-Rex A (g/L)",
+    "Glucose_perE6_slope_D6_D10",
+    "Harvest Glucose (g/L)",
+    "Harvest Lactate (g/L)",
+    "Harvest Pre-Wash Cell Viability (%)",
+    "Harvest Pre-Wash Flow CAR+ Expression (%)",
+    "Harvest Pre-Wash Viable Cell Count after Sampling (cells)",
+    "IL2_IU_total_D6",
+    "IL2_IU_total_D8",
+    "Incubation D0-D1 (min)",
+    "Incubation D1-D3",
+    "Incubation D3-D6 (min)",
+    "Incubation D8-D10 (min)",
+    "Lactate_perE6_slope_D6_D10",
+    "Lactate_to_Glucose_perE6_ratio_D10",
+    "Lactate_to_Glucose_perE6_ratio_D6",
+    "MOI_eff_G-Rex_A",
+    "MOI_eff_pool",
+    "MOI_eff_quality_adjusted",
+    "Mixing_cycles_x_pre_activation_clump_count",
+    "Post-Massaging: # of Clumps",
+    "Post-Massaging: Size of Clumps",
+    "Post-Mixing Clumps: # of Clumps",
+    "Post-Mixing Clumps: Size of Clumps",
+    "Pre-Activation Clumps: # of Clumps before massage",
+    "Pre-Activation Clumps: Size of Clumps before massage",
+    "Seeded_cells_min_AB",
+    "Seeded_cells_std_AB",
+    "Target Final Seeding Density per Area (VC/cm^2) G-Rex A",
+    "Vector_volume_cv_AB_mL",
+    "Vector_volume_max_AB_mL",
+    "Vector_volume_mean_AB_mL",
+    "Vector_volume_min_AB_mL",
+    "Volume Vector Added to G-Rex A (mL)",
+    "cPDL (D3 to D10)",
+    "Incubation D6-D8 (min)",
+    "Incubation_total_D3_to_D10_min",
+    "D3_clumps_flag",
+    "Day 3 Actual Viable Cells Seeded G-Rex B",
+    "Day 6 Glucose G-Rex B (g/L)",
+    "Day 6 Lactate G-Rex B (g/L)",
+    "Day 8 Glucose G-Rex B (g/L)",
+    "MOI_eff_G-Rex_B",
+    "Volume Vector Added to G-Rex B (mL)",
+    "log_MOI_eff_G-Rex_B"
+  ],
+  "clusters": {},
+  "passthrough": [
+    "# of Culture Bags",
+    "Amount of Time G-Rex A in Incubator (120min+/-30 min)",
+    "Amount of Time G-Rex B in Incubator (120min+/-30 min)",
+    "Avg_cells_per_bag_D3",
+    "CAR T produced per cell engaged D3",
+    "Clump_burden_weighted_post_massage",
+    "Clump_burden_weighted_post_mixing",
+    "Clump_burden_weighted_pre",
+    "Clump_count_reduction_fraction",
+    "Clump_size_reduction_fraction",
+    "D10 Glucose / E6 cells",
+    "D10 Lact / E6 cells",
+    "D10_clump_bag_count",
+    "D3-D10 viability change (%)",
+    "D3_contact_time_deviation",
+    "D3_contact_time_deviation_G-Rex_A",
+    "D3_contact_time_deviation_G-Rex_B",
+    "D3_contact_time_within_window",
+    "D3_contact_time_within_window_G-Rex_A",
+    "D3_contact_time_within_window_G-Rex_B",
+    "D3_seeding_error_pct",
+    "D3_seeding_within_5pct",
+    "D6 Glucose / E6 cells",
+    "D6 Lact / E6 cells",
+    "D8 Glucose / E6 cells",
+    "Day 1 Number of Mixing Cycles Post Activation",
+    "Day 3 Average of Pooled Viability (%)",
+    "Day 3 Incubation Time (120min+/-30 min)",
+    "Day 3 Total Viable Cells Available for Seeding G-Rex (cells)",
+    "Day 6 Activity of IL-2 (IU/mg)",
+    "Day 6 CO2 Saturation (%)",
+    "Day 6 Glucose G-Rex A (g/L)",
+    "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+    "Day 6 Lactate G-Rex A (g/L)",
+    "Day 8 Activity of IL-2 (IU/mg)",
+    "Day 8 Glucose G-Rex A (g/L)",
+    "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+    "Day 8 Lactate G-Rex A (g/L)",
+    "Glucose_perE6_slope_D6_D10",
+    "Harvest Glucose (g/L)",
+    "Harvest Lactate (g/L)",
+    "Harvest Pre-Wash Cell Viability (%)",
+    "Harvest Pre-Wash Flow CAR+ Expression (%)",
+    "Harvest Pre-Wash Viable Cell Count after Sampling (cells)",
+    "IL2_IU_total_D6",
+    "IL2_IU_total_D8",
+    "Incubation D0-D1 (min)",
+    "Incubation D1-D3",
+    "Incubation D3-D6 (min)",
+    "Incubation D8-D10 (min)",
+    "Lactate_perE6_slope_D6_D10",
+    "Lactate_to_Glucose_perE6_ratio_D10",
+    "Lactate_to_Glucose_perE6_ratio_D6",
+    "MOI_eff_G-Rex_A",
+    "MOI_eff_pool",
+    "MOI_eff_quality_adjusted",
+    "Mixing_cycles_x_pre_activation_clump_count",
+    "Post-Massaging: # of Clumps",
+    "Post-Massaging: Size of Clumps",
+    "Post-Mixing Clumps: # of Clumps",
+    "Post-Mixing Clumps: Size of Clumps",
+    "Pre-Activation Clumps: # of Clumps before massage",
+    "Pre-Activation Clumps: Size of Clumps before massage",
+    "Seeded_cells_min_AB",
+    "Seeded_cells_std_AB",
+    "Target Final Seeding Density per Area (VC/cm^2) G-Rex A",
+    "Vector_volume_cv_AB_mL",
+    "Vector_volume_max_AB_mL",
+    "Vector_volume_mean_AB_mL",
+    "Vector_volume_min_AB_mL",
+    "Volume Vector Added to G-Rex A (mL)",
+    "cPDL (D3 to D10)",
+    "Incubation D6-D8 (min)",
+    "Incubation_total_D3_to_D10_min",
+    "D3_clumps_flag",
+    "Day 3 Actual Viable Cells Seeded G-Rex B",
+    "Day 6 Glucose G-Rex B (g/L)",
+    "Day 6 Lactate G-Rex B (g/L)",
+    "Day 8 Glucose G-Rex B (g/L)",
+    "MOI_eff_G-Rex_B",
+    "Volume Vector Added to G-Rex B (mL)",
+    "log_MOI_eff_G-Rex_B"
+  ],
+  "dropped_for_sparsity": [
+    "Day 3 Actual Viable Cells Seeded G-Rex B",
+    "Day 6 Glucose G-Rex B (g/L)",
+    "Day 6 Lactate G-Rex B (g/L)",
+    "Day 8 Glucose G-Rex B (g/L)",
+    "MOI_eff_G-Rex_B",
+    "Volume Vector Added to G-Rex B (mL)",
+    "log_MOI_eff_G-Rex_B"
+  ],
+  "encoded_columns": [
+    "Day 10 Clump Present Bag 1_Yes",
+    "Day 10 Clump Present Bag 2_Yes",
+    "Day 10 Clump Present Bag 3_Yes",
+    "Country_Netherlands",
+    "Pre-Activation Clumps: Y/N?_Yes",
+    "Clinical Site ID_1201",
+    "IL-2 Lot_IL2-201",
+    "LV CoA Site/Format_Raritan/500mL",
+    "Shift Team_C",
+    "Shift Team_F",
+    "Shift Team_A",
+    "Shift Team_D",
+    "Shift Team_E",
+    "Shift Team_B",
+    "Clinical Site_UZ Gent",
+    "Clinical Site_UZ Leuven",
+    "Clinical Site_AZ Sint-Jan",
+    "Media Lot_MED-100",
+    "Media Lot_MED-101",
+    "Media Lot_MED-103",
+    "Media Lot_MED-102",
+    "growth profile_normal",
+    "growth profile_overgrowth",
+    "growth profile_undergrowth",
+    "Clump Severity",
+    "# of Culture Bags",
+    "Amount of Time G-Rex A in Incubator (120min+/-30 min)",
+    "Amount of Time G-Rex B in Incubator (120min+/-30 min)",
+    "Avg_cells_per_bag_D3",
+    "CAR T produced per cell engaged D3",
+    "Clump_burden_weighted_post_massage",
+    "Clump_burden_weighted_post_mixing",
+    "Clump_burden_weighted_pre",
+    "Clump_count_reduction_fraction",
+    "Clump_size_reduction_fraction",
+    "D10 Glucose / E6 cells",
+    "D10 Lact / E6 cells",
+    "D10_clump_bag_count",
+    "D3-D10 viability change (%)",
+    "D3_contact_time_deviation",
+    "D3_contact_time_deviation_G-Rex_A",
+    "D3_contact_time_deviation_G-Rex_B",
+    "D3_contact_time_within_window",
+    "D3_contact_time_within_window_G-Rex_A",
+    "D3_contact_time_within_window_G-Rex_B",
+    "D3_seeding_error_pct",
+    "D6 Glucose / E6 cells",
+    "D6 Lact / E6 cells",
+    "D8 Glucose / E6 cells",
+    "Day 1 Number of Mixing Cycles Post Activation",
+    "Day 3 Average of Pooled Viability (%)",
+    "Day 3 Incubation Time (120min+/-30 min)",
+    "Day 3 Total Viable Cells Available for Seeding G-Rex (cells)",
+    "Day 6 Activity of IL-2 (IU/mg)",
+    "Day 6 CO2 Saturation (%)",
+    "Day 6 Glucose G-Rex A (g/L)",
+    "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+    "Day 6 Lactate G-Rex A (g/L)",
+    "Day 8 Activity of IL-2 (IU/mg)",
+    "Day 8 Glucose G-Rex A (g/L)",
+    "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+    "Day 8 Lactate G-Rex A (g/L)",
+    "Glucose_perE6_slope_D6_D10",
+    "Harvest Glucose (g/L)",
+    "Harvest Lactate (g/L)",
+    "Harvest Pre-Wash Cell Viability (%)",
+    "Harvest Pre-Wash Flow CAR+ Expression (%)",
+    "Harvest Pre-Wash Viable Cell Count after Sampling (cells)",
+    "IL2_IU_total_D6",
+    "IL2_IU_total_D8",
+    "Incubation D3-D6 (min)",
+    "Incubation D8-D10 (min)",
+    "Lactate_perE6_slope_D6_D10",
+    "Lactate_to_Glucose_perE6_ratio_D10",
+    "Lactate_to_Glucose_perE6_ratio_D6",
+    "MOI_eff_G-Rex_A",
+    "MOI_eff_pool",
+    "MOI_eff_quality_adjusted",
+    "Mixing_cycles_x_pre_activation_clump_count",
+    "Post-Massaging: # of Clumps",
+    "Post-Massaging: Size of Clumps",
+    "Post-Mixing Clumps: # of Clumps",
+    "Post-Mixing Clumps: Size of Clumps",
+    "Pre-Activation Clumps: # of Clumps before massage",
+    "Pre-Activation Clumps: Size of Clumps before massage",
+    "Seeded_cells_min_AB",
+    "Seeded_cells_std_AB",
+    "Target Final Seeding Density per Area (VC/cm^2) G-Rex A",
+    "Vector_volume_cv_AB_mL",
+    "Vector_volume_max_AB_mL",
+    "Vector_volume_mean_AB_mL",
+    "Vector_volume_min_AB_mL",
+    "Volume Vector Added to G-Rex A (mL)",
+    "cPDL (D3 to D10)",
+    "Incubation D6-D8 (min)"
+  ],
+  "indicators": [],
+  "medians": {},
+  "output_columns": [
+    "Day 10 Clump Present Bag 1_Yes",
+    "Day 10 Clump Present Bag 2_Yes",
+    "Day 10 Clump Present Bag 3_Yes",
+    "Country_Netherlands",
+    "Pre-Activation Clumps: Y/N?_Yes",
+    "Clinical Site ID_1201",
+    "IL-2 Lot_IL2-201",
+    "LV CoA Site/Format_Raritan/500mL",
+    "Shift Team_C",
+    "Shift Team_F",
+    "Shift Team_A",
+    "Shift Team_D",
+    "Shift Team_E",
+    "Shift Team_B",
+    "Clinical Site_UZ Gent",
+    "Clinical Site_UZ Leuven",
+    "Clinical Site_AZ Sint-Jan",
+    "Media Lot_MED-100",
+    "Media Lot_MED-101",
+    "Media Lot_MED-103",
+    "Media Lot_MED-102",
+    "growth profile_normal",
+    "growth profile_overgrowth",
+    "growth profile_undergrowth",
+    "Clump Severity",
+    "# of Culture Bags",
+    "Amount of Time G-Rex A in Incubator (120min+/-30 min)",
+    "Amount of Time G-Rex B in Incubator (120min+/-30 min)",
+    "Avg_cells_per_bag_D3",
+    "CAR T produced per cell engaged D3",
+    "Clump_burden_weighted_post_massage",
+    "Clump_burden_weighted_post_mixing",
+    "Clump_burden_weighted_pre",
+    "Clump_count_reduction_fraction",
+    "Clump_size_reduction_fraction",
+    "D10 Glucose / E6 cells",
+    "D10 Lact / E6 cells",
+    "D10_clump_bag_count",
+    "D3-D10 viability change (%)",
+    "D3_contact_time_deviation",
+    "D3_contact_time_deviation_G-Rex_A",
+    "D3_contact_time_deviation_G-Rex_B",
+    "D3_contact_time_within_window",
+    "D3_contact_time_within_window_G-Rex_A",
+    "D3_contact_time_within_window_G-Rex_B",
+    "D3_seeding_error_pct",
+    "D6 Glucose / E6 cells",
+    "D6 Lact / E6 cells",
+    "D8 Glucose / E6 cells",
+    "Day 1 Number of Mixing Cycles Post Activation",
+    "Day 3 Average of Pooled Viability (%)",
+    "Day 3 Incubation Time (120min+/-30 min)",
+    "Day 3 Total Viable Cells Available for Seeding G-Rex (cells)",
+    "Day 6 Activity of IL-2 (IU/mg)",
+    "Day 6 CO2 Saturation (%)",
+    "Day 6 Glucose G-Rex A (g/L)",
+    "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+    "Day 6 Lactate G-Rex A (g/L)",
+    "Day 8 Activity of IL-2 (IU/mg)",
+    "Day 8 Glucose G-Rex A (g/L)",
+    "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+    "Day 8 Lactate G-Rex A (g/L)",
+    "Glucose_perE6_slope_D6_D10",
+    "Harvest Glucose (g/L)",
+    "Harvest Lactate (g/L)",
+    "Harvest Pre-Wash Cell Viability (%)",
+    "Harvest Pre-Wash Flow CAR+ Expression (%)",
+    "Harvest Pre-Wash Viable Cell Count after Sampling (cells)",
+    "IL2_IU_total_D6",
+    "IL2_IU_total_D8",
+    "Incubation D3-D6 (min)",
+    "Incubation D8-D10 (min)",
+    "Lactate_perE6_slope_D6_D10",
+    "Lactate_to_Glucose_perE6_ratio_D10",
+    "Lactate_to_Glucose_perE6_ratio_D6",
+    "MOI_eff_G-Rex_A",
+    "MOI_eff_pool",
+    "MOI_eff_quality_adjusted",
+    "Mixing_cycles_x_pre_activation_clump_count",
+    "Post-Massaging: # of Clumps",
+    "Post-Massaging: Size of Clumps",
+    "Post-Mixing Clumps: # of Clumps",
+    "Post-Mixing Clumps: Size of Clumps",
+    "Pre-Activation Clumps: # of Clumps before massage",
+    "Pre-Activation Clumps: Size of Clumps before massage",
+    "Seeded_cells_min_AB",
+    "Seeded_cells_std_AB",
+    "Target Final Seeding Density per Area (VC/cm^2) G-Rex A",
+    "Vector_volume_cv_AB_mL",
+    "Vector_volume_max_AB_mL",
+    "Vector_volume_mean_AB_mL",
+    "Vector_volume_min_AB_mL",
+    "Volume Vector Added to G-Rex A (mL)",
+    "cPDL (D3 to D10)",
+    "Incubation D6-D8 (min)"
+  ],
+  "dictionary": [
+    {
+      "output": "Day 10 Clump Present Bag 1_Yes",
+      "source": "Day 10 Clump Present Bag 1",
+      "strategy": "binary",
+      "detail": "1 where 'Yes', 0 where 'No'; any other value is left missing"
+    },
+    {
+      "output": "Day 10 Clump Present Bag 2_Yes",
+      "source": "Day 10 Clump Present Bag 2",
+      "strategy": "binary",
+      "detail": "1 where 'Yes', 0 where 'No'; any other value is left missing"
+    },
+    {
+      "output": "Day 10 Clump Present Bag 3_Yes",
+      "source": "Day 10 Clump Present Bag 3",
+      "strategy": "binary",
+      "detail": "1 where 'Yes', 0 where 'No'; any other value is left missing"
+    },
+    {
+      "output": "Country_Netherlands",
+      "source": "Country",
+      "strategy": "binary",
+      "detail": "1 where 'Netherlands', 0 where 'Belgium'; any other value is left missing"
+    },
+    {
+      "output": "Pre-Activation Clumps: Y/N?_Yes",
+      "source": "Pre-Activation Clumps: Y/N?",
+      "strategy": "binary",
+      "detail": "1 where 'Yes', 0 where 'No'; any other value is left missing"
+    },
+    {
+      "output": "Clinical Site ID_1201",
+      "source": "Clinical Site ID",
+      "strategy": "binary",
+      "detail": "1 where '1201', 0 where '1200'; any other value is left missing"
+    },
+    {
+      "output": "IL-2 Lot_IL2-201",
+      "source": "IL-2 Lot",
+      "strategy": "binary",
+      "detail": "1 where 'IL2-201', 0 where 'IL2-200'; any other value is left missing"
+    },
+    {
+      "output": "LV CoA Site/Format_Raritan/500mL",
+      "source": "LV CoA Site/Format",
+      "strategy": "binary",
+      "detail": "1 where 'Raritan/500mL', 0 where 'Ghent/250mL'; any other value is left missing"
+    },
+    {
+      "output": "Shift Team_C",
+      "source": "Shift Team",
+      "strategy": "one-hot",
+      "detail": "1 where 'Shift Team' is 'C'; missing where it is missing"
+    },
+    {
+      "output": "Shift Team_F",
+      "source": "Shift Team",
+      "strategy": "one-hot",
+      "detail": "1 where 'Shift Team' is 'F'; missing where it is missing"
+    },
+    {
+      "output": "Shift Team_A",
+      "source": "Shift Team",
+      "strategy": "one-hot",
+      "detail": "1 where 'Shift Team' is 'A'; missing where it is missing"
+    },
+    {
+      "output": "Shift Team_D",
+      "source": "Shift Team",
+      "strategy": "one-hot",
+      "detail": "1 where 'Shift Team' is 'D'; missing where it is missing"
+    },
+    {
+      "output": "Shift Team_E",
+      "source": "Shift Team",
+      "strategy": "one-hot",
+      "detail": "1 where 'Shift Team' is 'E'; missing where it is missing"
+    },
+    {
+      "output": "Shift Team_B",
+      "source": "Shift Team",
+      "strategy": "one-hot",
+      "detail": "1 where 'Shift Team' is 'B'; missing where it is missing"
+    },
+    {
+      "output": "Clinical Site_UZ Gent",
+      "source": "Clinical Site",
+      "strategy": "one-hot",
+      "detail": "1 where 'Clinical Site' is 'UZ Gent'; missing where it is missing"
+    },
+    {
+      "output": "Clinical Site_UZ Leuven",
+      "source": "Clinical Site",
+      "strategy": "one-hot",
+      "detail": "1 where 'Clinical Site' is 'UZ Leuven'; missing where it is missing"
+    },
+    {
+      "output": "Clinical Site_AZ Sint-Jan",
+      "source": "Clinical Site",
+      "strategy": "one-hot",
+      "detail": "1 where 'Clinical Site' is 'AZ Sint-Jan'; missing where it is missing"
+    },
+    {
+      "output": "Media Lot_MED-100",
+      "source": "Media Lot",
+      "strategy": "one-hot",
+      "detail": "1 where 'Media Lot' is 'MED-100'; missing where it is missing"
+    },
+    {
+      "output": "Media Lot_MED-101",
+      "source": "Media Lot",
+      "strategy": "one-hot",
+      "detail": "1 where 'Media Lot' is 'MED-101'; missing where it is missing"
+    },
+    {
+      "output": "Media Lot_MED-103",
+      "source": "Media Lot",
+      "strategy": "one-hot",
+      "detail": "1 where 'Media Lot' is 'MED-103'; missing where it is missing"
+    },
+    {
+      "output": "Media Lot_MED-102",
+      "source": "Media Lot",
+      "strategy": "one-hot",
+      "detail": "1 where 'Media Lot' is 'MED-102'; missing where it is missing"
+    },
+    {
+      "output": "growth profile_normal",
+      "source": "growth profile",
+      "strategy": "one-hot",
+      "detail": "1 where 'growth profile' is 'normal'; missing where it is missing"
+    },
+    {
+      "output": "growth profile_overgrowth",
+      "source": "growth profile",
+      "strategy": "one-hot",
+      "detail": "1 where 'growth profile' is 'overgrowth'; missing where it is missing"
+    },
+    {
+      "output": "growth profile_undergrowth",
+      "source": "growth profile",
+      "strategy": "one-hot",
+      "detail": "1 where 'growth profile' is 'undergrowth'; missing where it is missing"
+    },
+    {
+      "output": "Clump Severity",
+      "source": "Clump Severity",
+      "strategy": "ordinal",
+      "detail": "rank 1..4 in the PTF's order: None, Low, Medium, High"
+    },
+    {
+      "output": "# of Culture Bags",
+      "source": "# of Culture Bags",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Amount of Time G-Rex A in Incubator (120min+/-30 min)",
+      "source": "Amount of Time G-Rex A in Incubator (120min+/-30 min)",
+      "strategy": "duration",
+      "detail": "used as recorded, with anything at or below zero treated as missing"
+    },
+    {
+      "output": "Amount of Time G-Rex B in Incubator (120min+/-30 min)",
+      "source": "Amount of Time G-Rex B in Incubator (120min+/-30 min)",
+      "strategy": "duration",
+      "detail": "used as recorded, with anything at or below zero treated as missing"
+    },
+    {
+      "output": "Avg_cells_per_bag_D3",
+      "source": "Avg_cells_per_bag_D3",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "CAR T produced per cell engaged D3",
+      "source": "CAR T produced per cell engaged D3",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Clump_burden_weighted_post_massage",
+      "source": "Clump_burden_weighted_post_massage",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Clump_burden_weighted_post_mixing",
+      "source": "Clump_burden_weighted_post_mixing",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Clump_burden_weighted_pre",
+      "source": "Clump_burden_weighted_pre",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Clump_count_reduction_fraction",
+      "source": "Clump_count_reduction_fraction",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Clump_size_reduction_fraction",
+      "source": "Clump_size_reduction_fraction",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "D10 Glucose / E6 cells",
+      "source": "D10 Glucose / E6 cells",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "D10 Lact / E6 cells",
+      "source": "D10 Lact / E6 cells",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "D10_clump_bag_count",
+      "source": "D10_clump_bag_count",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "D3-D10 viability change (%)",
+      "source": "D3-D10 viability change (%)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "D3_contact_time_deviation",
+      "source": "D3_contact_time_deviation",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "D3_contact_time_deviation_G-Rex_A",
+      "source": "D3_contact_time_deviation_G-Rex_A",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "D3_contact_time_deviation_G-Rex_B",
+      "source": "D3_contact_time_deviation_G-Rex_B",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "D3_contact_time_within_window",
+      "source": "D3_contact_time_within_window",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "D3_contact_time_within_window_G-Rex_A",
+      "source": "D3_contact_time_within_window_G-Rex_A",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "D3_contact_time_within_window_G-Rex_B",
+      "source": "D3_contact_time_within_window_G-Rex_B",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "D3_seeding_error_pct",
+      "source": "D3_seeding_error_pct",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "D6 Glucose / E6 cells",
+      "source": "D6 Glucose / E6 cells",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "D6 Lact / E6 cells",
+      "source": "D6 Lact / E6 cells",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "D8 Glucose / E6 cells",
+      "source": "D8 Glucose / E6 cells",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Day 1 Number of Mixing Cycles Post Activation",
+      "source": "Day 1 Number of Mixing Cycles Post Activation",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Day 3 Average of Pooled Viability (%)",
+      "source": "Day 3 Average of Pooled Viability (%)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Day 3 Incubation Time (120min+/-30 min)",
+      "source": "Day 3 Incubation Time (120min+/-30 min)",
+      "strategy": "duration",
+      "detail": "used as recorded, with anything at or below zero treated as missing"
+    },
+    {
+      "output": "Day 3 Total Viable Cells Available for Seeding G-Rex (cells)",
+      "source": "Day 3 Total Viable Cells Available for Seeding G-Rex (cells)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Day 6 Activity of IL-2 (IU/mg)",
+      "source": "Day 6 Activity of IL-2 (IU/mg)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Day 6 CO2 Saturation (%)",
+      "source": "Day 6 CO2 Saturation (%)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Day 6 Glucose G-Rex A (g/L)",
+      "source": "Day 6 Glucose G-Rex A (g/L)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+      "source": "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Day 6 Lactate G-Rex A (g/L)",
+      "source": "Day 6 Lactate G-Rex A (g/L)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Day 8 Activity of IL-2 (IU/mg)",
+      "source": "Day 8 Activity of IL-2 (IU/mg)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Day 8 Glucose G-Rex A (g/L)",
+      "source": "Day 8 Glucose G-Rex A (g/L)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+      "source": "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Day 8 Lactate G-Rex A (g/L)",
+      "source": "Day 8 Lactate G-Rex A (g/L)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Glucose_perE6_slope_D6_D10",
+      "source": "Glucose_perE6_slope_D6_D10",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Harvest Glucose (g/L)",
+      "source": "Harvest Glucose (g/L)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Harvest Lactate (g/L)",
+      "source": "Harvest Lactate (g/L)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Harvest Pre-Wash Cell Viability (%)",
+      "source": "Harvest Pre-Wash Cell Viability (%)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Harvest Pre-Wash Flow CAR+ Expression (%)",
+      "source": "Harvest Pre-Wash Flow CAR+ Expression (%)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Harvest Pre-Wash Viable Cell Count after Sampling (cells)",
+      "source": "Harvest Pre-Wash Viable Cell Count after Sampling (cells)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "IL2_IU_total_D6",
+      "source": "IL2_IU_total_D6",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "IL2_IU_total_D8",
+      "source": "IL2_IU_total_D8",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Incubation D3-D6 (min)",
+      "source": "Incubation D3-D6 (min)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Incubation D8-D10 (min)",
+      "source": "Incubation D8-D10 (min)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Lactate_perE6_slope_D6_D10",
+      "source": "Lactate_perE6_slope_D6_D10",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Lactate_to_Glucose_perE6_ratio_D10",
+      "source": "Lactate_to_Glucose_perE6_ratio_D10",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Lactate_to_Glucose_perE6_ratio_D6",
+      "source": "Lactate_to_Glucose_perE6_ratio_D6",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "MOI_eff_G-Rex_A",
+      "source": "MOI_eff_G-Rex_A",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "MOI_eff_pool",
+      "source": "MOI_eff_pool",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "MOI_eff_quality_adjusted",
+      "source": "MOI_eff_quality_adjusted",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Mixing_cycles_x_pre_activation_clump_count",
+      "source": "Mixing_cycles_x_pre_activation_clump_count",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Post-Massaging: # of Clumps",
+      "source": "Post-Massaging: # of Clumps",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Post-Massaging: Size of Clumps",
+      "source": "Post-Massaging: Size of Clumps",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Post-Mixing Clumps: # of Clumps",
+      "source": "Post-Mixing Clumps: # of Clumps",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Post-Mixing Clumps: Size of Clumps",
+      "source": "Post-Mixing Clumps: Size of Clumps",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Pre-Activation Clumps: # of Clumps before massage",
+      "source": "Pre-Activation Clumps: # of Clumps before massage",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Pre-Activation Clumps: Size of Clumps before massage",
+      "source": "Pre-Activation Clumps: Size of Clumps before massage",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Seeded_cells_min_AB",
+      "source": "Seeded_cells_min_AB",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Seeded_cells_std_AB",
+      "source": "Seeded_cells_std_AB",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Target Final Seeding Density per Area (VC/cm^2) G-Rex A",
+      "source": "Target Final Seeding Density per Area (VC/cm^2) G-Rex A",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Vector_volume_cv_AB_mL",
+      "source": "Vector_volume_cv_AB_mL",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Vector_volume_max_AB_mL",
+      "source": "Vector_volume_max_AB_mL",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Vector_volume_mean_AB_mL",
+      "source": "Vector_volume_mean_AB_mL",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Vector_volume_min_AB_mL",
+      "source": "Vector_volume_min_AB_mL",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Volume Vector Added to G-Rex A (mL)",
+      "source": "Volume Vector Added to G-Rex A (mL)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "cPDL (D3 to D10)",
+      "source": "cPDL (D3 to D10)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Incubation D6-D8 (min)",
+      "source": "Incubation D6-D8 (min)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    }
+  ]
+}

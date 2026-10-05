@@ -1,0 +1,89 @@
+2026-10-05 15:08:19 INFO package Writing run 20261005-150819-bbdfdd into /home/user/pvf_tasks_jan/demo/outputs/tasks/ghent_car_expression/20261005-150819-bbdfdd.incomplete
+2026-10-05 15:08:19 STEP io Loading PVF | /home/user/pvf_tasks_jan/demo/data/processed/PVF.xlsx
+2026-10-05 15:08:19 SUCCESS io PVF loaded — 70 batches × 221 parameters
+2026-10-05 15:08:19 STEP io Loading PTF | /home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx
+2026-10-05 15:08:19 SUCCESS io PTF loaded — 204 parameters, with an 'Available At' column | numeric: 162  |  categorical: 26  |  datetime: 11  |  duration: 3  |  ratio: 1  |  [None, Low, Medium, High]: 1
+2026-10-05 15:08:19 STEP dataset Selecting the cohort for 'ghent_car_expression'
+2026-10-05 15:08:19 INFO dataset manufactured at Ghent: 40 of 70 batches left
+2026-10-05 15:08:19 INFO dataset manufactured commercially: 36 of 40 batches left
+2026-10-05 15:08:19 INFO dataset manufacturing and testing finished: 36 of 36 batches left
+2026-10-05 15:08:19 INFO dataset not terminated or withdrawn, however it is spelled: 22 of 36 batches left
+2026-10-05 15:08:19 SUCCESS dataset Cohort: 22 of 70 batches
+2026-10-05 15:08:19 WARN dataset 1 batches have no usable target and are not in the dataset
+2026-10-05 15:08:19 STEP missingness Looking for parameters that go missing together over 21 batches
+2026-10-05 15:08:20 SUCCESS missingness 5 groups of parameters missing together, 5 of them with an explainer scoring ≥ 0.1 | 53 of 221 columns in range; 16 categorical parameters scored as explainers
+2026-10-05 15:08:20 STEP dataset Choosing the predictors
+2026-10-05 15:08:20 SUCCESS dataset 142 predictors from 199 PVF parameters (57 excluded, 5 not in the PVF)
+2026-10-05 15:08:20 WARN dataset split.folds: 3 folds asked for, 2 groups allow 2
+2026-10-05 15:08:20 INFO dataset Split (grouped): 14 training, 7 validation — whole groups of Vector Lot, drawn with seed 20260917: LV-909; 2 folds over the training rows
+2026-10-05 15:08:20 STEP dataset Encoding categorical parameters
+2026-10-05 15:08:20 INFO encode Day 10 Clump Present Bag 1: 'Yes' → 1, 'No' → 0
+2026-10-05 15:08:20 INFO encode Day 10 Clump Present Bag 2: 'Yes' → 1, 'No' → 0
+2026-10-05 15:08:20 INFO encode Day 10 Clump Present Bag 3: 'Yes' → 1, 'No' → 0
+2026-10-05 15:08:20 INFO encode Country: 'Netherlands' → 1, 'Belgium' → 0
+2026-10-05 15:08:20 INFO encode Pre-Activation Clumps: Y/N?: 'Yes' → 1, 'No' → 0
+2026-10-05 15:08:20 INFO encode Clinical Site ID: '1201' → 1, '1200' → 0
+2026-10-05 15:08:20 INFO encode IL-2 Lot: 'IL2-201' → 1, 'IL2-200' → 0
+2026-10-05 15:08:20 INFO encode LV CoA Site/Format: 'Raritan/500mL' → 1, 'Ghent/250mL' → 0
+2026-10-05 15:08:20 STEP dataset Handling numeric parameters
+2026-10-05 15:08:20 INFO encode D3 % cells seeded / target duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode Day 3 Actual Viable Cells Seeded G-Rex A duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode Day 3 Number of G-Rex to seed duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode Glucose_perE6_AUC_D6_D10 duplicates D6 Glucose / E6 cells (R²=0.9923 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode Harvest Lactate Normalized duplicates D10 Lact / E6 cells (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode LV CoA CAR% - Donor 1 duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode LV CoA CAR% - Donor 2 duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode LV CoA DNA size duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode LV CoA E1a cDNA duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode LV CoA E1b cDNA duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode LV CoA HCP duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode LV CoA IFNg - Donor 1 duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode LV CoA IFNg - Donor 2 duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode LV CoA LV Titer duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode LV CoA Osmolality duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode LV CoA PI Ratio duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode LV CoA Physical Titer p24 ELISA duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode LV CoA Volume duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode LV CoA cDNA duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode LV CoA pDNA duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode LV CoA pH duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode Lactate_perE6_AUC_D6_D10 duplicates D10 Lact / E6 cells (R²=0.9961 over 14 batches) — dropped
+2026-10-05 15:08:21 INFO encode Seeded_cells_cv_AB duplicates # of Culture Bags (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:21 INFO encode Seeded_cells_max_AB duplicates Avg_cells_per_bag_D3 (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:21 INFO encode Seeded_cells_mean_AB duplicates Avg_cells_per_bag_D3 (R²=0.9965 over 14 batches) — dropped
+2026-10-05 15:08:21 INFO encode Total Viable Cells for Expansion after VSVg Sampling (cells) duplicates Day 3 Total Viable Cells Available for Seeding G-Rex (cells) (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:21 INFO encode Vector_volume_std_AB_mL duplicates Vector_volume_cv_AB_mL (R²=0.9999 over 14 batches) — dropped
+2026-10-05 15:08:21 INFO encode Viability change during expansion duplicates D3-D10 viability change (%) (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:21 INFO encode log_MOI_eff_G-Rex_A duplicates MOI_eff_G-Rex_A (R²=0.9960 over 14 batches) — dropped
+2026-10-05 15:08:21 INFO encode log_MOI_eff_pool duplicates MOI_eff_pool (R²=0.9986 over 14 batches) — dropped
+2026-10-05 15:08:22 STEP decorrelate Looking for groups of parameters that move together
+2026-10-05 15:08:22 INFO decorrelate 12 parameters cannot take part in clustering | D3_seeding_within_5pct (constant), Incubation D0-D1 (min) (constant), Incubation D1-D3 (constant), Incubation_total_D3_to_D10_min (constant), D3_clumps_flag (constant), Day 3 Actual Viable Cells Seeded G-Rex B (fewer than 8 usable values), Day 6 Glucose G-Rex B (g/L) (fewer than 8 usable values), Day 6 Lactate G-Rex B (g/L) (fewer than 8 usable values), Day 8 Glucose G-Rex B (g/L) (fewer than 8 usable values), MOI_eff_G-Rex_B (fewer than 8 usable values)
+2026-10-05 15:08:24 INFO decorrelate Cluster 01: 8 parameters, represented by 'Avg_cells_per_bag_D3' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 02: 6 parameters, represented by 'Lactate_to_Glucose_perE6_ratio_D10' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 03: 5 parameters, represented by 'Day 6 Lactate G-Rex A (g/L)' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 04: 4 parameters, represented by 'Seeded_cells_std_AB' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 05: 3 parameters, represented by 'Day 3 Incubation Time (120min+/-30 min)' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 06: 3 parameters, represented by 'Pre-Activation Clumps: # of Clumps before massage' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 07: 3 parameters, represented by 'D10 Lact / E6 cells' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 08: 3 parameters, represented by 'MOI_eff_G-Rex_A' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 09: 2 parameters, represented by 'Clump_burden_weighted_post_massage' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 10: 2 parameters, represented by 'Clump_burden_weighted_post_mixing' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 11: 2 parameters, represented by 'D3-D10 viability change (%)' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 12: 2 parameters, represented by 'D3_contact_time_deviation' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 13: 2 parameters, represented by 'D3_contact_time_deviation_G-Rex_A' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 14: 2 parameters, represented by 'D3_contact_time_deviation_G-Rex_B' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 15: 2 parameters, represented by 'Day 6 Activity of IL-2 (IU/mg)' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 16: 2 parameters, represented by 'Day 8 Activity of IL-2 (IU/mg)' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 17: 2 parameters, represented by 'Vector_volume_max_AB_mL' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 18: 2 parameters, represented by 'Vector_volume_min_AB_mL' (report_only)
+2026-10-05 15:08:24 SUCCESS decorrelate 18 clusters covering 55 parameters (report_only)
+2026-10-05 15:08:24 WARN encode Clump Severity: 'Severe' is not one of its PTF categories (1 batches) — left missing
+2026-10-05 15:08:24 WARN encode Clump Severity: 'Severe' is not one of its PTF categories (1 batches) — left missing
+2026-10-05 15:08:25 INFO dataset 7 columns have too few values and were dropped
+2026-10-05 15:08:25 INFO dataset 9 columns are constant on the fitted rows and were dropped
+2026-10-05 15:08:25 WARN encode Clump Severity: 'Severe' is not one of its PTF categories (1 batches) — left missing
+2026-10-05 15:08:25 WARN encode Clump Severity: 'Severe' is not one of its PTF categories (1 batches) — left missing
+2026-10-05 15:08:25 INFO encode Day 3 Incubation Time (120min+/-30 min): 1 values at or below zero → missing
+2026-10-05 15:08:25 WARN dataset Only 3 distinct Vector Lot values: any grouped validation rests on 3 groups, not on 21 batches
+2026-10-05 15:08:25 WARN dataset 95 predictor columns for 14 fitted batches (p/n = 6.8): a model needs strong regularisation, and its performance has to be estimated by cross-validation, not in-sample
+2026-10-05 15:08:25 SUCCESS dataset Task 'ghent_car_expression': 21 batches × 83 columns, predicting 'fp_flow_car'

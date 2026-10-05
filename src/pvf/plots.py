@@ -492,3 +492,56 @@ def encoder_split(routes) -> Block | None:
         _style(figure_, "Categorical parameters per encoder", y="parameters", height=300),
         "Every categorical parameter goes to exactly one of these.",
     )
+
+
+def missing_pattern(group) -> Block | None:
+    """Which batches miss which member of a group: one row per member, one column per batch."""
+    if not group.pattern:
+        return None
+    names = [name if len(name) <= 40 else name[:39] + "…" for name in group.members]
+    figure_ = go.Figure(
+        go.Heatmap(
+            z=group.pattern,
+            x=list(range(1, len(group.batch_labels) + 1)),
+            y=names,
+            colorscale=[[0.0, "#eef1f4"], [1.0, INK]],
+            zmin=0,
+            zmax=1,
+            showscale=False,
+            customdata=[group.batch_labels for _ in group.members],
+            hovertemplate="%{y}<br>batch %{customdata}<br>missing = %{z}<extra></extra>",
+        )
+    )
+    figure_ = _style(
+        figure_,
+        f"{group.name} — missing values per batch",
+        x="batch (in the order shown in the caption)",
+        height=max(260, 26 * len(group.members) + 120),
+    )
+    figure_.update_yaxes(autorange="reversed")
+    return _fig(figure_, "Dark cells are missing values.")
+
+
+def missing_by_category(group) -> Block | None:
+    """How often the group is missing, per category of its best explainer."""
+    explainer = group.explainer
+    if explainer is None or not explainer.rates:
+        return None
+    categories = list(explainer.rates)
+    figure_ = go.Figure(
+        go.Bar(
+            x=categories,
+            y=[100 * explainer.rates[c] for c in categories],
+            marker_color=INK,
+            customdata=[explainer.batches.get(c, 0) for c in categories],
+            hovertemplate="%{x}: %{y:.0f}% of %{customdata} batches missing<extra></extra>",
+        )
+    )
+    return _fig(
+        _style(
+            figure_,
+            f"{group.name} — how often the group is missing, by {explainer.column}",
+            y="% of batches missing at least one member",
+            height=320,
+        )
+    )

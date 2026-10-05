@@ -1,0 +1,89 @@
+2026-10-05 15:08:19 INFO package Writing run 20261005-150819-bbdfdd into /home/user/pvf_tasks_jan/demo/outputs/tasks/site_a_car_expression/20261005-150819-bbdfdd.incomplete
+2026-10-05 15:08:19 STEP io Loading PVF | /home/user/pvf_tasks_jan/demo/data/processed/PVF.xlsx
+2026-10-05 15:08:19 SUCCESS io PVF loaded — 70 batches × 221 parameters
+2026-10-05 15:08:19 STEP io Loading PTF | /home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx
+2026-10-05 15:08:19 SUCCESS io PTF loaded — 204 parameters, with an 'Available At' column | numeric: 162  |  categorical: 26  |  datetime: 11  |  duration: 3  |  ratio: 1  |  [None, Low, Medium, High]: 1
+2026-10-05 15:08:19 STEP dataset Selecting the cohort for 'site_a_car_expression'
+2026-10-05 15:08:19 INFO dataset manufactured at SiteA: 40 of 70 batches left
+2026-10-05 15:08:19 INFO dataset manufactured commercially: 36 of 40 batches left
+2026-10-05 15:08:19 INFO dataset manufacturing and testing finished: 36 of 36 batches left
+2026-10-05 15:08:19 INFO dataset not terminated or withdrawn, however it is spelled: 22 of 36 batches left
+2026-10-05 15:08:19 SUCCESS dataset Cohort: 22 of 70 batches
+2026-10-05 15:08:19 WARN dataset 1 batches have no usable target and are not in the dataset
+2026-10-05 15:08:19 STEP missingness Looking for parameters that go missing together over 21 batches
+2026-10-05 15:08:20 SUCCESS missingness 5 groups of parameters missing together, 5 of them with an explainer scoring ≥ 0.1 | 53 of 221 columns in range; 16 categorical parameters scored as explainers
+2026-10-05 15:08:20 STEP dataset Choosing the predictors
+2026-10-05 15:08:20 SUCCESS dataset 142 predictors from 199 PVF parameters (57 excluded, 5 not in the PVF)
+2026-10-05 15:08:20 WARN dataset split.folds: 3 folds asked for, 2 groups allow 2
+2026-10-05 15:08:20 INFO dataset Split (grouped): 14 training, 7 validation — whole groups of <vector_lot>, drawn with seed 20260917: LV-909; 2 folds over the training rows
+2026-10-05 15:08:20 STEP dataset Encoding categorical parameters
+2026-10-05 15:08:20 INFO encode <clump_bags_1>: 'Yes' → 1, 'No' → 0
+2026-10-05 15:08:20 INFO encode <clump_bags_2>: 'Yes' → 1, 'No' → 0
+2026-10-05 15:08:20 INFO encode <clump_bags_3>: 'Yes' → 1, 'No' → 0
+2026-10-05 15:08:20 INFO encode Country: 'Netherlands' → 1, 'Belgium' → 0
+2026-10-05 15:08:20 INFO encode <pre_activation_clumps_yn>: 'Yes' → 1, 'No' → 0
+2026-10-05 15:08:20 INFO encode <clinical_site_id>: '1201' → 1, '1200' → 0
+2026-10-05 15:08:20 INFO encode <cytokine_lot>: 'IL2-201' → 1, 'IL2-200' → 0
+2026-10-05 15:08:20 INFO encode <coa_prefix><coa_site_format>: 'SiteB/500mL' → 1, 'SiteA/250mL' → 0
+2026-10-05 15:08:20 STEP dataset Handling numeric parameters
+2026-10-05 15:08:20 INFO encode <f_seeding_pct> duplicates <f_cells_per_bag> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <cells_seeded_a> duplicates <f_cells_per_bag> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <vessel_count> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <f_glucose_auc> duplicates <f_glucose_per_cell_1> (R²=0.9923 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <f_harvest_lactate_norm> duplicates <f_lactate_per_cell_3> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <coa_prefix><coa_donor:<coa_car_metric>-1> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <coa_prefix><coa_donor:<coa_car_metric>-2> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <coa_prefix><coa_dna_size> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <coa_prefix><coa_impurities_4> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <coa_prefix><coa_impurities_5> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <coa_prefix>HCP duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <coa_prefix><coa_donor:IFNg-1> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <coa_prefix><coa_donor:IFNg-2> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <coa_prefix><coa_titer> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <coa_prefix>Osmolality duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <coa_prefix><coa_pi_ratio> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <coa_prefix><coa_p24> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <coa_prefix>Volume duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <coa_prefix>cDNA duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <coa_prefix>pDNA duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <coa_prefix>pH duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:20 INFO encode <f_lactate_auc> duplicates <f_lactate_per_cell_3> (R²=0.9961 over 14 batches) — dropped
+2026-10-05 15:08:21 INFO encode <f_seeded_spread:cv> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:21 INFO encode <f_seeded_spread:max> duplicates <f_cells_per_bag> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:21 INFO encode <f_seeded_spread:mean> duplicates <f_cells_per_bag> (R²=0.9965 over 14 batches) — dropped
+2026-10-05 15:08:21 INFO encode <vsvg_cells> duplicates <cells_available> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:21 INFO encode <f_vector_volume_spread:std> duplicates <f_vector_volume_spread:cv> (R²=0.9999 over 14 batches) — dropped
+2026-10-05 15:08:21 INFO encode <f_viability_expansion> duplicates <f_viability_d3_d10_rel> (R²=1.0000 over 14 batches) — dropped
+2026-10-05 15:08:21 INFO encode <f_log_moi_a> duplicates <f_moi_a> (R²=0.9960 over 14 batches) — dropped
+2026-10-05 15:08:21 INFO encode <f_log_moi_pool> duplicates <f_moi_pool> (R²=0.9986 over 14 batches) — dropped
+2026-10-05 15:08:22 STEP decorrelate Looking for groups of parameters that move together
+2026-10-05 15:08:22 INFO decorrelate 12 parameters cannot take part in clustering | <f_seeding_within> (constant), <f_incubation_d0_d1> (constant), <f_incubation_d1_d3> (constant), <f_incubation_total> (constant), <f_d3_clumps> (constant), <cells_seeded_b> (fewer than 8 usable values), <d6_glucose_b> (fewer than 8 usable values), <d6_lactate_b> (fewer than 8 usable values), <d8_glucose_b> (fewer than 8 usable values), <f_moi_b> (fewer than 8 usable values)
+2026-10-05 15:08:24 INFO decorrelate Cluster 01: 8 parameters, represented by '<f_cells_per_bag>' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 02: 6 parameters, represented by '<f_lactate_glucose_ratio:10>' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 03: 5 parameters, represented by '<d6_lactate_a>' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 04: 4 parameters, represented by '<f_seeded_spread:std>' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 05: 3 parameters, represented by '<contact_time>' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 06: 3 parameters, represented by '<clumps_pre_count>' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 07: 3 parameters, represented by '<f_lactate_per_cell_3>' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 08: 3 parameters, represented by '<f_moi_a>' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 09: 2 parameters, represented by '<f_clump_burden_post>' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 10: 2 parameters, represented by '<f_clump_burden_mix>' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 11: 2 parameters, represented by '<f_viability_d3_d10_rel>' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 12: 2 parameters, represented by '<f_contact_deviation_1>' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 13: 2 parameters, represented by '<f_contact_deviation_2>' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 14: 2 parameters, represented by '<f_contact_deviation_3>' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 15: 2 parameters, represented by '<il2_activity_d6>' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 16: 2 parameters, represented by '<il2_activity_d8>' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 17: 2 parameters, represented by '<f_vector_volume_spread:max>' (report_only)
+2026-10-05 15:08:24 INFO decorrelate Cluster 18: 2 parameters, represented by '<f_vector_volume_spread:min>' (report_only)
+2026-10-05 15:08:24 SUCCESS decorrelate 18 clusters covering 55 parameters (report_only)
+2026-10-05 15:08:24 WARN encode <ordinal_parameter>: 'Severe' is not one of its PTF categories (1 batches) — left missing
+2026-10-05 15:08:24 WARN encode <ordinal_parameter>: 'Severe' is not one of its PTF categories (1 batches) — left missing
+2026-10-05 15:08:25 INFO dataset 7 columns have too few values and were dropped
+2026-10-05 15:08:25 INFO dataset 9 columns are constant on the fitted rows and were dropped
+2026-10-05 15:08:25 WARN encode <ordinal_parameter>: 'Severe' is not one of its PTF categories (1 batches) — left missing
+2026-10-05 15:08:25 WARN encode <ordinal_parameter>: 'Severe' is not one of its PTF categories (1 batches) — left missing
+2026-10-05 15:08:25 INFO encode <contact_time>: 1 values at or below zero → missing
+2026-10-05 15:08:25 WARN dataset Only 3 distinct <vector_lot> values: any grouped validation rests on 3 groups, not on 21 batches
+2026-10-05 15:08:25 WARN dataset 95 predictor columns for 14 fitted batches (p/n = 6.8): a model needs strong regularisation, and its performance has to be estimated by cross-validation, not in-sample
+2026-10-05 15:08:25 SUCCESS dataset Task 'site_a_car_expression': 21 batches × 83 columns, predicting 'fp_flow_car'

@@ -1,0 +1,3211 @@
+{
+  "recipe_version": 2,
+  "fitted_on": "all 27 batches in the cohort",
+  "rows_fitted": 27,
+  "settings": {
+    "one_hot": true,
+    "target_encoding": true,
+    "feature_hashing": true,
+    "one_hot_top_x": 10,
+    "onehot_max_categories": 5,
+    "target_max_categories": 6,
+    "max_cardinality_ratio": 0.5,
+    "target_encoding_smoothing": 5.0,
+    "target_encoding_folds": 5,
+    "target_encoding_fallback": "hashing",
+    "hashing_min_buckets": 8,
+    "hashing_max_buckets": 16,
+    "hashing_signed": true,
+    "missing_category": "missing",
+    "target_min_rows_per_category": 3.0,
+    "hashing_min_rows": 20,
+    "missing_indicators": true,
+    "impute": "none",
+    "cluster_corr_method": "spearman",
+    "cluster_corr_threshold": 0.8,
+    "cluster_min_size": 2,
+    "cluster_min_overlap": 8,
+    "min_non_missing": 8,
+    "duplicate_r2_threshold": 0.99,
+    "duplicate_min_overlap": 8,
+    "near_constant_tolerance": 0.0001,
+    "proxy_correlation": 0.95,
+    "seed": 20260917
+  },
+  "binary": {
+    "<d3_clump_pattern>": {
+      "name": "<d3_clump_pattern>_Many small",
+      "positive": "Many small",
+      "negative": "Few small"
+    },
+    "<clump_bags_1>": {
+      "name": "<clump_bags_1>_Yes",
+      "positive": "Yes",
+      "negative": "No"
+    },
+    "<clump_bags_2>": {
+      "name": "<clump_bags_2>_Yes",
+      "positive": "Yes",
+      "negative": "No"
+    },
+    "<clump_bags_3>": {
+      "name": "<clump_bags_3>_Yes",
+      "positive": "Yes",
+      "negative": "No"
+    },
+    "Country": {
+      "name": "Country_<value:country_harmonised>",
+      "positive": "<value:country_harmonised>",
+      "negative": "Israel"
+    },
+    "<pre_activation_clumps_yn>": {
+      "name": "<pre_activation_clumps_yn>_Y",
+      "positive": "Y",
+      "negative": "N"
+    },
+    "<coa_prefix><coa_site_format>": {
+      "name": "<coa_prefix><coa_site_format>_SiteB/500mL",
+      "positive": "SiteB/500mL",
+      "negative": "SiteA/250mL"
+    }
+  },
+  "one_hot": {
+    "<nonconformance>": {
+      "categories": [
+        "deviation",
+        "withdrawal",
+        "Termination",
+        "Withdrawal"
+      ],
+      "other": "Other",
+      "outputs": {
+        "deviation": "<nonconformance>_deviation",
+        "withdrawal": "<nonconformance>_withdrawal",
+        "Termination": "<nonconformance>_Termination",
+        "Withdrawal": "<nonconformance>_Withdrawal",
+        "Other": "<nonconformance>_Other"
+      }
+    },
+    "<clinical_site>": {
+      "categories": [
+        "<value:institutions_second>",
+        "<value:institutions_second>",
+        "XYZ"
+      ],
+      "other": "Other",
+      "outputs": {
+        "<value:institutions_second>": "<clinical_site>_<value:institutions_second>",
+        "<value:institutions_second>": "<clinical_site>_<value:institutions_second>",
+        "XYZ": "<clinical_site>_XYZ",
+        "Other": "<clinical_site>_Other"
+      }
+    },
+    "<clinical_site_id>": {
+      "categories": [
+        "MSKCC",
+        "<value:clinical_sites_b>",
+        "XYZ"
+      ],
+      "other": "Other",
+      "outputs": {
+        "MSKCC": "<clinical_site_id>_MSKCC",
+        "<value:clinical_sites_b>": "<clinical_site_id>_<value:clinical_sites_b>",
+        "XYZ": "<clinical_site_id>_XYZ",
+        "Other": "<clinical_site_id>_Other"
+      }
+    },
+    "<media_lot>": {
+      "categories": [
+        "MED-100",
+        "MED-102",
+        "MED-101",
+        "MED-103"
+      ],
+      "other": "Other",
+      "outputs": {
+        "MED-100": "<media_lot>_MED-100",
+        "MED-102": "<media_lot>_MED-102",
+        "MED-101": "<media_lot>_MED-101",
+        "MED-103": "<media_lot>_MED-103",
+        "Other": "<media_lot>_Other"
+      }
+    },
+    "<cytokine_lot>": {
+      "categories": [
+        "IL2-201",
+        "IL2-202",
+        "IL2-200"
+      ],
+      "other": "Other",
+      "outputs": {
+        "IL2-201": "<cytokine_lot>_IL2-201",
+        "IL2-202": "<cytokine_lot>_IL2-202",
+        "IL2-200": "<cytokine_lot>_IL2-200",
+        "Other": "<cytokine_lot>_Other"
+      }
+    },
+    "<f_growth_profile>": {
+      "categories": [
+        "normal",
+        "undergrowth",
+        "overgrowth"
+      ],
+      "other": "Other",
+      "outputs": {
+        "normal": "<f_growth_profile>_normal",
+        "undergrowth": "<f_growth_profile>_undergrowth",
+        "overgrowth": "<f_growth_profile>_overgrowth",
+        "Other": "<f_growth_profile>_Other"
+      }
+    },
+    "<f_cd4_profile>": {
+      "categories": [
+        "<value:cd4_profile_classes>",
+        "<value:cd4_profile_classes>",
+        "<value:cd4_profile_classes>"
+      ],
+      "other": "Other",
+      "outputs": {
+        "<value:cd4_profile_classes>": "<f_cd4_profile>_<value:cd4_profile_classes>",
+        "<value:cd4_profile_classes>": "<f_cd4_profile>_<value:cd4_profile_classes>",
+        "<value:cd4_profile_classes>": "<f_cd4_profile>_<value:cd4_profile_classes>",
+        "Other": "<f_cd4_profile>_Other"
+      }
+    }
+  },
+  "target_encoding": {
+    "batches": 27,
+    "folds": 5,
+    "smoothing": 5.0,
+    "prior": 0.5555555555555556,
+    "columns": {
+      "<team>": {
+        "name": "shift_team_target_enc",
+        "means": {
+          "A": 0.5308641975308642,
+          "B": 0.7530864197530864,
+          "C": 0.4722222222222222,
+          "D": 0.5213675213675214,
+          "E": 0.5308641975308642,
+          "F": 0.5308641975308642
+        },
+        "counts": {
+          "A": 4,
+          "B": 4,
+          "C": 3,
+          "D": 8,
+          "E": 4,
+          "F": 4
+        }
+      }
+    }
+  },
+  "hashing": {
+    "<incubator_id>": {
+      "width": 16,
+      "categories": 9,
+      "outputs": [
+        "incubator_id_hash_00",
+        "incubator_id_hash_01",
+        "incubator_id_hash_02",
+        "incubator_id_hash_03",
+        "incubator_id_hash_04",
+        "incubator_id_hash_05",
+        "incubator_id_hash_06",
+        "incubator_id_hash_07",
+        "incubator_id_hash_08",
+        "incubator_id_hash_09",
+        "incubator_id_hash_10",
+        "incubator_id_hash_11",
+        "incubator_id_hash_12",
+        "incubator_id_hash_13",
+        "incubator_id_hash_14",
+        "incubator_id_hash_15"
+      ]
+    }
+  },
+  "ordinal": {
+    "<ordinal_parameter>": {
+      "categories": [
+        "None",
+        "Low",
+        "Medium",
+        "High"
+      ],
+      "name": "<ordinal_parameter>"
+    }
+  },
+  "durations": [
+    "<contact_time>",
+    "<contact_time_a>",
+    "<contact_time_b>"
+  ],
+  "numeric": [
+    "<vessel_count>",
+    "<vsvg_cells>",
+    "<cells_available>",
+    "<cells_seeded_a>",
+    "<cells_seeded_b>",
+    "<culture_bags>",
+    "<vector_volume_a>",
+    "<vector_volume_b>",
+    "<d6_lactate_a>",
+    "<d6_lactate_b>",
+    "<d8_lactate_a>",
+    "<harvest_lactate>",
+    "<d6_glucose_a>",
+    "<d6_glucose_b>",
+    "<d8_glucose_a>",
+    "<d8_glucose_b>",
+    "<harvest_glucose>",
+    "<cpdl>",
+    "<pt_cd3_pct>",
+    "<pt_cd4_pct>",
+    "<pw_cd3_pct>",
+    "<pw_cd4_pct>",
+    "<pw_cd8_pct>",
+    "<pt_cd4_cd8_ratio>",
+    "<pt_viable_cells>",
+    "<pw_viability>",
+    "<d3_viability>",
+    "<harvest_viability>",
+    "<washed_viability>",
+    "<harvest_cells>",
+    "<washed_cells>",
+    "<washed_concentration>",
+    "<formulation_cell_volume>",
+    "<formulation_medium_volume>",
+    "<bag_volume>",
+    "<formulated_concentration>",
+    "<formulated_viability>",
+    "<harvest_car_pct>",
+    "<fp_car_pct>",
+    "<vcn>",
+    "<subject_weight>",
+    "<dose_per_kg>",
+    "<dose_cells>",
+    "<contact_time>",
+    "<contact_time_a>",
+    "<contact_time_b>",
+    "<clumps_pre_count>",
+    "<clumps_pre_size>",
+    "<clumps_post_count>",
+    "<clumps_post_size>",
+    "<clumps_mix_count>",
+    "<clumps_mix_size>",
+    "<mixing_cycles>",
+    "<il2_activity_d6>",
+    "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+    "<il2_activity_d8>",
+    "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+    "Day 6 <co2_marker>",
+    "Day 6 Temperature (\u00b0C)",
+    "<endotoxin>",
+    "<recovery>",
+    "<seeding_density_a>",
+    "<cells_per_bag>",
+    "<prior_lines>",
+    "<coa_prefix><coa_titer>",
+    "<coa_prefix><coa_p24>",
+    "<coa_prefix><coa_pi_ratio>",
+    "<coa_prefix><coa_donor:<coa_car_metric>-1>",
+    "<coa_prefix><coa_donor:<coa_car_metric>-2>",
+    "<coa_prefix><coa_donor:IFNg-1>",
+    "<coa_prefix><coa_donor:IFNg-2>",
+    "<coa_prefix>pH",
+    "<coa_prefix>Osmolality",
+    "<coa_prefix>Volume",
+    "<coa_prefix><coa_dna_size>",
+    "<coa_prefix>HCP",
+    "<coa_prefix>pDNA",
+    "<coa_prefix>cDNA",
+    "<coa_prefix><coa_impurities_4>",
+    "<coa_prefix><coa_impurities_5>",
+    "<f_log_pw_cd4_cd8>",
+    "<f_pt_cd3_cells>",
+    "<f_pt_cd4_share>",
+    "<f_pt_cd4_cells>",
+    "<f_pw_cd4_share>",
+    "<f_pw_cd8_share>",
+    "<f_harvest_lactate_norm>",
+    "<f_lactate_per_cell_1>",
+    "<f_lactate_per_cell_3>",
+    "<f_glucose_per_cell_1>",
+    "<f_glucose_per_cell_2>",
+    "<f_glucose_per_cell_3>",
+    "<f_lactate_slope>",
+    "<f_lactate_auc>",
+    "<f_glucose_slope>",
+    "<f_glucose_auc>",
+    "<f_lactate_glucose_ratio:6>",
+    "<f_lactate_glucose_ratio:10>",
+    "<f_viability_drop_rel>",
+    "<f_viability_drop_pts>",
+    "<f_viability_d3_d10_rel>",
+    "<f_viability_expansion>",
+    "<f_viability_d3_d10_pts>",
+    "<f_viability_wash>",
+    "<f_seeding_pct>",
+    "<f_seeding_error>",
+    "<f_seeding_within>",
+    "<f_cells_per_bag>",
+    "<f_seeded_spread:mean>",
+    "<f_seeded_spread:min>",
+    "<f_seeded_spread:max>",
+    "<f_seeded_spread:std>",
+    "<f_seeded_spread:cv>",
+    "<f_vector_volume_spread:mean>",
+    "<f_vector_volume_spread:min>",
+    "<f_vector_volume_spread:max>",
+    "<f_vector_volume_spread:std>",
+    "<f_vector_volume_spread:cv>",
+    "<f_moi_a>",
+    "<f_log_moi_a>",
+    "<f_moi_b>",
+    "<f_log_moi_b>",
+    "<f_moi_pool>",
+    "<f_log_moi_pool>",
+    "<f_moi_quality>",
+    "<f_contact_deviation_1>",
+    "<f_contact_within_1>",
+    "<f_contact_deviation_2>",
+    "<f_contact_within_2>",
+    "<f_contact_deviation_3>",
+    "<f_contact_within_3>",
+    "<f_incubation_d0_d1>",
+    "<f_incubation_d1_d3>",
+    "<f_incubation_d3_d6>",
+    "<f_incubation_d6_d8>",
+    "<f_incubation_d8_d10>",
+    "<f_incubation_total>",
+    "<f_clump_count_reduction>",
+    "<f_clump_size_reduction>",
+    "<f_clump_burden_pre>",
+    "<f_clump_burden_post>",
+    "<f_clump_burden_mix>",
+    "<f_mixing_x_clumps>",
+    "<f_d3_clumps>",
+    "<f_clump_bag_count>",
+    "<f_dose_all>",
+    "<f_post_formulation_dose>",
+    "<f_achievable_dose>",
+    "<f_car_cells>",
+    "<f_car_yield>",
+    "<f_vcn_per_cell>",
+    "<f_flow_accuracy>",
+    "<f_formulated_total_concentration>",
+    "<f_cells_into_formulation>",
+    "<f_cells_out_of_formulation>",
+    "<f_cells_lost_formulation>",
+    "<f_pct_lost_formulation>",
+    "<f_cells_lost_wash>",
+    "<f_coa_impurity_index>",
+    "<f_il2_d6>",
+    "<f_il2_d8>",
+    "Day 6 <co2_marker> dev_from_5.0pct",
+    "Day 6 Temperature (\u00b0C) dev_from_37.0C"
+  ],
+  "retained_numeric": [
+    "<culture_bags>",
+    "<f_pct_lost_formulation>",
+    "<contact_time_a>",
+    "<contact_time_b>",
+    "<f_cells_per_bag>",
+    "<f_car_yield>",
+    "<f_clump_burden_post>",
+    "<f_clump_burden_pre>",
+    "<f_clump_count_reduction>",
+    "<f_clump_size_reduction>",
+    "<f_achievable_dose>",
+    "<f_lactate_per_cell_3>",
+    "<f_car_cells>",
+    "<f_viability_wash>",
+    "<f_clump_bag_count>",
+    "<f_viability_d3_d10_rel>",
+    "<f_contact_deviation_1>",
+    "<f_contact_deviation_2>",
+    "<f_contact_deviation_3>",
+    "<f_contact_within_1>",
+    "<f_contact_within_2>",
+    "<f_contact_within_3>",
+    "<f_seeding_error>",
+    "<f_seeding_within>",
+    "<f_glucose_per_cell_1>",
+    "<f_lactate_per_cell_1>",
+    "<f_glucose_per_cell_2>",
+    "<mixing_cycles>",
+    "<d3_viability>",
+    "<contact_time>",
+    "<cells_available>",
+    "<il2_activity_d6>",
+    "Day 6 <co2_marker>",
+    "Day 6 <co2_marker> dev_from_5.0pct",
+    "<d6_glucose_a>",
+    "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+    "<d6_lactate_a>",
+    "Day 6 Temperature (\u00b0C)",
+    "Day 6 Temperature (\u00b0C) dev_from_37.0C",
+    "<il2_activity_d8>",
+    "<d8_glucose_a>",
+    "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+    "<d8_lactate_a>",
+    "<f_viability_drop_rel>",
+    "<endotoxin>",
+    "<fp_car_pct>",
+    "<formulated_viability>",
+    "<formulated_concentration>",
+    "<f_flow_accuracy>",
+    "<f_glucose_slope>",
+    "<harvest_lactate>",
+    "<washed_viability>",
+    "<washed_concentration>",
+    "<washed_cells>",
+    "<harvest_viability>",
+    "<harvest_car_pct>",
+    "<harvest_cells>",
+    "<f_il2_d6>",
+    "<f_il2_d8>",
+    "<f_incubation_d0_d1>",
+    "<f_incubation_d1_d3>",
+    "<f_incubation_d3_d6>",
+    "<f_incubation_d6_d8>",
+    "<f_incubation_d8_d10>",
+    "<f_incubation_total>",
+    "<coa_prefix><coa_donor:<coa_car_metric>-1>",
+    "<coa_prefix><coa_donor:<coa_car_metric>-2>",
+    "<coa_prefix><coa_dna_size>",
+    "<coa_prefix>HCP",
+    "<coa_prefix><coa_p24>",
+    "<coa_prefix>pH",
+    "<f_coa_impurity_index>",
+    "<f_lactate_auc>",
+    "<f_lactate_slope>",
+    "<f_lactate_glucose_ratio:6>",
+    "<f_log_pw_cd4_cd8>",
+    "<f_moi_a>",
+    "<f_moi_pool>",
+    "<f_moi_quality>",
+    "<f_mixing_x_clumps>",
+    "<prior_lines>",
+    "<f_pw_cd4_share>",
+    "<f_pw_cd8_share>",
+    "<f_pt_cd4_share>",
+    "<f_pt_cd3_cells>",
+    "<f_pt_cd4_cells>",
+    "<pt_cd4_cd8_ratio>",
+    "<pt_cd3_pct>",
+    "<pt_cd4_pct>",
+    "<pw_cd3_pct>",
+    "<pw_cd4_pct>",
+    "<pw_cd8_pct>",
+    "<pw_viability>",
+    "<f_post_formulation_dose>",
+    "<clumps_post_count>",
+    "<clumps_post_size>",
+    "<clumps_mix_size>",
+    "<clumps_pre_count>",
+    "<clumps_pre_size>",
+    "<vcn>",
+    "<recovery>",
+    "<f_seeded_spread:min>",
+    "<f_seeded_spread:std>",
+    "<subject_weight>",
+    "<f_formulated_total_concentration>",
+    "<cells_per_bag>",
+    "<f_vcn_per_cell>",
+    "<f_vector_volume_spread:cv>",
+    "<f_vector_volume_spread:max>",
+    "<f_vector_volume_spread:mean>",
+    "<f_vector_volume_spread:min>",
+    "<f_viability_d3_d10_pts>",
+    "<formulation_medium_volume>",
+    "<vector_volume_a>",
+    "<bag_volume>",
+    "<cpdl>",
+    "<f_log_moi_a>",
+    "<f_cells_lost_formulation>",
+    "<f_cells_lost_wash>",
+    "<f_cells_out_of_formulation>",
+    "<f_clump_burden_mix>",
+    "<clumps_mix_count>",
+    "<d6_glucose_b>",
+    "<d6_lactate_b>",
+    "<d8_glucose_b>",
+    "<f_moi_b>",
+    "<vector_volume_b>",
+    "<f_d3_clumps>"
+  ],
+  "clusters": {
+    "action": "linear",
+    "method": "spearman",
+    "threshold": 0.8,
+    "min_overlap": 8,
+    "clusters": [
+      {
+        "name": "Cluster 01",
+        "members": [
+          "<f_cells_per_bag>",
+          "<f_glucose_slope>",
+          "<washed_cells>",
+          "<harvest_cells>",
+          "<f_seeded_spread:min>",
+          "<f_cells_out_of_formulation>"
+        ],
+        "representative": "<washed_cells>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<harvest_cells>",
+            "output": "<harvest_cells>_resid",
+            "regressors": [
+              "<washed_cells>"
+            ],
+            "coefficients": [
+              1.0654360048813751
+            ],
+            "intercept": 189681330.54283285,
+            "adj_r2": 0.9686752466815001,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          },
+          {
+            "column": "<f_cells_out_of_formulation>",
+            "output": "<f_cells_out_of_formulation>_resid",
+            "regressors": [
+              "<washed_cells>",
+              "<harvest_cells>"
+            ],
+            "coefficients": [
+              0.9105661338921047,
+              0.11807433482062518
+            ],
+            "intercept": -117039726.364151,
+            "adj_r2": 0.9662667865926028,
+            "rows": 27,
+            "model": "OLS on 2 retained parameters",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          },
+          {
+            "column": "<f_seeded_spread:min>",
+            "output": "<f_seeded_spread:min>_resid",
+            "regressors": [
+              "<washed_cells>",
+              "<harvest_cells>",
+              "<f_cells_out_of_formulation>"
+            ],
+            "coefficients": [
+              0.00027458870928221877,
+              -7.883994002016052e-05,
+              -5.473756037060272e-06
+            ],
+            "intercept": 40472.99008249823,
+            "adj_r2": 0.8348311868806111,
+            "rows": 27,
+            "model": "OLS on 3 retained parameters",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          },
+          {
+            "column": "<f_cells_per_bag>",
+            "output": "<f_cells_per_bag>_resid",
+            "regressors": [
+              "<washed_cells>",
+              "<harvest_cells>",
+              "<f_cells_out_of_formulation>",
+              "<f_seeded_spread:min>"
+            ],
+            "coefficients": [
+              -0.0010655142670977103,
+              0.001297243569251304,
+              5.794408197531409e-05,
+              47.29884139930057
+            ],
+            "intercept": 971344.9286790676,
+            "adj_r2": 0.9882201315907313,
+            "rows": 27,
+            "model": "OLS on 4 retained parameters",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          },
+          {
+            "column": "<f_glucose_slope>",
+            "output": "<f_glucose_slope>_resid",
+            "regressors": [
+              "<washed_cells>",
+              "<harvest_cells>",
+              "<f_cells_out_of_formulation>",
+              "<f_seeded_spread:min>",
+              "<f_cells_per_bag>"
+            ],
+            "coefficients": [
+              -1.3700438675019905e-09,
+              1.8273330913283057e-09,
+              -4.0862014936874774e-10,
+              3.5274859365743996e-06,
+              2.0698295127264114e-07
+            ],
+            "intercept": -15.229422593064886,
+            "adj_r2": 0.8683670972796531,
+            "rows": 27,
+            "model": "OLS on 5 retained parameters",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 02",
+        "members": [
+          "<d6_glucose_a>",
+          "<d6_lactate_a>",
+          "<d8_glucose_a>",
+          "<d8_glucose_b>",
+          "<f_lactate_glucose_ratio:6>"
+        ],
+        "representative": "<f_lactate_glucose_ratio:6>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<d6_lactate_a>",
+            "output": "<d6_lactate_a>_resid",
+            "regressors": [
+              "<f_lactate_glucose_ratio:6>"
+            ],
+            "coefficients": [
+              2.07985866478696
+            ],
+            "intercept": 0.2527642297973506,
+            "adj_r2": 0.9483273599673636,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          },
+          {
+            "column": "<d8_glucose_a>",
+            "output": "<d8_glucose_a>_resid",
+            "regressors": [
+              "<f_lactate_glucose_ratio:6>",
+              "<d6_lactate_a>"
+            ],
+            "coefficients": [
+              0.03377272541816772,
+              -0.5260401957266403
+            ],
+            "intercept": 2.597829444544531,
+            "adj_r2": 0.8494427768555259,
+            "rows": 27,
+            "model": "OLS on 2 retained parameters",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          },
+          {
+            "column": "<d6_glucose_a>",
+            "output": "<d6_glucose_a>_resid",
+            "regressors": [
+              "<f_lactate_glucose_ratio:6>",
+              "<d6_lactate_a>",
+              "<d8_glucose_a>"
+            ],
+            "coefficients": [
+              -1.2675848074561658,
+              0.23563948665633794,
+              0.3845300369347516
+            ],
+            "intercept": 2.215720238939333,
+            "adj_r2": 0.8907353907135956,
+            "rows": 27,
+            "model": "OLS on 3 retained parameters",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          },
+          {
+            "column": "<d8_glucose_b>",
+            "output": "<d8_glucose_b>_resid",
+            "regressors": [
+              "<f_lactate_glucose_ratio:6>",
+              "<d6_lactate_a>",
+              "<d8_glucose_a>",
+              "<d6_glucose_a>"
+            ],
+            "coefficients": [
+              -0.1463510925771663,
+              -0.17685048506068268,
+              0.21977028195743917,
+              0.30164968146476295
+            ],
+            "intercept": 1.018944282716792,
+            "adj_r2": 0.8458654903751217,
+            "rows": 18,
+            "model": "OLS on 4 retained parameters",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 03",
+        "members": [
+          "<culture_bags>",
+          "<coa_prefix><coa_donor:<coa_car_metric>-2>",
+          "<coa_prefix><coa_dna_size>",
+          "<coa_prefix><coa_p24>"
+        ],
+        "representative": "<coa_prefix><coa_p24>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<coa_prefix><coa_donor:<coa_car_metric>-2>",
+            "output": "<coa_prefix><coa_donor:<coa_car_metric>-2>_resid",
+            "regressors": [
+              "<coa_prefix><coa_p24>"
+            ],
+            "coefficients": [
+              -1.571428571428569e-12
+            ],
+            "intercept": 0.5764285714285711,
+            "adj_r2": 0.9061654135338337,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          },
+          {
+            "column": "<coa_prefix><coa_dna_size>",
+            "output": "<coa_prefix><coa_dna_size>_resid",
+            "regressors": [
+              "<coa_prefix><coa_p24>",
+              "<coa_prefix><coa_donor:<coa_car_metric>-2>"
+            ],
+            "coefficients": [
+              -1.285714285714287e-11,
+              2.0204081632653048e-23
+            ],
+            "intercept": 3.457142857142858,
+            "adj_r2": 0.9613095238095238,
+            "rows": 27,
+            "model": "OLS on 2 retained parameters",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          },
+          {
+            "column": "<culture_bags>",
+            "output": "<culture_bags>_resid",
+            "regressors": [
+              "<coa_prefix><coa_p24>",
+              "<coa_prefix><coa_donor:<coa_car_metric>-2>",
+              "<coa_prefix><coa_dna_size>"
+            ],
+            "coefficients": [
+              1.4285714285714283e-10,
+              -2.244897959183672e-22,
+              -1.8367346938775524e-21
+            ],
+            "intercept": -12.857142857142852,
+            "adj_r2": 0.8788819875776406,
+            "rows": 27,
+            "model": "OLS on 3 retained parameters",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 04",
+        "members": [
+          "<fp_car_pct>",
+          "<harvest_car_pct>",
+          "<vcn>",
+          "<f_vcn_per_cell>"
+        ],
+        "representative": "<f_vcn_per_cell>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<fp_car_pct>",
+            "output": "<fp_car_pct>_resid",
+            "regressors": [
+              "<f_vcn_per_cell>"
+            ],
+            "coefficients": [
+              26.306138776712178
+            ],
+            "intercept": 16.925847529536007,
+            "adj_r2": 0.9587540147403287,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          },
+          {
+            "column": "<harvest_car_pct>",
+            "output": "<harvest_car_pct>_resid",
+            "regressors": [
+              "<f_vcn_per_cell>",
+              "<fp_car_pct>"
+            ],
+            "coefficients": [
+              37.529506024436245,
+              -0.45526917184996873
+            ],
+            "intercept": 26.033839471913595,
+            "adj_r2": 0.9543183307131219,
+            "rows": 27,
+            "model": "OLS on 2 retained parameters",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          },
+          {
+            "column": "<vcn>",
+            "output": "<vcn>_resid",
+            "regressors": [
+              "<f_vcn_per_cell>",
+              "<fp_car_pct>",
+              "<harvest_car_pct>"
+            ],
+            "coefficients": [
+              0.4993285736057665,
+              -0.009798407212485023,
+              0.03585427665299224
+            ],
+            "intercept": 0.6122527655027583,
+            "adj_r2": 0.9900793378051103,
+            "rows": 27,
+            "model": "OLS on 3 retained parameters",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 05",
+        "members": [
+          "<f_lactate_per_cell_3>",
+          "<f_lactate_per_cell_1>",
+          "<f_lactate_auc>"
+        ],
+        "representative": "<f_lactate_auc>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<f_lactate_per_cell_3>",
+            "output": "<f_lactate_per_cell_3>_resid",
+            "regressors": [
+              "<f_lactate_auc>"
+            ],
+            "coefficients": [
+              0.3522877703366433
+            ],
+            "intercept": -0.8400291940022626,
+            "adj_r2": 0.9688126861957811,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          },
+          {
+            "column": "<f_lactate_per_cell_1>",
+            "output": "<f_lactate_per_cell_1>_resid",
+            "regressors": [
+              "<f_lactate_auc>",
+              "<f_lactate_per_cell_3>"
+            ],
+            "coefficients": [
+              0.5,
+              -1.0000000000000002
+            ],
+            "intercept": -7.105427357601002e-15,
+            "adj_r2": 1.0,
+            "rows": 27,
+            "model": "OLS on 2 retained parameters",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 06",
+        "members": [
+          "<f_glucose_per_cell_1>",
+          "<f_glucose_per_cell_2>",
+          "<formulation_medium_volume>"
+        ],
+        "representative": "<f_glucose_per_cell_1>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<f_glucose_per_cell_2>",
+            "output": "<f_glucose_per_cell_2>_resid",
+            "regressors": [
+              "<f_glucose_per_cell_1>"
+            ],
+            "coefficients": [
+              0.7508223848379001
+            ],
+            "intercept": -0.44831213572562945,
+            "adj_r2": 0.985744181037242,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          },
+          {
+            "column": "<formulation_medium_volume>",
+            "output": "<formulation_medium_volume>_resid",
+            "regressors": [
+              "<f_glucose_per_cell_1>",
+              "<f_glucose_per_cell_2>"
+            ],
+            "coefficients": [
+              -1.877903396140893,
+              0.9574762848628884
+            ],
+            "intercept": 138.46934089575402,
+            "adj_r2": 0.8466221332041368,
+            "rows": 27,
+            "model": "OLS on 2 retained parameters",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 07",
+        "members": [
+          "<f_moi_b>",
+          "<f_moi_pool>",
+          "<f_moi_quality>"
+        ],
+        "representative": "<f_moi_pool>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<f_moi_quality>",
+            "output": "<f_moi_quality>_resid",
+            "regressors": [
+              "<f_moi_pool>"
+            ],
+            "coefficients": [
+              3776.996326684349
+            ],
+            "intercept": -520.1607298365652,
+            "adj_r2": 0.9797036932114058,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          },
+          {
+            "column": "<f_moi_b>",
+            "output": "<f_moi_b>_resid",
+            "regressors": [
+              "<f_moi_pool>",
+              "<f_moi_quality>"
+            ],
+            "coefficients": [
+              83.57734067740556,
+              0.006311817660148891
+            ],
+            "intercept": -0.1260525908698753,
+            "adj_r2": 0.9197974733575852,
+            "rows": 18,
+            "model": "OLS on 2 retained parameters",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 08",
+        "members": [
+          "<f_pt_cd4_share>",
+          "<f_pt_cd4_cells>",
+          "<pt_cd4_pct>"
+        ],
+        "representative": "<f_pt_cd4_share>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<pt_cd4_pct>",
+            "output": "<pt_cd4_pct>_resid",
+            "regressors": [
+              "<f_pt_cd4_share>"
+            ],
+            "coefficients": [
+              1.1717312621815057
+            ],
+            "intercept": 7.307847375931104,
+            "adj_r2": 0.8475597742882656,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          },
+          {
+            "column": "<f_pt_cd4_cells>",
+            "output": "<f_pt_cd4_cells>_resid",
+            "regressors": [
+              "<f_pt_cd4_share>",
+              "<pt_cd4_pct>"
+            ],
+            "coefficients": [
+              320591519.2016366,
+              39835752.181809664
+            ],
+            "intercept": 1234930126.3680058,
+            "adj_r2": 0.8133623462568605,
+            "rows": 27,
+            "model": "OLS on 2 retained parameters",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 09",
+        "members": [
+          "<f_pct_lost_formulation>",
+          "<f_cells_lost_formulation>"
+        ],
+        "representative": "<f_pct_lost_formulation>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<f_cells_lost_formulation>",
+            "output": "<f_cells_lost_formulation>_resid",
+            "regressors": [
+              "<f_pct_lost_formulation>"
+            ],
+            "coefficients": [
+              25773761.01817909
+            ],
+            "intercept": -1692296.2658008793,
+            "adj_r2": 0.9864127078596416,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 10",
+        "members": [
+          "<f_clump_burden_mix>",
+          "<clumps_mix_count>"
+        ],
+        "representative": "<f_clump_burden_mix>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<clumps_mix_count>",
+            "output": "<clumps_mix_count>_resid",
+            "regressors": [
+              "<f_clump_burden_mix>"
+            ],
+            "coefficients": [
+              0.5469631596415533
+            ],
+            "intercept": 0.2492532359774311,
+            "adj_r2": 0.8309666270613381,
+            "rows": 26,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 11",
+        "members": [
+          "<f_clump_count_reduction>",
+          "<clumps_post_count>"
+        ],
+        "representative": "<f_clump_count_reduction>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<clumps_post_count>",
+            "output": "<clumps_post_count>_resid",
+            "regressors": [
+              "<f_clump_count_reduction>"
+            ],
+            "coefficients": [
+              -2.1808897547150994
+            ],
+            "intercept": 3.869900537188803,
+            "adj_r2": 0.45863424381225815,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 12",
+        "members": [
+          "<f_viability_wash>",
+          "<f_viability_d3_d10_pts>"
+        ],
+        "representative": "<f_viability_wash>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<f_viability_d3_d10_pts>",
+            "output": "<f_viability_d3_d10_pts>_resid",
+            "regressors": [
+              "<f_viability_wash>"
+            ],
+            "coefficients": [
+              0.573727383414661
+            ],
+            "intercept": -1.505210562031948,
+            "adj_r2": 0.5458109220909839,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 13",
+        "members": [
+          "<f_contact_deviation_1>",
+          "<f_contact_within_1>"
+        ],
+        "representative": "<f_contact_deviation_1>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<f_contact_within_1>",
+            "output": "<f_contact_within_1>_resid",
+            "regressors": [
+              "<f_contact_deviation_1>"
+            ],
+            "coefficients": [
+              -0.02392727272727273
+            ],
+            "intercept": 1.2048,
+            "adj_r2": 0.7786955636363637,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 14",
+        "members": [
+          "<f_contact_deviation_2>",
+          "<f_contact_within_2>"
+        ],
+        "representative": "<f_contact_deviation_2>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<f_contact_within_2>",
+            "output": "<f_contact_within_2>_resid",
+            "regressors": [
+              "<f_contact_deviation_2>"
+            ],
+            "coefficients": [
+              -0.024620270643468653
+            ],
+            "intercept": 1.2335542667771333,
+            "adj_r2": 0.7381907998794908,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 15",
+        "members": [
+          "<f_contact_deviation_3>",
+          "<f_contact_within_3>"
+        ],
+        "representative": "<f_contact_deviation_3>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<f_contact_within_3>",
+            "output": "<f_contact_within_3>_resid",
+            "regressors": [
+              "<f_contact_deviation_3>"
+            ],
+            "coefficients": [
+              -0.024121212121212113
+            ],
+            "intercept": 1.2957575757575754,
+            "adj_r2": 0.7828779220779221,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 16",
+        "members": [
+          "<f_seeding_error>",
+          "<f_seeding_within>"
+        ],
+        "representative": "<f_seeding_error>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<f_seeding_within>",
+            "output": "<f_seeding_within>_resid",
+            "regressors": [
+              "<f_seeding_error>"
+            ],
+            "coefficients": [
+              -0.04295115589645628
+            ],
+            "intercept": 0.810008114529268,
+            "adj_r2": 0.5728079934170035,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 17",
+        "members": [
+          "<d3_viability>",
+          "<f_viability_drop_rel>"
+        ],
+        "representative": "<d3_viability>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<f_viability_drop_rel>",
+            "output": "<f_viability_drop_rel>_resid",
+            "regressors": [
+              "<d3_viability>"
+            ],
+            "coefficients": [
+              1.5152447717383715
+            ],
+            "intercept": -140.01891286464203,
+            "adj_r2": 0.7412805028732192,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 18",
+        "members": [
+          "<cells_available>",
+          "<f_seeded_spread:std>"
+        ],
+        "representative": "<cells_available>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<f_seeded_spread:std>",
+            "output": "<f_seeded_spread:std>_resid",
+            "regressors": [
+              "<cells_available>"
+            ],
+            "coefficients": [
+              0.00014520877459548606
+            ],
+            "intercept": -7721.554805175484,
+            "adj_r2": 0.9225391912435169,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 19",
+        "members": [
+          "<il2_activity_d6>",
+          "<f_il2_d6>"
+        ],
+        "representative": "<il2_activity_d6>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<f_il2_d6>",
+            "output": "<f_il2_d6>_resid",
+            "regressors": [
+              "<il2_activity_d6>"
+            ],
+            "coefficients": [
+              0.24394295488358447
+            ],
+            "intercept": -532544.0965390918,
+            "adj_r2": 0.781399489760288,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 20",
+        "members": [
+          "<d6_glucose_b>",
+          "<d6_lactate_b>"
+        ],
+        "representative": "<d6_glucose_b>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<d6_lactate_b>",
+            "output": "<d6_lactate_b>_resid",
+            "regressors": [
+              "<d6_glucose_b>"
+            ],
+            "coefficients": [
+              -1.6081651709315605
+            ],
+            "intercept": 5.536206996830808,
+            "adj_r2": 0.7227174532912708,
+            "rows": 18,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 21",
+        "members": [
+          "<il2_activity_d8>",
+          "<f_il2_d8>"
+        ],
+        "representative": "<il2_activity_d8>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<f_il2_d8>",
+            "output": "<f_il2_d8>_resid",
+            "regressors": [
+              "<il2_activity_d8>"
+            ],
+            "coefficients": [
+              0.20549349864193486
+            ],
+            "intercept": -11226.919150863774,
+            "adj_r2": 0.6793244790470865,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 22",
+        "members": [
+          "<d8_lactate_a>",
+          "<harvest_lactate>"
+        ],
+        "representative": "<d8_lactate_a>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<harvest_lactate>",
+            "output": "<harvest_lactate>_resid",
+            "regressors": [
+              "<d8_lactate_a>"
+            ],
+            "coefficients": [
+              1.0177184908555137
+            ],
+            "intercept": 0.6583019074340082,
+            "adj_r2": 0.6455097630658233,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 23",
+        "members": [
+          "<formulated_concentration>",
+          "<washed_concentration>"
+        ],
+        "representative": "<formulated_concentration>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<washed_concentration>",
+            "output": "<washed_concentration>_resid",
+            "regressors": [
+              "<formulated_concentration>"
+            ],
+            "coefficients": [
+              1.0954700886512214
+            ],
+            "intercept": 7331136.874222279,
+            "adj_r2": 0.8752021691707067,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 24",
+        "members": [
+          "<f_incubation_d3_d6>",
+          "<prior_lines>"
+        ],
+        "representative": "<f_incubation_d3_d6>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<prior_lines>",
+            "output": "<prior_lines>_resid",
+            "regressors": [
+              "<f_incubation_d3_d6>"
+            ],
+            "coefficients": [
+              -0.24882352941176467
+            ],
+            "intercept": -30.092352941176465,
+            "adj_r2": 0.6971208556149733,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 25",
+        "members": [
+          "<coa_prefix><coa_donor:<coa_car_metric>-1>",
+          "<coa_prefix>pH"
+        ],
+        "representative": "<coa_prefix><coa_donor:<coa_car_metric>-1>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<coa_prefix>pH",
+            "output": "<coa_prefix>pH_resid",
+            "regressors": [
+              "<coa_prefix><coa_donor:<coa_car_metric>-1>"
+            ],
+            "coefficients": [
+              6.000000000000014
+            ],
+            "intercept": 4.746666666666661,
+            "adj_r2": 0.9628571428571426,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 26",
+        "members": [
+          "<coa_prefix>HCP",
+          "<f_coa_impurity_index>"
+        ],
+        "representative": "<coa_prefix>HCP",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<f_coa_impurity_index>",
+            "output": "<f_coa_impurity_index>_resid",
+            "regressors": [
+              "<coa_prefix>HCP"
+            ],
+            "coefficients": [
+              7.209862721859209
+            ],
+            "intercept": -6.128383313580329,
+            "adj_r2": 0.9386784114383752,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 27",
+        "members": [
+          "<f_moi_a>",
+          "<f_log_moi_a>"
+        ],
+        "representative": "<f_moi_a>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<f_log_moi_a>",
+            "output": "<f_log_moi_a>_resid",
+            "regressors": [
+              "<f_moi_a>"
+            ],
+            "coefficients": [
+              0.007550813221402983
+            ],
+            "intercept": 3.8771888815873696,
+            "adj_r2": 0.9838850330946166,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 28",
+        "members": [
+          "<f_pw_cd4_share>",
+          "<pw_cd4_pct>"
+        ],
+        "representative": "<f_pw_cd4_share>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<pw_cd4_pct>",
+            "output": "<pw_cd4_pct>_resid",
+            "regressors": [
+              "<f_pw_cd4_share>"
+            ],
+            "coefficients": [
+              1.1553200957499927
+            ],
+            "intercept": -1.9316222368295897,
+            "adj_r2": 0.9600167734758475,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 29",
+        "members": [
+          "<f_pw_cd8_share>",
+          "<pw_cd8_pct>"
+        ],
+        "representative": "<f_pw_cd8_share>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<pw_cd8_pct>",
+            "output": "<pw_cd8_pct>_resid",
+            "regressors": [
+              "<f_pw_cd8_share>"
+            ],
+            "coefficients": [
+              1.0562926012511276
+            ],
+            "intercept": 1.943848401736851,
+            "adj_r2": 0.954308887085873,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      },
+      {
+        "name": "Cluster 30",
+        "members": [
+          "<f_vector_volume_spread:mean>",
+          "<f_vector_volume_spread:min>"
+        ],
+        "representative": "<f_vector_volume_spread:mean>",
+        "action": "linear",
+        "dropped": [],
+        "fits": [
+          {
+            "column": "<f_vector_volume_spread:min>",
+            "output": "<f_vector_volume_spread:min>_resid",
+            "regressors": [
+              "<f_vector_volume_spread:mean>"
+            ],
+            "coefficients": [
+              1.0439671637637706
+            ],
+            "intercept": -0.1441118869030289,
+            "adj_r2": 0.8001708560970261,
+            "rows": 27,
+            "model": "OLS on 1 retained parameter",
+            "x_scale": 1.0,
+            "y_scale": 1.0,
+            "fallback": ""
+          }
+        ]
+      }
+    ]
+  },
+  "passthrough": [
+    "<contact_time_a>",
+    "<contact_time_b>",
+    "<f_car_yield>",
+    "<f_clump_burden_post>",
+    "<f_clump_burden_pre>",
+    "<f_clump_size_reduction>",
+    "<f_achievable_dose>",
+    "<f_car_cells>",
+    "<f_clump_bag_count>",
+    "<f_viability_d3_d10_rel>",
+    "<mixing_cycles>",
+    "<contact_time>",
+    "Day 6 <co2_marker>",
+    "Day 6 <co2_marker> dev_from_5.0pct",
+    "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+    "Day 6 Temperature (\u00b0C)",
+    "Day 6 Temperature (\u00b0C) dev_from_37.0C",
+    "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+    "<endotoxin>",
+    "<formulated_viability>",
+    "<f_flow_accuracy>",
+    "<washed_viability>",
+    "<harvest_viability>",
+    "<f_incubation_d0_d1>",
+    "<f_incubation_d1_d3>",
+    "<f_incubation_d6_d8>",
+    "<f_incubation_d8_d10>",
+    "<f_incubation_total>",
+    "<f_lactate_slope>",
+    "<f_log_pw_cd4_cd8>",
+    "<f_mixing_x_clumps>",
+    "<f_pt_cd3_cells>",
+    "<pt_cd4_cd8_ratio>",
+    "<pt_cd3_pct>",
+    "<pw_cd3_pct>",
+    "<pw_viability>",
+    "<f_post_formulation_dose>",
+    "<clumps_post_size>",
+    "<clumps_mix_size>",
+    "<clumps_pre_count>",
+    "<clumps_pre_size>",
+    "<recovery>",
+    "<subject_weight>",
+    "<f_formulated_total_concentration>",
+    "<cells_per_bag>",
+    "<f_vector_volume_spread:cv>",
+    "<f_vector_volume_spread:max>",
+    "<vector_volume_a>",
+    "<bag_volume>",
+    "<cpdl>",
+    "<f_cells_lost_wash>",
+    "<vector_volume_b>",
+    "<f_d3_clumps>"
+  ],
+  "dropped_for_sparsity": [],
+  "encoded_columns": [
+    "<d3_clump_pattern>_Many small",
+    "<clump_bags_1>_Yes",
+    "<clump_bags_2>_Yes",
+    "<clump_bags_3>_Yes",
+    "Country_<value:country_harmonised>",
+    "<pre_activation_clumps_yn>_Y",
+    "<coa_prefix><coa_site_format>_SiteB/500mL",
+    "<nonconformance>_deviation",
+    "<nonconformance>_withdrawal",
+    "<nonconformance>_Termination",
+    "<nonconformance>_Withdrawal",
+    "<clinical_site>_<value:institutions_second>",
+    "<clinical_site>_<value:institutions_second>",
+    "<clinical_site>_XYZ",
+    "<clinical_site_id>_MSKCC",
+    "<clinical_site_id>_<value:clinical_sites_b>",
+    "<clinical_site_id>_XYZ",
+    "<media_lot>_MED-100",
+    "<media_lot>_MED-102",
+    "<media_lot>_MED-101",
+    "<media_lot>_MED-103",
+    "<cytokine_lot>_IL2-201",
+    "<cytokine_lot>_IL2-202",
+    "<cytokine_lot>_IL2-200",
+    "<f_growth_profile>_normal",
+    "<f_growth_profile>_undergrowth",
+    "<f_growth_profile>_overgrowth",
+    "<f_cd4_profile>_<value:cd4_profile_classes>",
+    "<f_cd4_profile>_<value:cd4_profile_classes>",
+    "<f_cd4_profile>_<value:cd4_profile_classes>",
+    "shift_team_target_enc",
+    "incubator_id_hash_01",
+    "incubator_id_hash_02",
+    "incubator_id_hash_04",
+    "incubator_id_hash_05",
+    "incubator_id_hash_08",
+    "incubator_id_hash_13",
+    "incubator_id_hash_14",
+    "incubator_id_hash_15",
+    "<ordinal_parameter>",
+    "<washed_cells>",
+    "<harvest_cells>_resid",
+    "<f_cells_out_of_formulation>_resid",
+    "<f_seeded_spread:min>_resid",
+    "<f_cells_per_bag>_resid",
+    "<f_glucose_slope>_resid",
+    "<f_lactate_glucose_ratio:6>",
+    "<d6_lactate_a>_resid",
+    "<d8_glucose_a>_resid",
+    "<d6_glucose_a>_resid",
+    "<d8_glucose_b>_resid",
+    "<coa_prefix><coa_p24>",
+    "<coa_prefix><coa_donor:<coa_car_metric>-2>_resid",
+    "<coa_prefix><coa_dna_size>_resid",
+    "<culture_bags>_resid",
+    "<f_vcn_per_cell>",
+    "<fp_car_pct>_resid",
+    "<harvest_car_pct>_resid",
+    "<vcn>_resid",
+    "<f_lactate_auc>",
+    "<f_lactate_per_cell_3>_resid",
+    "<f_glucose_per_cell_1>",
+    "<f_glucose_per_cell_2>_resid",
+    "<formulation_medium_volume>_resid",
+    "<f_moi_pool>",
+    "<f_moi_quality>_resid",
+    "<f_moi_b>_resid",
+    "<f_pt_cd4_share>",
+    "<pt_cd4_pct>_resid",
+    "<f_pt_cd4_cells>_resid",
+    "<f_pct_lost_formulation>",
+    "<f_cells_lost_formulation>_resid",
+    "<f_clump_burden_mix>",
+    "<clumps_mix_count>_resid",
+    "<f_clump_count_reduction>",
+    "<clumps_post_count>_resid",
+    "<f_viability_wash>",
+    "<f_viability_d3_d10_pts>_resid",
+    "<f_contact_deviation_1>",
+    "<f_contact_within_1>_resid",
+    "<f_contact_deviation_2>",
+    "<f_contact_within_2>_resid",
+    "<f_contact_deviation_3>",
+    "<f_contact_within_3>_resid",
+    "<f_seeding_error>",
+    "<f_seeding_within>_resid",
+    "<d3_viability>",
+    "<f_viability_drop_rel>_resid",
+    "<cells_available>",
+    "<f_seeded_spread:std>_resid",
+    "<il2_activity_d6>",
+    "<f_il2_d6>_resid",
+    "<d6_glucose_b>",
+    "<d6_lactate_b>_resid",
+    "<il2_activity_d8>",
+    "<f_il2_d8>_resid",
+    "<d8_lactate_a>",
+    "<harvest_lactate>_resid",
+    "<formulated_concentration>",
+    "<washed_concentration>_resid",
+    "<f_incubation_d3_d6>",
+    "<prior_lines>_resid",
+    "<coa_prefix><coa_donor:<coa_car_metric>-1>",
+    "<coa_prefix>pH_resid",
+    "<coa_prefix>HCP",
+    "<f_coa_impurity_index>_resid",
+    "<f_moi_a>",
+    "<f_log_moi_a>_resid",
+    "<f_pw_cd4_share>",
+    "<pw_cd4_pct>_resid",
+    "<f_pw_cd8_share>",
+    "<pw_cd8_pct>_resid",
+    "<f_vector_volume_spread:mean>",
+    "<f_vector_volume_spread:min>_resid",
+    "<contact_time_a>",
+    "<contact_time_b>",
+    "<f_car_yield>",
+    "<f_clump_burden_post>",
+    "<f_clump_burden_pre>",
+    "<f_clump_size_reduction>",
+    "<f_achievable_dose>",
+    "<f_car_cells>",
+    "<f_clump_bag_count>",
+    "<f_viability_d3_d10_rel>",
+    "<mixing_cycles>",
+    "<contact_time>",
+    "Day 6 <co2_marker>",
+    "Day 6 <co2_marker> dev_from_5.0pct",
+    "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+    "Day 6 Temperature (\u00b0C)",
+    "Day 6 Temperature (\u00b0C) dev_from_37.0C",
+    "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+    "<endotoxin>",
+    "<formulated_viability>",
+    "<f_flow_accuracy>",
+    "<washed_viability>",
+    "<harvest_viability>",
+    "<f_incubation_d6_d8>",
+    "<f_incubation_d8_d10>",
+    "<f_lactate_slope>",
+    "<f_log_pw_cd4_cd8>",
+    "<f_mixing_x_clumps>",
+    "<f_pt_cd3_cells>",
+    "<pt_cd4_cd8_ratio>",
+    "<pt_cd3_pct>",
+    "<pw_cd3_pct>",
+    "<pw_viability>",
+    "<f_post_formulation_dose>",
+    "<clumps_post_size>",
+    "<clumps_mix_size>",
+    "<clumps_pre_count>",
+    "<clumps_pre_size>",
+    "<recovery>",
+    "<subject_weight>",
+    "<f_formulated_total_concentration>",
+    "<cells_per_bag>",
+    "<f_vector_volume_spread:cv>",
+    "<f_vector_volume_spread:max>",
+    "<vector_volume_a>",
+    "<bag_volume>",
+    "<cpdl>",
+    "<f_cells_lost_wash>",
+    "<vector_volume_b>"
+  ],
+  "indicators": [
+    "<d3_clump_pattern>_Many small",
+    "<nonconformance>_deviation",
+    "<nonconformance>_withdrawal",
+    "<nonconformance>_Termination",
+    "<nonconformance>_Withdrawal",
+    "<ordinal_parameter>",
+    "<d8_glucose_b>_resid",
+    "<f_moi_b>_resid",
+    "<f_clump_burden_mix>",
+    "<clumps_mix_count>_resid",
+    "<d6_glucose_b>",
+    "<d6_lactate_b>_resid",
+    "<vector_volume_b>"
+  ],
+  "medians": {},
+  "output_columns": [
+    "<d3_clump_pattern>_Many small",
+    "<clump_bags_1>_Yes",
+    "<clump_bags_2>_Yes",
+    "<clump_bags_3>_Yes",
+    "Country_<value:country_harmonised>",
+    "<pre_activation_clumps_yn>_Y",
+    "<coa_prefix><coa_site_format>_SiteB/500mL",
+    "<nonconformance>_deviation",
+    "<nonconformance>_withdrawal",
+    "<nonconformance>_Termination",
+    "<nonconformance>_Withdrawal",
+    "<clinical_site>_<value:institutions_second>",
+    "<clinical_site>_<value:institutions_second>",
+    "<clinical_site>_XYZ",
+    "<clinical_site_id>_MSKCC",
+    "<clinical_site_id>_<value:clinical_sites_b>",
+    "<clinical_site_id>_XYZ",
+    "<media_lot>_MED-100",
+    "<media_lot>_MED-102",
+    "<media_lot>_MED-101",
+    "<media_lot>_MED-103",
+    "<cytokine_lot>_IL2-201",
+    "<cytokine_lot>_IL2-202",
+    "<cytokine_lot>_IL2-200",
+    "<f_growth_profile>_normal",
+    "<f_growth_profile>_undergrowth",
+    "<f_growth_profile>_overgrowth",
+    "<f_cd4_profile>_<value:cd4_profile_classes>",
+    "<f_cd4_profile>_<value:cd4_profile_classes>",
+    "<f_cd4_profile>_<value:cd4_profile_classes>",
+    "shift_team_target_enc",
+    "incubator_id_hash_01",
+    "incubator_id_hash_02",
+    "incubator_id_hash_04",
+    "incubator_id_hash_05",
+    "incubator_id_hash_08",
+    "incubator_id_hash_13",
+    "incubator_id_hash_14",
+    "incubator_id_hash_15",
+    "<ordinal_parameter>",
+    "<washed_cells>",
+    "<harvest_cells>_resid",
+    "<f_cells_out_of_formulation>_resid",
+    "<f_seeded_spread:min>_resid",
+    "<f_cells_per_bag>_resid",
+    "<f_glucose_slope>_resid",
+    "<f_lactate_glucose_ratio:6>",
+    "<d6_lactate_a>_resid",
+    "<d8_glucose_a>_resid",
+    "<d6_glucose_a>_resid",
+    "<d8_glucose_b>_resid",
+    "<coa_prefix><coa_p24>",
+    "<coa_prefix><coa_donor:<coa_car_metric>-2>_resid",
+    "<coa_prefix><coa_dna_size>_resid",
+    "<culture_bags>_resid",
+    "<f_vcn_per_cell>",
+    "<fp_car_pct>_resid",
+    "<harvest_car_pct>_resid",
+    "<vcn>_resid",
+    "<f_lactate_auc>",
+    "<f_lactate_per_cell_3>_resid",
+    "<f_glucose_per_cell_1>",
+    "<f_glucose_per_cell_2>_resid",
+    "<formulation_medium_volume>_resid",
+    "<f_moi_pool>",
+    "<f_moi_quality>_resid",
+    "<f_moi_b>_resid",
+    "<f_pt_cd4_share>",
+    "<pt_cd4_pct>_resid",
+    "<f_pt_cd4_cells>_resid",
+    "<f_pct_lost_formulation>",
+    "<f_cells_lost_formulation>_resid",
+    "<f_clump_burden_mix>",
+    "<clumps_mix_count>_resid",
+    "<f_clump_count_reduction>",
+    "<clumps_post_count>_resid",
+    "<f_viability_wash>",
+    "<f_viability_d3_d10_pts>_resid",
+    "<f_contact_deviation_1>",
+    "<f_contact_within_1>_resid",
+    "<f_contact_deviation_2>",
+    "<f_contact_within_2>_resid",
+    "<f_contact_deviation_3>",
+    "<f_contact_within_3>_resid",
+    "<f_seeding_error>",
+    "<f_seeding_within>_resid",
+    "<d3_viability>",
+    "<f_viability_drop_rel>_resid",
+    "<cells_available>",
+    "<f_seeded_spread:std>_resid",
+    "<il2_activity_d6>",
+    "<f_il2_d6>_resid",
+    "<d6_glucose_b>",
+    "<d6_lactate_b>_resid",
+    "<il2_activity_d8>",
+    "<f_il2_d8>_resid",
+    "<d8_lactate_a>",
+    "<harvest_lactate>_resid",
+    "<formulated_concentration>",
+    "<washed_concentration>_resid",
+    "<f_incubation_d3_d6>",
+    "<prior_lines>_resid",
+    "<coa_prefix><coa_donor:<coa_car_metric>-1>",
+    "<coa_prefix>pH_resid",
+    "<coa_prefix>HCP",
+    "<f_coa_impurity_index>_resid",
+    "<f_moi_a>",
+    "<f_log_moi_a>_resid",
+    "<f_pw_cd4_share>",
+    "<pw_cd4_pct>_resid",
+    "<f_pw_cd8_share>",
+    "<pw_cd8_pct>_resid",
+    "<f_vector_volume_spread:mean>",
+    "<f_vector_volume_spread:min>_resid",
+    "<contact_time_a>",
+    "<contact_time_b>",
+    "<f_car_yield>",
+    "<f_clump_burden_post>",
+    "<f_clump_burden_pre>",
+    "<f_clump_size_reduction>",
+    "<f_achievable_dose>",
+    "<f_car_cells>",
+    "<f_clump_bag_count>",
+    "<f_viability_d3_d10_rel>",
+    "<mixing_cycles>",
+    "<contact_time>",
+    "Day 6 <co2_marker>",
+    "Day 6 <co2_marker> dev_from_5.0pct",
+    "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+    "Day 6 Temperature (\u00b0C)",
+    "Day 6 Temperature (\u00b0C) dev_from_37.0C",
+    "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+    "<endotoxin>",
+    "<formulated_viability>",
+    "<f_flow_accuracy>",
+    "<washed_viability>",
+    "<harvest_viability>",
+    "<f_incubation_d6_d8>",
+    "<f_incubation_d8_d10>",
+    "<f_lactate_slope>",
+    "<f_log_pw_cd4_cd8>",
+    "<f_mixing_x_clumps>",
+    "<f_pt_cd3_cells>",
+    "<pt_cd4_cd8_ratio>",
+    "<pt_cd3_pct>",
+    "<pw_cd3_pct>",
+    "<pw_viability>",
+    "<f_post_formulation_dose>",
+    "<clumps_post_size>",
+    "<clumps_mix_size>",
+    "<clumps_pre_count>",
+    "<clumps_pre_size>",
+    "<recovery>",
+    "<subject_weight>",
+    "<f_formulated_total_concentration>",
+    "<cells_per_bag>",
+    "<f_vector_volume_spread:cv>",
+    "<f_vector_volume_spread:max>",
+    "<vector_volume_a>",
+    "<bag_volume>",
+    "<cpdl>",
+    "<f_cells_lost_wash>",
+    "<vector_volume_b>",
+    "<d3_clump_pattern>_Many small__missing",
+    "<nonconformance>_deviation__missing",
+    "<nonconformance>_withdrawal__missing",
+    "<nonconformance>_Termination__missing",
+    "<nonconformance>_Withdrawal__missing",
+    "<ordinal_parameter>__missing",
+    "<d8_glucose_b>_resid__missing",
+    "<f_moi_b>_resid__missing",
+    "<f_clump_burden_mix>__missing",
+    "<clumps_mix_count>_resid__missing",
+    "<d6_glucose_b>__missing",
+    "<d6_lactate_b>_resid__missing",
+    "<vector_volume_b>__missing"
+  ],
+  "dictionary": [
+    {
+      "output": "<d3_clump_pattern>_Many small",
+      "source": "<d3_clump_pattern>",
+      "strategy": "binary",
+      "detail": "1 where 'Many small', 0 where 'Few small'; any other value is left missing"
+    },
+    {
+      "output": "<clump_bags_1>_Yes",
+      "source": "<clump_bags_1>",
+      "strategy": "binary",
+      "detail": "1 where 'Yes', 0 where 'No'; any other value is left missing"
+    },
+    {
+      "output": "<clump_bags_2>_Yes",
+      "source": "<clump_bags_2>",
+      "strategy": "binary",
+      "detail": "1 where 'Yes', 0 where 'No'; any other value is left missing"
+    },
+    {
+      "output": "<clump_bags_3>_Yes",
+      "source": "<clump_bags_3>",
+      "strategy": "binary",
+      "detail": "1 where 'Yes', 0 where 'No'; any other value is left missing"
+    },
+    {
+      "output": "Country_<value:country_harmonised>",
+      "source": "Country",
+      "strategy": "binary",
+      "detail": "1 where '<value:country_harmonised>', 0 where 'Israel'; any other value is left missing"
+    },
+    {
+      "output": "<pre_activation_clumps_yn>_Y",
+      "source": "<pre_activation_clumps_yn>",
+      "strategy": "binary",
+      "detail": "1 where 'Y', 0 where 'N'; any other value is left missing"
+    },
+    {
+      "output": "<coa_prefix><coa_site_format>_SiteB/500mL",
+      "source": "<coa_prefix><coa_site_format>",
+      "strategy": "binary",
+      "detail": "1 where 'SiteB/500mL', 0 where 'SiteA/250mL'; any other value is left missing"
+    },
+    {
+      "output": "<nonconformance>_deviation",
+      "source": "<nonconformance>",
+      "strategy": "one-hot",
+      "detail": "1 where '<nonconformance>' is 'deviation'; missing where it is missing"
+    },
+    {
+      "output": "<nonconformance>_withdrawal",
+      "source": "<nonconformance>",
+      "strategy": "one-hot",
+      "detail": "1 where '<nonconformance>' is 'withdrawal'; missing where it is missing"
+    },
+    {
+      "output": "<nonconformance>_Termination",
+      "source": "<nonconformance>",
+      "strategy": "one-hot",
+      "detail": "1 where '<nonconformance>' is 'Termination'; missing where it is missing"
+    },
+    {
+      "output": "<nonconformance>_Withdrawal",
+      "source": "<nonconformance>",
+      "strategy": "one-hot",
+      "detail": "1 where '<nonconformance>' is 'Withdrawal'; missing where it is missing"
+    },
+    {
+      "output": "<clinical_site>_<value:institutions_second>",
+      "source": "<clinical_site>",
+      "strategy": "one-hot",
+      "detail": "1 where '<clinical_site>' is '<value:institutions_second>'; missing where it is missing"
+    },
+    {
+      "output": "<clinical_site>_<value:institutions_second>",
+      "source": "<clinical_site>",
+      "strategy": "one-hot",
+      "detail": "1 where '<clinical_site>' is '<value:institutions_second>'; missing where it is missing"
+    },
+    {
+      "output": "<clinical_site>_XYZ",
+      "source": "<clinical_site>",
+      "strategy": "one-hot",
+      "detail": "1 where '<clinical_site>' is 'XYZ'; missing where it is missing"
+    },
+    {
+      "output": "<clinical_site_id>_MSKCC",
+      "source": "<clinical_site_id>",
+      "strategy": "one-hot",
+      "detail": "1 where '<clinical_site_id>' is 'MSKCC'; missing where it is missing"
+    },
+    {
+      "output": "<clinical_site_id>_<value:clinical_sites_b>",
+      "source": "<clinical_site_id>",
+      "strategy": "one-hot",
+      "detail": "1 where '<clinical_site_id>' is '<value:clinical_sites_b>'; missing where it is missing"
+    },
+    {
+      "output": "<clinical_site_id>_XYZ",
+      "source": "<clinical_site_id>",
+      "strategy": "one-hot",
+      "detail": "1 where '<clinical_site_id>' is 'XYZ'; missing where it is missing"
+    },
+    {
+      "output": "<media_lot>_MED-100",
+      "source": "<media_lot>",
+      "strategy": "one-hot",
+      "detail": "1 where '<media_lot>' is 'MED-100'; missing where it is missing"
+    },
+    {
+      "output": "<media_lot>_MED-102",
+      "source": "<media_lot>",
+      "strategy": "one-hot",
+      "detail": "1 where '<media_lot>' is 'MED-102'; missing where it is missing"
+    },
+    {
+      "output": "<media_lot>_MED-101",
+      "source": "<media_lot>",
+      "strategy": "one-hot",
+      "detail": "1 where '<media_lot>' is 'MED-101'; missing where it is missing"
+    },
+    {
+      "output": "<media_lot>_MED-103",
+      "source": "<media_lot>",
+      "strategy": "one-hot",
+      "detail": "1 where '<media_lot>' is 'MED-103'; missing where it is missing"
+    },
+    {
+      "output": "<cytokine_lot>_IL2-201",
+      "source": "<cytokine_lot>",
+      "strategy": "one-hot",
+      "detail": "1 where '<cytokine_lot>' is 'IL2-201'; missing where it is missing"
+    },
+    {
+      "output": "<cytokine_lot>_IL2-202",
+      "source": "<cytokine_lot>",
+      "strategy": "one-hot",
+      "detail": "1 where '<cytokine_lot>' is 'IL2-202'; missing where it is missing"
+    },
+    {
+      "output": "<cytokine_lot>_IL2-200",
+      "source": "<cytokine_lot>",
+      "strategy": "one-hot",
+      "detail": "1 where '<cytokine_lot>' is 'IL2-200'; missing where it is missing"
+    },
+    {
+      "output": "<f_growth_profile>_normal",
+      "source": "<f_growth_profile>",
+      "strategy": "one-hot",
+      "detail": "1 where '<f_growth_profile>' is 'normal'; missing where it is missing"
+    },
+    {
+      "output": "<f_growth_profile>_undergrowth",
+      "source": "<f_growth_profile>",
+      "strategy": "one-hot",
+      "detail": "1 where '<f_growth_profile>' is 'undergrowth'; missing where it is missing"
+    },
+    {
+      "output": "<f_growth_profile>_overgrowth",
+      "source": "<f_growth_profile>",
+      "strategy": "one-hot",
+      "detail": "1 where '<f_growth_profile>' is 'overgrowth'; missing where it is missing"
+    },
+    {
+      "output": "<f_cd4_profile>_<value:cd4_profile_classes>",
+      "source": "<f_cd4_profile>",
+      "strategy": "one-hot",
+      "detail": "1 where '<f_cd4_profile>' is '<value:cd4_profile_classes>'; missing where it is missing"
+    },
+    {
+      "output": "<f_cd4_profile>_<value:cd4_profile_classes>",
+      "source": "<f_cd4_profile>",
+      "strategy": "one-hot",
+      "detail": "1 where '<f_cd4_profile>' is '<value:cd4_profile_classes>'; missing where it is missing"
+    },
+    {
+      "output": "<f_cd4_profile>_<value:cd4_profile_classes>",
+      "source": "<f_cd4_profile>",
+      "strategy": "one-hot",
+      "detail": "1 where '<f_cd4_profile>' is '<value:cd4_profile_classes>'; missing where it is missing"
+    },
+    {
+      "output": "shift_team_target_enc",
+      "source": "<team>",
+      "strategy": "target encoding",
+      "detail": "mean of the target per category, smoothed with m=5 towards the training prior 0.556; a category the training rows never held gets that prior, and a missing value stays missing"
+    },
+    {
+      "output": "incubator_id_hash_01",
+      "source": "<incubator_id>",
+      "strategy": "feature hashing",
+      "detail": "signed MD5 hash of '<incubator_id>' into 16 buckets (k=9); two categories may share a bucket, and a missing value is missing in every bucket"
+    },
+    {
+      "output": "incubator_id_hash_02",
+      "source": "<incubator_id>",
+      "strategy": "feature hashing",
+      "detail": "signed MD5 hash of '<incubator_id>' into 16 buckets (k=9); two categories may share a bucket, and a missing value is missing in every bucket"
+    },
+    {
+      "output": "incubator_id_hash_04",
+      "source": "<incubator_id>",
+      "strategy": "feature hashing",
+      "detail": "signed MD5 hash of '<incubator_id>' into 16 buckets (k=9); two categories may share a bucket, and a missing value is missing in every bucket"
+    },
+    {
+      "output": "incubator_id_hash_05",
+      "source": "<incubator_id>",
+      "strategy": "feature hashing",
+      "detail": "signed MD5 hash of '<incubator_id>' into 16 buckets (k=9); two categories may share a bucket, and a missing value is missing in every bucket"
+    },
+    {
+      "output": "incubator_id_hash_08",
+      "source": "<incubator_id>",
+      "strategy": "feature hashing",
+      "detail": "signed MD5 hash of '<incubator_id>' into 16 buckets (k=9); two categories may share a bucket, and a missing value is missing in every bucket"
+    },
+    {
+      "output": "incubator_id_hash_13",
+      "source": "<incubator_id>",
+      "strategy": "feature hashing",
+      "detail": "signed MD5 hash of '<incubator_id>' into 16 buckets (k=9); two categories may share a bucket, and a missing value is missing in every bucket"
+    },
+    {
+      "output": "incubator_id_hash_14",
+      "source": "<incubator_id>",
+      "strategy": "feature hashing",
+      "detail": "signed MD5 hash of '<incubator_id>' into 16 buckets (k=9); two categories may share a bucket, and a missing value is missing in every bucket"
+    },
+    {
+      "output": "incubator_id_hash_15",
+      "source": "<incubator_id>",
+      "strategy": "feature hashing",
+      "detail": "signed MD5 hash of '<incubator_id>' into 16 buckets (k=9); two categories may share a bucket, and a missing value is missing in every bucket"
+    },
+    {
+      "output": "<ordinal_parameter>",
+      "source": "<ordinal_parameter>",
+      "strategy": "ordinal",
+      "detail": "rank 1..4 in the PTF's order: None, Low, Medium, High"
+    },
+    {
+      "output": "<washed_cells>",
+      "source": "<washed_cells>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.883 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<harvest_cells>_resid",
+      "source": "<harvest_cells>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<harvest_cells>' still says once <washed_cells> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<f_cells_out_of_formulation>_resid",
+      "source": "<f_cells_out_of_formulation>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_cells_out_of_formulation>' still says once <washed_cells>, <harvest_cells> are accounted for (OLS on 2 retained parameters, 27 batches)"
+    },
+    {
+      "output": "<f_seeded_spread:min>_resid",
+      "source": "<f_seeded_spread:min>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_seeded_spread:min>' still says once <washed_cells>, <harvest_cells>, <f_cells_out_of_formulation> are accounted for (OLS on 3 retained parameters, 27 batches)"
+    },
+    {
+      "output": "<f_cells_per_bag>_resid",
+      "source": "<f_cells_per_bag>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_cells_per_bag>' still says once <washed_cells>, <harvest_cells>, <f_cells_out_of_formulation>, <f_seeded_spread:min> are accounted for (OLS on 4 retained parameters, 27 batches)"
+    },
+    {
+      "output": "<f_glucose_slope>_resid",
+      "source": "<f_glucose_slope>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_glucose_slope>' still says once <washed_cells>, <harvest_cells>, <f_cells_out_of_formulation>, <f_seeded_spread:min>, <f_cells_per_bag> are accounted for (OLS on 5 retained parameters, 27 batches)"
+    },
+    {
+      "output": "<f_lactate_glucose_ratio:6>",
+      "source": "<f_lactate_glucose_ratio:6>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.872 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<d6_lactate_a>_resid",
+      "source": "<d6_lactate_a>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<d6_lactate_a>' still says once <f_lactate_glucose_ratio:6> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<d8_glucose_a>_resid",
+      "source": "<d8_glucose_a>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<d8_glucose_a>' still says once <f_lactate_glucose_ratio:6>, <d6_lactate_a> are accounted for (OLS on 2 retained parameters, 27 batches)"
+    },
+    {
+      "output": "<d6_glucose_a>_resid",
+      "source": "<d6_glucose_a>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<d6_glucose_a>' still says once <f_lactate_glucose_ratio:6>, <d6_lactate_a>, <d8_glucose_a> are accounted for (OLS on 3 retained parameters, 27 batches)"
+    },
+    {
+      "output": "<d8_glucose_b>_resid",
+      "source": "<d8_glucose_b>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<d8_glucose_b>' still says once <f_lactate_glucose_ratio:6>, <d6_lactate_a>, <d8_glucose_a>, <d6_glucose_a> are accounted for (OLS on 4 retained parameters, 18 batches)"
+    },
+    {
+      "output": "<coa_prefix><coa_p24>",
+      "source": "<coa_prefix><coa_p24>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.922 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<coa_prefix><coa_donor:<coa_car_metric>-2>_resid",
+      "source": "<coa_prefix><coa_donor:<coa_car_metric>-2>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<coa_prefix><coa_donor:<coa_car_metric>-2>' still says once <coa_prefix><coa_p24> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<coa_prefix><coa_dna_size>_resid",
+      "source": "<coa_prefix><coa_dna_size>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<coa_prefix><coa_dna_size>' still says once <coa_prefix><coa_p24>, <coa_prefix><coa_donor:<coa_car_metric>-2> are accounted for (OLS on 2 retained parameters, 27 batches)"
+    },
+    {
+      "output": "<culture_bags>_resid",
+      "source": "<culture_bags>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<culture_bags>' still says once <coa_prefix><coa_p24>, <coa_prefix><coa_donor:<coa_car_metric>-2>, <coa_prefix><coa_dna_size> are accounted for (OLS on 3 retained parameters, 27 batches)"
+    },
+    {
+      "output": "<f_vcn_per_cell>",
+      "source": "<f_vcn_per_cell>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.953 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<fp_car_pct>_resid",
+      "source": "<fp_car_pct>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<fp_car_pct>' still says once <f_vcn_per_cell> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<harvest_car_pct>_resid",
+      "source": "<harvest_car_pct>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<harvest_car_pct>' still says once <f_vcn_per_cell>, <fp_car_pct> are accounted for (OLS on 2 retained parameters, 27 batches)"
+    },
+    {
+      "output": "<vcn>_resid",
+      "source": "<vcn>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<vcn>' still says once <f_vcn_per_cell>, <fp_car_pct>, <harvest_car_pct> are accounted for (OLS on 3 retained parameters, 27 batches)"
+    },
+    {
+      "output": "<f_lactate_auc>",
+      "source": "<f_lactate_auc>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.910 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<f_lactate_per_cell_3>_resid",
+      "source": "<f_lactate_per_cell_3>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_lactate_per_cell_3>' still says once <f_lactate_auc> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<f_glucose_per_cell_1>",
+      "source": "<f_glucose_per_cell_1>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.920 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<f_glucose_per_cell_2>_resid",
+      "source": "<f_glucose_per_cell_2>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_glucose_per_cell_2>' still says once <f_glucose_per_cell_1> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<formulation_medium_volume>_resid",
+      "source": "<formulation_medium_volume>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<formulation_medium_volume>' still says once <f_glucose_per_cell_1>, <f_glucose_per_cell_2> are accounted for (OLS on 2 retained parameters, 27 batches)"
+    },
+    {
+      "output": "<f_moi_pool>",
+      "source": "<f_moi_pool>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.955 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<f_moi_quality>_resid",
+      "source": "<f_moi_quality>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_moi_quality>' still says once <f_moi_pool> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<f_moi_b>_resid",
+      "source": "<f_moi_b>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_moi_b>' still says once <f_moi_pool>, <f_moi_quality> are accounted for (OLS on 2 retained parameters, 18 batches)"
+    },
+    {
+      "output": "<f_pt_cd4_share>",
+      "source": "<f_pt_cd4_share>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.839 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<pt_cd4_pct>_resid",
+      "source": "<pt_cd4_pct>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<pt_cd4_pct>' still says once <f_pt_cd4_share> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<f_pt_cd4_cells>_resid",
+      "source": "<f_pt_cd4_cells>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_pt_cd4_cells>' still says once <f_pt_cd4_share>, <pt_cd4_pct> are accounted for (OLS on 2 retained parameters, 27 batches)"
+    },
+    {
+      "output": "<f_pct_lost_formulation>",
+      "source": "<f_pct_lost_formulation>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.987 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<f_cells_lost_formulation>_resid",
+      "source": "<f_cells_lost_formulation>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_cells_lost_formulation>' still says once <f_pct_lost_formulation> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<f_clump_burden_mix>",
+      "source": "<f_clump_burden_mix>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.838 against the other members, over 26 batches with a value (candidates needed at least 26)"
+    },
+    {
+      "output": "<clumps_mix_count>_resid",
+      "source": "<clumps_mix_count>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<clumps_mix_count>' still says once <f_clump_burden_mix> are accounted for (OLS on 1 retained parameter, 26 batches)"
+    },
+    {
+      "output": "<f_clump_count_reduction>",
+      "source": "<f_clump_count_reduction>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.479 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<clumps_post_count>_resid",
+      "source": "<clumps_post_count>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<clumps_post_count>' still says once <f_clump_count_reduction> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<f_viability_wash>",
+      "source": "<f_viability_wash>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.563 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<f_viability_d3_d10_pts>_resid",
+      "source": "<f_viability_d3_d10_pts>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_viability_d3_d10_pts>' still says once <f_viability_wash> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<f_contact_deviation_1>",
+      "source": "<f_contact_deviation_1>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.787 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<f_contact_within_1>_resid",
+      "source": "<f_contact_within_1>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_contact_within_1>' still says once <f_contact_deviation_1> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<f_contact_deviation_2>",
+      "source": "<f_contact_deviation_2>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.748 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<f_contact_within_2>_resid",
+      "source": "<f_contact_within_2>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_contact_within_2>' still says once <f_contact_deviation_2> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<f_contact_deviation_3>",
+      "source": "<f_contact_deviation_3>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.791 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<f_contact_within_3>_resid",
+      "source": "<f_contact_within_3>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_contact_within_3>' still says once <f_contact_deviation_3> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<f_seeding_error>",
+      "source": "<f_seeding_error>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.589 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<f_seeding_within>_resid",
+      "source": "<f_seeding_within>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_seeding_within>' still says once <f_seeding_error> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<d3_viability>",
+      "source": "<d3_viability>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.751 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<f_viability_drop_rel>_resid",
+      "source": "<f_viability_drop_rel>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_viability_drop_rel>' still says once <d3_viability> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<cells_available>",
+      "source": "<cells_available>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.926 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<f_seeded_spread:std>_resid",
+      "source": "<f_seeded_spread:std>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_seeded_spread:std>' still says once <cells_available> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<il2_activity_d6>",
+      "source": "<il2_activity_d6>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.790 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<f_il2_d6>_resid",
+      "source": "<f_il2_d6>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_il2_d6>' still says once <il2_activity_d6> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<d6_glucose_b>",
+      "source": "<d6_glucose_b>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.739 against the other members, over 18 batches with a value (candidates needed at least 18)"
+    },
+    {
+      "output": "<d6_lactate_b>_resid",
+      "source": "<d6_lactate_b>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<d6_lactate_b>' still says once <d6_glucose_b> are accounted for (OLS on 1 retained parameter, 18 batches)"
+    },
+    {
+      "output": "<il2_activity_d8>",
+      "source": "<il2_activity_d8>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.692 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<f_il2_d8>_resid",
+      "source": "<f_il2_d8>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_il2_d8>' still says once <il2_activity_d8> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<d8_lactate_a>",
+      "source": "<d8_lactate_a>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.659 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<harvest_lactate>_resid",
+      "source": "<harvest_lactate>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<harvest_lactate>' still says once <d8_lactate_a> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<formulated_concentration>",
+      "source": "<formulated_concentration>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.880 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<washed_concentration>_resid",
+      "source": "<washed_concentration>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<washed_concentration>' still says once <formulated_concentration> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<f_incubation_d3_d6>",
+      "source": "<f_incubation_d3_d6>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.709 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<prior_lines>_resid",
+      "source": "<prior_lines>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<prior_lines>' still says once <f_incubation_d3_d6> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<coa_prefix><coa_donor:<coa_car_metric>-1>",
+      "source": "<coa_prefix><coa_donor:<coa_car_metric>-1>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.964 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<coa_prefix>pH_resid",
+      "source": "<coa_prefix>pH",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<coa_prefix>pH' still says once <coa_prefix><coa_donor:<coa_car_metric>-1> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<coa_prefix>HCP",
+      "source": "<coa_prefix>HCP",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.941 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<f_coa_impurity_index>_resid",
+      "source": "<f_coa_impurity_index>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_coa_impurity_index>' still says once <coa_prefix>HCP are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<f_moi_a>",
+      "source": "<f_moi_a>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.985 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<f_log_moi_a>_resid",
+      "source": "<f_log_moi_a>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_log_moi_a>' still says once <f_moi_a> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<f_pw_cd4_share>",
+      "source": "<f_pw_cd4_share>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.962 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<pw_cd4_pct>_resid",
+      "source": "<pw_cd4_pct>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<pw_cd4_pct>' still says once <f_pw_cd4_share> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<f_pw_cd8_share>",
+      "source": "<f_pw_cd8_share>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.956 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<pw_cd8_pct>_resid",
+      "source": "<pw_cd8_pct>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<pw_cd8_pct>' still says once <f_pw_cd8_share> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<f_vector_volume_spread:mean>",
+      "source": "<f_vector_volume_spread:mean>",
+      "strategy": "cluster representative (linear)",
+      "detail": "kept in its own units; the rest of the group is measured against it. mean pairwise R\u00b2 0.808 against the other members, over 27 batches with a value (candidates needed at least 27)"
+    },
+    {
+      "output": "<f_vector_volume_spread:min>_resid",
+      "source": "<f_vector_volume_spread:min>",
+      "strategy": "cluster residual (linear)",
+      "detail": "what '<f_vector_volume_spread:min>' still says once <f_vector_volume_spread:mean> are accounted for (OLS on 1 retained parameter, 27 batches)"
+    },
+    {
+      "output": "<contact_time_a>",
+      "source": "<contact_time_a>",
+      "strategy": "duration",
+      "detail": "used as recorded, with anything at or below zero treated as missing"
+    },
+    {
+      "output": "<contact_time_b>",
+      "source": "<contact_time_b>",
+      "strategy": "duration",
+      "detail": "used as recorded, with anything at or below zero treated as missing"
+    },
+    {
+      "output": "<f_car_yield>",
+      "source": "<f_car_yield>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_clump_burden_post>",
+      "source": "<f_clump_burden_post>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_clump_burden_pre>",
+      "source": "<f_clump_burden_pre>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_clump_size_reduction>",
+      "source": "<f_clump_size_reduction>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_achievable_dose>",
+      "source": "<f_achievable_dose>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_car_cells>",
+      "source": "<f_car_cells>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_clump_bag_count>",
+      "source": "<f_clump_bag_count>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_viability_d3_d10_rel>",
+      "source": "<f_viability_d3_d10_rel>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<mixing_cycles>",
+      "source": "<mixing_cycles>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<contact_time>",
+      "source": "<contact_time>",
+      "strategy": "duration",
+      "detail": "used as recorded, with anything at or below zero treated as missing"
+    },
+    {
+      "output": "Day 6 <co2_marker>",
+      "source": "Day 6 <co2_marker>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Day 6 <co2_marker> dev_from_5.0pct",
+      "source": "Day 6 <co2_marker> dev_from_5.0pct",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+      "source": "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Day 6 Temperature (\u00b0C)",
+      "source": "Day 6 Temperature (\u00b0C)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Day 6 Temperature (\u00b0C) dev_from_37.0C",
+      "source": "Day 6 Temperature (\u00b0C) dev_from_37.0C",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+      "source": "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<endotoxin>",
+      "source": "<endotoxin>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<formulated_viability>",
+      "source": "<formulated_viability>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_flow_accuracy>",
+      "source": "<f_flow_accuracy>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<washed_viability>",
+      "source": "<washed_viability>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<harvest_viability>",
+      "source": "<harvest_viability>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_incubation_d6_d8>",
+      "source": "<f_incubation_d6_d8>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_incubation_d8_d10>",
+      "source": "<f_incubation_d8_d10>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_lactate_slope>",
+      "source": "<f_lactate_slope>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_log_pw_cd4_cd8>",
+      "source": "<f_log_pw_cd4_cd8>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_mixing_x_clumps>",
+      "source": "<f_mixing_x_clumps>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_pt_cd3_cells>",
+      "source": "<f_pt_cd3_cells>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<pt_cd4_cd8_ratio>",
+      "source": "<pt_cd4_cd8_ratio>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<pt_cd3_pct>",
+      "source": "<pt_cd3_pct>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<pw_cd3_pct>",
+      "source": "<pw_cd3_pct>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<pw_viability>",
+      "source": "<pw_viability>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_post_formulation_dose>",
+      "source": "<f_post_formulation_dose>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<clumps_post_size>",
+      "source": "<clumps_post_size>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<clumps_mix_size>",
+      "source": "<clumps_mix_size>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<clumps_pre_count>",
+      "source": "<clumps_pre_count>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<clumps_pre_size>",
+      "source": "<clumps_pre_size>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<recovery>",
+      "source": "<recovery>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<subject_weight>",
+      "source": "<subject_weight>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_formulated_total_concentration>",
+      "source": "<f_formulated_total_concentration>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<cells_per_bag>",
+      "source": "<cells_per_bag>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_vector_volume_spread:cv>",
+      "source": "<f_vector_volume_spread:cv>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_vector_volume_spread:max>",
+      "source": "<f_vector_volume_spread:max>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<vector_volume_a>",
+      "source": "<vector_volume_a>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<bag_volume>",
+      "source": "<bag_volume>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<cpdl>",
+      "source": "<cpdl>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_cells_lost_wash>",
+      "source": "<f_cells_lost_wash>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<vector_volume_b>",
+      "source": "<vector_volume_b>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<d3_clump_pattern>_Many small__missing",
+      "source": "<d3_clump_pattern>",
+      "strategy": "missing indicator",
+      "detail": "1 where '<d3_clump_pattern>_Many small' has no value, 0 where it has one"
+    },
+    {
+      "output": "<nonconformance>_deviation__missing",
+      "source": "<nonconformance>",
+      "strategy": "missing indicator",
+      "detail": "1 where '<nonconformance>_deviation' has no value, 0 where it has one"
+    },
+    {
+      "output": "<nonconformance>_withdrawal__missing",
+      "source": "<nonconformance>",
+      "strategy": "missing indicator",
+      "detail": "1 where '<nonconformance>_withdrawal' has no value, 0 where it has one"
+    },
+    {
+      "output": "<nonconformance>_Termination__missing",
+      "source": "<nonconformance>",
+      "strategy": "missing indicator",
+      "detail": "1 where '<nonconformance>_Termination' has no value, 0 where it has one"
+    },
+    {
+      "output": "<nonconformance>_Withdrawal__missing",
+      "source": "<nonconformance>",
+      "strategy": "missing indicator",
+      "detail": "1 where '<nonconformance>_Withdrawal' has no value, 0 where it has one"
+    },
+    {
+      "output": "<ordinal_parameter>__missing",
+      "source": "<ordinal_parameter>",
+      "strategy": "missing indicator",
+      "detail": "1 where '<ordinal_parameter>' has no value, 0 where it has one"
+    },
+    {
+      "output": "<d8_glucose_b>_resid__missing",
+      "source": "<d8_glucose_b>",
+      "strategy": "missing indicator",
+      "detail": "1 where '<d8_glucose_b>_resid' has no value, 0 where it has one"
+    },
+    {
+      "output": "<f_moi_b>_resid__missing",
+      "source": "<f_moi_b>",
+      "strategy": "missing indicator",
+      "detail": "1 where '<f_moi_b>_resid' has no value, 0 where it has one"
+    },
+    {
+      "output": "<f_clump_burden_mix>__missing",
+      "source": "<f_clump_burden_mix>",
+      "strategy": "missing indicator",
+      "detail": "1 where '<f_clump_burden_mix>' has no value, 0 where it has one"
+    },
+    {
+      "output": "<clumps_mix_count>_resid__missing",
+      "source": "<clumps_mix_count>",
+      "strategy": "missing indicator",
+      "detail": "1 where '<clumps_mix_count>_resid' has no value, 0 where it has one"
+    },
+    {
+      "output": "<d6_glucose_b>__missing",
+      "source": "<d6_glucose_b>",
+      "strategy": "missing indicator",
+      "detail": "1 where '<d6_glucose_b>' has no value, 0 where it has one"
+    },
+    {
+      "output": "<d6_lactate_b>_resid__missing",
+      "source": "<d6_lactate_b>",
+      "strategy": "missing indicator",
+      "detail": "1 where '<d6_lactate_b>_resid' has no value, 0 where it has one"
+    },
+    {
+      "output": "<vector_volume_b>__missing",
+      "source": "<vector_volume_b>",
+      "strategy": "missing indicator",
+      "detail": "1 where '<vector_volume_b>' has no value, 0 where it has one"
+    }
+  ]
+}

@@ -11,10 +11,16 @@ run is better refused at the boundary than half written to disk.
 
 Relative paths resolve against the directory the YAML file itself is in, so a
 task folder can be moved without editing it. Absolute paths are left alone.
+
+A task can live anywhere. Its PVF, PTF and output folder may be written out under
+``inputs``/``output``; or left out, in which case they come from the workspace
+config — the one named by ``workspace:``, or else the one the run was started
+with (``--config``, ``$PVF_CONFIG`` or the nearest ``pvf.yaml``).
 """
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -40,6 +46,26 @@ MISSING_POLICIES = ("exclude", "include")
 #: What may be done about a group of parameters that move together.
 CLUSTER_ACTIONS = ("off", "report_only", "representative", "linear", "nonlinear")
 SPLIT_STRATEGIES = ("grouped", "chronological")
+IMPUTATION = ("none", "median")
+
+#: Process stages, earliest first. A PTF ``Available At`` value names one of
+#: these, and a predictive task's ``availability.cutoff`` names the last stage
+#: whose parameters it may use. A task can replace the list (availability.stages).
+DEFAULT_STAGES = (
+    "D0",
+    "D1",
+    "D3",
+    "D6",
+    "D8",
+    "D10",
+    "Harvest",
+    "Wash",
+    "Formulation",
+    "Final product",
+    "Post-thaw",
+    "Release",
+    "Post-release",
+)
 CORRELATION_METHODS = ("spearman", "pearson")
 
 #: Status spellings that mean the same thing, flattened before a filter runs.
@@ -107,6 +133,9 @@ class Roles:
 
     id: str = ""
     group: str = ""
+    #: Batches of one patient (a re-manufacture, say) share biology, so they are
+    #: kept on one side of a split together with their group.
+    patient: str = ""
     include: tuple[str, ...] = ()
     exclude: tuple[tuple[str, str], ...] = ()
 
@@ -119,19 +148,36 @@ class Roles:
 class Availability:
     """What is known at the moment a prediction would be made.
 
-    Nothing is inferred from a column's name. Either the task declares which
-    parameters come too late, or it states that the predictor list itself was
-    reviewed, and an unreviewed predictive task is refused.
+    Nothing is inferred from a column's name. Where the PTF has an
+    ``Available At`` column, ``cutoff`` names the last process stage a
+    prediction may draw on and everything later — or unstaged — is left out
+    mechanically. Without that column, the task has to declare which parameters
+    come too late and state that the predictor list was reviewed.
     """
 
     cutoff: str = ""
     reviewed: bool = False
     unavailable: tuple[tuple[str, str], ...] = ()
     available: tuple[str, ...] = ()
+    stages: tuple[str, ...] = DEFAULT_STAGES
 
     @property
     def unavailable_columns(self) -> tuple[str, ...]:
         return tuple(name for name, _ in self.unavailable)
+
+    def rank(self, stage: object) -> int | None:
+        """Where a stage falls in the process, or ``None`` when it is not one."""
+        if stage is None or (isinstance(stage, float) and stage != stage):
+            return None
+        wanted = str(stage).strip().lower()
+        for position, name in enumerate(self.stages):
+            if name.lower() == wanted:
+                return position
+        return None
+
+    @property
+    def cutoff_rank(self) -> int | None:
+        return self.rank(self.cutoff)
 
 
 @dataclass(frozen=True)
@@ -159,10 +205,27 @@ class Split:
     strategy: str = ""
     validation_fraction: float = 0.25
     order_column: str = ""
+    #: Cross-validation folds over the training rows, written to splits.csv. 0: none.
+    folds: int = 0
+    #: Keep the classes of a binary target balanced across the split and folds.
+    stratify: bool = True
 
     @property
     def requested(self) -> bool:
         return bool(self.strategy)
+
+
+@dataclass(frozen=True)
+class Missingness:
+    """Parameters that go missing together, and what explains it (description only)."""
+
+    enabled: bool = True
+    threshold: float = 0.9
+    min_rate: float = 0.05
+    max_rate: float = 0.95
+    min_size: int = 2
+    min_strength: float = 0.1
+    max_categories: int = 20
 
 
 @dataclass(frozen=True)
@@ -190,8 +253,10 @@ class TaskSpec:
     quality: dict[str, Any] = field(default_factory=dict)
     clustering: Clustering = field(default_factory=Clustering)
     split: Split = field(default_factory=Split)
+    missingness: Missingness = field(default_factory=Missingness)
     report: Reporting = field(default_factory=Reporting)
     source: str = ""
+    workspace: str = ""
 
     @property
     def predictive(self) -> bool:
@@ -249,6 +314,7 @@ class TaskSpec:
             "columns": {
                 "id": self.roles.id,
                 "group": self.roles.group,
+                "patient": self.roles.patient,
                 "include": list(self.roles.include),
                 "exclude": [{"column": c, "reason": r} for c, r in self.roles.exclude],
             },
@@ -259,6 +325,7 @@ class TaskSpec:
                     {"column": c, "reason": r} for c, r in self.availability.unavailable
                 ],
                 "available": list(self.availability.available),
+                "stages": list(self.availability.stages),
             },
             "encoding": dict(self.encoding),
             "quality": dict(self.quality),
@@ -274,6 +341,17 @@ class TaskSpec:
                 "strategy": self.split.strategy,
                 "validation_fraction": self.split.validation_fraction,
                 "order_column": self.split.order_column,
+                "folds": self.split.folds,
+                "stratify": self.split.stratify,
+            },
+            "missingness": {
+                "enabled": self.missingness.enabled,
+                "threshold": self.missingness.threshold,
+                "min_rate": self.missingness.min_rate,
+                "max_rate": self.missingness.max_rate,
+                "min_size": self.missingness.min_size,
+                "min_strength": self.missingness.min_strength,
+                "max_categories": self.missingness.max_categories,
             },
             "report": {
                 "preview_rows": self.report.preview_rows,
@@ -443,11 +521,17 @@ ENCODING_FIELDS = {
     "hashing_max_buckets": (int, 32),
     "hashing_signed": (bool, True),
     "missing_category": (str, "missing"),
+    "target_min_rows_per_category": (float, 5.0),
+    "hashing_min_rows": (int, 100),
+    "missing_indicators": (bool, False),
+    "impute": (str, "none"),
 }
 QUALITY_FIELDS = {
     "min_non_missing": (int, 20),
     "duplicate_r2_threshold": (float, 0.99),
     "duplicate_min_overlap": (int, 10),
+    "near_constant_tolerance": (float, 1e-4),
+    "proxy_correlation": (float, 0.95),
 }
 _RANGES = {
     "one_hot_top_x": (1, 200),
@@ -461,6 +545,10 @@ _RANGES = {
     "min_non_missing": (1, 1_000_000),
     "duplicate_r2_threshold": (0.0, 1.0),
     "duplicate_min_overlap": (2, 1_000_000),
+    "target_min_rows_per_category": (0.0, 1_000.0),
+    "hashing_min_rows": (0, 10_000_000),
+    "near_constant_tolerance": (0.0, 0.5),
+    "proxy_correlation": (0.0, 1.0),
 }
 
 
@@ -489,6 +577,8 @@ def _knobs(
             f"{where}.missing_category: expected 'missing' (leave the row empty) "
             "or 'category' (treat absence as a category of its own)"
         )
+    if "impute" in out and out["impute"] not in IMPUTATION:
+        errors.append(f"{where}.impute: expected one of {', '.join(IMPUTATION)}")
     if "hashing_min_buckets" in out and out["hashing_min_buckets"] > out["hashing_max_buckets"]:
         errors.append(f"{where}.hashing_min_buckets: larger than hashing_max_buckets")
     return out
@@ -496,15 +586,26 @@ def _knobs(
 
 def _resolve(value: str, base: Path) -> Path:
     path = Path(value).expanduser()
-    return path if path.is_absolute() else (base / path)
+    return Path(os.path.normpath(path if path.is_absolute() else (base / path)))
 
 
-def parse(raw: dict[str, Any], base: Path, source: str = "") -> TaskSpec:
-    """Validate a task mapping and resolve its paths. Raises on any problem."""
+def parse(
+    raw: dict[str, Any],
+    base: Path,
+    source: str = "",
+    defaults: dict[str, str] | None = None,
+) -> TaskSpec:
+    """Validate a task mapping and resolve its paths. Raises on any problem.
+
+    ``defaults`` holds the workspace's ``pvf``, ``ptf`` and ``tasks`` paths, used
+    for whatever the task file itself leaves out.
+    """
     errors: list[str] = []
+    defaults = defaults or {}
     _known(
         raw,
         (
+            "workspace",
             "task",
             "inputs",
             "output",
@@ -516,6 +617,7 @@ def parse(raw: dict[str, Any], base: Path, source: str = "") -> TaskSpec:
             "quality",
             "clustering",
             "split",
+            "missingness",
             "report",
         ),
         "(root)",
@@ -570,25 +672,32 @@ def parse(raw: dict[str, Any], base: Path, source: str = "") -> TaskSpec:
     if target.type == "numeric" and target.positive_class:
         errors.append("target.positive_class: only a binary target has one")
 
-    roles_raw = _known(raw.get("columns"), ("id", "group", "include", "exclude"), "columns", errors)
+    roles_raw = _known(
+        raw.get("columns"), ("id", "group", "patient", "include", "exclude"), "columns", errors
+    )
     roles = Roles(
         id=_text(roles_raw, "id", "columns", errors),
         group=_text(roles_raw, "group", "columns", errors),
+        patient=_text(roles_raw, "patient", "columns", errors),
         include=_names(roles_raw, "include", "columns", errors),
         exclude=_reasoned(roles_raw, "exclude", "columns", errors),
     )
 
     availability_raw = _known(
         raw.get("availability"),
-        ("cutoff", "reviewed", "unavailable", "available"),
+        ("cutoff", "reviewed", "unavailable", "available", "stages"),
         "availability",
         errors,
     )
+    stages = _names(availability_raw, "stages", "availability", errors) or DEFAULT_STAGES
+    if len({stage.lower() for stage in stages}) != len(stages):
+        errors.append("availability.stages: a stage is listed twice")
     availability = Availability(
         cutoff=_text(availability_raw, "cutoff", "availability", errors),
         reviewed=_flag(availability_raw, "reviewed", "availability", errors, False),
         unavailable=_reasoned(availability_raw, "unavailable", "availability", errors),
         available=_names(availability_raw, "available", "availability", errors),
+        stages=tuple(stages),
     )
 
     encoding = _knobs(raw.get("encoding") or {}, ENCODING_FIELDS, "encoding", errors)
@@ -614,7 +723,10 @@ def parse(raw: dict[str, Any], base: Path, source: str = "") -> TaskSpec:
     )
 
     split_raw = _known(
-        raw.get("split"), ("strategy", "validation_fraction", "order_column"), "split", errors
+        raw.get("split"),
+        ("strategy", "validation_fraction", "order_column", "folds", "stratify"),
+        "split",
+        errors,
     )
     split = Split(
         strategy=_choice(split_raw, "strategy", SPLIT_STRATEGIES, "split", errors, ""),
@@ -622,11 +734,35 @@ def parse(raw: dict[str, Any], base: Path, source: str = "") -> TaskSpec:
             split_raw, "validation_fraction", "split", errors, 0.25, low=0.05, high=0.9
         ),
         order_column=_text(split_raw, "order_column", "split", errors),
+        folds=_number(split_raw, "folds", "split", errors, 0, low=0, high=50, integer=True),
+        stratify=_flag(split_raw, "stratify", "split", errors, True),
     )
+    if split.folds == 1:
+        errors.append("split.folds: 0 for none, or at least 2")
     if split.strategy == "grouped" and not roles.group:
         errors.append("split.strategy: a grouped split needs columns.group")
     if split.strategy == "chronological" and not split.order_column:
         errors.append("split.order_column: a chronological split needs the column it orders by")
+
+    missing_raw = _known(
+        raw.get("missingness"),
+        tuple(f for f in Missingness.__dataclass_fields__),
+        "missingness",
+        errors,
+    )
+    missingness = Missingness(
+        enabled=_flag(missing_raw, "enabled", "missingness", errors, True),
+        threshold=_number(missing_raw, "threshold", "missingness", errors, 0.9, low=0.0, high=1.0),
+        min_rate=_number(missing_raw, "min_rate", "missingness", errors, 0.05, low=0.0, high=1.0),
+        max_rate=_number(missing_raw, "max_rate", "missingness", errors, 0.95, low=0.0, high=1.0),
+        min_size=_number(missing_raw, "min_size", "missingness", errors, 2, low=2, integer=True),
+        min_strength=_number(
+            missing_raw, "min_strength", "missingness", errors, 0.1, low=0.0, high=1.0
+        ),
+        max_categories=_number(
+            missing_raw, "max_categories", "missingness", errors, 20, low=2, integer=True
+        ),
+    )
 
     report_raw = _known(raw.get("report"), ("preview_rows", "max_table_rows"), "report", errors)
     report = Reporting(
@@ -638,7 +774,12 @@ def parse(raw: dict[str, Any], base: Path, source: str = "") -> TaskSpec:
 
     # ── Roles cannot overlap, and a predictor cannot also be metadata ──────
     roles_by_column: dict[str, list[str]] = {}
-    for label, column in (("target", target.column), ("id", roles.id), ("group", roles.group)):
+    for label, column in (
+        ("target", target.column),
+        ("id", roles.id),
+        ("group", roles.group),
+        ("patient", roles.patient),
+    ):
         if column:
             roles_by_column.setdefault(column, []).append(label)
     for column, labels in roles_by_column.items():
@@ -653,20 +794,43 @@ def parse(raw: dict[str, Any], base: Path, source: str = "") -> TaskSpec:
         if column in roles.excluded_columns:
             errors.append(f"columns.include: '{column}' is in columns.exclude as well")
 
-    if purpose == "predictive" and not (roles.include or availability.reviewed):
+    if purpose == "predictive" and not (
+        roles.include or availability.reviewed or availability.cutoff
+    ):
         errors.append(
-            "availability.reviewed: a predictive task needs either an explicit "
-            "columns.include list or availability.reviewed: true, stating that "
-            "someone checked which parameters exist before the prediction point"
+            "availability.cutoff: a predictive task has to say what is known at the "
+            "prediction point — name the last process stage it may use in "
+            f"availability.cutoff (one of {', '.join(availability.stages)}), give an "
+            "explicit columns.include list, or state availability.reviewed: true"
+        )
+    if availability.cutoff and availability.cutoff_rank is None and not availability.reviewed:
+        errors.append(
+            f"availability.cutoff: '{availability.cutoff}' is not one of the process stages "
+            f"({', '.join(availability.stages)}); use one of them, or set "
+            "availability.reviewed: true to keep a free-text cutoff checked by hand"
         )
 
-    pvf = _resolve(_text(inputs, "pvf", "inputs", errors), base)
-    ptf = _resolve(_text(inputs, "ptf", "inputs", errors), base)
-    root = _resolve(_text(output, "root", "output", errors, "outputs/tasks"), base)
-    if not str(inputs.get("pvf", "")).strip():
-        errors.append("inputs.pvf: the PVF this task reads has to be named")
-    if not str(inputs.get("ptf", "")).strip():
-        errors.append("inputs.ptf: the PTF this task reads has to be named")
+    def located(section: dict, key: str, where: str, fallback: str, what: str) -> Path:
+        text = _text(section, key, where, errors).strip()
+        if text:
+            return _resolve(text, base)
+        if fallback:
+            return Path(fallback)
+        errors.append(
+            f"{where}.{key}: {what} — name it here, set workspace: <path to pvf.yaml>, "
+            "or run from inside a workspace"
+        )
+        return Path(f"<{key}>")
+
+    pvf = located(inputs, "pvf", "inputs", defaults.get("pvf", ""), "the PVF this task reads")
+    ptf = located(inputs, "ptf", "inputs", defaults.get("ptf", ""), "the PTF this task reads")
+    root = (
+        _resolve(_text(output, "root", "output", errors), base)
+        if str(output.get("root") or "").strip()
+        else Path(defaults["tasks"])
+        if defaults.get("tasks")
+        else base / "outputs" / "tasks"
+    )
     if pvf == ptf:
         errors.append("inputs: the PVF and the PTF cannot be the same file")
     if root in (pvf.parent / pvf.name, ptf):
@@ -697,21 +861,59 @@ def parse(raw: dict[str, Any], base: Path, source: str = "") -> TaskSpec:
         quality=quality,
         clustering=clustering,
         split=split,
+        missingness=missingness,
         report=report,
         source=source or str(base),
+        workspace=defaults.get("config", ""),
     )
 
 
-def load(path: str | Path) -> TaskSpec:
-    """Read a task YAML and validate it. Paths resolve against the file's folder."""
+def load(path: str | Path, config: dict[str, Any] | None = None) -> TaskSpec:
+    """Read a task YAML and validate it. Paths resolve against the file's folder.
+
+    ``config`` is the workspace config the run was started with; it supplies the
+    inputs and output folder a task file leaves out, unless the task names its
+    own workspace.
+    """
     path = Path(path).expanduser().resolve()
+    if not path.is_file():
+        raise TaskConfigError(f"{path} does not exist")
     with open(path, encoding="utf-8") as handle:
         raw = yaml.safe_load(handle)
     if not isinstance(raw, dict):
         raise TaskConfigError(f"{path} is not a mapping")
     if "tasks" in raw and "task" not in raw:
         return from_legacy(raw, path)
-    return parse(raw, path.parent, source=str(path))
+    workspace = raw.get("workspace")
+    if workspace:
+        if not isinstance(workspace, str):
+            raise TaskConfigError(f"{path}: workspace: expected the path to a pvf.yaml")
+        config = _workspace(_resolve(workspace, path.parent))
+    return parse(raw, path.parent, source=str(path), defaults=workspace_defaults(config))
+
+
+def _workspace(path: Path) -> dict[str, Any]:
+    from . import config as workspace_config
+
+    if path.is_dir():
+        path = workspace_config.find(start=path)
+    try:
+        return workspace_config.load(path)
+    except workspace_config.ConfigError as exc:
+        raise TaskConfigError(f"workspace: {exc}") from exc
+
+
+def workspace_defaults(config: dict[str, Any] | None) -> dict[str, str]:
+    """The paths a task inherits from a workspace config."""
+    if not config:
+        return {}
+    paths = config.get("paths") or {}
+    return {
+        "pvf": str(paths.get("pvf") or ""),
+        "ptf": str(paths.get("ptf") or ""),
+        "tasks": str(paths.get("tasks") or ""),
+        "config": str(config.get("__path__") or ""),
+    }
 
 
 # ---------------------------------------------------------------------------

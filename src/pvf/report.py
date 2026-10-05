@@ -25,7 +25,7 @@ from typing import Any
 import pandas as pd
 import yaml
 
-from . import plots, stlite
+from . import io, missingness, plots, stlite
 from .blocks import (
     Block,
     bold,
@@ -160,10 +160,12 @@ def _cleaning(run: BuildRun) -> dict | None:
         )
     ]
 
-    if report.integrity_changes:
+    changes = list(report.integrity_changes) + list(getattr(report, "scale_changes", []))
+    source = report.settings.get("corrections", "")
+    if changes:
         blocks.append(
             collapsed(
-                f"Integrity corrections ({len(report.integrity_changes)})",
+                f"Data corrections ({len(changes)})",
                 [
                     table(
                         ["Site", "Parameter", "Correction", "Rows", "Why"],
@@ -175,10 +177,19 @@ def _cleaning(run: BuildRun) -> dict | None:
                                 esc(c.get("rows", "")),
                                 esc(c.get("why", "")),
                             ]
-                            for c in report.integrity_changes
+                            for c in changes
                         ],
                         note="Established corrections against the source systems, not general "
-                        "truths. Which of them run is a config decision.",
+                        f"truths. They are the rules in {source or 'the corrections table'}; "
+                        "cleaning.disable in the config switches named rules off"
+                        + (
+                            " (off in this run: "
+                            + ", ".join(report.settings["disabled_corrections"])
+                            + ")"
+                            if report.settings.get("disabled_corrections")
+                            else ""
+                        )
+                        + ".",
                     )
                 ],
             )
@@ -199,7 +210,13 @@ def _cleaning(run: BuildRun) -> dict | None:
                     for c in report.censored
                 ],
                 note="A value written '<0.5' is below the assay's limit. That is not the same "
-                "as 0.5 and not the same as missing, so the policy is recorded with it.",
+                "as 0.5 and not the same as missing, so the policy is recorded with it."
+                + (
+                    f" Each such column also has a '<name> censored' indicator "
+                    f"({len(report.censored_flags)} added), as cleaning.censored_flags asks."
+                    if getattr(report, "censored_flags", None)
+                    else ""
+                ),
             )
         )
 
@@ -867,6 +884,10 @@ def _issues(run: TaskRun) -> list[str]:
     issues = list(result.warnings)
     for reason, count in result.cohort.rejected.items():
         issues.append(f"{count} batches left out: {reason}")
+    if result.dropped_constant:
+        issues.append(
+            f"{len(result.dropped_constant)} columns were dropped as constant on the fitted rows"
+        )
     if result.dropped_sparse:
         issues.append(
             f"{len(result.dropped_sparse)} columns were dropped for having fewer than "
@@ -1164,7 +1185,42 @@ def _task_parameters(run: TaskRun) -> dict | None:
             "decisions.csv",
             csv_text(decisions),
         ),
+        download(
+            f"Download features.csv ({len(result.dictionary):,} features)",
+            "features.csv",
+            csv_text(
+                [
+                    {
+                        "Feature": r["output"],
+                        "Parameter": r["source"],
+                        "Encoding": r["strategy"],
+                        "Meaning": r["detail"],
+                    }
+                    for r in result.dictionary
+                ]
+            ),
+            note="The feature dictionary: every column the recipe produces, and its parameter.",
+        ),
     ]
+    blocks.append(_stage_summary(run))
+    if result.proxies:
+        blocks.append(
+            table(
+                ["Parameter", "Column", "r with the target", "Shared batches"],
+                [
+                    [
+                        esc(p["Parameter"]),
+                        esc(p["Feature"]),
+                        f"{p['r']:+.3f}",
+                        str(p["Shared batches"]),
+                    ]
+                    for p in result.proxies
+                ],
+                note="Measured on the fitted rows only. A predictor this close to the target is "
+                "often the target measured another way — a leak — and is worth a second look "
+                "before anyone trusts a model that leans on it.",
+            )
+        )
 
     if result.routes:
         blocks.append(plots.encoder_split(result.routes))
@@ -1297,7 +1353,145 @@ def _task_parameters(run: TaskRun) -> dict | None:
                 ],
             )
         )
+    if result.dropped_constant:
+        blocks.append(
+            collapsed(
+                f"Columns dropped as constant on the fitted rows ({len(result.dropped_constant)})",
+                [
+                    sortable(
+                        ["Column", "Produced by", "Value"],
+                        [
+                            [row["Feature"], row["Produced by"], row["Value"]]
+                            for row in result.dropped_constant
+                        ],
+                        filter_column="Column",
+                        note="Constant to measurement precision: an empty one-hot tail, a hash "
+                        "bucket nobody landed in, or a value that only differs in its last "
+                        "digits. Scaled to unit variance, the last kind would dominate a model.",
+                    )
+                ],
+            )
+        )
     return _section("parameters", "Parameters and encodings", blocks)
+
+
+def _stage_summary(run: TaskRun) -> Block | None:
+    """How the PTF's process stages decided availability, stage by stage."""
+    result, spec = run.result, run.spec
+    if not result.stages:
+        return None
+    candidates = set(result.candidates)
+    late = {d.parameter for d in result.decisions if d.stage == "availability"}
+    rows = []
+    for stage in [*spec.availability.stages, ""]:
+        names = [p for p, s in result.stages.items() if s == stage]
+        if not names:
+            continue
+        rows.append(
+            [
+                esc(stage or "no stage in the PTF"),
+                f"{len(names):,}",
+                f"{sum(n in candidates for n in names):,}",
+                f"{sum(n in late for n in names):,}",
+            ]
+        )
+    cutoff = spec.availability.cutoff or "none"
+    return table(
+        ["Available at", "Parameters", "Allowed as predictors", "Left out as too late"],
+        rows,
+        note=f"From the PTF's '{io.STAGE_COLUMN}' column; a derived column is as late as its "
+        f"latest input. Prediction point: {esc(cutoff)}."
+        + (
+            ""
+            if spec.predictive
+            else " This task is exploratory, so stages are described but nothing is left out."
+        ),
+    )
+
+
+def _task_missingness(run: TaskRun) -> dict | None:
+    """Parameters that go missing on the same batches, and what explains it."""
+    analysis = run.result.missingness
+    if analysis is None or not analysis.enabled:
+        return None
+    blocks: list[Block | None] = [
+        md(
+            f"Columns whose values go missing on the same batches, over the {analysis.rows:,} "
+            f"batches of the cohort. {len(analysis.analysed):,} of {analysis.columns:,} columns "
+            f"have a missing rate between {analysis.settings['min_rate']} and "
+            f"{analysis.settings['max_rate']} and take part: {analysis.too_complete:,} are too "
+            f"complete and {analysis.too_empty:,} too empty to have a pattern. Two columns group "
+            f"when their Jaccard similarity reaches {analysis.settings['threshold']}. "
+            "This is description only: nothing here changes the dataset."
+        )
+    ]
+    if not analysis.groups:
+        blocks.append(md("No group of parameters goes missing together."))
+        return _section("missingness", "Parameters missing together", blocks)
+    blocks.append(md(f"#### Summary of all {len(analysis.groups)} groups"))
+    blocks.append(
+        table(
+            [
+                "Group",
+                "Members",
+                "Batches missing ≥1 member (%)",
+                "Mean Jaccard",
+                "Best explainer",
+                "Score",
+                "Explainer blanks track the group",
+            ],
+            [
+                [
+                    esc(g.name),
+                    str(len(g.members)),
+                    f"{100 * g.group_rate:.0f}",
+                    f"{g.cohesion:.2f}",
+                    esc(g.explainer.column if g.explainer else "—"),
+                    f"{g.explainer.score:.2f}" if g.explainer else "—",
+                    "yes" if g.explainer and g.explainer.self_correlated else "no",
+                ]
+                for g in analysis.groups
+            ],
+            note="The score is the mutual information between the explainer's categories and "
+            "the group's missing pattern over the pattern's entropy: 0 says nothing, 1 says the "
+            "category alone decides whether the group is recorded.",
+        )
+    )
+    blocks.append(md("#### Group details"))
+    blocks.append(
+        chooser(
+            "Group",
+            [
+                {
+                    "label": g.name,
+                    "blocks": [
+                        md(f"#### {g.name}"),
+                        table(
+                            ["Parameter", "Missing rate"],
+                            [[esc(m), f"{100 * g.member_rates[m]:.0f}%"] for m in g.members],
+                        ),
+                        plots.missing_pattern(g),
+                        plots.missing_by_category(g),
+                        table(
+                            ["Runner-up explainer", "Score"],
+                            [[esc(name), f"{score:.2f}"] for name, score in g.alternatives],
+                        )
+                        if g.alternatives
+                        else None,
+                    ],
+                }
+                for g in analysis.groups
+            ],
+        )
+    )
+    blocks.append(
+        download(
+            "Download missingness.csv",
+            "missingness.csv",
+            csv_text(missingness.rows(analysis)),
+        )
+    )
+    return _section("missingness", "Parameters missing together", blocks)
 
 
 def _cluster_detail(cluster) -> list[Block | None]:
@@ -1594,6 +1788,27 @@ def _task_dataset(run: TaskRun) -> dict | None:
                 ),
             ]
         )
+    if result.split.get("folds"):
+        rows.append(
+            [
+                "Cross-validation folds",
+                esc(
+                    f"{result.split['folds']} over the training rows "
+                    f"({result.split.get('fold_strategy')}), in data/splits.csv and the "
+                    "'fold' column"
+                ),
+            ]
+        )
+    if spec.predictive and not run.report_only:
+        rows.append(
+            [
+                "Transformed view",
+                esc(
+                    "data/transformed.csv: the recipe fitted on the training rows (target "
+                    "encoding cross-fitted) and applied unchanged to the validation rows"
+                ),
+            ]
+        )
     rows.append(["Written to", esc(run.output_path or "nothing — this is a report-only run")])
 
     blocks: list[Block | None] = [
@@ -1680,7 +1895,7 @@ def _task_provenance(run: TaskRun) -> dict | None:
         "A fresh report fetches its Python runtime from a CDN, so opening one needs network "
         "access once. It is not an offline file.",
     ]
-    if not run.result.split:
+    if not run.result.split.get("validation"):
         limitations.append(
             "No train/validation split was requested, so the preprocessing was fitted over the "
             "whole cohort. Treat the transformed view as exploratory."
@@ -1733,6 +1948,7 @@ def build_task_payload(run: TaskRun) -> dict[str, Any]:
         _task_quality(run),
         _task_parameters(run),
         _task_clusters(run, membership),
+        _task_missingness(run),
         _task_dataset(run),
         _task_provenance(run),
     ]

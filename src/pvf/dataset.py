@@ -26,15 +26,21 @@ honestly cross-validate on afterwards.
 
 from __future__ import annotations
 
+import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, fields
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import GroupKFold, KFold, StratifiedGroupKFold, StratifiedKFold
 
 from . import decorrelate, encode, features
+from . import missingness as missing_analysis
+from .clean import CENSORED_SUFFIX
 from .encode import Record, TaskParams, sanitise
+from .io import STAGE_COLUMN
 from .logger import log
 from .taskconfig import STATUS_ALIASES, TaskSpec
 
@@ -105,7 +111,17 @@ class TaskResult:
     nonpositive_durations: dict[str, int] = field(default_factory=dict)
     duplicate_decisions: list[dict] = field(default_factory=list)
     dropped_sparse: list[dict] = field(default_factory=list)
+    dropped_constant: list[dict] = field(default_factory=list)
     clusters: decorrelate.ClusterReport = field(default_factory=decorrelate.ClusterReport)
+    #: Parameter → the process stage it exists from, where the PTF says.
+    stages: dict[str, str] = field(default_factory=dict)
+    #: Predictors that track the target closely on the fitted rows.
+    proxies: list[dict] = field(default_factory=list)
+    missingness: Any = None
+    #: Row index → cross-validation fold (1..k), for the rows that have one.
+    folds: dict = field(default_factory=dict)
+    #: The transformed table, whatever the dataset is; exported beside it.
+    transformed: pd.DataFrame | None = None
 
     dictionary: list[Record] = field(default_factory=list)
     columns: list[dict] = field(default_factory=list)
@@ -401,7 +417,28 @@ def _requirements(feature: features.Feature) -> list[tuple[str, ...]]:
     return [(r,) if isinstance(r, str) else tuple(r) for r in feature.requires]
 
 
-def target_descendants(target: str, params: features.Params) -> dict[str, str]:
+def lineage(names: list[str] | tuple[str, ...] = ()) -> dict[str, list[tuple[str, ...]]]:
+    """What every derived column was computed from.
+
+    The feature registry, the certificate columns the loader derives, and the
+    ``<parameter> censored`` indicators cleaning can add for any of ``names``.
+    """
+    table = {f.name: _requirements(f) for f in features.registry(features.Params())}
+    table.update(
+        {
+            name: [(source,) for source in sources]
+            for name, sources in features.DERIVED_SOURCES.items()
+        }
+    )
+    for name in names:
+        if str(name).endswith(CENSORED_SUFFIX):
+            table.setdefault(str(name), [(str(name)[: -len(CENSORED_SUFFIX)],)])
+    return table
+
+
+def target_descendants(
+    target: str, params: features.Params | None = None, names: list[str] | tuple[str, ...] = ()
+) -> dict[str, str]:
     """Every derived column the target went into, and the chain that got it there.
 
     Conservative on alternatives: a feature that could have been computed from
@@ -409,18 +446,12 @@ def target_descendants(target: str, params: features.Params) -> dict[str, str]:
     which input a given site actually used is not recorded in the PVF.
     """
     tainted: dict[str, str] = {target: target}
-    lineage = {f.name: _requirements(f) for f in features.registry(params)}
-    lineage.update(
-        {
-            name: [(source,) for source in sources]
-            for name, sources in features.DERIVED_SOURCES.items()
-        }
-    )
+    lineage_table = lineage([*names, f"{target}{CENSORED_SUFFIX}"])
 
     changed = True
     while changed:
         changed = False
-        for name, requires in lineage.items():
+        for name, requires in lineage_table.items():
             if name in tainted:
                 continue
             for requirement in requires:
@@ -435,6 +466,51 @@ def target_descendants(target: str, params: features.Params) -> dict[str, str]:
                 break
     tainted.pop(target, None)
     return tainted
+
+
+def parameter_stages(
+    ptf: pd.DataFrame, spec: TaskSpec, names: list[str]
+) -> tuple[dict[str, int | None], list[str]]:
+    """The process stage from which each parameter exists, as a rank.
+
+    The PTF's ``Available At`` says it for a parameter a source records. A
+    derived column cannot exist before its latest input, so its stage is the
+    latest of its own and its inputs' — walked through the same lineage the
+    target check uses. Unknown stays unknown (``None``). Also returns the PTF
+    stage values that are not process stages, for the report.
+    """
+    if STAGE_COLUMN not in ptf.columns:
+        return {}, []
+    availability = spec.availability
+    declared: dict[str, int | None] = {}
+    unknown_values: set[str] = set()
+    for parameter, value in zip(ptf["Parameter"].astype(str), ptf[STAGE_COLUMN]):
+        rank = availability.rank(value)
+        if rank is None and pd.notna(value) and str(value).strip():
+            unknown_values.add(str(value).strip())
+        declared[parameter] = rank
+
+    table = lineage(names)
+    ranks = dict(declared)
+    changed = True
+    while changed:
+        changed = False
+        for name, requires in table.items():
+            inputs: list[int | None] = []
+            for requirement in requires:
+                known = [ranks.get(r) for r in requirement if ranks.get(r) is not None]
+                # Any one alternative will do, but which one was used is not
+                # recorded: take the latest, so a stage is never understated.
+                inputs.append(max(known) if known else None)
+            own = declared.get(name)
+            if inputs and all(rank is not None for rank in inputs):
+                derived = max(inputs) if own is None else max(own, *inputs)
+            else:
+                derived = own
+            if derived != ranks.get(name):
+                ranks[name] = derived
+                changed = True
+    return ranks, sorted(unknown_values)
 
 
 def candidate_predictors(
@@ -468,11 +544,44 @@ def candidate_predictors(
         spec.target.column: "the target",
         spec.roles.id: "the identifier",
         spec.roles.group: "the grouping column",
+        spec.roles.patient: "the patient column",
     }
     roles.pop("", None)
-    descendants = target_descendants(spec.target.column, features.Params())
+    descendants = target_descendants(spec.target.column, names=list(cohort.columns))
     unavailable = dict(spec.availability.unavailable)
     overrides = set(spec.availability.available)
+
+    # When the PTF says from which stage each parameter exists, a predictive
+    # task's cutoff is checked mechanically: later or unstaged is out.
+    ranks, odd_values = parameter_stages(ptf, spec, list(cohort.columns))
+    cutoff = spec.availability.cutoff_rank
+    staged = bool(ranks) and spec.predictive and cutoff is not None
+    result.stages = {
+        name: (spec.availability.stages[rank] if rank is not None else "")
+        for name, rank in ranks.items()
+    }
+    if odd_values:
+        result.note(
+            f"The PTF's '{STAGE_COLUMN}' column holds values that are not process stages "
+            f"({', '.join(odd_values[:6])}); those parameters count as unstaged"
+        )
+    if spec.predictive and not spec.roles.include:
+        if ranks and cutoff is None:
+            result.note(
+                f"availability.cutoff '{spec.availability.cutoff}' is free text, so the PTF's "
+                f"'{STAGE_COLUMN}' stages were not used; availability rests on the declared list"
+            )
+        elif not ranks:
+            if not spec.availability.reviewed:
+                raise TaskRefused(
+                    f"availability.cutoff: the PTF has no '{STAGE_COLUMN}' column, so a cutoff "
+                    "cannot be checked against it. Add the column to the PTF, or list the late "
+                    "parameters under availability.unavailable and set availability.reviewed: true"
+                )
+            result.note(
+                f"The PTF has no '{STAGE_COLUMN}' column, so availability rests on the "
+                "hand-written availability.unavailable list alone"
+            )
 
     kept: list[str] = []
     for parameter in available:
@@ -491,6 +600,20 @@ def candidate_predictors(
                 parameter,
                 f"not available at the prediction point ({spec.availability.cutoff or 'declared'})"
                 f": {unavailable[parameter]}",
+                "availability",
+            )
+        elif staged and parameter not in overrides and ranks.get(parameter) is None:
+            refuse(
+                parameter,
+                f"the PTF gives it no '{STAGE_COLUMN}' stage, so it cannot be shown to exist "
+                f"by the prediction point ({spec.availability.cutoff})",
+                "availability",
+            )
+        elif staged and parameter not in overrides and ranks[parameter] > cutoff:
+            refuse(
+                parameter,
+                f"available at {spec.availability.stages[ranks[parameter]]}, after the "
+                f"prediction point ({spec.availability.cutoff})",
                 "availability",
             )
         elif spec.predictive and parameter in features.SITE_RELATIVE and parameter not in overrides:
@@ -540,14 +663,20 @@ def candidate_predictors(
 # ---------------------------------------------------------------------------
 # The preprocessing recipe
 # ---------------------------------------------------------------------------
+#: Bumped whenever recipe.json changes shape; a recipe says which version wrote it.
+RECIPE_VERSION = 2
+#: The suffix of a missing-value indicator column.
+MISSING_SUFFIX = "__missing"
+
+
 @dataclass
 class Preprocessor:
     """What was learned from the training rows, and how to apply it elsewhere.
 
     Plain data throughout: dictionaries of category vocabularies, means, widths,
     retained parameters and regression coefficients. It is written next to the
-    dataset as ``recipe.json``, so applying it again needs this module, not this
-    process.
+    dataset as ``recipe.json`` and read back with :meth:`from_state`, so applying
+    it to new batches needs this package — ``pvf apply`` — not this process.
     """
 
     params: TaskParams
@@ -565,36 +694,21 @@ class Preprocessor:
     clusters: dict = field(default_factory=dict)
     passthrough: list[str] = field(default_factory=list)
     dropped: list[str] = field(default_factory=list)
+    #: The encoded columns kept after the sparsity and near-constant checks.
+    encoded_columns: list[str] = field(default_factory=list)
+    #: Encoded columns that get a 0/1 missing-value indicator.
+    indicators: list[str] = field(default_factory=list)
+    #: Encoded column → the fitted median its gaps are filled with.
+    medians: dict[str, float] = field(default_factory=dict)
     output_columns: list[str] = field(default_factory=list)
     dictionary: list[Record] = field(default_factory=list)
-    #: How the training rows' own target encoding was cross-fitted, for the report.
-    crossfit: dict = field(default_factory=dict)
 
     def state(self) -> dict[str, Any]:
         return {
+            "recipe_version": RECIPE_VERSION,
             "fitted_on": self.fitted_on,
             "rows_fitted": self.rows_fitted,
-            "settings": {
-                name: getattr(self.params, name)
-                for name in (
-                    "one_hot",
-                    "target_encoding",
-                    "feature_hashing",
-                    "one_hot_top_x",
-                    "onehot_max_categories",
-                    "target_max_categories",
-                    "max_cardinality_ratio",
-                    "target_encoding_smoothing",
-                    "target_encoding_folds",
-                    "missing_category",
-                    "min_non_missing",
-                    "duplicate_r2_threshold",
-                    "duplicate_min_overlap",
-                    "cluster_corr_method",
-                    "cluster_corr_threshold",
-                    "cluster_min_overlap",
-                )
-            },
+            "settings": asdict(self.params),
             "binary": self.binary,
             "one_hot": self.one_hot,
             "target_encoding": self.target_encoding,
@@ -606,49 +720,105 @@ class Preprocessor:
             "clusters": self.clusters,
             "passthrough": self.passthrough,
             "dropped_for_sparsity": self.dropped,
+            "encoded_columns": self.encoded_columns,
+            "indicators": self.indicators,
+            "medians": self.medians,
             "output_columns": self.output_columns,
+            "dictionary": self.dictionary,
         }
 
+    @classmethod
+    def from_state(cls, state: dict[str, Any]) -> Preprocessor:
+        """The recipe a run wrote, ready to apply to any rows."""
+        known = {f.name for f in fields(TaskParams)}
+        settings = {k: v for k, v in (state.get("settings") or {}).items() if k in known}
+        output = list(state.get("output_columns") or [])
+        return cls(
+            params=TaskParams(**settings),
+            fitted_on=state.get("fitted_on", ""),
+            rows_fitted=int(state.get("rows_fitted") or 0),
+            binary=state.get("binary") or {},
+            one_hot=state.get("one_hot") or {},
+            target_encoding=state.get("target_encoding") or {},
+            hashing=state.get("hashing") or {},
+            ordinal=state.get("ordinal") or {},
+            durations=list(state.get("durations") or []),
+            numeric=list(state.get("numeric") or []),
+            retained_numeric=list(state.get("retained_numeric") or []),
+            clusters=state.get("clusters") or {},
+            passthrough=list(state.get("passthrough") or []),
+            dropped=list(state.get("dropped_for_sparsity") or []),
+            encoded_columns=list(state.get("encoded_columns") or output),
+            indicators=list(state.get("indicators") or []),
+            medians=dict(state.get("medians") or {}),
+            output_columns=output,
+            dictionary=list(state.get("dictionary") or []),
+        )
+
+    @classmethod
+    def load(cls, path: str | Path) -> Preprocessor:
+        return cls.from_state(json.loads(Path(path).read_text(encoding="utf-8")))
+
+    @property
+    def inputs(self) -> list[str]:
+        """The PVF parameters a row needs for this recipe to encode it."""
+        return list(dict.fromkeys(record["source"] for record in self.dictionary))
+
     # -- applying -----------------------------------------------------------
-    def transform(
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Encode any rows with what was fitted. Nothing here learns anything."""
+        target_encoded = encode.apply_target(df, self.target_encoding, self.params)[0]
+        return self._finish(self._encode(df, target_encoded))
+
+    def crossfit_transform(
         self,
         df: pd.DataFrame,
-        target: pd.Series | None = None,
-        crossfit: bool = False,
+        target: pd.Series,
         groups: pd.Series | None = None,
         order: pd.Series | None = None,
-    ) -> pd.DataFrame:
-        """Encode any rows with what was fitted. Nothing here learns anything.
+    ) -> tuple[pd.DataFrame, dict[str, Any]]:
+        """The training rows themselves, their target encoding computed fold by fold.
 
-        ``crossfit`` is for the training rows themselves: their target encoding
-        is computed fold by fold, each fold using only its own training part.
+        Each fold's encoding uses only that fold's training part, so no row is
+        encoded with a mean its own target is inside. Returns what the folds did.
         """
-        parts: list[pd.DataFrame] = []
-        parts.append(encode.apply_binary(df, self.binary, self.params)[0])
-        parts.append(encode.apply_one_hot(df, self.one_hot, self.params)[0])
-        if crossfit and target is not None:
-            encoded, info = encode.crossfit_target(
-                df, self.target_encoding, target, self.params, groups=groups, order=order
-            )
-            self.crossfit = info
-            parts.append(encoded)
-        else:
-            parts.append(encode.apply_target(df, self.target_encoding, self.params)[0])
-        parts.append(encode.apply_hashed(df, self.hashing, self.params)[0])
-        parts.append(encode.apply_ordinal(df, self.ordinal)[0])
+        encoded, info = encode.crossfit_target(
+            df, self.target_encoding, target, self.params, groups=groups, order=order
+        )
+        return self._finish(self._encode(df, encoded)), info
 
+    def _encode(self, df: pd.DataFrame, target_encoded: pd.DataFrame) -> pd.DataFrame:
+        parts: list[pd.DataFrame] = [
+            encode.apply_binary(df, self.binary, self.params)[0],
+            encode.apply_one_hot(df, self.one_hot, self.params)[0],
+            target_encoded,
+            encode.apply_hashed(df, self.hashing, self.params)[0],
+            encode.apply_ordinal(df, self.ordinal)[0],
+        ]
         numbers = self._numbers(df)
         if self.clusters.get("clusters"):
             parts.append(decorrelate.transform(numbers, self.clusters))
         present = [c for c in self.passthrough if c in numbers.columns]
         if present:
             parts.append(numbers[present])
-
         frame = pd.concat([p for p in parts if not p.empty], axis=1)
-        for column in self.output_columns:
-            if column not in frame.columns:
-                frame[column] = np.nan
-        return frame[self.output_columns]
+        frame = frame.loc[:, ~frame.columns.duplicated()]
+        wanted = self.encoded_columns or self.output_columns
+        return frame.reindex(columns=wanted)
+
+    def _finish(self, frame: pd.DataFrame) -> pd.DataFrame:
+        """Indicators, then imputation — in that order, so an indicator sees the gap."""
+        indicators = {
+            f"{column}{MISSING_SUFFIX}": frame[column].isna().astype("Int64")
+            for column in self.indicators
+            if column in frame.columns
+        }
+        if self.medians:
+            fill = {c: v for c, v in self.medians.items() if c in frame.columns}
+            frame = frame.astype({c: "float64" for c in fill}).fillna(fill)
+        if indicators:
+            frame = pd.concat([frame, pd.DataFrame(indicators, index=frame.index)], axis=1)
+        return frame.reindex(columns=self.output_columns)
 
     def _numbers(self, df: pd.DataFrame) -> pd.DataFrame:
         columns = [c for c in self.numeric if c in df.columns]
@@ -687,7 +857,8 @@ def fit_preprocessing(
     taken = set(reserved)
 
     value_type = dict(zip(ptf["Parameter"].astype(str), ptf["Value Type"].astype(str)))
-    categorical = [p for p in predictors if value_type.get(p) == "categorical"]
+    # A yes/no parameter is a category with two levels.
+    categorical = [p for p in predictors if value_type.get(p) in ("categorical", "boolean")]
     ordinal_names = [p for p in predictors if encode.category_order(value_type.get(p)) is not None]
     categorical = [p for p in categorical if p not in ordinal_names]
     numeric = [
@@ -826,8 +997,10 @@ def fit_preprocessing(
     if duplicated:
         raise TaskRefused(f"Two encoders produced the same output name: {duplicated[:5]}")
 
+    pre.encoded_columns = list(pre.output_columns)
+
     # ── Sparsity, decided on the fitted rows ──────────────────────────────
-    fitted_frame = pre.transform(train, target=target, crossfit=False)
+    fitted_frame = pre.transform(train)
     counts = fitted_frame.notna().sum()
     thin = [c for c in pre.output_columns if counts.get(c, 0) < params.min_non_missing]
     for column in thin:
@@ -849,55 +1022,201 @@ def fit_preprocessing(
             )
         )
     if thin:
-        pre.dropped = thin
-        pre.output_columns = [c for c in pre.output_columns if c not in set(thin)]
-        pre.dictionary = [r for r in pre.dictionary if r["output"] not in set(thin)]
         log.info(MODULE, f"{len(thin)} columns have too few values and were dropped")
 
-    if not pre.output_columns:
+    # ── Constant to measurement precision, on the fitted rows ─────────────
+    # An empty one-hot tail, a hash bucket nobody landed in, or a ratio that
+    # only differs in its seventh digit says nothing, and scaled to unit
+    # variance the last of those becomes the largest number in the table.
+    flat = [
+        c
+        for c in pre.output_columns
+        if c not in set(thin)
+        and encode.near_constant(fitted_frame[c], params.near_constant_tolerance)
+    ]
+    for column in flat:
+        record = next((r for r in records if r["output"] == column), None)
+        values = pd.to_numeric(fitted_frame[column], errors="coerce").dropna()
+        result.dropped_constant.append(
+            {
+                "Feature": column,
+                "Produced by": record["strategy"] if record else "unknown",
+                "Value": round(float(values.iloc[0]), 6) if len(values) else "",
+            }
+        )
+        result.decisions.append(
+            Decision(
+                record["source"] if record else column,
+                "excluded",
+                f"'{column}' is constant on the fitted rows, to measurement precision",
+                "near-constant",
+            )
+        )
+    if flat:
+        log.info(MODULE, f"{len(flat)} columns are constant on the fitted rows and were dropped")
+
+    gone = set(thin) | set(flat)
+    pre.dropped = thin
+    pre.encoded_columns = [c for c in pre.output_columns if c not in gone]
+    pre.dictionary = [r for r in pre.dictionary if r["output"] not in gone]
+    if not pre.encoded_columns:
         raise TaskRefused(
             "Every candidate predictor was dropped before the dataset was assembled. "
             "decisions.csv says why each one went"
         )
+    kept = fitted_frame[pre.encoded_columns]
+
+    # ── Gaps: indicators and imputation, both learned here ────────────────
+    if params.missing_indicators:
+        pre.indicators = [c for c in pre.encoded_columns if kept[c].isna().any()]
+        sources = {r["output"]: r["source"] for r in pre.dictionary}
+        pre.dictionary += [
+            encode._record(
+                f"{c}{MISSING_SUFFIX}",
+                sources.get(c, c),
+                "missing indicator",
+                f"1 where '{c}' has no value, 0 where it has one",
+            )
+            for c in pre.indicators
+        ]
+    if params.impute == "median":
+        medians = kept.apply(pd.to_numeric, errors="coerce").median()
+        pre.medians = {c: float(v) for c, v in medians.items() if pd.notna(v)}
+        for record in pre.dictionary:
+            if record["output"] in pre.medians:
+                record["detail"] += (
+                    f"; a gap is filled with the training median {pre.medians[record['output']]:g}"
+                )
+    pre.output_columns = pre.encoded_columns + [f"{c}{MISSING_SUFFIX}" for c in pre.indicators]
+
+    # ── Predictors that look like the target ──────────────────────────────
+    if params.proxy_correlation > 0 and len(train) >= 8:
+        y = pd.to_numeric(target.reindex(train.index), errors="coerce")
+        sources = {r["output"]: r["source"] for r in pre.dictionary}
+        for column in pre.encoded_columns:
+            r, shared = encode.pairwise(kept[column].astype("float64"), y)
+            if shared >= 8 and np.isfinite(r) and abs(r) >= params.proxy_correlation:
+                result.proxies.append(
+                    {"Feature": column, "Parameter": sources.get(column, column),
+                     "r": round(r, 3), "Shared batches": shared}
+                )
+        for proxy in result.proxies:
+            result.note(
+                f"'{proxy['Parameter']}' correlates r={proxy['r']} with the target over "
+                f"{proxy['Shared batches']} fitted batches — check it is not the target "
+                "measured another way, which would be a leak"
+            )
     return pre
 
 
 # ---------------------------------------------------------------------------
 # Splitting
 # ---------------------------------------------------------------------------
+def split_groups(cohort: pd.DataFrame, labelled: pd.Index, spec: TaskSpec) -> pd.Series | None:
+    """The units a split must keep whole: the grouping column, joined up by patient.
+
+    Two batches belong together when they share a group (a vector lot) or a
+    patient — directly or through a chain of batches. A re-manufactured batch
+    shares its patient's starting material with the first one, so it cannot be
+    allowed to sit on the other side of a split from it.
+    """
+    columns = [c for c in (spec.roles.group, spec.roles.patient) if c and c in cohort.columns]
+    if not columns:
+        return None
+    rows = list(labelled)
+    parent = list(range(len(rows)))
+
+    def root(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for column in columns:
+        values = cohort.loc[labelled, column].astype("string")
+        if column == spec.roles.group:
+            values = values.fillna("(missing)")
+        first: dict[str, int] = {}
+        for position, value in enumerate(values.tolist()):
+            if value is pd.NA or value is None:
+                continue
+            if value in first:
+                parent[root(position)] = root(first[value])
+            else:
+                first[value] = position
+    label_column = spec.roles.group if spec.roles.group in cohort.columns else columns[0]
+    names = cohort.loc[labelled, label_column].astype("string").fillna("(missing)").tolist()
+    members: dict[int, list[str]] = {}
+    for position, name in enumerate(names):
+        members.setdefault(root(position), []).append(str(name))
+    labels = {r: "+".join(sorted(set(m))) for r, m in members.items()}
+    return pd.Series([labels[root(i)] for i in range(len(rows))], index=labelled)
+
+
+def _splitter(n_splits: int, grouped: bool, stratified: bool, seed: int):
+    if grouped and stratified:
+        return StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    if grouped:
+        return GroupKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    if stratified:
+        return StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    return KFold(n_splits=n_splits, shuffle=True, random_state=seed)
+
+
+def _stratify(spec: TaskSpec, target: pd.Series | None, rows: pd.Index) -> pd.Series | None:
+    if target is None or spec.target.type != "binary" or not spec.split.stratify:
+        return None
+    labels = target.loc[rows]
+    return labels if labels.value_counts().min() >= 2 else None
+
+
 def assign_split(
-    cohort: pd.DataFrame, labelled: pd.Index, spec: TaskSpec, result: TaskResult
+    cohort: pd.DataFrame,
+    labelled: pd.Index,
+    spec: TaskSpec,
+    result: TaskResult,
+    target: pd.Series | None = None,
 ) -> tuple[pd.Index, pd.Index]:
     """Training and validation rows, by the strategy the task declared.
 
     No split is invented: a task that asks for none gets none, and its
-    transformed table is labelled exploratory instead.
+    transformed table is labelled exploratory instead. A grouped split shuffles
+    whole groups with the task's seed — keeping a binary target's classes
+    balanced where it can — rather than always holding out the same kind of
+    group. ``split.folds`` adds cross-validation folds over the training rows.
     """
-    if not spec.split.requested:
+    if not spec.split.requested and not spec.split.folds:
         return labelled, pd.Index([])
 
     fraction = spec.split.validation_fraction
+    groups = split_groups(cohort, labelled, spec)
+    detail = ""
+    validation = pd.Index([])
     if spec.split.strategy == "grouped":
-        groups = cohort.loc[labelled, spec.roles.group].astype("string").fillna("(missing)")
-        distinct = list(dict.fromkeys(groups.tolist()))
-        if len(distinct) < 2:
+        if groups is None:
+            raise TaskRefused("split.strategy: a grouped split needs columns.group")
+        distinct = groups.nunique()
+        if distinct < 2:
             raise TaskRefused(
                 f"split.strategy: a grouped split needs at least two distinct values of "
-                f"'{spec.roles.group}'; this cohort has {len(distinct)}"
+                f"'{spec.roles.group}'; this cohort has {distinct}"
             )
-        # Whole groups, largest first, until the validation side is big enough.
-        sizes = groups.value_counts()
-        wanted = max(1, int(round(fraction * len(labelled))))
-        validation_groups: list[str] = []
-        taken = 0
-        for group, size in sizes.sort_values(ascending=True).items():
-            if taken >= wanted or len(validation_groups) == len(distinct) - 1:
-                break
-            validation_groups.append(group)
-            taken += int(size)
-        validation = labelled[groups.isin(validation_groups).to_numpy()]
-        detail = f"whole groups of {spec.roles.group}: {', '.join(map(str, validation_groups))}"
-    else:
+        n_splits = int(min(distinct, max(2, round(1 / fraction))))
+        strata = _stratify(spec, target, labelled)
+        splitter = _splitter(n_splits, True, strata is not None, spec.seed)
+        _, test = next(
+            splitter.split(np.zeros(len(labelled)), strata if strata is not None else None, groups)
+        )
+        validation = labelled[test]
+        held = sorted(set(groups.loc[validation]))
+        detail = (
+            f"whole groups of {spec.roles.group}"
+            + (f" (joined by {spec.roles.patient})" if spec.roles.patient else "")
+            + f", drawn with seed {spec.seed}"
+            + (", classes balanced" if strata is not None else "")
+            + f": {', '.join(held)}"
+        )
+    elif spec.split.strategy == "chronological":
         order_column = spec.split.order_column
         if order_column not in cohort.columns:
             raise TaskRefused(f"split.order_column: '{order_column}' is not a column of the PVF")
@@ -914,23 +1233,83 @@ def assign_split(
         validation = pd.Index(ordered[cut:])
         detail = f"the last {len(validation)} batches by {order_column}"
 
-    training = labelled.difference(validation)
-    if not len(training) or not len(validation):
+    training = labelled.difference(validation, sort=False)
+    if spec.split.requested and (not len(training) or not len(validation)):
         raise TaskRefused(
             "The requested split leaves one side empty; change split.validation_fraction"
         )
+    if groups is not None and len(validation):
+        shared = set(groups.loc[training]) & set(groups.loc[validation])
+        if shared:  # cannot happen with whole groups; a chronological split can
+            result.note(
+                f"{len(shared)} group(s) of {spec.roles.group} have batches on both sides of "
+                "the split; a model can learn them from their siblings"
+            )
+
     result.split = {
-        "strategy": spec.split.strategy,
-        "detail": detail,
+        "strategy": spec.split.strategy or "none",
+        "detail": detail or "no validation rows; folds only",
         "training": int(len(training)),
         "validation": int(len(validation)),
+        "seed": spec.seed,
     }
+    if spec.split.folds:
+        _assign_folds(cohort, training, spec, result, target, groups)
     log.info(
         MODULE,
-        f"Split ({spec.split.strategy}): {len(training)} training, "
-        f"{len(validation)} validation — {detail}",
+        f"Split ({result.split['strategy']}): {len(training)} training, "
+        f"{len(validation)} validation — {result.split['detail']}"
+        + (f"; {result.split['folds']} folds over the training rows" if spec.split.folds else ""),
     )
     return training, validation
+
+
+def _assign_folds(
+    cohort: pd.DataFrame,
+    training: pd.Index,
+    spec: TaskSpec,
+    result: TaskResult,
+    target: pd.Series | None,
+    groups: pd.Series | None,
+) -> None:
+    """Cross-validation folds over the training rows, written to splits.csv.
+
+    Grouped (and class-balanced) where the task has groups; in time order for a
+    chronological task, where fold k is the k-th block and is only ever to be
+    predicted from the blocks before it.
+    """
+    wanted = spec.split.folds
+    if spec.split.strategy == "chronological":
+        stamps = pd.to_datetime(cohort.loc[training, spec.split.order_column], errors="coerce")
+        ordered = stamps.sort_values(kind="stable").index
+        blocks = np.array_split(np.arange(len(ordered)), min(wanted, len(ordered)))
+        for number, block in enumerate(blocks, start=1):
+            for position in block:
+                result.folds[ordered[position]] = number
+        result.split.update({"folds": len(blocks), "fold_strategy": "chronological blocks"})
+        return
+    train_groups = groups.loc[training] if groups is not None else None
+    available = int(train_groups.nunique()) if train_groups is not None else len(training)
+    n_splits = min(wanted, available)
+    if n_splits < 2:
+        result.note(f"split.folds: only {n_splits} group(s) in the training rows, so no folds")
+        return
+    strata = _stratify(spec, target, training)
+    splitter = _splitter(n_splits, train_groups is not None, strata is not None, spec.seed)
+    for number, (_, test) in enumerate(
+        splitter.split(np.zeros(len(training)), strata, train_groups), start=1
+    ):
+        for position in test:
+            result.folds[training[position]] = number
+    result.split.update(
+        {
+            "folds": n_splits,
+            "fold_strategy": ("grouped" if train_groups is not None else "shuffled")
+            + (", class-balanced" if strata is not None else ""),
+        }
+    )
+    if n_splits < wanted:
+        result.note(f"split.folds: {wanted} folds asked for, {n_splits} groups allow {n_splits}")
 
 
 # ---------------------------------------------------------------------------
@@ -944,7 +1323,8 @@ def build(
     Returns the table the task is for, the selected raw predictors beside their
     metadata, and everything that was decided. For an exploratory task the first
     is the transformed table; for a predictive one it is the raw modelling input,
-    and the transformed view is what the recipe produces.
+    and the transformed view — fitted on the training rows, applied to the rest —
+    is ``result.transformed``.
     """
     result = TaskResult(spec=spec)
     cohort = select_cohort(pvf, spec, result)
@@ -953,65 +1333,76 @@ def build(
     target = target.loc[labelled]
     result.cohort.rows = len(cohort)
     record_exclusions(pvf, spec, result, labelled)
+    _check_unique_ids(cohort, spec)
+
+    if spec.missingness.enabled:
+        value_types = dict(zip(ptf["Parameter"].astype(str), ptf["Value Type"].astype(str)))
+        result.missingness = missing_analysis.analyse(
+            cohort,
+            value_types,
+            spec.missingness,
+            id_column=spec.roles.id,
+            order_column=spec.split.order_column or spec.cohort.date_column,
+        )
 
     predictors = candidate_predictors(cohort, ptf, spec, result)
-    training, validation = assign_split(cohort, labelled, spec, result)
+    training, validation = assign_split(cohort, labelled, spec, result, target)
 
     reserved = {
-        name for name in (spec.roles.id, spec.roles.group, result.target_column, "split") if name
+        name
+        for name in (
+            spec.roles.id,
+            spec.roles.group,
+            spec.roles.patient,
+            result.target_column,
+            "split",
+            "fold",
+        )
+        if name
     }
     pre = fit_preprocessing(
         cohort.loc[training], target.loc[training], predictors, ptf, spec, result, reserved
     )
     result.fitted_on = (
         f"{len(training)} training batches ({result.split['detail']})"
-        if spec.split.requested
+        if len(validation)
         else f"all {len(training)} batches in the cohort"
     )
     pre.fitted_on = result.fitted_on
 
-    groups = (
-        cohort.loc[training, spec.roles.group]
-        if spec.roles.group
-        and spec.roles.group in cohort.columns
-        and spec.split.strategy != "chronological"
-        else None
-    )
+    chronological = spec.split.strategy == "chronological"
+    groups = None if chronological else split_groups(cohort, training, spec)
     order = (
         pd.to_datetime(cohort.loc[training, spec.split.order_column], errors="coerce")
-        if spec.split.strategy == "chronological"
+        if chronological
         else None
     )
-    transformed = pre.transform(
-        cohort.loc[training], target=target.loc[training], crossfit=True, groups=groups, order=order
+    transformed, crossfit = pre.crossfit_transform(
+        cohort.loc[training], target.loc[training], groups=groups, order=order
     )
     if len(validation):
-        transformed = pd.concat(
-            [transformed, pre.transform(cohort.loc[validation], target=None)]
-        ).loc[cohort.index]
+        transformed = pd.concat([transformed, pre.transform(cohort.loc[validation])]).loc[
+            cohort.index
+        ]
 
     result.target_encoding = {
         "columns": {
             column: fitted["name"]
             for column, fitted in pre.target_encoding.get("columns", {}).items()
         },
-        "batches": pre.crossfit.get("batches", pre.target_encoding.get("batches", 0)),
+        "batches": crossfit.get("batches", pre.target_encoding.get("batches", 0)),
         "folds": pre.target_encoding.get("folds"),
         "smoothing": pre.target_encoding.get("smoothing"),
         "prior": pre.target_encoding.get("prior"),
-        "strategy": pre.crossfit.get("strategy", ""),
-        "note": pre.crossfit.get("note", ""),
-        "unseen": pre.crossfit.get("unseen", {}),
+        "strategy": crossfit.get("strategy", ""),
+        "note": crossfit.get("note", ""),
+        "unseen": crossfit.get("unseen", {}),
     }
 
     # The raw table is the parameters the recipe actually uses — not every
     # candidate. A parameter the encoders then skipped is not a modelling input,
     # and exporting it as one would overstate what this dataset offers.
-    result.selected_raw = [
-        column
-        for column in dict.fromkeys(record["source"] for record in pre.dictionary)
-        if column in cohort.columns
-    ]
+    result.selected_raw = [column for column in pre.inputs if column in cohort.columns]
     result.transformed_columns = len(pre.output_columns)
     raw = cohort[result.selected_raw].copy()
     metadata = _metadata(cohort, spec, result, training, validation)
@@ -1019,6 +1410,7 @@ def build(
     transformed_table = pd.concat(
         [metadata, transformed, target.rename(result.target_column)], axis=1
     )
+    result.transformed = transformed_table
 
     if spec.predictive:
         final = raw_table
@@ -1044,6 +1436,7 @@ def build(
             result.decisions.append(
                 Decision(record["source"], "included", record["strategy"], "encoding")
             )
+    _sample_size_notes(cohort, target, training, spec, result)
 
     log.success(
         MODULE,
@@ -1053,6 +1446,54 @@ def build(
     return final, raw_table, result
 
 
+def _check_unique_ids(cohort: pd.DataFrame, spec: TaskSpec) -> None:
+    """A batch twice in one dataset is counted twice and can sit on both sides of a split."""
+    column = spec.roles.id
+    if not column or column not in cohort.columns:
+        return
+    ids = cohort[column]
+    repeated = ids[ids.notna() & ids.duplicated(keep=False)]
+    if len(repeated):
+        raise TaskRefused(
+            f"columns.id: '{column}' is not unique in this cohort — "
+            f"{', '.join(sorted(map(str, set(repeated)))[:5])} appear more than once. "
+            "Fix the source, or narrow the cohort so each batch is in it once"
+        )
+
+
+def _sample_size_notes(
+    cohort: pd.DataFrame,
+    target: pd.Series,
+    training: pd.Index,
+    spec: TaskSpec,
+    result: TaskResult,
+) -> None:
+    """How much evidence the table really holds, said where a reader will see it."""
+    fitted = len(training)
+    columns = result.transformed_columns
+    if spec.roles.group and spec.roles.group in cohort.columns:
+        distinct = int(cohort[spec.roles.group].nunique())
+        if distinct < 10:
+            result.note(
+                f"Only {distinct} distinct {spec.roles.group} values: any grouped validation "
+                f"rests on {distinct} groups, not on {len(cohort)} batches"
+            )
+    if fitted and columns > fitted:
+        result.note(
+            f"{columns} predictor columns for {fitted} fitted batches (p/n = "
+            f"{columns / fitted:.1f}): a model needs strong regularisation, and its "
+            "performance has to be estimated by cross-validation, not in-sample"
+        )
+    if spec.target.type == "binary" and columns:
+        minority = int(target.loc[training].value_counts().min())
+        epv = minority / columns
+        if epv < 10:
+            result.note(
+                f"{minority} batches in the smaller class for {columns} predictor columns "
+                f"({epv:.2f} events per variable, against the usual 10 or more)"
+            )
+
+
 def _metadata(
     cohort: pd.DataFrame,
     spec: TaskSpec,
@@ -1060,15 +1501,17 @@ def _metadata(
     training: pd.Index,
     validation: pd.Index,
 ) -> pd.DataFrame:
-    """The identifier, the grouping column and the split, each exactly once."""
+    """The identifier, the grouping columns, the split and the fold, each exactly once."""
     frame = pd.DataFrame(index=cohort.index)
-    for column in (spec.roles.id, spec.roles.group):
+    for column in (spec.roles.id, spec.roles.group, spec.roles.patient):
         if column and column in cohort.columns:
             frame[column] = cohort[column]
         elif column:
             result.note(f"'{column}' is not in the PVF, so the dataset carries no such column")
     if len(validation):
         frame["split"] = np.where(frame.index.isin(validation), "validation", "training")
+    if result.folds:
+        frame["fold"] = pd.Series(result.folds, dtype="Int64").reindex(frame.index)
     return frame
 
 
@@ -1084,6 +1527,15 @@ def _column_table(
         elif column == spec.roles.group:
             role, source, transformation = GROUP, column, "none"
             meaning = "grouping metadata, for grouped cross-validation; not a predictor"
+        elif column == spec.roles.patient:
+            role, source, transformation = GROUP, column, "none"
+            meaning = "the patient; keeps a patient's batches on one side of a split"
+        elif column == "fold":
+            role, source, transformation = "split", "assigned by this run", "cross-validation"
+            meaning = (
+                "cross-validation fold over the training rows "
+                f"({result.split.get('fold_strategy')}); empty for validation rows"
+            )
         elif column == "split":
             role, source, transformation = "split", "assigned by this run", spec.split.strategy
             meaning = result.split.get("detail", "")

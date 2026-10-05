@@ -35,6 +35,7 @@ REQUIRED = (
     "task.yaml",
     "dataset.csv",
     "columns.csv",
+    "features.csv",
     "decisions.csv",
     "cohort.csv",
     "clusters.csv",
@@ -57,14 +58,15 @@ def test_a_finished_task_folder_holds_everything_it_promises(built):
             assert artifact(built, task, name).exists(), f"{task}/{name}"
         assert manifest(built, task)["status"] == "complete"
     # The transformed table has its untransformed inputs beside it; the raw one
-    # is already that table and gets no second copy.
+    # has its transformed view beside it.
     assert artifact(built, EXPLORATORY, "raw_features.csv").exists()
     assert not artifact(built, PREDICTIVE, "raw_features.csv").exists()
+    assert artifact(built, PREDICTIVE, "transformed.csv").exists()
 
 
 def test_the_manifest_hashes_every_artefact_but_itself(built):
-    recorded = manifest(built, PREDICTIVE)["artifacts"]
-    names = {entry["name"] for entry in recorded}
+    recorded = manifest(built, PREDICTIVE)["outputs"]
+    names = {entry["path"] for entry in recorded}
     assert "manifest.json" not in names
     assert {"data/dataset.csv", "report/report.html", "metadata/columns.csv"} <= names
     assert all(len(entry["sha256"]) == 64 for entry in recorded)
@@ -90,7 +92,7 @@ def test_two_runs_of_one_task_do_not_overwrite_each_other(built):
     from pvf import cli, taskconfig
 
     spec = taskconfig.load(built["directory"] / dummy_data.TASK_FILES[0])
-    again = cli.run_task(spec)
+    again = cli.run_task(built["config"], spec)
     first = built["packages"][PREDICTIVE]
     assert again != first
     assert first.exists() and (first / cli.TASK_LAYOUT["dataset.csv"]).exists()
@@ -101,7 +103,7 @@ def test_report_only_writes_no_dataset_and_says_so(built, tmp_path):
     from pvf import cli, taskconfig
 
     spec = taskconfig.load(built["directory"] / dummy_data.TASK_FILES[0])
-    folder = cli.run_task(spec, report_only=True)
+    folder = cli.run_task(built["config"], spec, report_only=True)
     assert (folder / cli.TASK_LAYOUT["report.html"]).exists()
     assert not (folder / cli.TASK_LAYOUT["dataset.csv"]).exists()
     assert not (folder / cli.TASK_LAYOUT["recipe.json"]).exists()
@@ -411,7 +413,7 @@ def test_the_task_folder_is_split_into_subfolders(built):
     folder = built["packages"][PREDICTIVE]
     top = {path.name for path in folder.iterdir()}
     assert top == {"manifest.json", "config", "data", "metadata", "report", "provenance", "logs"}
-    names = {entry["name"] for entry in manifest(built, PREDICTIVE)["artifacts"]}
+    names = {entry["path"] for entry in manifest(built, PREDICTIVE)["outputs"]}
     assert "data/dataset.csv" in names and "metadata/clusters.csv" in names
 
 

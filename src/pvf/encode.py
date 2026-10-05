@@ -73,6 +73,16 @@ class TaskParams:
     hashing_signed: bool = True
     #: "missing" leaves an absent value absent; "category" encodes it as one.
     missing_category: str = "missing"
+    #: Target encoding needs this many rows per category on average, or it is
+    #: mostly the prior and is not chosen.
+    target_min_rows_per_category: float = 5.0
+    #: Hashing is only chosen for cohorts at least this large: on a few dozen rows
+    #: a dozen near-empty bucket columns describe nothing.
+    hashing_min_rows: int = 100
+    #: Add a 0/1 column per output column that has gaps in the fitted rows.
+    missing_indicators: bool = False
+    #: "none" leaves gaps for the model; "median" fills them with the fitted median.
+    impute: str = "none"
 
     cluster_corr_method: str = "spearman"
     cluster_corr_threshold: float = 0.7
@@ -82,6 +92,12 @@ class TaskParams:
     min_non_missing: int = 20
     duplicate_r2_threshold: float = 0.99
     duplicate_min_overlap: int = 10
+    #: An output column whose spread is below this share of its typical size, on
+    #: the fitted rows, is constant to measurement precision and is dropped.
+    near_constant_tolerance: float = 1e-4
+    #: A predictor this correlated with the target on the fitted rows is named in
+    #: the report as a possible proxy for it. 0 switches the check off.
+    proxy_correlation: float = 0.95
     seed: int = 0
 
     @property
@@ -193,9 +209,23 @@ def route_categoricals(df: pd.DataFrame, columns: list[str], params: TaskParams)
         elif k <= params.target_max_categories:
             preference, band = ["target", "hashing", "one_hot"], "several"
         else:
-            preference, band = ["hashing", "target"], "many"
+            preference, band = ["hashing", "target", "one_hot"], "many"
 
-        chosen = next((name for name in preference if enabled.get(name)), None)
+        # An encoder is only a candidate where the rows can support it.
+        passed: list[str] = []
+        usable = dict(enabled)
+        if usable.get("target") and k and rows / k < params.target_min_rows_per_category:
+            usable["target"] = False
+            passed.append(
+                f"target encoding needs {params.target_min_rows_per_category:g} rows per "
+                f"category, there are {rows / k:.1f}"
+            )
+        if usable.get("hashing") and rows < params.hashing_min_rows:
+            usable["hashing"] = False
+            passed.append(f"hashing needs {params.hashing_min_rows} rows, there are {rows}")
+
+        chosen = next((name for name in preference if usable.get(name)), None)
+        why = f" ({'; '.join(passed)})" if passed else ""
         if chosen is None:
             routes.append(
                 Route(
@@ -203,7 +233,8 @@ def route_categoricals(df: pd.DataFrame, columns: list[str], params: TaskParams)
                     k,
                     ratio,
                     "skip",
-                    f"{band} categories (k={k}), and every encoder that suits them is switched off",
+                    f"{band} categories (k={k}), and no encoder that suits them can be used"
+                    + why,
                 )
             )
         else:
@@ -213,7 +244,7 @@ def route_categoricals(df: pd.DataFrame, columns: list[str], params: TaskParams)
                     k,
                     ratio,
                     chosen,
-                    f"{band} categories (k={k}); preference {' > '.join(preference)}",
+                    f"{band} categories (k={k}); preference {' > '.join(preference)}" + why,
                 )
             )
     return routes
@@ -316,12 +347,23 @@ def apply_one_hot(
             continue
         values = _labels(df[column], params)
         present = values.notna()
+        # A row whose value is absent is absent in every column, as it is for
+        # every other encoder — not a row that is "none of the categories".
         for category in fitted["categories"]:
             name = fitted["outputs"][category]
-            encoded[name] = ((values == category) & present).astype(int)
-            records.append(_record(name, column, "one-hot", f"1 where '{column}' is '{category}'"))
+            encoded[name] = ((values == category) & present).astype("Int64").where(present)
+            records.append(
+                _record(
+                    name,
+                    column,
+                    "one-hot",
+                    f"1 where '{column}' is '{category}'; missing where it is missing",
+                )
+            )
         other_name = fitted["outputs"][fitted["other"]]
-        encoded[other_name] = (~values.isin(fitted["categories"]) & present).astype(int)
+        encoded[other_name] = (
+            (~values.isin(fitted["categories"]) & present).astype("Int64").where(present)
+        )
         records.append(
             _record(
                 other_name,
@@ -610,6 +652,7 @@ def apply_hashed(
         values = _labels(df[column], params)
         for row, value in enumerate(values.to_numpy(dtype=object)):
             if pd.isna(value):
+                matrix[row, :] = np.nan
                 continue
             bucket, sign = _bucket_and_sign(str(value), column, width)
             matrix[row, bucket] = sign if params.hashing_signed else 1.0
@@ -624,7 +667,7 @@ def apply_hashed(
                     "feature hashing",
                     f"{'signed ' if params.hashing_signed else ''}MD5 hash of '{column}' into "
                     f"{width} buckets (k={fitted['categories']}); two categories may share a "
-                    "bucket, and a missing value is all zeroes",
+                    "bucket, and a missing value is missing in every bucket",
                 )
             )
     encoded = pd.concat(frames, axis=1) if frames else pd.DataFrame(index=df.index)
@@ -751,6 +794,22 @@ def drop_nonpositive(df: pd.DataFrame, columns: list[str]) -> dict[str, int]:
             dropped[column] = int(mask.sum())
             log.info(MODULE, f"{column}: {int(mask.sum())} values at or below zero → missing")
     return dropped
+
+
+def near_constant(values: pd.Series, tolerance: float = 1e-4) -> bool:
+    """Whether a column says the same thing on every row, to measurement precision.
+
+    ``nunique() < 2`` is not enough: a ratio computed in floating point can take
+    0.015228 on one batch and 0.0152290 on the next, which is two values to
+    pandas and one to anybody who measured it. Scaled to unit variance, that
+    jitter becomes the largest number in the table. So a column is constant when
+    its spread is below ``tolerance`` of its typical size.
+    """
+    numbers = pd.to_numeric(values, errors="coerce").replace([np.inf, -np.inf], np.nan).dropna()
+    if numbers.round(9).nunique() < 2:
+        return True
+    typical = float(numbers.abs().mean())
+    return bool(typical > 0 and float(numbers.std()) <= tolerance * typical)
 
 
 def pairwise(a: pd.Series, b: pd.Series, method: str = "pearson") -> tuple[float, int]:

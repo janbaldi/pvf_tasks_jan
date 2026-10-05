@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from .io import normalise_key
+from .io import Source, as_source, normalise_key
 from .logger import log
 
 MODULE = "enrich"
@@ -189,13 +189,14 @@ def merge_raw_materials(
 
 def enrich_clinical_sites(
     phf: dict[str, pd.DataFrame],
-    raritan_mapping_paths: list[str],
-    sharepoint_loader = None
+    site_maps: list[Source | str],
 ) -> tuple[list[str], list[str]]:
     """Give both sites a clinical site the other site would recognise.
 
     Ghent encodes the site in the patient identifier (``EU-<site>-…``); Raritan
-    records an acronym that two mapping files expand into an institution name.
+    records an acronym that the mapping workbooks expand into an institution name.
+    Where those workbooks are read from — local files or a SharePoint folder — is
+    the workspace config's business (``paths.site_maps`` / ``sharepoint.site_maps``).
 
     Returns the Raritan acronyms no mapping file covers, and the columns added.
     """
@@ -212,25 +213,14 @@ def enrich_clinical_sites(
     raritan["Clinical Site ID"] = raritan["Clinical Site"].copy()
 
     frames = []
-    if sharepoint_loader is not None:
-        for path in ["clinical_sites.xlsx","cross_data_meeting.xlsx","from_Hannelore.xlsx"]:
-            try:
-                mapping = sharepoint_loader(sharepoint_path="MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/mappings/"+path,
-                                            sheet_name="Sheet1",
-                                            drive_id="DRIVE_ID_GHENT",
-                                            )
-                mapping["Acronym"] = mapping["Acronym"].astype(str)
-                frames.append(mapping)
-            except Exception as exc:
-                log.warn(MODULE, f"Could not load mapping file: {path} — {exc}")
-    else:
-        for path in raritan_mapping_paths:
-            try:
-                mapping = pd.read_excel(path, engine="openpyxl")
-                mapping["Acronym"] = mapping["Acronym"].astype(str)
-                frames.append(mapping)
-            except Exception as exc:
-                log.warn(MODULE, f"Could not load mapping file: {path} — {exc}")
+    for number, site_map in enumerate(site_maps, start=1):
+        source = as_source(site_map, f"site_map_{number}")
+        try:
+            mapping = source.read()
+            mapping["Acronym"] = mapping["Acronym"].astype(str)
+            frames.append(mapping)
+        except Exception as exc:  # one unreadable mapping file is reported, not fatal
+            log.warn(MODULE, f"Could not load mapping file: {source.location} — {exc}")
 
     if not frames:
         log.warn(MODULE, "No Raritan site mapping files loaded — acronyms unchanged")

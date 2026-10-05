@@ -1,0 +1,177 @@
+Feature,Parameter,Encoding,Meaning
+day 3 clump pattern_Many small,day 3 clump pattern,binary,"1 where 'Many small', 0 where 'Few small'; any other value is left missing"
+Day 10 Clump Present Bag 1_Yes,Day 10 Clump Present Bag 1,binary,"1 where 'Yes', 0 where 'No'; any other value is left missing"
+Day 10 Clump Present Bag 2_Yes,Day 10 Clump Present Bag 2,binary,"1 where 'Yes', 0 where 'No'; any other value is left missing"
+Day 10 Clump Present Bag 3_Yes,Day 10 Clump Present Bag 3,binary,"1 where 'Yes', 0 where 'No'; any other value is left missing"
+Country_United States of America,Country,binary,"1 where 'United States of America', 0 where 'Israel'; any other value is left missing"
+Pre-Activation Clumps: Y/N?_Y,Pre-Activation Clumps: Y/N?,binary,"1 where 'Y', 0 where 'N'; any other value is left missing"
+LV CoA Site/Format_Raritan/500mL,LV CoA Site/Format,binary,"1 where 'Raritan/500mL', 0 where 'Ghent/250mL'; any other value is left missing"
+Non-Conformance Type_deviation,Non-Conformance Type,one-hot,1 where 'Non-Conformance Type' is 'deviation'; missing where it is missing
+Non-Conformance Type_withdrawal,Non-Conformance Type,one-hot,1 where 'Non-Conformance Type' is 'withdrawal'; missing where it is missing
+Non-Conformance Type_Termination,Non-Conformance Type,one-hot,1 where 'Non-Conformance Type' is 'Termination'; missing where it is missing
+Non-Conformance Type_Withdrawal,Non-Conformance Type,one-hot,1 where 'Non-Conformance Type' is 'Withdrawal'; missing where it is missing
+Clinical Site_Memorial Sloan Kettering Cancer Center,Clinical Site,one-hot,1 where 'Clinical Site' is 'Memorial Sloan Kettering Cancer Center'; missing where it is missing
+Clinical Site_Rambam Health Care Campus,Clinical Site,one-hot,1 where 'Clinical Site' is 'Rambam Health Care Campus'; missing where it is missing
+Clinical Site_XYZ,Clinical Site,one-hot,1 where 'Clinical Site' is 'XYZ'; missing where it is missing
+Clinical Site ID_MSKCC,Clinical Site ID,one-hot,1 where 'Clinical Site ID' is 'MSKCC'; missing where it is missing
+Clinical Site ID_107306,Clinical Site ID,one-hot,1 where 'Clinical Site ID' is '107306'; missing where it is missing
+Clinical Site ID_XYZ,Clinical Site ID,one-hot,1 where 'Clinical Site ID' is 'XYZ'; missing where it is missing
+Media Lot_MED-100,Media Lot,one-hot,1 where 'Media Lot' is 'MED-100'; missing where it is missing
+Media Lot_MED-102,Media Lot,one-hot,1 where 'Media Lot' is 'MED-102'; missing where it is missing
+Media Lot_MED-101,Media Lot,one-hot,1 where 'Media Lot' is 'MED-101'; missing where it is missing
+Media Lot_MED-103,Media Lot,one-hot,1 where 'Media Lot' is 'MED-103'; missing where it is missing
+IL-2 Lot_IL2-201,IL-2 Lot,one-hot,1 where 'IL-2 Lot' is 'IL2-201'; missing where it is missing
+IL-2 Lot_IL2-202,IL-2 Lot,one-hot,1 where 'IL-2 Lot' is 'IL2-202'; missing where it is missing
+IL-2 Lot_IL2-200,IL-2 Lot,one-hot,1 where 'IL-2 Lot' is 'IL2-200'; missing where it is missing
+growth profile_normal,growth profile,one-hot,1 where 'growth profile' is 'normal'; missing where it is missing
+growth profile_undergrowth,growth profile,one-hot,1 where 'growth profile' is 'undergrowth'; missing where it is missing
+growth profile_overgrowth,growth profile,one-hot,1 where 'growth profile' is 'overgrowth'; missing where it is missing
+CD4 profile_medium CD4,CD4 profile,one-hot,1 where 'CD4 profile' is 'medium CD4'; missing where it is missing
+CD4 profile_low CD4,CD4 profile,one-hot,1 where 'CD4 profile' is 'low CD4'; missing where it is missing
+CD4 profile_high CD4,CD4 profile,one-hot,1 where 'CD4 profile' is 'high CD4'; missing where it is missing
+shift_team_target_enc,Shift Team,target encoding,"mean of the target per category, smoothed with m=5 towards the training prior 0.556; a category the training rows never held gets that prior, and a missing value stays missing"
+incubator_id_hash_01,Incubator ID,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is missing in every bucket"
+incubator_id_hash_02,Incubator ID,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is missing in every bucket"
+incubator_id_hash_04,Incubator ID,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is missing in every bucket"
+incubator_id_hash_05,Incubator ID,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is missing in every bucket"
+incubator_id_hash_08,Incubator ID,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is missing in every bucket"
+incubator_id_hash_13,Incubator ID,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is missing in every bucket"
+incubator_id_hash_14,Incubator ID,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is missing in every bucket"
+incubator_id_hash_15,Incubator ID,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is missing in every bucket"
+Clump Severity,Clump Severity,ordinal,"rank 1..4 in the PTF's order: None, Low, Medium, High"
+Harvest Post Wash Viable Cell Count (cells),Harvest Post Wash Viable Cell Count (cells),cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.883 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Harvest Pre-Wash Viable Cell Count after Sampling (cells)_resid,Harvest Pre-Wash Viable Cell Count after Sampling (cells),cluster residual (linear),"what 'Harvest Pre-Wash Viable Cell Count after Sampling (cells)' still says once Harvest Post Wash Viable Cell Count (cells) are accounted for (OLS on 1 retained parameter, 27 batches)"
+total viable cells in formulated suspension_resid,total viable cells in formulated suspension,cluster residual (linear),"what 'total viable cells in formulated suspension' still says once Harvest Post Wash Viable Cell Count (cells), Harvest Pre-Wash Viable Cell Count after Sampling (cells) are accounted for (OLS on 2 retained parameters, 27 batches)"
+Seeded_cells_min_AB_resid,Seeded_cells_min_AB,cluster residual (linear),"what 'Seeded_cells_min_AB' still says once Harvest Post Wash Viable Cell Count (cells), Harvest Pre-Wash Viable Cell Count after Sampling (cells), total viable cells in formulated suspension are accounted for (OLS on 3 retained parameters, 27 batches)"
+Avg_cells_per_bag_D3_resid,Avg_cells_per_bag_D3,cluster residual (linear),"what 'Avg_cells_per_bag_D3' still says once Harvest Post Wash Viable Cell Count (cells), Harvest Pre-Wash Viable Cell Count after Sampling (cells), total viable cells in formulated suspension, Seeded_cells_min_AB are accounted for (OLS on 4 retained parameters, 27 batches)"
+Glucose_perE6_slope_D6_D10_resid,Glucose_perE6_slope_D6_D10,cluster residual (linear),"what 'Glucose_perE6_slope_D6_D10' still says once Harvest Post Wash Viable Cell Count (cells), Harvest Pre-Wash Viable Cell Count after Sampling (cells), total viable cells in formulated suspension, Seeded_cells_min_AB, Avg_cells_per_bag_D3 are accounted for (OLS on 5 retained parameters, 27 batches)"
+Lactate_to_Glucose_perE6_ratio_D6,Lactate_to_Glucose_perE6_ratio_D6,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.872 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Day 6 Lactate G-Rex A (g/L)_resid,Day 6 Lactate G-Rex A (g/L),cluster residual (linear),"what 'Day 6 Lactate G-Rex A (g/L)' still says once Lactate_to_Glucose_perE6_ratio_D6 are accounted for (OLS on 1 retained parameter, 27 batches)"
+Day 8 Glucose G-Rex A (g/L)_resid,Day 8 Glucose G-Rex A (g/L),cluster residual (linear),"what 'Day 8 Glucose G-Rex A (g/L)' still says once Lactate_to_Glucose_perE6_ratio_D6, Day 6 Lactate G-Rex A (g/L) are accounted for (OLS on 2 retained parameters, 27 batches)"
+Day 6 Glucose G-Rex A (g/L)_resid,Day 6 Glucose G-Rex A (g/L),cluster residual (linear),"what 'Day 6 Glucose G-Rex A (g/L)' still says once Lactate_to_Glucose_perE6_ratio_D6, Day 6 Lactate G-Rex A (g/L), Day 8 Glucose G-Rex A (g/L) are accounted for (OLS on 3 retained parameters, 27 batches)"
+Day 8 Glucose G-Rex B (g/L)_resid,Day 8 Glucose G-Rex B (g/L),cluster residual (linear),"what 'Day 8 Glucose G-Rex B (g/L)' still says once Lactate_to_Glucose_perE6_ratio_D6, Day 6 Lactate G-Rex A (g/L), Day 8 Glucose G-Rex A (g/L), Day 6 Glucose G-Rex A (g/L) are accounted for (OLS on 4 retained parameters, 18 batches)"
+LV CoA Physical Titer p24 ELISA,LV CoA Physical Titer p24 ELISA,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.922 against the other members, over 27 batches with a value (candidates needed at least 27)"
+LV CoA CAR% - Donor 2_resid,LV CoA CAR% - Donor 2,cluster residual (linear),"what 'LV CoA CAR% - Donor 2' still says once LV CoA Physical Titer p24 ELISA are accounted for (OLS on 1 retained parameter, 27 batches)"
+LV CoA DNA size_resid,LV CoA DNA size,cluster residual (linear),"what 'LV CoA DNA size' still says once LV CoA Physical Titer p24 ELISA, LV CoA CAR% - Donor 2 are accounted for (OLS on 2 retained parameters, 27 batches)"
+# of Culture Bags_resid,# of Culture Bags,cluster residual (linear),"what '# of Culture Bags' still says once LV CoA Physical Titer p24 ELISA, LV CoA CAR% - Donor 2, LV CoA DNA size are accounted for (OLS on 3 retained parameters, 27 batches)"
+VCN/cell,VCN/cell,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.953 against the other members, over 27 batches with a value (candidates needed at least 27)"
+FP Flow CAR+ (%)_resid,FP Flow CAR+ (%),cluster residual (linear),"what 'FP Flow CAR+ (%)' still says once VCN/cell are accounted for (OLS on 1 retained parameter, 27 batches)"
+Harvest Pre-Wash Flow CAR+ Expression (%)_resid,Harvest Pre-Wash Flow CAR+ Expression (%),cluster residual (linear),"what 'Harvest Pre-Wash Flow CAR+ Expression (%)' still says once VCN/cell, FP Flow CAR+ (%) are accounted for (OLS on 2 retained parameters, 27 batches)"
+Provirus Vector Copy Number (copies/transduced cell)_resid,Provirus Vector Copy Number (copies/transduced cell),cluster residual (linear),"what 'Provirus Vector Copy Number (copies/transduced cell)' still says once VCN/cell, FP Flow CAR+ (%), Harvest Pre-Wash Flow CAR+ Expression (%) are accounted for (OLS on 3 retained parameters, 27 batches)"
+Lactate_perE6_AUC_D6_D10,Lactate_perE6_AUC_D6_D10,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.910 against the other members, over 27 batches with a value (candidates needed at least 27)"
+D10 Lact / E6 cells_resid,D10 Lact / E6 cells,cluster residual (linear),"what 'D10 Lact / E6 cells' still says once Lactate_perE6_AUC_D6_D10 are accounted for (OLS on 1 retained parameter, 27 batches)"
+D6 Glucose / E6 cells,D6 Glucose / E6 cells,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.920 against the other members, over 27 batches with a value (candidates needed at least 27)"
+D8 Glucose / E6 cells_resid,D8 Glucose / E6 cells,cluster residual (linear),"what 'D8 Glucose / E6 cells' still says once D6 Glucose / E6 cells are accounted for (OLS on 1 retained parameter, 27 batches)"
+Volume CS5 Used for Formulation (mL)_resid,Volume CS5 Used for Formulation (mL),cluster residual (linear),"what 'Volume CS5 Used for Formulation (mL)' still says once D6 Glucose / E6 cells, D8 Glucose / E6 cells are accounted for (OLS on 2 retained parameters, 27 batches)"
+MOI_eff_pool,MOI_eff_pool,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.955 against the other members, over 27 batches with a value (candidates needed at least 27)"
+MOI_eff_quality_adjusted_resid,MOI_eff_quality_adjusted,cluster residual (linear),"what 'MOI_eff_quality_adjusted' still says once MOI_eff_pool are accounted for (OLS on 1 retained parameter, 27 batches)"
+MOI_eff_G-Rex_B_resid,MOI_eff_G-Rex_B,cluster residual (linear),"what 'MOI_eff_G-Rex_B' still says once MOI_eff_pool, MOI_eff_quality_adjusted are accounted for (OLS on 2 retained parameters, 18 batches)"
+PT CD3+CD4+ (%),PT CD3+CD4+ (%),cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.839 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Post Thaw FLOW CD4+ (%)_resid,Post Thaw FLOW CD4+ (%),cluster residual (linear),"what 'Post Thaw FLOW CD4+ (%)' still says once PT CD3+CD4+ (%) are accounted for (OLS on 1 retained parameter, 27 batches)"
+PT Total CD4+ (Viable Cells)_resid,PT Total CD4+ (Viable Cells),cluster residual (linear),"what 'PT Total CD4+ (Viable Cells)' still says once PT CD3+CD4+ (%), Post Thaw FLOW CD4+ (%) are accounted for (OLS on 2 retained parameters, 27 batches)"
+% cells lost during formulation,% cells lost during formulation,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.987 against the other members, over 27 batches with a value (candidates needed at least 27)"
+number of viable cells lost during formulation_resid,number of viable cells lost during formulation,cluster residual (linear),"what 'number of viable cells lost during formulation' still says once % cells lost during formulation are accounted for (OLS on 1 retained parameter, 27 batches)"
+Clump_burden_weighted_post_mixing,Clump_burden_weighted_post_mixing,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.838 against the other members, over 26 batches with a value (candidates needed at least 26)"
+Post-Mixing Clumps: # of Clumps_resid,Post-Mixing Clumps: # of Clumps,cluster residual (linear),"what 'Post-Mixing Clumps: # of Clumps' still says once Clump_burden_weighted_post_mixing are accounted for (OLS on 1 retained parameter, 26 batches)"
+Clump_count_reduction_fraction,Clump_count_reduction_fraction,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.479 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Post-Massaging: # of Clumps_resid,Post-Massaging: # of Clumps,cluster residual (linear),"what 'Post-Massaging: # of Clumps' still says once Clump_count_reduction_fraction are accounted for (OLS on 1 retained parameter, 27 batches)"
+D10 harvest - D10 wash viability change (%),D10 harvest - D10 wash viability change (%),cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.563 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Viability_change_D3_to_D10_pct_resid,Viability_change_D3_to_D10_pct,cluster residual (linear),"what 'Viability_change_D3_to_D10_pct' still says once D10 harvest - D10 wash viability change (%) are accounted for (OLS on 1 retained parameter, 27 batches)"
+D3_contact_time_deviation,D3_contact_time_deviation,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.787 against the other members, over 27 batches with a value (candidates needed at least 27)"
+D3_contact_time_within_window_resid,D3_contact_time_within_window,cluster residual (linear),"what 'D3_contact_time_within_window' still says once D3_contact_time_deviation are accounted for (OLS on 1 retained parameter, 27 batches)"
+D3_contact_time_deviation_G-Rex_A,D3_contact_time_deviation_G-Rex_A,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.748 against the other members, over 27 batches with a value (candidates needed at least 27)"
+D3_contact_time_within_window_G-Rex_A_resid,D3_contact_time_within_window_G-Rex_A,cluster residual (linear),"what 'D3_contact_time_within_window_G-Rex_A' still says once D3_contact_time_deviation_G-Rex_A are accounted for (OLS on 1 retained parameter, 27 batches)"
+D3_contact_time_deviation_G-Rex_B,D3_contact_time_deviation_G-Rex_B,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.791 against the other members, over 27 batches with a value (candidates needed at least 27)"
+D3_contact_time_within_window_G-Rex_B_resid,D3_contact_time_within_window_G-Rex_B,cluster residual (linear),"what 'D3_contact_time_within_window_G-Rex_B' still says once D3_contact_time_deviation_G-Rex_B are accounted for (OLS on 1 retained parameter, 27 batches)"
+D3_seeding_error_pct,D3_seeding_error_pct,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.589 against the other members, over 27 batches with a value (candidates needed at least 27)"
+D3_seeding_within_5pct_resid,D3_seeding_within_5pct,cluster residual (linear),"what 'D3_seeding_within_5pct' still says once D3_seeding_error_pct are accounted for (OLS on 1 retained parameter, 27 batches)"
+Day 3 Average of Pooled Viability (%),Day 3 Average of Pooled Viability (%),cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.751 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Drop viability D3 vs D0 (%)_resid,Drop viability D3 vs D0 (%),cluster residual (linear),"what 'Drop viability D3 vs D0 (%)' still says once Day 3 Average of Pooled Viability (%) are accounted for (OLS on 1 retained parameter, 27 batches)"
+Day 3 Total Viable Cells Available for Seeding G-Rex (cells),Day 3 Total Viable Cells Available for Seeding G-Rex (cells),cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.926 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Seeded_cells_std_AB_resid,Seeded_cells_std_AB,cluster residual (linear),"what 'Seeded_cells_std_AB' still says once Day 3 Total Viable Cells Available for Seeding G-Rex (cells) are accounted for (OLS on 1 retained parameter, 27 batches)"
+Day 6 Activity of IL-2 (IU/mg),Day 6 Activity of IL-2 (IU/mg),cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.790 against the other members, over 27 batches with a value (candidates needed at least 27)"
+IL2_IU_total_D6_resid,IL2_IU_total_D6,cluster residual (linear),"what 'IL2_IU_total_D6' still says once Day 6 Activity of IL-2 (IU/mg) are accounted for (OLS on 1 retained parameter, 27 batches)"
+Day 6 Glucose G-Rex B (g/L),Day 6 Glucose G-Rex B (g/L),cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.739 against the other members, over 18 batches with a value (candidates needed at least 18)"
+Day 6 Lactate G-Rex B (g/L)_resid,Day 6 Lactate G-Rex B (g/L),cluster residual (linear),"what 'Day 6 Lactate G-Rex B (g/L)' still says once Day 6 Glucose G-Rex B (g/L) are accounted for (OLS on 1 retained parameter, 18 batches)"
+Day 8 Activity of IL-2 (IU/mg),Day 8 Activity of IL-2 (IU/mg),cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.692 against the other members, over 27 batches with a value (candidates needed at least 27)"
+IL2_IU_total_D8_resid,IL2_IU_total_D8,cluster residual (linear),"what 'IL2_IU_total_D8' still says once Day 8 Activity of IL-2 (IU/mg) are accounted for (OLS on 1 retained parameter, 27 batches)"
+Day 8 Lactate G-Rex A (g/L),Day 8 Lactate G-Rex A (g/L),cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.659 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Harvest Lactate (g/L)_resid,Harvest Lactate (g/L),cluster residual (linear),"what 'Harvest Lactate (g/L)' still says once Day 8 Lactate G-Rex A (g/L) are accounted for (OLS on 1 retained parameter, 27 batches)"
+Final Formulation CS5 Viable Cell Concentration Average (cells/mL),Final Formulation CS5 Viable Cell Concentration Average (cells/mL),cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.880 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Harvest Post Wash Viable Cell Concentration Average (cells/mL)_resid,Harvest Post Wash Viable Cell Concentration Average (cells/mL),cluster residual (linear),"what 'Harvest Post Wash Viable Cell Concentration Average (cells/mL)' still says once Final Formulation CS5 Viable Cell Concentration Average (cells/mL) are accounted for (OLS on 1 retained parameter, 27 batches)"
+Incubation D3-D6 (min),Incubation D3-D6 (min),cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.709 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Number of Prior Lines of Therapy_resid,Number of Prior Lines of Therapy,cluster residual (linear),"what 'Number of Prior Lines of Therapy' still says once Incubation D3-D6 (min) are accounted for (OLS on 1 retained parameter, 27 batches)"
+LV CoA CAR% - Donor 1,LV CoA CAR% - Donor 1,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.964 against the other members, over 27 batches with a value (candidates needed at least 27)"
+LV CoA pH_resid,LV CoA pH,cluster residual (linear),"what 'LV CoA pH' still says once LV CoA CAR% - Donor 1 are accounted for (OLS on 1 retained parameter, 27 batches)"
+LV CoA HCP,LV CoA HCP,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.941 against the other members, over 27 batches with a value (candidates needed at least 27)"
+LVCoA_Impurity_Index_zsum_resid,LVCoA_Impurity_Index_zsum,cluster residual (linear),"what 'LVCoA_Impurity_Index_zsum' still says once LV CoA HCP are accounted for (OLS on 1 retained parameter, 27 batches)"
+MOI_eff_G-Rex_A,MOI_eff_G-Rex_A,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.985 against the other members, over 27 batches with a value (candidates needed at least 27)"
+log_MOI_eff_G-Rex_A_resid,log_MOI_eff_G-Rex_A,cluster residual (linear),"what 'log_MOI_eff_G-Rex_A' still says once MOI_eff_G-Rex_A are accounted for (OLS on 1 retained parameter, 27 batches)"
+PE CD3+CD4+ (%),PE CD3+CD4+ (%),cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.962 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Post Wash POS FLOW CD4+ (%)_resid,Post Wash POS FLOW CD4+ (%),cluster residual (linear),"what 'Post Wash POS FLOW CD4+ (%)' still says once PE CD3+CD4+ (%) are accounted for (OLS on 1 retained parameter, 27 batches)"
+PE CD3+CD8+ (%),PE CD3+CD8+ (%),cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.956 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Post Wash POS FLOW CD8+ (%)_resid,Post Wash POS FLOW CD8+ (%),cluster residual (linear),"what 'Post Wash POS FLOW CD8+ (%)' still says once PE CD3+CD8+ (%) are accounted for (OLS on 1 retained parameter, 27 batches)"
+Vector_volume_mean_AB_mL,Vector_volume_mean_AB_mL,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.808 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Vector_volume_min_AB_mL_resid,Vector_volume_min_AB_mL,cluster residual (linear),"what 'Vector_volume_min_AB_mL' still says once Vector_volume_mean_AB_mL are accounted for (OLS on 1 retained parameter, 27 batches)"
+Amount of Time G-Rex A in Incubator (120min+/-30 min),Amount of Time G-Rex A in Incubator (120min+/-30 min),duration,"used as recorded, with anything at or below zero treated as missing"
+Amount of Time G-Rex B in Incubator (120min+/-30 min),Amount of Time G-Rex B in Incubator (120min+/-30 min),duration,"used as recorded, with anything at or below zero treated as missing"
+CAR T produced per cell engaged D3,CAR T produced per cell engaged D3,numeric,used as recorded
+Clump_burden_weighted_post_massage,Clump_burden_weighted_post_massage,numeric,used as recorded
+Clump_burden_weighted_pre,Clump_burden_weighted_pre,numeric,used as recorded
+Clump_size_reduction_fraction,Clump_size_reduction_fraction,numeric,used as recorded
+D10 Achievable Dose (E6 CAR+ viable T-cells),D10 Achievable Dose (E6 CAR+ viable T-cells),numeric,used as recorded
+D10 Total CAR+ viable T-cells achieved,D10 Total CAR+ viable T-cells achieved,numeric,used as recorded
+D10_clump_bag_count,D10_clump_bag_count,numeric,used as recorded
+D3-D10 viability change (%),D3-D10 viability change (%),numeric,used as recorded
+Day 1 Number of Mixing Cycles Post Activation,Day 1 Number of Mixing Cycles Post Activation,numeric,used as recorded
+Day 3 Incubation Time (120min+/-30 min),Day 3 Incubation Time (120min+/-30 min),duration,"used as recorded, with anything at or below zero treated as missing"
+Day 6 CO2 Saturation (%),Day 6 CO2 Saturation (%),numeric,used as recorded
+Day 6 CO2 Saturation (%) dev_from_5.0pct,Day 6 CO2 Saturation (%) dev_from_5.0pct,numeric,used as recorded
+Day 6 IL-2 Protein Content (µg/vial),Day 6 IL-2 Protein Content (µg/vial),numeric,used as recorded
+Day 6 Temperature (°C),Day 6 Temperature (°C),numeric,used as recorded
+Day 6 Temperature (°C) dev_from_37.0C,Day 6 Temperature (°C) dev_from_37.0C,numeric,used as recorded
+Day 8 IL-2 Protein Content (µg/vial),Day 8 IL-2 Protein Content (µg/vial),numeric,used as recorded
+Endotoxin (EU/mL),Endotoxin (EU/mL),numeric,used as recorded
+Final Formulation CS5 Viability Average (%),Final Formulation CS5 Viability Average (%),numeric,used as recorded
+Flow accuracy (effective),Flow accuracy (effective),numeric,used as recorded
+Harvest Post Wash Viability Average (%),Harvest Post Wash Viability Average (%),numeric,used as recorded
+Harvest Pre-Wash Cell Viability (%),Harvest Pre-Wash Cell Viability (%),numeric,used as recorded
+Incubation D6-D8 (min),Incubation D6-D8 (min),numeric,used as recorded
+Incubation D8-D10 (min),Incubation D8-D10 (min),numeric,used as recorded
+Lactate_perE6_slope_D6_D10,Lactate_perE6_slope_D6_D10,numeric,used as recorded
+Log (PE CD4:CD8),Log (PE CD4:CD8),numeric,used as recorded
+Mixing_cycles_x_pre_activation_clump_count,Mixing_cycles_x_pre_activation_clump_count,numeric,used as recorded
+PT Total  CD3+ (Viable Cells),PT Total  CD3+ (Viable Cells),numeric,used as recorded
+Post Thaw CD4:CD8 Ratio,Post Thaw CD4:CD8 Ratio,numeric,used as recorded
+Post Thaw FLOW CD3+ (%),Post Thaw FLOW CD3+ (%),numeric,used as recorded
+Post Wash POS FLOW CD3+ (%),Post Wash POS FLOW CD3+ (%),numeric,used as recorded
+Post Wash POS Viability (%),Post Wash POS Viability (%),numeric,used as recorded
+Post formulation dose,Post formulation dose,numeric,used as recorded
+Post-Massaging: Size of Clumps,Post-Massaging: Size of Clumps,numeric,used as recorded
+Post-Mixing Clumps: Size of Clumps,Post-Mixing Clumps: Size of Clumps,numeric,used as recorded
+Pre-Activation Clumps: # of Clumps before massage,Pre-Activation Clumps: # of Clumps before massage,numeric,used as recorded
+Pre-Activation Clumps: Size of Clumps before massage,Pre-Activation Clumps: Size of Clumps before massage,numeric,used as recorded
+Recovery (%),Recovery (%),numeric,used as recorded
+Subject Weight (kg),Subject Weight (kg),numeric,used as recorded
+Total CS5 cell concentration (E6 cells/mL),Total CS5 cell concentration (E6 cells/mL),numeric,used as recorded
+Total Viable Cells/bag,Total Viable Cells/bag,numeric,used as recorded
+Vector_volume_cv_AB_mL,Vector_volume_cv_AB_mL,numeric,used as recorded
+Vector_volume_max_AB_mL,Vector_volume_max_AB_mL,numeric,used as recorded
+Volume Vector Added to G-Rex A (mL),Volume Vector Added to G-Rex A (mL),numeric,used as recorded
+Volume per Bag (mL),Volume per Bag (mL),numeric,used as recorded
+cPDL (D3 to D10),cPDL (D3 to D10),numeric,used as recorded
+total cells lost during LOVO wash (cells),total cells lost during LOVO wash (cells),numeric,used as recorded
+Volume Vector Added to G-Rex B (mL),Volume Vector Added to G-Rex B (mL),numeric,used as recorded
+day 3 clump pattern_Many small__missing,day 3 clump pattern,missing indicator,"1 where 'day 3 clump pattern_Many small' has no value, 0 where it has one"
+Non-Conformance Type_deviation__missing,Non-Conformance Type,missing indicator,"1 where 'Non-Conformance Type_deviation' has no value, 0 where it has one"
+Non-Conformance Type_withdrawal__missing,Non-Conformance Type,missing indicator,"1 where 'Non-Conformance Type_withdrawal' has no value, 0 where it has one"
+Non-Conformance Type_Termination__missing,Non-Conformance Type,missing indicator,"1 where 'Non-Conformance Type_Termination' has no value, 0 where it has one"
+Non-Conformance Type_Withdrawal__missing,Non-Conformance Type,missing indicator,"1 where 'Non-Conformance Type_Withdrawal' has no value, 0 where it has one"
+Clump Severity__missing,Clump Severity,missing indicator,"1 where 'Clump Severity' has no value, 0 where it has one"
+Day 8 Glucose G-Rex B (g/L)_resid__missing,Day 8 Glucose G-Rex B (g/L),missing indicator,"1 where 'Day 8 Glucose G-Rex B (g/L)_resid' has no value, 0 where it has one"
+MOI_eff_G-Rex_B_resid__missing,MOI_eff_G-Rex_B,missing indicator,"1 where 'MOI_eff_G-Rex_B_resid' has no value, 0 where it has one"
+Clump_burden_weighted_post_mixing__missing,Clump_burden_weighted_post_mixing,missing indicator,"1 where 'Clump_burden_weighted_post_mixing' has no value, 0 where it has one"
+Post-Mixing Clumps: # of Clumps_resid__missing,Post-Mixing Clumps: # of Clumps,missing indicator,"1 where 'Post-Mixing Clumps: # of Clumps_resid' has no value, 0 where it has one"
+Day 6 Glucose G-Rex B (g/L)__missing,Day 6 Glucose G-Rex B (g/L),missing indicator,"1 where 'Day 6 Glucose G-Rex B (g/L)' has no value, 0 where it has one"
+Day 6 Lactate G-Rex B (g/L)_resid__missing,Day 6 Lactate G-Rex B (g/L),missing indicator,"1 where 'Day 6 Lactate G-Rex B (g/L)_resid' has no value, 0 where it has one"
+Volume Vector Added to G-Rex B (mL)__missing,Volume Vector Added to G-Rex B (mL),missing indicator,"1 where 'Volume Vector Added to G-Rex B (mL)' has no value, 0 where it has one"

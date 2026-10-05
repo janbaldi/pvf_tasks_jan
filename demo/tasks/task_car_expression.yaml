@@ -1,0 +1,63 @@
+# A demo task written by `pvf init --demo`. Paths are relative to this file.
+workspace: ../pvf.yaml
+task:
+  name: ghent_car_expression
+  question: Which manufacturing parameters go with final product CAR+ expression at
+    Ghent?
+  purpose: predictive
+  seed: 20260917
+cohort:
+  sites:
+  - Ghent
+  filters:
+  - column: Type
+    op: equals
+    value: Commercial
+    reason: manufactured commercially
+  - column: Manufacturing and Release Testing Completed? (Y/N)
+    op: equals
+    value: Y
+    reason: manufacturing and testing finished
+  - column: Non-Conformance Type
+    op: not_in
+    value:
+    - termination
+    - withdrawal
+    normalise: true
+    missing: include
+    reason: not terminated or withdrawn, however it is spelled
+target:
+  column: FP Flow CAR+ (%)
+  type: numeric
+columns:
+  id: 'Patient Lot/Batch #'
+  group: Vector Lot
+  exclude:
+  - column: Subject Weight (kg)
+    reason: dose per kilogram already carries it
+availability:
+  cutoff: Harvest
+  unavailable:
+  - column: Harvest Post Wash Viable Cell Count (cells)
+    reason: counted after the wash
+encoding:
+  onehot_max_categories: 5
+  target_max_categories: 6
+  target_encoding_smoothing: 5.0
+  target_encoding_folds: 5
+  hashing_max_buckets: 16
+quality:
+  min_non_missing: 8
+  duplicate_r2_threshold: 0.99
+  duplicate_min_overlap: 8
+clustering:
+  action: report_only
+  method: spearman
+  threshold: 0.7
+  min_overlap: 8
+split:
+  strategy: grouped
+  validation_fraction: 0.3
+  folds: 3
+report:
+  preview_rows: 15

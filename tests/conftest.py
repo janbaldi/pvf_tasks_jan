@@ -42,18 +42,18 @@ def built(tmp_path_factory) -> dict:
     config = cli.load_config(config_path)
 
     reports = {
-        "ptf": cli.run_ptf(config, config_path=config_path),
-        "build": cli.run_build(config, mode="dev", config_path=config_path),
+        "ptf": cli.run_ptf(config),
+        "build": cli.run_build(config, mode="dev"),
     }
     packages = {}
     for name in dummy_data.TASK_FILES:
-        spec = taskconfig.load(directory / name)
-        packages[spec.name] = cli.run_task(spec)
+        spec = taskconfig.load(directory / name, config)
+        packages[spec.name] = cli.run_task(config, spec)
 
     return {
         "directory": directory,
         "config": config,
-        "config_path": config_path,
+        "config_path": Path(config["__path__"]),
         "pvf": pd.read_excel(config["paths"]["pvf"]),
         "new_parameters": pd.read_csv(config["paths"]["new_parameters"]),
         "reports": reports,

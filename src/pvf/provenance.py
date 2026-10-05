@@ -238,7 +238,7 @@ def capture(
         sources = [local(label, path) for label, path in sources.items()]
     return {
         "run_date": datetime.now().isoformat(timespec="seconds"),
-        "git_commit": git_commit(Path.cwd()),
+        "git_commit": git_commit(),
         "seed": seed,
         "config": config_path,
         "config_digest": config_digest(config) if config is not None else None,

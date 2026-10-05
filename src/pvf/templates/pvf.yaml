@@ -1,0 +1,103 @@
+# pvf workspace config.
+#
+# This folder is a workspace: configuration and data, kept apart from the code.
+# Every relative path below is relative to THIS file, so the folder can be moved.
+#
+#   pvf ptf      what the sources record that the PTF does not list
+#   pvf build    the PVF: every batch, every parameter, cleaned and derived
+#   pvf tasks    every task in tasks/ (or --task <file>), each into its own run folder
+#   pvf all      the three in order
+#   pvf new-task <name>     a new task file, wired to this workspace
+#   pvf check               validate this config and the tasks without running anything
+
+seed: 20260917
+
+# Local copies of every source. With sources.location: local these are read.
+paths:
+  ptf: data/raw/PTF.xlsx
+  phf_ghent: data/raw/phf_ghent.xlsx
+  phf_raritan: data/raw/phf_raritan.xlsx
+  param_mapping: data/raw/parameter_requirements.xlsx
+  remfg: data/raw/remfg.xlsx
+  lv_coa: data/raw/lv_coa.xlsx
+  raw_materials: data/raw/raw_materials.csv
+  investigations: data/raw/investigations_power_query.xlsx
+  site_maps:
+    - data/raw/site_map_clinical_sites.xlsx
+  # Outputs
+  pvf: data/processed/PVF.xlsx            # the PTF and build manifests are written beside it
+  new_parameters: data/processed/new_parameters.csv
+  reports: outputs/reports
+  tasks: outputs/tasks                    # task run folders, unless a task says otherwise
+  task_files: tasks                       # where `pvf new-task` writes and `pvf tasks` looks
+
+# Which worksheet each workbook's data is on, where it is not the default.
+# sheets:
+#   phf_ghent: BR Data
+
+sources:
+  location: local          # local | sharepoint
+  fallback_to_local: false # with sharepoint: use the local copy if io_sharepoint is missing
+  databricks: false        # join the Acridine Orange readings from Databricks
+
+# Where each source lives on SharePoint. Only read when sources.location is
+# sharepoint; a source without an entry here is then still read locally.
+sharepoint:
+  ptf:            {path: "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/PTF/PTF.xlsx", sheet: Catalogue, drive_id: DRIVE_ID_GHENT}
+  pvf:            {path: "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/PVF/PVF.xlsx", sheet: Sheet1, drive_id: DRIVE_ID_GHENT}
+  phf_ghent:      {path: "Batch data/PHF.xlsm", sheet: BR Data, drive_id: DRIVE_ID_GHENT}
+  phf_raritan:    {path: "General/Batch Data/Commercial Manufacturing Data.xlsx", sheet: BR Data, drive_id: DRIVE_ID_TIGER}
+  param_mapping:  {path: "MS%26T%20MSAT%20Data%20Team/GxP%20container/ParameterRequirements.xlsx", sheet: Overall, drive_id: DRIVE_ID_GHENT}
+  remfg:          {path: "General/BAT Resources/Re-Manufacturing Analyses/Re-MFG Trend_LIVE.xlsx", sheet: Treatment Line Data, drive_id: DRIVE_ID_TIGER}
+  lv_coa:         {path: "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/LVV%20CoA/LV CoA Correlation with CAR 29SEP.xlsx", sheet: CoA extracts, drive_id: DRIVE_ID_GHENT}
+  raw_materials:  {path: "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/Consumables/Consumables raw materials and equipment investigators.xlsx", sheet: Consumables raw materials and e, drive_id: DRIVE_ID_GHENT}
+  investigations: {path: "Documentation%20-%20Overall%20CAR-T%20EMEA%20Program/MSAT/Investigations/Trend%20Team/2.%20Investigations/2.%20Reliability%20Pillar/2026-02%20OOS%20rate%20OBL%20vs%20TL/Power%20Query%20Commercial%20Obelisc%20%26%20Techlane.xlsx", sheet: Master Query ALL COM, drive_id: DRIVE_ID_GHENT}
+  site_maps:
+    folder: "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/mappings/"
+    files: [clinical_sites.xlsx, cross_data_meeting.xlsx, from_Hannelore.xlsx]
+    sheet: Sheet1
+    drive_id: DRIVE_ID_GHENT
+
+# Uploading the PVF is a separate decision from reading the share: it only
+# happens on a `pvf build --mode PRD` run with enabled: true.
+upload:
+  enabled: false
+  path: "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/PVF/"   # or $DATA_LINK
+  drive_id: DRIVE_ID_GHENT
+  file_name: PVF.xlsx
+
+ptf:
+  write_new_parameters: true
+
+build:
+  write_parquet: true      # a PVF.parquet beside PVF.xlsx, which keeps column types
+
+cleaning:
+  corrections: corrections.yaml   # known data corrections, as a table
+  disable: []                     # names of corrections to switch off
+  censored: limit                 # what '<0.5' becomes: limit | half | missing
+  censored_flags: false           # also add a '<column> censored' 0/1 column
+  duration_unit: minutes          # what a bare number in a duration cell means
+  yes_no_defaults:                # blanks filled only for these columns
+    'Pre-Activation Clumps: Y/N?': 'No'
+
+mapping:
+  exclude:                        # Raritan → Ghent mapping rows known to be wrong
+    - Non-Conformance Type Calc.
+
+features:
+  co2_target: 5.0
+  temp_target: 37.0
+  contact_target: 120.0
+  contact_tolerance: 30.0
+  seeding_tolerance: 5.0
+  cpdl_low: 4.0
+  cpdl_high: 5.0
+  lactate_low: 12.5
+  lactate_high: 30.0
+  cd4_low: 40.0
+  cd4_high: 60.0
+
+lv_coa:
+  ph_nominal: 7.2       # release-spec midpoints, never a data mean
+  osmo_nominal: 300.0

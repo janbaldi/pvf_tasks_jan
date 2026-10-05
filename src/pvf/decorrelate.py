@@ -40,7 +40,7 @@ from scipy.spatial.distance import squareform
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 
-from .encode import Record, TaskParams, _record, pairwise
+from .encode import Record, TaskParams, _record, near_constant, pairwise
 from .logger import log
 
 MODULE = "decorrelate"
@@ -198,7 +198,7 @@ def eligible(
                     "Reason": f"fewer than {params.cluster_min_overlap} usable values",
                 }
             )
-        elif values.nunique(dropna=True) < 2:
+        elif near_constant(values, params.near_constant_tolerance):
             skipped.append({"Parameter": column, "Values": count, "Reason": "constant"})
         else:
             usable.append(column)

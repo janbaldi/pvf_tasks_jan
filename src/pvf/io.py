@@ -2,20 +2,27 @@
 
 The PTF specification, both sites' PHF files, the parameter-name mapping between
 them, the re-manufacturing treatment-line supplement, the lentiviral vector
-certificates of analysis, and the raw-material identifiers. Each loader takes an
-optional SharePoint reader and falls back to a local copy of the same file, so
-the pipeline runs off a laptop as well as off the production share.
+certificates of analysis, and the raw-material identifiers. Each loader takes a
+:class:`Source`: a local file, or — when the workspace config says so — a
+SharePoint location configured in ``pvf.yaml``. Nothing here knows an address.
 
 Everything returned here is an *original* parameter. Nothing in this module
 calculates anything from another column.
 """
 
+from __future__ import annotations
+
 import re
+from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
 
 from . import features
+from . import provenance as prov
 from .logger import log
 
 MODULE = "io"
@@ -23,96 +30,129 @@ MODULE = "io"
 #: The value types the PTF may declare, besides a bracketed ordinal category list.
 VALUE_TYPES = frozenset({"numeric", "categorical", "datetime", "duration", "ratio", "boolean"})
 
-#: Where each source lives on SharePoint, as ``io_sharepoint.load_excel_from_sharepoint``
-#: takes it. Keyed by the config's path names, so provenance can say where a read
-#: actually came from. The PTF, the LV CoA workbook, the raw-materials CSV and the
-#: site maps are not here: they are always read from the local path in config.
-SHAREPOINT = {
-    "ptf": {
-        "sharepoint_path": "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/PTF/PTF.xlsx",
-        "sheet_name": "Catalogue",
-        "drive_id": "DRIVE_ID_GHENT",
-    },
-    "pvf": {
-        "sharepoint_path": "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/PVF/PVF.xlsx",
-        "sheet_name": "Sheet1",
-        "drive_id": "DRIVE_ID_GHENT",
-    },
-    "phf_ghent": {
-        "sharepoint_path": "Batch data/PHF.xlsm",
-        "sheet_name": "BR Data",
-        "drive_id": "DRIVE_ID_GHENT",
-    },
-    "phf_raritan": {
-        "sharepoint_path": "General/Batch Data/Commercial Manufacturing Data.xlsx",
-        "sheet_name": "BR Data",
-        "drive_id": "DRIVE_ID_TIGER",
-    },
-    "param_mapping": {
-        "sharepoint_path": "MS%26T%20MSAT%20Data%20Team/GxP%20container/ParameterRequirements.xlsx",
-        "sheet_name": "Overall",
-        "drive_id": "DRIVE_ID_GHENT",
-    },
-    "lvv_coa": {
-        "sharepoint_path": "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/LVV%20CoA/LV CoA Correlation with CAR 29SEP.xlsx",
-        "sheet_name": "CoA extracts",
-        "drive_id": "DRIVE_ID_GHENT",
-    },
-    "consumables": {
-        "sharepoint_path": "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/Consumables/Consumables raw materials and equipment investigators.xlsx",
-        "sheet_name": "Consumables raw materials and e",
-        "drive_id": "DRIVE_ID_GHENT",
-    },
-    "remfg": {
-        "sharepoint_path": "General/BAT Resources/Re-Manufacturing Analyses/Re-MFG Trend_LIVE.xlsx",
-        "sheet_name": "Treatment Line Data",
-        "drive_id": "DRIVE_ID_TIGER",
-    },
-    "investigations": {
-        "sharepoint_path": (
-            "Documentation%20-%20Overall%20CAR-T%20EMEA%20Program/MSAT/Investigations/"
-            "Trend%20Team/2.%20Investigations/2.%20Reliability%20Pillar/"
-            "2026-02%20OOS%20rate%20OBL%20vs%20TL/"
-            "Power%20Query%20Commercial%20Obelisc%20%26%20Techlane.xlsx"
-        ),
-        "sheet_name": "Master Query ALL COM",
-        "drive_id": "DRIVE_ID_GHENT",
-    },
+#: The PTF column that says when in the process a parameter exists. Optional.
+STAGE_COLUMN = "Available At"
+
+#: The worksheet each source's data is on, in the files as the sites produce them.
+#: A workspace can override any of these under ``sheets:`` in its config.
+DEFAULT_SHEETS: dict[str, str | int] = {
+    "ptf": 0,
+    "pvf": 0,
+    "phf_ghent": "BR Data",
+    "phf_raritan": "BR Data",
+    "param_mapping": "Overall",
+    "remfg": "Treatment Line Data",
+    "lv_coa": "CoA extracts",
+    "raw_materials": 0,
+    "investigations": "Master Query ALL COM",
+    "site_maps": 0,
 }
+#: Rows of workbook furniture above the header, where a source has any.
+DEFAULT_HEADERS = {"lv_coa": 2}
 
 
-def sharepoint_location(label: str) -> str:
-    """Where a SharePoint source was read from, as provenance records it."""
-    entry = SHAREPOINT[label]
-    return f"SharePoint {entry['drive_id']}: {entry['sharepoint_path']} [{entry['sheet_name']}]"
+def read_table(path: str | Path, sheet: str | int = 0, header: int = 0) -> pd.DataFrame:
+    """A local table, read the way its extension says: CSV, Parquet or Excel."""
+    suffix = Path(path).suffix.lower()
+    if suffix in (".csv", ".txt"):
+        return pd.read_csv(path, header=header)
+    if suffix == ".parquet":
+        return pd.read_parquet(path)
+    return pd.read_excel(path, sheet_name=sheet, header=header)
+
+
+@dataclass
+class Source:
+    """One input, and where it is read from.
+
+    ``remote`` holds the keyword arguments the SharePoint reader takes; when it is
+    set the source is read from there, otherwise from ``path``. Built by
+    :func:`pvf.config.source` from the workspace config.
+    """
+
+    label: str
+    path: str = ""
+    sheet: str | int = 0
+    header: int = 0
+    remote: dict[str, Any] | None = None
+    loader: Callable[..., pd.DataFrame] | None = None
+
+    @property
+    def is_remote(self) -> bool:
+        return self.remote is not None
+
+    @property
+    def location(self) -> str:
+        if self.remote is not None:
+            return (
+                f"SharePoint {self.remote['drive_id']}: {self.remote['sharepoint_path']} "
+                f"[{self.remote['sheet_name']}]"
+            )
+        return self.path
+
+    def read(self) -> pd.DataFrame:
+        if self.remote is not None:
+            kwargs = dict(self.remote)
+            if self.header:
+                kwargs["header"] = self.header
+            return self.loader(**kwargs)
+        if not self.path:
+            raise FileNotFoundError(
+                f"No path is configured for '{self.label}' (paths.{self.label})"
+            )
+        return read_table(self.path, self.sheet, self.header)
+
+    def record(self, frame: pd.DataFrame | None) -> prov.Source:
+        """What provenance says about this input, as it was actually read.
+
+        A SharePoint read has no local bytes, so it is recorded by its location
+        and a digest of the table that came back. Hashing the local path instead
+        would record a copy the run never used.
+        """
+        if frame is None:
+            why = "could not be read; the stage went on without it"
+            return prov.missing(self.label, self.location, why)
+        if self.is_remote:
+            return prov.remote(self.label, self.location, frame)
+        return prov.local(self.label, self.path)
+
+
+def as_source(value: str | Path | Source, label: str) -> Source:
+    """A plain path is a local source with the default sheet for its label."""
+    if isinstance(value, Source):
+        return value
+    return Source(label, str(value), DEFAULT_SHEETS.get(label, 0), DEFAULT_HEADERS.get(label, 0))
+
+
+def _read(source: Source, what: str) -> pd.DataFrame:
+    log.step(MODULE, f"Loading {what}", source.location)
+    return source.read()
 
 
 # ── Public helpers ─────────────────────────────────────────────────────────────
 
 
-def read_ptf(ptf_path: str, sharepoint_loader=None) -> pd.DataFrame:
+def read_ptf(ptf: str | Path | Source) -> pd.DataFrame:
     """The Parameter Transfer File as it stands: one row per parameter.
 
     Every stage starts here. ``Parameter`` names what the PVF may hold and
     ``Value Type`` says what it holds — including, for an ordinal parameter, its
-    categories in order, written as a bracketed list.
+    categories in order, written as a bracketed list. An optional
+    ``Available At`` column says from which process stage a parameter exists,
+    which is what lets a predictive task check availability mechanically.
     """
-    if sharepoint_loader is not None:
-        log.step(MODULE, "Loading PTF from Sharepoint")
-        ptf = sharepoint_loader(**SHAREPOINT["ptf"])
-    else:
-        log.step(MODULE, "Loading Ghent PHF", str(ptf_path))
-        ptf = pd.read_excel(ptf_path)
- 
-    missing = [c for c in ("Parameter", "Value Type") if c not in ptf.columns]
-    if missing:
-        raise ValueError(f"The PTF at {ptf_path} has no {' or '.join(missing)} column")
+    source = as_source(ptf, "ptf")
+    frame = _read(source, "PTF")
 
-    blank = ptf["Parameter"].isna() | (ptf["Parameter"].astype(str).str.strip() == "")
+    missing = [c for c in ("Parameter", "Value Type") if c not in frame.columns]
+    if missing:
+        raise ValueError(f"The PTF at {source.location} has no {' or '.join(missing)} column")
+
+    blank = frame["Parameter"].isna() | (frame["Parameter"].astype(str).str.strip() == "")
     if blank.any():
         log.warn(MODULE, f"{int(blank.sum())} PTF rows have no parameter name and are ignored")
-        ptf = ptf.loc[~blank]
-    repeated = ptf["Parameter"].astype(str).value_counts()
+        frame = frame.loc[~blank]
+    repeated = frame["Parameter"].astype(str).value_counts()
     repeated = repeated[repeated > 1]
     if len(repeated):
         log.warn(
@@ -120,11 +160,11 @@ def read_ptf(ptf_path: str, sharepoint_loader=None) -> pd.DataFrame:
             f"{len(repeated)} PTF parameters are listed more than once; the first row of each wins",
             ", ".join(map(str, repeated.index[:10])),
         )
-        ptf = ptf.drop_duplicates(subset="Parameter", keep="first")
+        frame = frame.drop_duplicates(subset="Parameter", keep="first")
     unknown = sorted(
         {
             str(value)
-            for value in ptf["Value Type"].dropna().unique()
+            for value in frame["Value Type"].dropna().unique()
             if str(value) not in VALUE_TYPES and not str(value).strip().startswith("[")
         }
     )
@@ -135,93 +175,71 @@ def read_ptf(ptf_path: str, sharepoint_loader=None) -> pd.DataFrame:
             ", ".join(unknown[:10]),
         )
 
-    counts = ptf["Value Type"].value_counts().to_dict()
+    counts = frame["Value Type"].value_counts().to_dict()
     log.success(
         MODULE,
-        f"PTF loaded — {len(ptf)} parameters",
+        f"PTF loaded — {len(frame)} parameters"
+        + (f", with an '{STAGE_COLUMN}' column" if STAGE_COLUMN in frame.columns else ""),
         "  |  ".join(f"{k}: {v}" for k, v in counts.items()),
     )
-    return ptf
+    return frame
 
 
-def load_ptf(ptf_path: str, sharepoint_loader=None) -> tuple[list[str], dict[str, str]]:
+def load_ptf(ptf: str | Path | Source) -> tuple[list[str], dict[str, str]]:
     """The PTF as the build wants it: the parameter names, and their value types."""
-    ptf = read_ptf(ptf_path, sharepoint_loader=sharepoint_loader)
-    return list(ptf["Parameter"].values), dict(zip(ptf["Parameter"], ptf["Value Type"]))
+    frame = read_ptf(ptf)
+    return list(frame["Parameter"].values), dict(zip(frame["Parameter"], frame["Value Type"]))
 
 
-def load_pvf(pvf_path: str, sharepoint_loader=None) -> pd.DataFrame:
-    """The merged PVF, as ``pvf build`` wrote it."""
-    log.step(MODULE, "Loading PVF", pvf_path)
-
-    if sharepoint_loader is not None:
-        log.step(MODULE, "Loading PVF from Sharepoint")
-        pvf = sharepoint_loader(**SHAREPOINT["pvf"])
-    else:
-        log.step(MODULE, "Loading PVF from ", str(pvf_path))
-        pvf = pd.read_excel(pvf_path)
-
-    if "Site Merged" not in pvf.columns:
-        raise ValueError(f"{pvf_path} has no 'Site Merged' column — is it a PVF?")
-    log.success(MODULE, f"PVF loaded — {len(pvf):,} batches × {pvf.shape[1]:,} parameters")
-    return pvf
+def load_pvf(pvf: str | Path | Source) -> pd.DataFrame:
+    """The merged PVF, as ``pvf build`` wrote it (Excel or its Parquet copy)."""
+    source = as_source(pvf, "pvf")
+    frame = _read(source, "PVF")
+    if "Site Merged" not in frame.columns:
+        raise ValueError(f"{source.location} has no 'Site Merged' column — is it a PVF?")
+    log.success(MODULE, f"PVF loaded — {len(frame):,} batches × {frame.shape[1]:,} parameters")
+    return frame
 
 
-def load_investigations(path: str, sharepoint_loader=None) -> pd.DataFrame | None:
+def load_investigations(investigations: str | Path | Source) -> pd.DataFrame | None:
     """The investigations team's Power Query workbook, if it is reachable.
 
     Only the PTF stage reads it, and only to see which parameters it uses. It
-    lives on SharePoint and is not part of the build, so a run without it carries
-    on and says the source was not compared.
+    is not part of the build, so a run without it carries on and says the source
+    was not compared.
     """
+    source = as_source(investigations, "investigations")
     try:
-        if sharepoint_loader is not None:
-            log.step(MODULE, "Loading the investigations Power Query workbook from SharePoint")
-            return sharepoint_loader(**SHAREPOINT["investigations"])
-        log.step(MODULE, "Loading the investigations Power Query workbook", path)
-        return pd.read_excel(path, sheet_name="Master Query ALL COM")
-    except (FileNotFoundError, OSError, ValueError) as exc:
+        return _read(source, "the investigations Power Query workbook")
+    except Exception as exc:  # unreachable is a finding here, not a failure
         log.warn(MODULE, f"Investigations workbook not read: {exc}")
         return None
 
 
-def load_phf_ghent(phf_path: str, sharepoint_loader=None) -> pd.DataFrame:
-    """Load the Ghent PHF from SharePoint or a local file."""
-    if sharepoint_loader is not None:
-        log.step(MODULE, "Loading Ghent PHF from Sharepoint")
-        df = sharepoint_loader(**SHAREPOINT["phf_ghent"])
-    else:
-        log.step(MODULE, "Loading Ghent PHF", phf_path)
-        df = pd.read_excel(phf_path, sheet_name="BR Data")
-    log.success(MODULE, f"Ghent PHF loaded — {len(df):,} rows × {df.shape[1]} columns")
-    return df
+def load_phf_ghent(phf: str | Path | Source) -> pd.DataFrame:
+    """Load the Ghent PHF."""
+    frame = _read(as_source(phf, "phf_ghent"), "Ghent PHF")
+    log.success(MODULE, f"Ghent PHF loaded — {len(frame):,} rows × {frame.shape[1]} columns")
+    return frame
 
 
-def load_phf_raritan(phf_path: str, sharepoint_loader=None) -> pd.DataFrame:
-    """Load the Raritan PHF from SharePoint or a local file."""
-    if sharepoint_loader is not None:
-        log.step(MODULE, "Loading Raritan PHF from Sharepoint")
-        df = sharepoint_loader(**SHAREPOINT["phf_raritan"])
-    else:
-        log.step(MODULE, "Loading Raritan PHF", phf_path)
-        df = pd.read_excel(phf_path, sheet_name="BR Data")
-    log.success(MODULE, f"Raritan PHF loaded — {len(df):,} rows × {df.shape[1]} columns")
-    return df
+def load_phf_raritan(phf: str | Path | Source) -> pd.DataFrame:
+    """Load the Raritan PHF."""
+    frame = _read(as_source(phf, "phf_raritan"), "Raritan PHF")
+    log.success(MODULE, f"Raritan PHF loaded — {len(frame):,} rows × {frame.shape[1]} columns")
+    return frame
 
 
-def load_site_mapping(mapping_path: str, sharepoint_loader=None) -> dict[str, str]:
+def load_site_mapping(
+    mapping: str | Path | Source, exclude: list[str] | tuple[str, ...] = ()
+) -> dict[str, str]:
     """
     Load the Ghent ↔ Raritan parameter-name mapping.
 
-    Returns a cleaned dict  {raritan_col_name: ghent_col_name}.
+    Returns a cleaned dict  {raritan_col_name: ghent_col_name}. ``exclude`` names
+    mapping rows known to be wrong (``mapping.exclude`` in the config).
     """
-
-    if sharepoint_loader is not None:
-        log.step(MODULE, "Loading site parameter name mapping from Sharepoint")
-        df_mapping = sharepoint_loader(**SHAREPOINT["param_mapping"])
-    else:
-        log.step(MODULE, "Loading site parameter name mapping", mapping_path)
-        df_mapping = pd.read_excel(mapping_path, sheet_name="Overall")
+    df_mapping = _read(as_source(mapping, "param_mapping"), "site parameter name mapping")
 
     required = ["Parameter Name Raritan (CMD)", "Parameter Name Ghent (PHF)"]
     absent = [column for column in required if column not in df_mapping.columns]
@@ -244,8 +262,9 @@ def load_site_mapping(mapping_path: str, sharepoint_loader=None) -> dict[str, st
             continue
         name_mapping[source] = target
 
-    # A known bad entry: this one maps onto a column the sites compute differently.
-    name_mapping.pop("Non-Conformance Type Calc.", None)
+    excluded = [name for name in exclude if name_mapping.pop(name, None) is not None]
+    if excluded:
+        log.info(MODULE, f"{len(excluded)} mapping rows excluded by config", ", ".join(excluded))
 
     if conflicts:
         raise ValueError(
@@ -368,15 +387,9 @@ def attach_supplement(
     return out
 
 
-def load_remanufacturing_supplement(path: str, sharepoint_loader=None) -> pd.DataFrame:
+def load_remanufacturing_supplement(remfg: str | Path | Source) -> pd.DataFrame:
     """Load the treatment-line supplement for Raritan (Number of Prior Lines of Therapy)."""
-
-    if sharepoint_loader is not None:
-        log.step(MODULE, "Loading re-manufacturing treatment-line supplement from Sharepoint")
-        df = sharepoint_loader(**SHAREPOINT["remfg"])
-    else:
-        log.step(MODULE, "Loading re-manufacturing treatment-line supplement", path)
-        df = pd.read_excel(path, sheet_name="Treatment Line Data")
+    df = _read(as_source(remfg, "remfg"), "re-manufacturing treatment-line supplement")
 
     key = join_key(
         df,
@@ -396,11 +409,10 @@ def load_remanufacturing_supplement(path: str, sharepoint_loader=None) -> pd.Dat
 
 
 def load_lv_coa(
-    path: str,
+    lv_coa: str | Path | Source,
     ptf_cols: list[str],
     ph_nominal: float | None = None,
     osmo_nominal: float | None = None,
-    sharepoint_loader = None
 ) -> pd.DataFrame:
     """
     Load LV CoA correlation data and engineer lot-level features for the
@@ -413,12 +425,7 @@ def load_lv_coa(
         PRODUCT-SPECIFIC — pass from spec, never a data mean (a data-derived
         centre leaks). If None, that deviation feature is skipped with a warning.
     """
-    if sharepoint_loader is not None:
-        log.step(MODULE, "Loading LV CoA data from Sharepoint")
-        df = sharepoint_loader(**SHAREPOINT["lvv_coa"], header = 2)
-    else:
-        log.step(MODULE, "Loading LVV CoA data from ", path)
-        df = pd.read_excel(path, sheet_name="CoA extracts", header = 2)
+    df = _read(as_source(lv_coa, "lv_coa"), "vector certificates of analysis")
     log.success(MODULE, f"LVV CoA data loaded — {len(df):,} rows × {df.shape[1]} columns")
 
     # --- drop section-marker columns (headers "1".."5","42","42 ", empty) ---
@@ -727,26 +734,16 @@ def load_lv_coa(
     return df
 
 
-def load_raw_materials(path: str, ptf_cols: list[str], sharepoint_loader=None) -> pd.DataFrame:
-    """Load the raw materials / consumables identifiers CSV from its local path.
-
-    Always local, whatever ``sources.location`` says: ``io_sharepoint`` reads
-    Excel workbooks only, and has no CSV reader to fetch this export with.
-    """
-    if sharepoint_loader is not None:
-        log.step(MODULE, "Loading raw materials & consumables from Sharepoint")
-        df = sharepoint_loader(**SHAREPOINT["consumables"])
-    else:
-        log.step(MODULE, "Loading raw materials & consumables from", path)
-        df = pd.read_excel(path, sheet_name=0)
-    log.success(MODULE, f"raw materials & consumables loaded — {len(df):,} rows × {df.shape[1]} columns")
+def load_raw_materials(raw_materials: str | Path | Source, ptf_cols: list[str]) -> pd.DataFrame:
+    """Load the raw materials / consumables identifiers (a CSV export or a workbook)."""
+    df = _read(as_source(raw_materials, "raw_materials"), "raw materials & consumables")
 
     df.columns = [
         str(c).replace("Query[", "").replace("]", "") if "Query[" in str(c) else str(c)
         for c in df.columns
     ]
 
-    df = df.rename(columns={"targetbatchnumber":"Patient Lot/Batch #"})
+    df = df.rename(columns={"targetbatchnumber": "Patient Lot/Batch #"})
 
     key = join_key(
         df,

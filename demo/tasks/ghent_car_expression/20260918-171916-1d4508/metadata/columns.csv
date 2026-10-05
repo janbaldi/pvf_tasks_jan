@@ -1,0 +1,128 @@
+Column,Role,Source,Type,PTF value type,Unit,Transformation,Meaning
+Patient Lot/Batch #,identifier,Patient Lot/Batch #,str,categorical,,none,which batch this row is
+Vector Lot,group,Vector Lot,str,categorical,,none,"grouping metadata, for grouped cross-validation; not a predictor"
+split,split,assigned by this run,str,,,grouped,whole groups of Vector Lot: LV-101
+day 3 clump pattern,predictor,day 3 clump pattern,str,categorical,,"none — raw input, recipe.json says what it becomes",feeds day 3 clump pattern_Many small (binary)
+Day 10 Clump Present Bag 1,predictor,Day 10 Clump Present Bag 1,str,categorical,,"none — raw input, recipe.json says what it becomes",feeds Day 10 Clump Present Bag 1_Yes (binary)
+Day 10 Clump Present Bag 2,predictor,Day 10 Clump Present Bag 2,str,categorical,,"none — raw input, recipe.json says what it becomes",feeds Day 10 Clump Present Bag 2_Yes (binary)
+Day 10 Clump Present Bag 3,predictor,Day 10 Clump Present Bag 3,str,categorical,,"none — raw input, recipe.json says what it becomes",feeds Day 10 Clump Present Bag 3_Yes (binary)
+Country,predictor,Country,str,categorical,,"none — raw input, recipe.json says what it becomes",feeds Country_Netherlands (binary)
+Pre-Activation Clumps: Y/N?,predictor,Pre-Activation Clumps: Y/N?,str,categorical,,"none — raw input, recipe.json says what it becomes",feeds Pre-Activation Clumps: Y/N?_Yes (binary)
+Clinical Site ID,predictor,Clinical Site ID,str,categorical,,"none — raw input, recipe.json says what it becomes",feeds Clinical Site ID_1202 (binary)
+IL-2 Lot,predictor,IL-2 Lot,str,categorical,,"none — raw input, recipe.json says what it becomes",feeds IL-2 Lot_IL2-202 (binary)
+Clinical Site,predictor,Clinical Site,str,categorical,,"none — raw input, recipe.json says what it becomes","feeds Clinical Site_AZ Sint-Jan (one-hot), Clinical Site_UZ Leuven (one-hot), Clinical Site_UZ Gent (one-hot), Clinical Site_Other (one-hot)"
+Media Lot,predictor,Media Lot,str,categorical,,"none — raw input, recipe.json says what it becomes","feeds Media Lot_MED-102 (one-hot), Media Lot_MED-101 (one-hot), Media Lot_MED-100 (one-hot), Media Lot_MED-103 (one-hot)"
+growth profile,predictor,growth profile,str,categorical,,"none — raw input, recipe.json says what it becomes","feeds growth profile_normal (one-hot), growth profile_overgrowth (one-hot), growth profile_undergrowth (one-hot), growth profile_Other (one-hot)"
+CD4 profile,predictor,CD4 profile,str,categorical,,"none — raw input, recipe.json says what it becomes","feeds CD4 profile_high CD4 (one-hot), CD4 profile_low CD4 (one-hot), CD4 profile_medium CD4 (one-hot), CD4 profile_Other (one-hot)"
+Shift Team,predictor,Shift Team,str,categorical,,"none — raw input, recipe.json says what it becomes",feeds shift_team_target_enc (target encoding)
+Clump Severity,predictor,Clump Severity,str,"[None, Low, Medium, High]",,ordinal,"rank 1..4 in the PTF's order: None, Low, Medium, High"
+# of Culture Bags,predictor,# of Culture Bags,int64,numeric,,numeric,used as recorded
+% cells lost during formulation,predictor,% cells lost during formulation,float64,numeric,,numeric,used as recorded
+Amount of Time G-Rex A in Incubator (120min+/-30 min),predictor,Amount of Time G-Rex A in Incubator (120min+/-30 min),int64,duration,120min+/-30 min,duration,"used as recorded, with anything at or below zero treated as missing"
+Amount of Time G-Rex B in Incubator (120min+/-30 min),predictor,Amount of Time G-Rex B in Incubator (120min+/-30 min),float64,duration,120min+/-30 min,duration,"used as recorded, with anything at or below zero treated as missing"
+Avg_cells_per_bag_D3,predictor,Avg_cells_per_bag_D3,float64,numeric,,numeric,used as recorded
+CAR T produced per cell engaged D3,predictor,CAR T produced per cell engaged D3,float64,numeric,,numeric,used as recorded
+Clump_burden_weighted_post_massage,predictor,Clump_burden_weighted_post_massage,int64,numeric,,numeric,used as recorded
+Clump_burden_weighted_post_mixing,predictor,Clump_burden_weighted_post_mixing,float64,numeric,,numeric,used as recorded
+Clump_burden_weighted_pre,predictor,Clump_burden_weighted_pre,int64,numeric,,numeric,used as recorded
+Clump_count_reduction_fraction,predictor,Clump_count_reduction_fraction,float64,numeric,,numeric,used as recorded
+Clump_size_reduction_fraction,predictor,Clump_size_reduction_fraction,float64,numeric,,numeric,used as recorded
+D10 Achievable Dose (E6 CAR+ viable T-cells),predictor,D10 Achievable Dose (E6 CAR+ viable T-cells),float64,numeric,E6 CAR+ viable T-cells,numeric,used as recorded
+D10 Glucose / E6 cells,predictor,D10 Glucose / E6 cells,float64,numeric,,numeric,used as recorded
+D10 Lact / E6 cells,predictor,D10 Lact / E6 cells,float64,numeric,,numeric,used as recorded
+D10 Total CAR+ viable T-cells achieved,predictor,D10 Total CAR+ viable T-cells achieved,float64,numeric,,numeric,used as recorded
+D10 harvest - D10 wash viability change (%),predictor,D10 harvest - D10 wash viability change (%),float64,numeric,%,numeric,used as recorded
+D10_clump_bag_count,predictor,D10_clump_bag_count,int64,numeric,,numeric,used as recorded
+D3-D10 viability change (%),predictor,D3-D10 viability change (%),float64,numeric,%,numeric,used as recorded
+D3_contact_time_deviation,predictor,D3_contact_time_deviation,int64,numeric,,numeric,used as recorded
+D3_contact_time_deviation_G-Rex_A,predictor,D3_contact_time_deviation_G-Rex_A,int64,numeric,,numeric,used as recorded
+D3_contact_time_deviation_G-Rex_B,predictor,D3_contact_time_deviation_G-Rex_B,float64,numeric,,numeric,used as recorded
+D3_contact_time_within_window,predictor,D3_contact_time_within_window,int64,numeric,,numeric,used as recorded
+D3_contact_time_within_window_G-Rex_A,predictor,D3_contact_time_within_window_G-Rex_A,int64,numeric,,numeric,used as recorded
+D3_contact_time_within_window_G-Rex_B,predictor,D3_contact_time_within_window_G-Rex_B,int64,numeric,,numeric,used as recorded
+D3_seeding_error_pct,predictor,D3_seeding_error_pct,float64,numeric,,numeric,used as recorded
+D3_seeding_within_5pct,predictor,D3_seeding_within_5pct,int64,numeric,,numeric,used as recorded
+D6 Glucose / E6 cells,predictor,D6 Glucose / E6 cells,float64,numeric,,numeric,used as recorded
+D6 Lact / E6 cells,predictor,D6 Lact / E6 cells,float64,numeric,,numeric,used as recorded
+D8 Glucose / E6 cells,predictor,D8 Glucose / E6 cells,float64,numeric,,numeric,used as recorded
+Day 1 Number of Mixing Cycles Post Activation,predictor,Day 1 Number of Mixing Cycles Post Activation,int64,numeric,,numeric,used as recorded
+Day 3 Average of Pooled Viability (%),predictor,Day 3 Average of Pooled Viability (%),float64,numeric,%,numeric,used as recorded
+Day 3 Number of G-Rex to seed,predictor,Day 3 Number of G-Rex to seed,int64,numeric,,numeric,used as recorded
+Day 6 Activity of IL-2 (IU/mg),predictor,Day 6 Activity of IL-2 (IU/mg),int64,numeric,IU/mg,numeric,used as recorded
+Day 6 CO2 Saturation (%),predictor,Day 6 CO2 Saturation (%),float64,numeric,%,numeric,used as recorded
+Day 6 CO2 Saturation (%) dev_from_5.0pct,predictor,Day 6 CO2 Saturation (%) dev_from_5.0pct,float64,numeric,,numeric,used as recorded
+Day 6 Glucose G-Rex A (g/L),predictor,Day 6 Glucose G-Rex A (g/L),float64,numeric,g/L,numeric,used as recorded
+Day 6 Glucose G-Rex B (g/L),predictor,Day 6 Glucose G-Rex B (g/L),float64,numeric,g/L,numeric,used as recorded
+Day 6 IL-2 Protein Content (µg/vial),predictor,Day 6 IL-2 Protein Content (µg/vial),float64,numeric,µg/vial,numeric,used as recorded
+Day 6 Lactate G-Rex A (g/L),predictor,Day 6 Lactate G-Rex A (g/L),float64,numeric,g/L,numeric,used as recorded
+Day 6 Lactate G-Rex B (g/L),predictor,Day 6 Lactate G-Rex B (g/L),float64,numeric,g/L,numeric,used as recorded
+Day 6 Temperature (°C),predictor,Day 6 Temperature (°C),float64,numeric,°C,numeric,used as recorded
+Day 6 Temperature (°C) dev_from_37.0C,predictor,Day 6 Temperature (°C) dev_from_37.0C,float64,numeric,,numeric,used as recorded
+Day 8 Activity of IL-2 (IU/mg),predictor,Day 8 Activity of IL-2 (IU/mg),int64,numeric,IU/mg,numeric,used as recorded
+Day 8 Glucose G-Rex A (g/L),predictor,Day 8 Glucose G-Rex A (g/L),float64,numeric,g/L,numeric,used as recorded
+Day 8 Glucose G-Rex B (g/L),predictor,Day 8 Glucose G-Rex B (g/L),float64,numeric,g/L,numeric,used as recorded
+Day 8 IL-2 Protein Content (µg/vial),predictor,Day 8 IL-2 Protein Content (µg/vial),float64,numeric,µg/vial,numeric,used as recorded
+Day 8 Lactate G-Rex A (g/L),predictor,Day 8 Lactate G-Rex A (g/L),float64,numeric,g/L,numeric,used as recorded
+Drop viability D3 vs D0 (%),predictor,Drop viability D3 vs D0 (%),float64,numeric,%,numeric,used as recorded
+Final Formulation CS5 Viability Average (%),predictor,Final Formulation CS5 Viability Average (%),float64,numeric,%,numeric,used as recorded
+Final Formulation CS5 Viable Cell Concentration Average (cells/mL),predictor,Final Formulation CS5 Viable Cell Concentration Average (cells/mL),int64,numeric,cells/mL,numeric,used as recorded
+Glucose_perE6_slope_D6_D10,predictor,Glucose_perE6_slope_D6_D10,float64,numeric,,numeric,used as recorded
+Harvest Glucose (g/L),predictor,Harvest Glucose (g/L),float64,numeric,g/L,numeric,used as recorded
+Harvest Lactate (g/L),predictor,Harvest Lactate (g/L),float64,numeric,g/L,numeric,used as recorded
+Harvest Post Wash Viability Average (%),predictor,Harvest Post Wash Viability Average (%),float64,numeric,%,numeric,used as recorded
+Harvest Post Wash Viable Cell Concentration Average (cells/mL),predictor,Harvest Post Wash Viable Cell Concentration Average (cells/mL),int64,numeric,cells/mL,numeric,used as recorded
+Harvest Post Wash Viable Cell Count (cells),predictor,Harvest Post Wash Viable Cell Count (cells),int64,numeric,cells,numeric,used as recorded
+Harvest Pre-Wash Cell Viability (%),predictor,Harvest Pre-Wash Cell Viability (%),float64,numeric,%,numeric,used as recorded
+Harvest Pre-Wash Flow CAR+ Expression (%),predictor,Harvest Pre-Wash Flow CAR+ Expression (%),float64,numeric,%,numeric,used as recorded
+Harvest Pre-Wash Viable Cell Count after Sampling (cells),predictor,Harvest Pre-Wash Viable Cell Count after Sampling (cells),int64,numeric,cells,numeric,used as recorded
+IL2_IU_total_D6,predictor,IL2_IU_total_D6,float64,numeric,,numeric,used as recorded
+IL2_IU_total_D8,predictor,IL2_IU_total_D8,float64,numeric,,numeric,used as recorded
+Incubation D0-D1 (min),predictor,Incubation D0-D1 (min),int64,numeric,min,numeric,used as recorded
+Incubation D1-D3,predictor,Incubation D1-D3,int64,numeric,,numeric,used as recorded
+Incubation D3-D6 (min),predictor,Incubation D3-D6 (min),int64,numeric,min,numeric,used as recorded
+Incubation D6-D8 (min),predictor,Incubation D6-D8 (min),float64,numeric,min,numeric,used as recorded
+Incubation D8-D10 (min),predictor,Incubation D8-D10 (min),int64,numeric,min,numeric,used as recorded
+Incubation_total_D3_to_D10_min,predictor,Incubation_total_D3_to_D10_min,float64,numeric,,numeric,used as recorded
+Lactate_perE6_slope_D6_D10,predictor,Lactate_perE6_slope_D6_D10,float64,numeric,,numeric,used as recorded
+Lactate_to_Glucose_perE6_ratio_D10,predictor,Lactate_to_Glucose_perE6_ratio_D10,float64,numeric,,numeric,used as recorded
+Lactate_to_Glucose_perE6_ratio_D6,predictor,Lactate_to_Glucose_perE6_ratio_D6,float64,numeric,,numeric,used as recorded
+Log (PE CD4:CD8),predictor,Log (PE CD4:CD8),float64,numeric,PE CD4:CD8,numeric,used as recorded
+Mixing_cycles_x_pre_activation_clump_count,predictor,Mixing_cycles_x_pre_activation_clump_count,int64,numeric,,numeric,used as recorded
+PE CD3+CD4+ (%),predictor,PE CD3+CD4+ (%),float64,numeric,%,numeric,used as recorded
+PE CD3+CD8+ (%),predictor,PE CD3+CD8+ (%),float64,numeric,%,numeric,used as recorded
+PT CD3+CD4+ (%),predictor,PT CD3+CD4+ (%),float64,numeric,%,numeric,used as recorded
+PT Total  CD3+ (Viable Cells),predictor,PT Total  CD3+ (Viable Cells),float64,numeric,Viable Cells,numeric,used as recorded
+PT Total CD4+ (Viable Cells),predictor,PT Total CD4+ (Viable Cells),float64,numeric,Viable Cells,numeric,used as recorded
+Post Thaw CD4:CD8 Ratio,predictor,Post Thaw CD4:CD8 Ratio,float64,ratio,,numeric,used as recorded
+Post Thaw FLOW CD3+ (%),predictor,Post Thaw FLOW CD3+ (%),float64,numeric,%,numeric,used as recorded
+Post Thaw FLOW CD4+ (%),predictor,Post Thaw FLOW CD4+ (%),float64,numeric,%,numeric,used as recorded
+Post Wash POS FLOW CD3+ (%),predictor,Post Wash POS FLOW CD3+ (%),float64,numeric,%,numeric,used as recorded
+Post Wash POS FLOW CD4+ (%),predictor,Post Wash POS FLOW CD4+ (%),float64,numeric,%,numeric,used as recorded
+Post Wash POS FLOW CD8+ (%),predictor,Post Wash POS FLOW CD8+ (%),float64,numeric,%,numeric,used as recorded
+Post Wash POS Viability (%),predictor,Post Wash POS Viability (%),float64,numeric,%,numeric,used as recorded
+Post formulation dose,predictor,Post formulation dose,float64,numeric,,numeric,used as recorded
+Post-Massaging: # of Clumps,predictor,Post-Massaging: # of Clumps,int64,numeric,,numeric,used as recorded
+Post-Massaging: Size of Clumps,predictor,Post-Massaging: Size of Clumps,int64,numeric,,numeric,used as recorded
+Post-Mixing Clumps: # of Clumps,predictor,Post-Mixing Clumps: # of Clumps,float64,numeric,,numeric,used as recorded
+Post-Mixing Clumps: Size of Clumps,predictor,Post-Mixing Clumps: Size of Clumps,int64,numeric,,numeric,used as recorded
+Pre-Activation Clumps: # of Clumps before massage,predictor,Pre-Activation Clumps: # of Clumps before massage,int64,numeric,,numeric,used as recorded
+Pre-Activation Clumps: Size of Clumps before massage,predictor,Pre-Activation Clumps: Size of Clumps before massage,int64,numeric,,numeric,used as recorded
+Provirus Vector Copy Number (copies/transduced cell),predictor,Provirus Vector Copy Number (copies/transduced cell),float64,numeric,copies/transduced cell,numeric,used as recorded
+Seeded_cells_cv_AB,predictor,Seeded_cells_cv_AB,float64,numeric,,numeric,used as recorded
+Target Final Seeding Density per Area (VC/cm^2) G-Rex A,predictor,Target Final Seeding Density per Area (VC/cm^2) G-Rex A,float64,numeric,,numeric,used as recorded
+Total CS5 cell concentration (E6 cells/mL),predictor,Total CS5 cell concentration (E6 cells/mL),float64,numeric,E6 cells/mL,numeric,used as recorded
+Vector_volume_cv_AB_mL,predictor,Vector_volume_cv_AB_mL,float64,numeric,,numeric,used as recorded
+Vector_volume_max_AB_mL,predictor,Vector_volume_max_AB_mL,float64,numeric,,numeric,used as recorded
+Vector_volume_mean_AB_mL,predictor,Vector_volume_mean_AB_mL,float64,numeric,,numeric,used as recorded
+Vector_volume_min_AB_mL,predictor,Vector_volume_min_AB_mL,float64,numeric,,numeric,used as recorded
+Viability_change_D3_to_D10_pct,predictor,Viability_change_D3_to_D10_pct,float64,numeric,,numeric,used as recorded
+Volume CS5 Used for Formulation (mL),predictor,Volume CS5 Used for Formulation (mL),float64,numeric,mL,numeric,used as recorded
+Volume Vector Added to G-Rex A (mL),predictor,Volume Vector Added to G-Rex A (mL),float64,numeric,mL,numeric,used as recorded
+Volume Vector Added to G-Rex B (mL),predictor,Volume Vector Added to G-Rex B (mL),float64,numeric,mL,numeric,used as recorded
+Volume per Bag (mL),predictor,Volume per Bag (mL),int64,numeric,mL,numeric,used as recorded
+cPDL (D3 to D10),predictor,cPDL (D3 to D10),float64,numeric,D3 to D10,numeric,used as recorded
+total cells lost during LOVO wash (cells),predictor,total cells lost during LOVO wash (cells),int64,numeric,cells,numeric,used as recorded
+total viable cells in formulated suspension,predictor,total viable cells in formulated suspension,float64,numeric,,numeric,used as recorded
+Day 3 Incubation Time (120min+/-30 min),predictor,Day 3 Incubation Time (120min+/-30 min),int64,duration,120min+/-30 min,duration,"used as recorded, with anything at or below zero treated as missing"
+D3_clumps_flag,predictor,D3_clumps_flag,float64,numeric,,numeric,used as recorded
+fp_flow_car,target,FP Flow CAR+ (%),float64,numeric,%,numeric,the value this task predicts

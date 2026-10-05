@@ -1,0 +1,223 @@
+Parameter,Decision,Reason,Stage
+Patient Lot/Batch #,excluded,"the identifier, kept as metadata rather than encoded",role
+Vector Lot,excluded,"the grouping column, kept as metadata rather than encoded",role
+OOS Type,excluded,it is the reason for the disposition,task exclusion
+Disposition,excluded,"the target, kept as metadata rather than encoded",role
+Patient ID,excluded,"one category, or none",categorical routing
+Manufacturing and Release Testing Completed? (Y/N),excluded,"one category, or none",categorical routing
+Mycoplasma,excluded,"one category, or none",categorical routing
+Type,excluded,"one category, or none",categorical routing
+D3 % cells seeded / target,excluded,duplicates 'Avg_cells_per_bag_D3' (R²=1.0 over 27 shared batches),near-duplicate
+Day 3 Actual Viable Cells Seeded G-Rex A,excluded,duplicates 'Avg_cells_per_bag_D3' (R²=1.0 over 27 shared batches),near-duplicate
+Day 3 Number of G-Rex to seed,excluded,duplicates '# of Culture Bags' (R²=1.0 over 27 shared batches),near-duplicate
+Dose (CAR+ viable cells/kg),excluded,duplicates 'Avg_cells_per_bag_D3' (R²=1.0 over 27 shared batches),near-duplicate
+Dose (CAR+ viable cells/kg) all weights,excluded,duplicates 'Avg_cells_per_bag_D3' (R²=1.0 over 27 shared batches),near-duplicate
+Dose: Number of CAR+ Viable T-Cells (cells),excluded,duplicates 'Avg_cells_per_bag_D3' (R²=1.0 over 27 shared batches),near-duplicate
+Glucose_perE6_AUC_D6_D10,excluded,duplicates 'D6 Glucose / E6 cells' (R²=0.9975 over 27 shared batches),near-duplicate
+Harvest Lactate Normalized,excluded,duplicates 'D10 Lact / E6 cells' (R²=1.0 over 27 shared batches),near-duplicate
+LV CoA E1a cDNA,excluded,duplicates 'LV CoA CAR% - Donor 1' (R²=1.0 over 27 shared batches),near-duplicate
+LV CoA E1b cDNA,excluded,duplicates 'LV CoA DNA size' (R²=1.0 over 27 shared batches),near-duplicate
+LV CoA IFNg - Donor 1,excluded,duplicates 'LV CoA CAR% - Donor 1' (R²=0.998 over 27 shared batches),near-duplicate
+LV CoA IFNg - Donor 2,excluded,duplicates 'LV CoA HCP' (R²=0.9993 over 27 shared batches),near-duplicate
+LV CoA LV Titer,excluded,duplicates 'LV CoA CAR% - Donor 2' (R²=1.0 over 27 shared batches),near-duplicate
+LV CoA Osmolality,excluded,duplicates 'LV CoA CAR% - Donor 1' (R²=1.0 over 27 shared batches),near-duplicate
+LV CoA PI Ratio,excluded,duplicates 'LV CoA DNA size' (R²=1.0 over 27 shared batches),near-duplicate
+LV CoA Volume,excluded,duplicates 'LV CoA DNA size' (R²=1.0 over 27 shared batches),near-duplicate
+LV CoA cDNA,excluded,duplicates 'LV CoA Physical Titer p24 ELISA' (R²=1.0 over 27 shared batches),near-duplicate
+LV CoA pDNA,excluded,duplicates 'LV CoA HCP' (R²=0.9999 over 27 shared batches),near-duplicate
+Post Thaw Viable Cell Count after sampling(cells),excluded,duplicates 'Avg_cells_per_bag_D3' (R²=1.0 over 27 shared batches),near-duplicate
+Seeded_cells_cv_AB,excluded,duplicates '# of Culture Bags' (R²=1.0 over 27 shared batches),near-duplicate
+Seeded_cells_max_AB,excluded,duplicates 'Avg_cells_per_bag_D3' (R²=1.0 over 27 shared batches),near-duplicate
+Seeded_cells_mean_AB,excluded,duplicates 'Avg_cells_per_bag_D3' (R²=0.9972 over 27 shared batches),near-duplicate
+Total Viable Cells for Expansion after VSVg Sampling (cells),excluded,duplicates 'Day 3 Total Viable Cells Available for Seeding G-Rex (cells)' (R²=1.0 over 27 shared batches),near-duplicate
+Vector_volume_std_AB_mL,excluded,duplicates 'Vector_volume_cv_AB_mL' (R²=0.9969 over 27 shared batches),near-duplicate
+Viability change during expansion,excluded,duplicates 'D3-D10 viability change (%)' (R²=1.0 over 27 shared batches),near-duplicate
+Viability_drop_D3_vs_D0_pct,excluded,duplicates 'Drop viability D3 vs D0 (%)' (R²=0.999 over 27 shared batches),near-duplicate
+Volume of Cells Used for Formulation (mL),excluded,duplicates 'Volume CS5 Used for Formulation (mL)' (R²=1.0 over 27 shared batches),near-duplicate
+log_MOI_eff_pool,excluded,duplicates 'MOI_eff_pool' (R²=0.9951 over 27 shared batches),near-duplicate
+total viable cells used for formulation,excluded,duplicates 'Harvest Post Wash Viable Cell Count (cells)' (R²=1.0 over 27 shared batches),near-duplicate
+Day 3 Actual Viable Cells Seeded G-Rex B,excluded,duplicates 'Avg_cells_per_bag_D3' (R²=1.0 over 18 shared batches),near-duplicate
+log_MOI_eff_G-Rex_B,excluded,duplicates 'MOI_eff_G-Rex_B' (R²=0.9929 over 18 shared batches),near-duplicate
+day 3 clump pattern,included,binary,encoding
+Day 10 Clump Present Bag 1,included,binary,encoding
+Day 10 Clump Present Bag 2,included,binary,encoding
+Day 10 Clump Present Bag 3,included,binary,encoding
+Country,included,binary,encoding
+Pre-Activation Clumps: Y/N?,included,binary,encoding
+LV CoA Site/Format,included,binary,encoding
+Non-Conformance Type,included,one-hot,encoding
+Non-Conformance Type,included,one-hot,encoding
+Non-Conformance Type,included,one-hot,encoding
+Non-Conformance Type,included,one-hot,encoding
+Non-Conformance Type,included,one-hot,encoding
+Clinical Site,included,one-hot,encoding
+Clinical Site,included,one-hot,encoding
+Clinical Site,included,one-hot,encoding
+Clinical Site,included,one-hot,encoding
+Clinical Site ID,included,one-hot,encoding
+Clinical Site ID,included,one-hot,encoding
+Clinical Site ID,included,one-hot,encoding
+Clinical Site ID,included,one-hot,encoding
+Media Lot,included,one-hot,encoding
+Media Lot,included,one-hot,encoding
+Media Lot,included,one-hot,encoding
+Media Lot,included,one-hot,encoding
+Media Lot,included,one-hot,encoding
+IL-2 Lot,included,one-hot,encoding
+IL-2 Lot,included,one-hot,encoding
+IL-2 Lot,included,one-hot,encoding
+IL-2 Lot,included,one-hot,encoding
+growth profile,included,one-hot,encoding
+growth profile,included,one-hot,encoding
+growth profile,included,one-hot,encoding
+growth profile,included,one-hot,encoding
+CD4 profile,included,one-hot,encoding
+CD4 profile,included,one-hot,encoding
+CD4 profile,included,one-hot,encoding
+CD4 profile,included,one-hot,encoding
+Shift Team,included,target encoding,encoding
+Incubator ID,included,feature hashing,encoding
+Incubator ID,included,feature hashing,encoding
+Incubator ID,included,feature hashing,encoding
+Incubator ID,included,feature hashing,encoding
+Incubator ID,included,feature hashing,encoding
+Incubator ID,included,feature hashing,encoding
+Incubator ID,included,feature hashing,encoding
+Incubator ID,included,feature hashing,encoding
+Incubator ID,included,feature hashing,encoding
+Incubator ID,included,feature hashing,encoding
+Incubator ID,included,feature hashing,encoding
+Incubator ID,included,feature hashing,encoding
+Incubator ID,included,feature hashing,encoding
+Incubator ID,included,feature hashing,encoding
+Incubator ID,included,feature hashing,encoding
+Incubator ID,included,feature hashing,encoding
+Clump Severity,included,ordinal,encoding
+Harvest Post Wash Viable Cell Count (cells),included,cluster representative (linear),encoding
+Harvest Pre-Wash Viable Cell Count after Sampling (cells),included,cluster residual (linear),encoding
+total viable cells in formulated suspension,included,cluster residual (linear),encoding
+Seeded_cells_min_AB,included,cluster residual (linear),encoding
+Avg_cells_per_bag_D3,included,cluster residual (linear),encoding
+Glucose_perE6_slope_D6_D10,included,cluster residual (linear),encoding
+Lactate_to_Glucose_perE6_ratio_D6,included,cluster representative (linear),encoding
+Day 6 Lactate G-Rex A (g/L),included,cluster residual (linear),encoding
+Day 8 Glucose G-Rex A (g/L),included,cluster residual (linear),encoding
+Day 6 Glucose G-Rex A (g/L),included,cluster residual (linear),encoding
+Day 8 Glucose G-Rex B (g/L),included,cluster residual (linear),encoding
+LV CoA Physical Titer p24 ELISA,included,cluster representative (linear),encoding
+LV CoA CAR% - Donor 2,included,cluster residual (linear),encoding
+LV CoA DNA size,included,cluster residual (linear),encoding
+# of Culture Bags,included,cluster residual (linear),encoding
+VCN/cell,included,cluster representative (linear),encoding
+FP Flow CAR+ (%),included,cluster residual (linear),encoding
+Harvest Pre-Wash Flow CAR+ Expression (%),included,cluster residual (linear),encoding
+Provirus Vector Copy Number (copies/transduced cell),included,cluster residual (linear),encoding
+Lactate_perE6_AUC_D6_D10,included,cluster representative (linear),encoding
+D10 Lact / E6 cells,included,cluster residual (linear),encoding
+D6 Lact / E6 cells,included,cluster residual (linear),encoding
+D6 Glucose / E6 cells,included,cluster representative (linear),encoding
+D8 Glucose / E6 cells,included,cluster residual (linear),encoding
+Volume CS5 Used for Formulation (mL),included,cluster residual (linear),encoding
+MOI_eff_pool,included,cluster representative (linear),encoding
+MOI_eff_quality_adjusted,included,cluster residual (linear),encoding
+MOI_eff_G-Rex_B,included,cluster residual (linear),encoding
+PT CD3+CD4+ (%),included,cluster representative (linear),encoding
+Post Thaw FLOW CD4+ (%),included,cluster residual (linear),encoding
+PT Total CD4+ (Viable Cells),included,cluster residual (linear),encoding
+% cells lost during formulation,included,cluster representative (linear),encoding
+number of viable cells lost during formulation,included,cluster residual (linear),encoding
+Clump_burden_weighted_post_mixing,included,cluster representative (linear),encoding
+Post-Mixing Clumps: # of Clumps,included,cluster residual (linear),encoding
+Clump_count_reduction_fraction,included,cluster representative (linear),encoding
+Post-Massaging: # of Clumps,included,cluster residual (linear),encoding
+D10 harvest - D10 wash viability change (%),included,cluster representative (linear),encoding
+Viability_change_D3_to_D10_pct,included,cluster residual (linear),encoding
+D3_contact_time_deviation,included,cluster representative (linear),encoding
+D3_contact_time_within_window,included,cluster residual (linear),encoding
+D3_contact_time_deviation_G-Rex_A,included,cluster representative (linear),encoding
+D3_contact_time_within_window_G-Rex_A,included,cluster residual (linear),encoding
+D3_contact_time_deviation_G-Rex_B,included,cluster representative (linear),encoding
+D3_contact_time_within_window_G-Rex_B,included,cluster residual (linear),encoding
+D3_seeding_error_pct,included,cluster representative (linear),encoding
+D3_seeding_within_5pct,included,cluster residual (linear),encoding
+Day 3 Average of Pooled Viability (%),included,cluster representative (linear),encoding
+Drop viability D3 vs D0 (%),included,cluster residual (linear),encoding
+Day 3 Total Viable Cells Available for Seeding G-Rex (cells),included,cluster representative (linear),encoding
+Seeded_cells_std_AB,included,cluster residual (linear),encoding
+Day 6 Activity of IL-2 (IU/mg),included,cluster representative (linear),encoding
+IL2_IU_total_D6,included,cluster residual (linear),encoding
+Day 6 Glucose G-Rex B (g/L),included,cluster representative (linear),encoding
+Day 6 Lactate G-Rex B (g/L),included,cluster residual (linear),encoding
+Day 8 Activity of IL-2 (IU/mg),included,cluster representative (linear),encoding
+IL2_IU_total_D8,included,cluster residual (linear),encoding
+Day 8 Lactate G-Rex A (g/L),included,cluster representative (linear),encoding
+Harvest Lactate (g/L),included,cluster residual (linear),encoding
+Final Formulation CS5 Viable Cell Concentration Average (cells/mL),included,cluster representative (linear),encoding
+Harvest Post Wash Viable Cell Concentration Average (cells/mL),included,cluster residual (linear),encoding
+Incubation D3-D6 (min),included,cluster representative (linear),encoding
+Number of Prior Lines of Therapy,included,cluster residual (linear),encoding
+LV CoA CAR% - Donor 1,included,cluster representative (linear),encoding
+LV CoA pH,included,cluster residual (linear),encoding
+LV CoA HCP,included,cluster representative (linear),encoding
+LVCoA_Impurity_Index_zsum,included,cluster residual (linear),encoding
+MOI_eff_G-Rex_A,included,cluster representative (linear),encoding
+log_MOI_eff_G-Rex_A,included,cluster residual (linear),encoding
+PE CD3+CD4+ (%),included,cluster representative (linear),encoding
+Post Wash POS FLOW CD4+ (%),included,cluster residual (linear),encoding
+PE CD3+CD8+ (%),included,cluster representative (linear),encoding
+Post Wash POS FLOW CD8+ (%),included,cluster residual (linear),encoding
+Vector_volume_mean_AB_mL,included,cluster representative (linear),encoding
+Vector_volume_min_AB_mL,included,cluster residual (linear),encoding
+Amount of Time G-Rex A in Incubator (120min+/-30 min),included,duration,encoding
+Amount of Time G-Rex B in Incubator (120min+/-30 min),included,duration,encoding
+CAR T produced per cell engaged D3,included,numeric,encoding
+Clump_burden_weighted_post_massage,included,numeric,encoding
+Clump_burden_weighted_pre,included,numeric,encoding
+Clump_size_reduction_fraction,included,numeric,encoding
+D10 Achievable Dose (E6 CAR+ viable T-cells),included,numeric,encoding
+D10 Total CAR+ viable T-cells achieved,included,numeric,encoding
+D10_clump_bag_count,included,numeric,encoding
+D3-D10 viability change (%),included,numeric,encoding
+Day 1 Number of Mixing Cycles Post Activation,included,numeric,encoding
+Day 3 Incubation Time (120min+/-30 min),included,duration,encoding
+Day 6 CO2 Saturation (%),included,numeric,encoding
+Day 6 CO2 Saturation (%) dev_from_5.0pct,included,numeric,encoding
+Day 6 IL-2 Protein Content (µg/vial),included,numeric,encoding
+Day 6 Temperature (°C),included,numeric,encoding
+Day 6 Temperature (°C) dev_from_37.0C,included,numeric,encoding
+Day 8 IL-2 Protein Content (µg/vial),included,numeric,encoding
+Endotoxin (EU/mL),included,numeric,encoding
+Final Formulation CS5 Viability Average (%),included,numeric,encoding
+Flow accuracy (effective),included,numeric,encoding
+Harvest Post Wash Viability Average (%),included,numeric,encoding
+Harvest Pre-Wash Cell Viability (%),included,numeric,encoding
+Incubation D0-D1 (min),included,numeric,encoding
+Incubation D1-D3,included,numeric,encoding
+Incubation D6-D8 (min),included,numeric,encoding
+Incubation D8-D10 (min),included,numeric,encoding
+Incubation_total_D3_to_D10_min,included,numeric,encoding
+Lactate_perE6_slope_D6_D10,included,numeric,encoding
+Log (PE CD4:CD8),included,numeric,encoding
+Mixing_cycles_x_pre_activation_clump_count,included,numeric,encoding
+PT Total  CD3+ (Viable Cells),included,numeric,encoding
+Post Thaw CD4:CD8 Ratio,included,numeric,encoding
+Post Thaw FLOW CD3+ (%),included,numeric,encoding
+Post Wash POS FLOW CD3+ (%),included,numeric,encoding
+Post Wash POS Viability (%),included,numeric,encoding
+Post formulation dose,included,numeric,encoding
+Post-Massaging: Size of Clumps,included,numeric,encoding
+Post-Mixing Clumps: Size of Clumps,included,numeric,encoding
+Pre-Activation Clumps: # of Clumps before massage,included,numeric,encoding
+Pre-Activation Clumps: Size of Clumps before massage,included,numeric,encoding
+Recovery (%),included,numeric,encoding
+Subject Weight (kg),included,numeric,encoding
+Total CS5 cell concentration (E6 cells/mL),included,numeric,encoding
+Total Viable Cells/bag,included,numeric,encoding
+Vector_volume_cv_AB_mL,included,numeric,encoding
+Vector_volume_max_AB_mL,included,numeric,encoding
+Volume Vector Added to G-Rex A (mL),included,numeric,encoding
+Volume per Bag (mL),included,numeric,encoding
+cPDL (D3 to D10),included,numeric,encoding
+total cells lost during LOVO wash (cells),included,numeric,encoding
+Volume Vector Added to G-Rex B (mL),included,numeric,encoding
+D3_clumps_flag,included,numeric,encoding

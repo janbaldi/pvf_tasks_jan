@@ -1,0 +1,13 @@
+Group,Parameter,Missing rate,Group missing rate,Mean Jaccard within group,Best explainer,Explainer score,Explainer passes min_strength,Explainer blanks track the group
+Missing 01,Day 3 Actual Viable Cells Seeded G-Rex B,0.3333,0.3333,1.0,Clinical Site,1.0,True,False
+Missing 01,Volume Vector Added to G-Rex B (mL),0.3333,0.3333,1.0,Clinical Site,1.0,True,False
+Missing 01,Day 6 Lactate G-Rex B (g/L),0.3333,0.3333,1.0,Clinical Site,1.0,True,False
+Missing 01,Day 6 Glucose G-Rex B (g/L),0.3333,0.3333,1.0,Clinical Site,1.0,True,False
+Missing 01,Day 8 Glucose G-Rex B (g/L),0.3333,0.3333,1.0,Clinical Site,1.0,True,False
+Missing 01,MOI_eff_G-Rex_B,0.3333,0.3333,1.0,Clinical Site,1.0,True,False
+Missing 01,log_MOI_eff_G-Rex_B,0.3333,0.3333,1.0,Clinical Site,1.0,True,False
+Missing 02,day 3 clump pattern,0.4444,0.4444,1.0,OOS Type,0.0614,False,False
+Missing 02,D3_clumps_flag,0.4444,0.4444,1.0,OOS Type,0.0614,False,False
+,Clump Severity,,,,,,,
+,OOS Type,,,,,,,
+,Non-Conformance Type,,,,,,,

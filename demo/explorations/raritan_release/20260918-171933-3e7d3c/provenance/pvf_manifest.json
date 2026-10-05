@@ -1,0 +1,204 @@
+{
+  "stage": "pvf",
+  "status": "complete",
+  "started": "2026-09-18T17:19:15",
+  "finished": "2026-09-18T17:19:16",
+  "mode": "DEV",
+  "pvf": {
+    "path": "/home/sdegroeve/pvf_tasks/demo/PVF.xlsx",
+    "sha256": "54405fb701fbf6230836dc3a59b32dd9972c6a30c062eb51b209bfdcc3d36e3b",
+    "rows": 70,
+    "columns": 221,
+    "site_rows": {
+      "Ghent": 40,
+      "Raritan": 30
+    }
+  },
+  "ptf": {
+    "path": "/home/sdegroeve/pvf_tasks/demo/PTF.xlsx",
+    "parameters": 204
+  },
+  "ptf_parameters_not_in_pvf": [
+    "Log (PT CD4:CD8)",
+    "D8 Lact / E6 cells",
+    "Lactate_to_Glucose_perE6_ratio_D8",
+    "Sterility",
+    "Mycoplasma Method"
+  ],
+  "pvf_parameters_not_in_ptf": [
+    "Local Comment",
+    "LV CoA HCP below LOQ",
+    "LV CoA Delivered Dose per GRex",
+    "LV CoA Titer Adjustment Factor",
+    "LV CoA Specific Infectivity",
+    "LV CoA E1b Fraction of Total DNA",
+    "LV CoA pH Abs Deviation",
+    "LV CoA Osmolality Abs Deviation",
+    "LV CoA CAR% Donor MAX",
+    "LV CoA CAR% Donor MIN",
+    "LV CoA CAR% Donor DIFF",
+    "LV CoA CAR% Donor DIFF Rel",
+    "LV CoA CAR% Donor AVG",
+    "LV CoA IFNg Donor MAX",
+    "LV CoA IFNg Donor MIN",
+    "LV CoA IFNg Donor DIFF",
+    "LV CoA IFNg Donor DIFF Rel",
+    "LV CoA IFNg Donor AVG",
+    "Site Merged",
+    "Country_1",
+    "Local Site Code",
+    "CMD Comment"
+  ],
+  "uploaded_to": null,
+  "outputs": [
+    {
+      "what": "PVF",
+      "path": "/home/sdegroeve/pvf_tasks/demo/PVF.xlsx",
+      "sha256": "54405fb701fbf6230836dc3a59b32dd9972c6a30c062eb51b209bfdcc3d36e3b"
+    },
+    {
+      "what": "report",
+      "path": "/home/sdegroeve/pvf_tasks/demo/reports/build_report.html",
+      "sha256": "f2ea75cd0a51e83f954f5f5031188eb34cd68f506e2cde8617404748db00371b"
+    }
+  ],
+  "warnings": [
+    "1 mapping rows have no Ghent name and were dropped",
+    "Two columns claim one name: 'Country Name' is kept as 'Country_1'",
+    "[Ghent] Endotoxin (EU/mL): 10 censored values \u2192 the limit itself (0.5 for '<0.5')",
+    "[Raritan] Endotoxin (EU/mL): 8 censored values \u2192 the limit itself (0.5 for '<0.5')",
+    "[Ghent] Recovery (%): 1 non-numeric values coerced \u2192 NaN",
+    "[Ghent] Date and Time Cells Removed From Incubator Day 8: 1 values failed datetime parse",
+    "[Ghent] Amount of Time G-Rex B in Incubator (120min+/-30 min): 1 values failed duration parse",
+    "[Ghent] Recovery (%): 1 values outside [0,100]",
+    "Categorical mismatch: 'Patient Lot/Batch #'",
+    "Categorical mismatch: 'Vector Lot'",
+    "Categorical mismatch: 'Mycoplasma'",
+    "Categorical mismatch: 'OOS Type'",
+    "Categorical mismatch: 'Non-Conformance Type'",
+    "Categorical mismatch: 'Clinical Site'",
+    "Categorical mismatch: 'Country'",
+    "Categorical mismatch: 'Type'",
+    "Categorical mismatch: 'Disposition'",
+    "Categorical mismatch: 'Pre-Activation Clumps: Y/N?'",
+    "10 categorical columns have different levels across sites",
+    "[Raritan] 1 clinical site acronyms have no mapping",
+    "[Ghent] Log (PT CD4:CD8) blocked",
+    "[Ghent] D8 Lact / E6 cells blocked",
+    "[Ghent] Lactate_to_Glucose_perE6_ratio_D8 blocked",
+    "[Ghent] 2 features are not PTF parameters and were not computed",
+    "[Raritan] Log (PT CD4:CD8) blocked",
+    "[Raritan] D8 Lact / E6 cells blocked",
+    "[Raritan] D10 Glucose / E6 cells blocked",
+    "[Raritan] Lactate_to_Glucose_perE6_ratio_D8 blocked",
+    "[Raritan] Lactate_to_Glucose_perE6_ratio_D10 blocked",
+    "[Raritan] 2 features are not PTF parameters and were not computed",
+    "5 PTF parameters absent from merged PVF"
+  ],
+  "errors": [],
+  "provenance": {
+    "run_date": "2026-09-18T17:19:16",
+    "git_commit": null,
+    "seed": 20260917,
+    "config": "/home/sdegroeve/pvf_tasks/demo/config.yaml",
+    "config_digest": "8950e914ee7de5951055049a3d22df27675cd8483058641f43ce4fd1112122c2",
+    "sources": [
+      {
+        "label": "ptf",
+        "location": "/home/sdegroeve/pvf_tasks/demo/PTF.xlsx",
+        "kind": "local file",
+        "digest": "9741384af7b100c8c360c62347ab1483a4ac7215d0ce38eb6153fb74236daeff",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "phf_ghent",
+        "location": "/home/sdegroeve/pvf_tasks/demo/phf_ghent.xlsx",
+        "kind": "local file",
+        "digest": "bd16997d235943800a5133bd87b048e246b72a610ea1c10044256dd31fb51ad9",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "phf_raritan",
+        "location": "/home/sdegroeve/pvf_tasks/demo/phf_raritan.xlsx",
+        "kind": "local file",
+        "digest": "833a85a92436af321126156bccd2b0fdaa2cbc96e8f268b51efa5954a0773e2c",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "param_mapping",
+        "location": "/home/sdegroeve/pvf_tasks/demo/parameter_requirements.xlsx",
+        "kind": "local file",
+        "digest": "62bf588c2b16fe4cdb60f60213dcc6d020ae50e815c9f3b068ba6ae72a1530a9",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "remfg",
+        "location": "/home/sdegroeve/pvf_tasks/demo/remfg.xlsx",
+        "kind": "local file",
+        "digest": "803a05d196ae3fdbd39a6cb11f8e02635a6c57e2f53bbe0fe5ec2cccca078fd3",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "lv_coa",
+        "location": "/home/sdegroeve/pvf_tasks/demo/lv_coa.xlsx",
+        "kind": "local file",
+        "digest": "ca8bef4e77301e84c7b507461c1df9cfd1679f8125a5a0554ede5a483bac7005",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "raw_materials",
+        "location": "/home/sdegroeve/pvf_tasks/demo/raw_materials.csv",
+        "kind": "local file",
+        "digest": "2f4e4fc3a3236dfcf6dc7cc965a997b0e3f434cfbcad012d8bdd217c0cbb7833",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "site_map_1",
+        "location": "/home/sdegroeve/pvf_tasks/demo/site_map_hannelore.xlsx",
+        "kind": "local file",
+        "digest": "59f692de97e9038888eb2d5860938e715d34dfaf614b9805f5e731bf3084344a",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "site_map_2",
+        "location": "/home/sdegroeve/pvf_tasks/demo/site_map_meeting.xlsx",
+        "kind": "local file",
+        "digest": "b56e12b62e4d1230102e45377f175142ea1a891409da988edf60410a620f0475",
+        "digest_of": "file bytes",
+        "note": ""
+      }
+    ],
+    "inputs": {
+      "ptf": "9741384af7b100c8c360c62347ab1483a4ac7215d0ce38eb6153fb74236daeff",
+      "phf_ghent": "bd16997d235943800a5133bd87b048e246b72a610ea1c10044256dd31fb51ad9",
+      "phf_raritan": "833a85a92436af321126156bccd2b0fdaa2cbc96e8f268b51efa5954a0773e2c",
+      "param_mapping": "62bf588c2b16fe4cdb60f60213dcc6d020ae50e815c9f3b068ba6ae72a1530a9",
+      "remfg": "803a05d196ae3fdbd39a6cb11f8e02635a6c57e2f53bbe0fe5ec2cccca078fd3",
+      "lv_coa": "ca8bef4e77301e84c7b507461c1df9cfd1679f8125a5a0554ede5a483bac7005",
+      "raw_materials": "2f4e4fc3a3236dfcf6dc7cc965a997b0e3f434cfbcad012d8bdd217c0cbb7833",
+      "site_map_1": "59f692de97e9038888eb2d5860938e715d34dfaf614b9805f5e731bf3084344a",
+      "site_map_2": "b56e12b62e4d1230102e45377f175142ea1a891409da988edf60410a620f0475"
+    },
+    "environment": {
+      "python": "3.12.3",
+      "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+      "pandas": "3.0.2",
+      "numpy": "2.4.4",
+      "scipy": "1.17.1",
+      "scikit-learn": "1.8.0",
+      "plotly": "6.7.0",
+      "openpyxl": "3.1.5",
+      "pyyaml": "6.0.3",
+      "python-dotenv": "1.2.3",
+      "stlite (report runtime)": "1.8.1"
+    }
+  }
+}

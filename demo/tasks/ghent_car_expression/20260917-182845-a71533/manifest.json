@@ -1,0 +1,135 @@
+{
+  "mode": "full package",
+  "question": "Which manufacturing parameters go with final product CAR+ expression at Ghent?",
+  "purpose": "predictive",
+  "dataset_role": "raw modelling inputs; the transformed view is produced by recipe.json, fitted on 14 training batches (whole groups of Vector Lot: LV-101)",
+  "provenance": {
+    "run_date": "2026-09-17T18:28:52",
+    "git_commit": null,
+    "seed": 20260917,
+    "config": "/home/sdegroeve/pvf_tasks/demo/task_car_expression.yaml",
+    "config_digest": "281ee001a27e194c0c208f122b01fd4fc6e003be6b88c993459e9627cadc515d",
+    "sources": [
+      {
+        "label": "pvf",
+        "location": "/home/sdegroeve/pvf_tasks/demo/PVF.xlsx",
+        "kind": "local file",
+        "digest": "85afc0ce5317b3fbfea3525044eafb571d938044bc1f855c4577d71f69d5b5d7",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "ptf",
+        "location": "/home/sdegroeve/pvf_tasks/demo/PTF.xlsx",
+        "kind": "local file",
+        "digest": "330ef21a25dfc901f9fcf95a572a3677161a499496540977ddc45c2d1749196f",
+        "digest_of": "file bytes",
+        "note": ""
+      }
+    ],
+    "inputs": {
+      "pvf": "85afc0ce5317b3fbfea3525044eafb571d938044bc1f855c4577d71f69d5b5d7",
+      "ptf": "330ef21a25dfc901f9fcf95a572a3677161a499496540977ddc45c2d1749196f"
+    },
+    "environment": {
+      "python": "3.12.3",
+      "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+      "pandas": "3.0.5",
+      "numpy": "2.5.3",
+      "scipy": "1.18.1",
+      "scikit-learn": "1.9.1",
+      "plotly": "7.1.0",
+      "openpyxl": "3.1.5",
+      "pyyaml": "6.0.3",
+      "python-dotenv": "1.2.3",
+      "stlite (report runtime)": "1.8.1"
+    }
+  },
+  "config_digest": "281ee001a27e194c0c208f122b01fd4fc6e003be6b88c993459e9627cadc515d",
+  "environment": {
+    "python": "3.12.3",
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "pandas": "3.0.5",
+    "numpy": "2.5.3",
+    "scipy": "1.18.1",
+    "scikit-learn": "1.9.1",
+    "plotly": "7.1.0",
+    "openpyxl": "3.1.5",
+    "pyyaml": "6.0.3",
+    "python-dotenv": "1.2.3",
+    "stlite (report runtime)": "1.8.1"
+  },
+  "counts": {
+    "pvf_rows": 70,
+    "cohort_rows": 21,
+    "dataset_rows": 21,
+    "dataset_columns": 127,
+    "predictor_columns": 123,
+    "candidates": 186,
+    "clusters": 29,
+    "decisions": 199
+  },
+  "status": "complete",
+  "run_id": "20260917-182845-a71533",
+  "task": "ghent_car_expression",
+  "started": "2026-09-17T18:28:45",
+  "finished": "2026-09-17T18:28:53",
+  "warnings": [],
+  "artifacts": [
+    {
+      "name": "clusters.csv",
+      "bytes": 18018,
+      "sha256": "b413999460dcc57c715a26099ae39049c85189aa3e1d58293770d504784a38bb"
+    },
+    {
+      "name": "cohort.csv",
+      "bytes": 2752,
+      "sha256": "fbcc089d9a1cb3356737eddcc13b83eab9cfb48da92b71af73ae3c8417650bd3"
+    },
+    {
+      "name": "columns.csv",
+      "bytes": 15913,
+      "sha256": "85afb2e1380d1d7357aa8f37004c061f745d3d45a846999eb59a69981a2566a9"
+    },
+    {
+      "name": "dataset.csv",
+      "bytes": 25354,
+      "sha256": "654dc1a917c5547fa27f7992a2a53f8a08ad833d801bde934078bdbe28a4b8a6"
+    },
+    {
+      "name": "decisions.csv",
+      "bytes": 14562,
+      "sha256": "9f69f6de3c8c8f39f317dc4504b080a0544d4f3a4c6cc68c6b34a7bd325b1996"
+    },
+    {
+      "name": "recipe.json",
+      "bytes": 25127,
+      "sha256": "3bfda0e9233985247b448762ff0278eab8154c8b530c04cd72d3dc270a6c398b"
+    },
+    {
+      "name": "report.html",
+      "bytes": 311548,
+      "sha256": "764f56f9f5e30802fe4f7da4998890611302c9a5aad2f494c7de7849ed2e491d"
+    },
+    {
+      "name": "report_payload.json",
+      "bytes": 564063,
+      "sha256": "b37e818e3e034a9865731823021c92b2f260a0966886ba73ecd1af91012adc36"
+    },
+    {
+      "name": "run.log",
+      "bytes": 11014,
+      "sha256": "cf59d47b63683dcf0d3d95e65358cf2ddc419bcfdcc7d95ac1234508fc4965cb"
+    },
+    {
+      "name": "splits.csv",
+      "bytes": 343,
+      "sha256": "23b5e03724eddb1dc392d9919bfb76c1523b22640820dc57c588d5a183220d44"
+    },
+    {
+      "name": "task.yaml",
+      "bytes": 2540,
+      "sha256": "e56f0a3fa91006d5b9c7878e0c02739e2e70f7bb9f87bed6bb2e3f7ad5fd30cb"
+    }
+  ]
+}

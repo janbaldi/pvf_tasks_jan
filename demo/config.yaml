@@ -1,0 +1,64 @@
+# Written by tests/dummy_data.py. Every path below points at made-up data,
+# and is relative to this file.
+seed: 20260917
+paths:
+  ptf: PTF.xlsx
+  phf_ghent: phf_ghent.xlsx
+  phf_raritan: phf_raritan.xlsx
+  param_mapping: parameter_requirements.xlsx
+  remfg: remfg.xlsx
+  lv_coa: lv_coa.xlsx
+  raw_materials: raw_materials.csv
+  investigations: investigations_power_query.xlsx
+  site_maps:
+  - site_map_hannelore.xlsx
+  - site_map_meeting.xlsx
+  pvf: PVF.xlsx
+  new_parameters: new_parameters.csv
+  reports: reports
+  tasks: tasks
+sources:
+  location: local
+  databricks: false
+  fallback_to_local: false
+upload:
+  enabled: false
+  target: ''
+ptf:
+  write_new_parameters: true
+cleaning:
+  censored: limit
+  duration_unit: minutes
+  raritan_type_commercial: true
+  yes_no_defaults:
+    'Pre-Activation Clumps: Y/N?': 'No'
+features:
+  co2_target: 5.0
+  temp_target: 37.0
+  contact_target: 120.0
+  contact_tolerance: 30.0
+  seeding_tolerance: 5.0
+  cpdl_low: 4.0
+  cpdl_high: 5.0
+  lactate_low: 12.5
+  lactate_high: 30.0
+  cd4_low: 40.0
+  cd4_high: 60.0
+lv_coa:
+  ph_nominal: 7.2
+  osmo_nominal: 300.0
+tasks:
+  site: Ghent
+  target: FP Flow CAR+ (%)
+  id_column: 'Patient Lot/Batch #'
+  group_column: Vector Lot
+  onehot_max_categories: 5
+  target_max_categories: 6
+  target_encoding_smoothing: 5.0
+  target_encoding_folds: 5
+  hashing_max_buckets: 16
+  decorrelation: report_only
+  cluster_corr_method: spearman
+  cluster_corr_threshold: 0.7
+  min_non_missing: 15
+  duplicate_r2_threshold: 0.99

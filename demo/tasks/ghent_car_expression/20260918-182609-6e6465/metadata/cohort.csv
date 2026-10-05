@@ -1,0 +1,71 @@
+Batch,Included,Reason,Stage
+QCGS03V,True,,
+GH001,True,,
+GH002,True,,
+GH003,True,,
+GH004,False,"not terminated or withdrawn, however it is spelled",filter 3
+GH005,False,"not terminated or withdrawn, however it is spelled",filter 3
+GH006,False,"not terminated or withdrawn, however it is spelled",filter 3
+GH007,False,FP Flow CAR+ (%) was never measured,target
+GH008,True,,
+GH009,False,manufactured commercially,filter 1
+GH010,True,,
+GH011,False,"not terminated or withdrawn, however it is spelled",filter 3
+GH012,False,"not terminated or withdrawn, however it is spelled",filter 3
+GH013,False,"not terminated or withdrawn, however it is spelled",filter 3
+GH014,True,,
+GH015,True,,
+GH016,True,,
+GH017,True,,
+GH018,False,"not terminated or withdrawn, however it is spelled",filter 3
+GH019,False,manufactured commercially,filter 1
+GH020,False,"not terminated or withdrawn, however it is spelled",filter 3
+GH021,True,,
+GH022,True,,
+GH023,True,,
+GH024,True,,
+GH025,False,"not terminated or withdrawn, however it is spelled",filter 3
+GH026,False,"not terminated or withdrawn, however it is spelled",filter 3
+GH027,False,"not terminated or withdrawn, however it is spelled",filter 3
+GH028,True,,
+GH029,False,manufactured commercially,filter 1
+GH030,True,,
+GH031,True,,
+GH032,False,"not terminated or withdrawn, however it is spelled",filter 3
+GH033,False,"not terminated or withdrawn, however it is spelled",filter 3
+GH034,False,"not terminated or withdrawn, however it is spelled",filter 3
+GH035,True,,
+GH036,True,,
+GH037,True,,
+GH038,True,,
+GH039,False,manufactured commercially,filter 1
+RA000,False,manufactured at Ghent,site
+RA001,False,manufactured at Ghent,site
+RA002,False,manufactured at Ghent,site
+RA003,False,manufactured at Ghent,site
+RA004,False,manufactured at Ghent,site
+RA005,False,manufactured at Ghent,site
+RA006,False,manufactured at Ghent,site
+RA007,False,manufactured at Ghent,site
+RA008,False,manufactured at Ghent,site
+RA009,False,manufactured at Ghent,site
+RA010,False,manufactured at Ghent,site
+RA011,False,manufactured at Ghent,site
+RA012,False,manufactured at Ghent,site
+RA013,False,manufactured at Ghent,site
+RA014,False,manufactured at Ghent,site
+RA015,False,manufactured at Ghent,site
+RA016,False,manufactured at Ghent,site
+RA017,False,manufactured at Ghent,site
+RA018,False,manufactured at Ghent,site
+RA019,False,manufactured at Ghent,site
+RA020,False,manufactured at Ghent,site
+RA021,False,manufactured at Ghent,site
+RA022,False,manufactured at Ghent,site
+RA023,False,manufactured at Ghent,site
+RA024,False,manufactured at Ghent,site
+RA025,False,manufactured at Ghent,site
+RA026,False,manufactured at Ghent,site
+RA027,False,manufactured at Ghent,site
+RA028,False,manufactured at Ghent,site
+RA029,False,manufactured at Ghent,site

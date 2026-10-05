@@ -1,0 +1,149 @@
+{
+  "mode": "full package",
+  "question": "Which manufacturing parameters go with final product CAR+ expression at Ghent?",
+  "purpose": "predictive",
+  "dataset_role": "raw modelling inputs; the transformed view is produced by recipe.json, fitted on 14 training batches (whole groups of Vector Lot: LV-101)",
+  "provenance": {
+    "run_date": "2026-09-20T14:24:57",
+    "git_commit": null,
+    "seed": 20260917,
+    "config": "/home/sdegroeve/pvf_tasks/demo/task_car_expression.yaml",
+    "config_digest": "281ee001a27e194c0c208f122b01fd4fc6e003be6b88c993459e9627cadc515d",
+    "sources": [
+      {
+        "label": "pvf",
+        "location": "/home/sdegroeve/pvf_tasks/demo/PVF.xlsx",
+        "kind": "local file",
+        "digest": "4d5cf0a104980492ec4bc95859f55371ff1d889d1dc5a7077a0fc29645ce4f1c",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "ptf",
+        "location": "/home/sdegroeve/pvf_tasks/demo/PTF.xlsx",
+        "kind": "local file",
+        "digest": "9741384af7b100c8c360c62347ab1483a4ac7215d0ce38eb6153fb74236daeff",
+        "digest_of": "file bytes",
+        "note": ""
+      }
+    ],
+    "inputs": {
+      "pvf": "4d5cf0a104980492ec4bc95859f55371ff1d889d1dc5a7077a0fc29645ce4f1c",
+      "ptf": "9741384af7b100c8c360c62347ab1483a4ac7215d0ce38eb6153fb74236daeff"
+    },
+    "environment": {
+      "python": "3.12.3",
+      "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+      "pandas": "3.0.2",
+      "numpy": "2.4.4",
+      "scipy": "1.17.1",
+      "scikit-learn": "1.8.0",
+      "plotly": "6.7.0",
+      "openpyxl": "3.1.5",
+      "pyyaml": "6.0.3",
+      "python-dotenv": "1.2.3",
+      "stlite (report runtime)": "1.8.1"
+    }
+  },
+  "upstream_manifests": {
+    "ptf": "provenance/ptf_manifest.json",
+    "pvf": "provenance/pvf_manifest.json"
+  },
+  "config_digest": "281ee001a27e194c0c208f122b01fd4fc6e003be6b88c993459e9627cadc515d",
+  "environment": {
+    "python": "3.12.3",
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "pandas": "3.0.2",
+    "numpy": "2.4.4",
+    "scipy": "1.17.1",
+    "scikit-learn": "1.8.0",
+    "plotly": "6.7.0",
+    "openpyxl": "3.1.5",
+    "pyyaml": "6.0.3",
+    "python-dotenv": "1.2.3",
+    "stlite (report runtime)": "1.8.1"
+  },
+  "counts": {
+    "pvf_rows": 70,
+    "cohort_rows": 21,
+    "dataset_rows": 21,
+    "dataset_columns": 127,
+    "predictor_columns": 123,
+    "candidates": 186,
+    "clusters": 29,
+    "decisions": 199
+  },
+  "status": "complete",
+  "run_id": "20260920-142446-4909d0",
+  "task": "ghent_car_expression",
+  "started": "2026-09-20T14:24:46",
+  "finished": "2026-09-20T14:24:58",
+  "warnings": [],
+  "artifacts": [
+    {
+      "name": "config/task.yaml",
+      "bytes": 2540,
+      "sha256": "e56f0a3fa91006d5b9c7878e0c02739e2e70f7bb9f87bed6bb2e3f7ad5fd30cb"
+    },
+    {
+      "name": "data/dataset.csv",
+      "bytes": 25354,
+      "sha256": "654dc1a917c5547fa27f7992a2a53f8a08ad833d801bde934078bdbe28a4b8a6"
+    },
+    {
+      "name": "data/splits.csv",
+      "bytes": 343,
+      "sha256": "23b5e03724eddb1dc392d9919bfb76c1523b22640820dc57c588d5a183220d44"
+    },
+    {
+      "name": "logs/run.log",
+      "bytes": 11014,
+      "sha256": "0da593f10a6957e24d5c757d3f2bef4f6393ce3477a23600853496492d4a0a09"
+    },
+    {
+      "name": "metadata/clusters.csv",
+      "bytes": 18018,
+      "sha256": "b413999460dcc57c715a26099ae39049c85189aa3e1d58293770d504784a38bb"
+    },
+    {
+      "name": "metadata/cohort.csv",
+      "bytes": 2752,
+      "sha256": "fbcc089d9a1cb3356737eddcc13b83eab9cfb48da92b71af73ae3c8417650bd3"
+    },
+    {
+      "name": "metadata/columns.csv",
+      "bytes": 15913,
+      "sha256": "85afb2e1380d1d7357aa8f37004c061f745d3d45a846999eb59a69981a2566a9"
+    },
+    {
+      "name": "metadata/decisions.csv",
+      "bytes": 14562,
+      "sha256": "9f69f6de3c8c8f39f317dc4504b080a0544d4f3a4c6cc68c6b34a7bd325b1996"
+    },
+    {
+      "name": "metadata/recipe.json",
+      "bytes": 25127,
+      "sha256": "3bfda0e9233985247b448762ff0278eab8154c8b530c04cd72d3dc270a6c398b"
+    },
+    {
+      "name": "provenance/ptf_manifest.json",
+      "bytes": 4100,
+      "sha256": "57efee9617eff0ed0e86f7a7822d46518bee8e324f29c453d248e6f013cc11f4"
+    },
+    {
+      "name": "provenance/pvf_manifest.json",
+      "bytes": 7646,
+      "sha256": "0b716863dd9d056ced85bf957d7fb6f0d8da12a21dacb6abb78bc471f2f73beb"
+    },
+    {
+      "name": "report/report.html",
+      "bytes": 333247,
+      "sha256": "1cdbff949ee4086033535ecc95cf588ae26998114e25f608162c1608861ff2ac"
+    },
+    {
+      "name": "report/report_payload.json",
+      "bytes": 622409,
+      "sha256": "a480dc86847b12018fa5695d59b640026d3ad8366d536a8ed08d14e8fc157f3d"
+    }
+  ]
+}

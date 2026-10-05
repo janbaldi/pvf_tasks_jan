@@ -1,0 +1,187 @@
+Column,Role,Source,Type,PTF value type,Unit,Transformation,Meaning
+Patient Lot/Batch #,identifier,Patient Lot/Batch #,str,categorical,,none,which batch this row is
+Vector Lot,group,Vector Lot,str,categorical,,none,"grouping metadata, for grouped cross-validation; not a predictor"
+day 3 clump pattern_Many small,predictor,day 3 clump pattern,Int64,categorical,,binary,"1 where 'Many small', 0 where 'Few small'; any other value is left missing"
+Day 10 Clump Present Bag 1_Yes,predictor,Day 10 Clump Present Bag 1,Int64,categorical,,binary,"1 where 'Yes', 0 where 'No'; any other value is left missing"
+Day 10 Clump Present Bag 2_Yes,predictor,Day 10 Clump Present Bag 2,Int64,categorical,,binary,"1 where 'Yes', 0 where 'No'; any other value is left missing"
+Day 10 Clump Present Bag 3_Yes,predictor,Day 10 Clump Present Bag 3,Int64,categorical,,binary,"1 where 'Yes', 0 where 'No'; any other value is left missing"
+Country_United States of America,predictor,Country,Int64,categorical,,binary,"1 where 'United States of America', 0 where 'Israel'; any other value is left missing"
+Pre-Activation Clumps: Y/N?_Y,predictor,Pre-Activation Clumps: Y/N?,Int64,categorical,,binary,"1 where 'Y', 0 where 'N'; any other value is left missing"
+LV CoA Site/Format_Raritan/500mL,predictor,LV CoA Site/Format,Int64,categorical,,binary,"1 where 'Raritan/500mL', 0 where 'Ghent/250mL'; any other value is left missing"
+Non-Conformance Type_deviation,predictor,Non-Conformance Type,int64,categorical,,one-hot,1 where 'Non-Conformance Type' is 'deviation'
+Non-Conformance Type_withdrawal,predictor,Non-Conformance Type,int64,categorical,,one-hot,1 where 'Non-Conformance Type' is 'withdrawal'
+Non-Conformance Type_Termination,predictor,Non-Conformance Type,int64,categorical,,one-hot,1 where 'Non-Conformance Type' is 'Termination'
+Non-Conformance Type_Withdrawal,predictor,Non-Conformance Type,int64,categorical,,one-hot,1 where 'Non-Conformance Type' is 'Withdrawal'
+Non-Conformance Type_Other,predictor,Non-Conformance Type,int64,categorical,,one-hot,"1 where the value is outside the categories kept from the training rows, which includes a category first seen here"
+Clinical Site_Memorial Sloan Kettering Cancer Center,predictor,Clinical Site,int64,categorical,,one-hot,1 where 'Clinical Site' is 'Memorial Sloan Kettering Cancer Center'
+Clinical Site_Rambam Health Care Campus,predictor,Clinical Site,int64,categorical,,one-hot,1 where 'Clinical Site' is 'Rambam Health Care Campus'
+Clinical Site_XYZ,predictor,Clinical Site,int64,categorical,,one-hot,1 where 'Clinical Site' is 'XYZ'
+Clinical Site_Other,predictor,Clinical Site,int64,categorical,,one-hot,"1 where the value is outside the categories kept from the training rows, which includes a category first seen here"
+Clinical Site ID_MSKCC,predictor,Clinical Site ID,int64,categorical,,one-hot,1 where 'Clinical Site ID' is 'MSKCC'
+Clinical Site ID_107306,predictor,Clinical Site ID,int64,categorical,,one-hot,1 where 'Clinical Site ID' is '107306'
+Clinical Site ID_XYZ,predictor,Clinical Site ID,int64,categorical,,one-hot,1 where 'Clinical Site ID' is 'XYZ'
+Clinical Site ID_Other,predictor,Clinical Site ID,int64,categorical,,one-hot,"1 where the value is outside the categories kept from the training rows, which includes a category first seen here"
+Media Lot_MED-100,predictor,Media Lot,int64,categorical,,one-hot,1 where 'Media Lot' is 'MED-100'
+Media Lot_MED-102,predictor,Media Lot,int64,categorical,,one-hot,1 where 'Media Lot' is 'MED-102'
+Media Lot_MED-101,predictor,Media Lot,int64,categorical,,one-hot,1 where 'Media Lot' is 'MED-101'
+Media Lot_MED-103,predictor,Media Lot,int64,categorical,,one-hot,1 where 'Media Lot' is 'MED-103'
+Media Lot_Other,predictor,Media Lot,int64,categorical,,one-hot,"1 where the value is outside the categories kept from the training rows, which includes a category first seen here"
+IL-2 Lot_IL2-201,predictor,IL-2 Lot,int64,categorical,,one-hot,1 where 'IL-2 Lot' is 'IL2-201'
+IL-2 Lot_IL2-202,predictor,IL-2 Lot,int64,categorical,,one-hot,1 where 'IL-2 Lot' is 'IL2-202'
+IL-2 Lot_IL2-200,predictor,IL-2 Lot,int64,categorical,,one-hot,1 where 'IL-2 Lot' is 'IL2-200'
+IL-2 Lot_Other,predictor,IL-2 Lot,int64,categorical,,one-hot,"1 where the value is outside the categories kept from the training rows, which includes a category first seen here"
+growth profile_normal,predictor,growth profile,int64,categorical,,one-hot,1 where 'growth profile' is 'normal'
+growth profile_undergrowth,predictor,growth profile,int64,categorical,,one-hot,1 where 'growth profile' is 'undergrowth'
+growth profile_overgrowth,predictor,growth profile,int64,categorical,,one-hot,1 where 'growth profile' is 'overgrowth'
+growth profile_Other,predictor,growth profile,int64,categorical,,one-hot,"1 where the value is outside the categories kept from the training rows, which includes a category first seen here"
+CD4 profile_medium CD4,predictor,CD4 profile,int64,categorical,,one-hot,1 where 'CD4 profile' is 'medium CD4'
+CD4 profile_low CD4,predictor,CD4 profile,int64,categorical,,one-hot,1 where 'CD4 profile' is 'low CD4'
+CD4 profile_high CD4,predictor,CD4 profile,int64,categorical,,one-hot,1 where 'CD4 profile' is 'high CD4'
+CD4 profile_Other,predictor,CD4 profile,int64,categorical,,one-hot,"1 where the value is outside the categories kept from the training rows, which includes a category first seen here"
+shift_team_target_enc,predictor,Shift Team,float64,categorical,,target encoding,"mean of the target per category, smoothed with m=5 towards the training prior 0.556; a category the training rows never held gets that prior, and a missing value stays missing"
+incubator_id_hash_00,predictor,Incubator ID,float64,categorical,,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is all zeroes"
+incubator_id_hash_01,predictor,Incubator ID,float64,categorical,,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is all zeroes"
+incubator_id_hash_02,predictor,Incubator ID,float64,categorical,,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is all zeroes"
+incubator_id_hash_03,predictor,Incubator ID,float64,categorical,,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is all zeroes"
+incubator_id_hash_04,predictor,Incubator ID,float64,categorical,,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is all zeroes"
+incubator_id_hash_05,predictor,Incubator ID,float64,categorical,,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is all zeroes"
+incubator_id_hash_06,predictor,Incubator ID,float64,categorical,,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is all zeroes"
+incubator_id_hash_07,predictor,Incubator ID,float64,categorical,,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is all zeroes"
+incubator_id_hash_08,predictor,Incubator ID,float64,categorical,,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is all zeroes"
+incubator_id_hash_09,predictor,Incubator ID,float64,categorical,,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is all zeroes"
+incubator_id_hash_10,predictor,Incubator ID,float64,categorical,,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is all zeroes"
+incubator_id_hash_11,predictor,Incubator ID,float64,categorical,,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is all zeroes"
+incubator_id_hash_12,predictor,Incubator ID,float64,categorical,,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is all zeroes"
+incubator_id_hash_13,predictor,Incubator ID,float64,categorical,,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is all zeroes"
+incubator_id_hash_14,predictor,Incubator ID,float64,categorical,,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is all zeroes"
+incubator_id_hash_15,predictor,Incubator ID,float64,categorical,,feature hashing,"signed MD5 hash of 'Incubator ID' into 16 buckets (k=9); two categories may share a bucket, and a missing value is all zeroes"
+Clump Severity,predictor,Clump Severity,Int64,"[None, Low, Medium, High]",,ordinal,"rank 1..4 in the PTF's order: None, Low, Medium, High"
+Harvest Post Wash Viable Cell Count (cells),predictor,Harvest Post Wash Viable Cell Count (cells),int64,numeric,cells,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.883 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Harvest Pre-Wash Viable Cell Count after Sampling (cells)_resid,predictor,Harvest Pre-Wash Viable Cell Count after Sampling (cells),float64,numeric,cells,cluster residual (linear),"what 'Harvest Pre-Wash Viable Cell Count after Sampling (cells)' still says once Harvest Post Wash Viable Cell Count (cells) are accounted for (OLS on 1 retained parameter, 27 batches)"
+total viable cells in formulated suspension_resid,predictor,total viable cells in formulated suspension,float64,numeric,,cluster residual (linear),"what 'total viable cells in formulated suspension' still says once Harvest Post Wash Viable Cell Count (cells), Harvest Pre-Wash Viable Cell Count after Sampling (cells) are accounted for (OLS on 2 retained parameters, 27 batches)"
+Seeded_cells_min_AB_resid,predictor,Seeded_cells_min_AB,float64,numeric,,cluster residual (linear),"what 'Seeded_cells_min_AB' still says once Harvest Post Wash Viable Cell Count (cells), Harvest Pre-Wash Viable Cell Count after Sampling (cells), total viable cells in formulated suspension are accounted for (OLS on 3 retained parameters, 27 batches)"
+Avg_cells_per_bag_D3_resid,predictor,Avg_cells_per_bag_D3,float64,numeric,,cluster residual (linear),"what 'Avg_cells_per_bag_D3' still says once Harvest Post Wash Viable Cell Count (cells), Harvest Pre-Wash Viable Cell Count after Sampling (cells), total viable cells in formulated suspension, Seeded_cells_min_AB are accounted for (OLS on 4 retained parameters, 27 batches)"
+Glucose_perE6_slope_D6_D10_resid,predictor,Glucose_perE6_slope_D6_D10,float64,numeric,,cluster residual (linear),"what 'Glucose_perE6_slope_D6_D10' still says once Harvest Post Wash Viable Cell Count (cells), Harvest Pre-Wash Viable Cell Count after Sampling (cells), total viable cells in formulated suspension, Seeded_cells_min_AB, Avg_cells_per_bag_D3 are accounted for (OLS on 5 retained parameters, 27 batches)"
+Lactate_to_Glucose_perE6_ratio_D6,predictor,Lactate_to_Glucose_perE6_ratio_D6,float64,numeric,,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.872 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Day 6 Lactate G-Rex A (g/L)_resid,predictor,Day 6 Lactate G-Rex A (g/L),float64,numeric,g/L,cluster residual (linear),"what 'Day 6 Lactate G-Rex A (g/L)' still says once Lactate_to_Glucose_perE6_ratio_D6 are accounted for (OLS on 1 retained parameter, 27 batches)"
+Day 8 Glucose G-Rex A (g/L)_resid,predictor,Day 8 Glucose G-Rex A (g/L),float64,numeric,g/L,cluster residual (linear),"what 'Day 8 Glucose G-Rex A (g/L)' still says once Lactate_to_Glucose_perE6_ratio_D6, Day 6 Lactate G-Rex A (g/L) are accounted for (OLS on 2 retained parameters, 27 batches)"
+Day 6 Glucose G-Rex A (g/L)_resid,predictor,Day 6 Glucose G-Rex A (g/L),float64,numeric,g/L,cluster residual (linear),"what 'Day 6 Glucose G-Rex A (g/L)' still says once Lactate_to_Glucose_perE6_ratio_D6, Day 6 Lactate G-Rex A (g/L), Day 8 Glucose G-Rex A (g/L) are accounted for (OLS on 3 retained parameters, 27 batches)"
+Day 8 Glucose G-Rex B (g/L)_resid,predictor,Day 8 Glucose G-Rex B (g/L),float64,numeric,g/L,cluster residual (linear),"what 'Day 8 Glucose G-Rex B (g/L)' still says once Lactate_to_Glucose_perE6_ratio_D6, Day 6 Lactate G-Rex A (g/L), Day 8 Glucose G-Rex A (g/L), Day 6 Glucose G-Rex A (g/L) are accounted for (OLS on 4 retained parameters, 18 batches)"
+LV CoA Physical Titer p24 ELISA,predictor,LV CoA Physical Titer p24 ELISA,float64,numeric,,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.922 against the other members, over 27 batches with a value (candidates needed at least 27)"
+LV CoA CAR% - Donor 2_resid,predictor,LV CoA CAR% - Donor 2,float64,numeric,,cluster residual (linear),"what 'LV CoA CAR% - Donor 2' still says once LV CoA Physical Titer p24 ELISA are accounted for (OLS on 1 retained parameter, 27 batches)"
+LV CoA DNA size_resid,predictor,LV CoA DNA size,float64,numeric,,cluster residual (linear),"what 'LV CoA DNA size' still says once LV CoA Physical Titer p24 ELISA, LV CoA CAR% - Donor 2 are accounted for (OLS on 2 retained parameters, 27 batches)"
+# of Culture Bags_resid,predictor,# of Culture Bags,float64,numeric,,cluster residual (linear),"what '# of Culture Bags' still says once LV CoA Physical Titer p24 ELISA, LV CoA CAR% - Donor 2, LV CoA DNA size are accounted for (OLS on 3 retained parameters, 27 batches)"
+VCN/cell,predictor,VCN/cell,float64,numeric,,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.953 against the other members, over 27 batches with a value (candidates needed at least 27)"
+FP Flow CAR+ (%)_resid,predictor,FP Flow CAR+ (%),float64,numeric,%,cluster residual (linear),"what 'FP Flow CAR+ (%)' still says once VCN/cell are accounted for (OLS on 1 retained parameter, 27 batches)"
+Harvest Pre-Wash Flow CAR+ Expression (%)_resid,predictor,Harvest Pre-Wash Flow CAR+ Expression (%),float64,numeric,%,cluster residual (linear),"what 'Harvest Pre-Wash Flow CAR+ Expression (%)' still says once VCN/cell, FP Flow CAR+ (%) are accounted for (OLS on 2 retained parameters, 27 batches)"
+Provirus Vector Copy Number (copies/transduced cell)_resid,predictor,Provirus Vector Copy Number (copies/transduced cell),float64,numeric,copies/transduced cell,cluster residual (linear),"what 'Provirus Vector Copy Number (copies/transduced cell)' still says once VCN/cell, FP Flow CAR+ (%), Harvest Pre-Wash Flow CAR+ Expression (%) are accounted for (OLS on 3 retained parameters, 27 batches)"
+Lactate_perE6_AUC_D6_D10,predictor,Lactate_perE6_AUC_D6_D10,float64,numeric,,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.910 against the other members, over 27 batches with a value (candidates needed at least 27)"
+D10 Lact / E6 cells_resid,predictor,D10 Lact / E6 cells,float64,numeric,,cluster residual (linear),"what 'D10 Lact / E6 cells' still says once Lactate_perE6_AUC_D6_D10 are accounted for (OLS on 1 retained parameter, 27 batches)"
+D6 Lact / E6 cells_resid,predictor,D6 Lact / E6 cells,float64,numeric,,cluster residual (linear),"what 'D6 Lact / E6 cells' still says once Lactate_perE6_AUC_D6_D10, D10 Lact / E6 cells are accounted for (OLS on 2 retained parameters, 27 batches)"
+D6 Glucose / E6 cells,predictor,D6 Glucose / E6 cells,float64,numeric,,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.920 against the other members, over 27 batches with a value (candidates needed at least 27)"
+D8 Glucose / E6 cells_resid,predictor,D8 Glucose / E6 cells,float64,numeric,,cluster residual (linear),"what 'D8 Glucose / E6 cells' still says once D6 Glucose / E6 cells are accounted for (OLS on 1 retained parameter, 27 batches)"
+Volume CS5 Used for Formulation (mL)_resid,predictor,Volume CS5 Used for Formulation (mL),float64,numeric,mL,cluster residual (linear),"what 'Volume CS5 Used for Formulation (mL)' still says once D6 Glucose / E6 cells, D8 Glucose / E6 cells are accounted for (OLS on 2 retained parameters, 27 batches)"
+MOI_eff_pool,predictor,MOI_eff_pool,float64,numeric,,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.955 against the other members, over 27 batches with a value (candidates needed at least 27)"
+MOI_eff_quality_adjusted_resid,predictor,MOI_eff_quality_adjusted,float64,numeric,,cluster residual (linear),"what 'MOI_eff_quality_adjusted' still says once MOI_eff_pool are accounted for (OLS on 1 retained parameter, 27 batches)"
+MOI_eff_G-Rex_B_resid,predictor,MOI_eff_G-Rex_B,float64,numeric,,cluster residual (linear),"what 'MOI_eff_G-Rex_B' still says once MOI_eff_pool, MOI_eff_quality_adjusted are accounted for (OLS on 2 retained parameters, 18 batches)"
+PT CD3+CD4+ (%),predictor,PT CD3+CD4+ (%),float64,numeric,%,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.839 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Post Thaw FLOW CD4+ (%)_resid,predictor,Post Thaw FLOW CD4+ (%),float64,numeric,%,cluster residual (linear),"what 'Post Thaw FLOW CD4+ (%)' still says once PT CD3+CD4+ (%) are accounted for (OLS on 1 retained parameter, 27 batches)"
+PT Total CD4+ (Viable Cells)_resid,predictor,PT Total CD4+ (Viable Cells),float64,numeric,Viable Cells,cluster residual (linear),"what 'PT Total CD4+ (Viable Cells)' still says once PT CD3+CD4+ (%), Post Thaw FLOW CD4+ (%) are accounted for (OLS on 2 retained parameters, 27 batches)"
+% cells lost during formulation,predictor,% cells lost during formulation,float64,numeric,,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.987 against the other members, over 27 batches with a value (candidates needed at least 27)"
+number of viable cells lost during formulation_resid,predictor,number of viable cells lost during formulation,float64,numeric,,cluster residual (linear),"what 'number of viable cells lost during formulation' still says once % cells lost during formulation are accounted for (OLS on 1 retained parameter, 27 batches)"
+Clump_burden_weighted_post_mixing,predictor,Clump_burden_weighted_post_mixing,float64,numeric,,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.838 against the other members, over 26 batches with a value (candidates needed at least 26)"
+Post-Mixing Clumps: # of Clumps_resid,predictor,Post-Mixing Clumps: # of Clumps,float64,numeric,,cluster residual (linear),"what 'Post-Mixing Clumps: # of Clumps' still says once Clump_burden_weighted_post_mixing are accounted for (OLS on 1 retained parameter, 26 batches)"
+Clump_count_reduction_fraction,predictor,Clump_count_reduction_fraction,float64,numeric,,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.479 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Post-Massaging: # of Clumps_resid,predictor,Post-Massaging: # of Clumps,float64,numeric,,cluster residual (linear),"what 'Post-Massaging: # of Clumps' still says once Clump_count_reduction_fraction are accounted for (OLS on 1 retained parameter, 27 batches)"
+D10 harvest - D10 wash viability change (%),predictor,D10 harvest - D10 wash viability change (%),float64,numeric,%,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.563 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Viability_change_D3_to_D10_pct_resid,predictor,Viability_change_D3_to_D10_pct,float64,numeric,,cluster residual (linear),"what 'Viability_change_D3_to_D10_pct' still says once D10 harvest - D10 wash viability change (%) are accounted for (OLS on 1 retained parameter, 27 batches)"
+D3_contact_time_deviation,predictor,D3_contact_time_deviation,int64,numeric,,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.787 against the other members, over 27 batches with a value (candidates needed at least 27)"
+D3_contact_time_within_window_resid,predictor,D3_contact_time_within_window,float64,numeric,,cluster residual (linear),"what 'D3_contact_time_within_window' still says once D3_contact_time_deviation are accounted for (OLS on 1 retained parameter, 27 batches)"
+D3_contact_time_deviation_G-Rex_A,predictor,D3_contact_time_deviation_G-Rex_A,int64,numeric,,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.748 against the other members, over 27 batches with a value (candidates needed at least 27)"
+D3_contact_time_within_window_G-Rex_A_resid,predictor,D3_contact_time_within_window_G-Rex_A,float64,numeric,,cluster residual (linear),"what 'D3_contact_time_within_window_G-Rex_A' still says once D3_contact_time_deviation_G-Rex_A are accounted for (OLS on 1 retained parameter, 27 batches)"
+D3_contact_time_deviation_G-Rex_B,predictor,D3_contact_time_deviation_G-Rex_B,float64,numeric,,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.791 against the other members, over 27 batches with a value (candidates needed at least 27)"
+D3_contact_time_within_window_G-Rex_B_resid,predictor,D3_contact_time_within_window_G-Rex_B,float64,numeric,,cluster residual (linear),"what 'D3_contact_time_within_window_G-Rex_B' still says once D3_contact_time_deviation_G-Rex_B are accounted for (OLS on 1 retained parameter, 27 batches)"
+D3_seeding_error_pct,predictor,D3_seeding_error_pct,float64,numeric,,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.589 against the other members, over 27 batches with a value (candidates needed at least 27)"
+D3_seeding_within_5pct_resid,predictor,D3_seeding_within_5pct,float64,numeric,,cluster residual (linear),"what 'D3_seeding_within_5pct' still says once D3_seeding_error_pct are accounted for (OLS on 1 retained parameter, 27 batches)"
+Day 3 Average of Pooled Viability (%),predictor,Day 3 Average of Pooled Viability (%),float64,numeric,%,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.751 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Drop viability D3 vs D0 (%)_resid,predictor,Drop viability D3 vs D0 (%),float64,numeric,%,cluster residual (linear),"what 'Drop viability D3 vs D0 (%)' still says once Day 3 Average of Pooled Viability (%) are accounted for (OLS on 1 retained parameter, 27 batches)"
+Day 3 Total Viable Cells Available for Seeding G-Rex (cells),predictor,Day 3 Total Viable Cells Available for Seeding G-Rex (cells),int64,numeric,cells,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.926 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Seeded_cells_std_AB_resid,predictor,Seeded_cells_std_AB,float64,numeric,,cluster residual (linear),"what 'Seeded_cells_std_AB' still says once Day 3 Total Viable Cells Available for Seeding G-Rex (cells) are accounted for (OLS on 1 retained parameter, 27 batches)"
+Day 6 Activity of IL-2 (IU/mg),predictor,Day 6 Activity of IL-2 (IU/mg),int64,numeric,IU/mg,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.790 against the other members, over 27 batches with a value (candidates needed at least 27)"
+IL2_IU_total_D6_resid,predictor,IL2_IU_total_D6,float64,numeric,,cluster residual (linear),"what 'IL2_IU_total_D6' still says once Day 6 Activity of IL-2 (IU/mg) are accounted for (OLS on 1 retained parameter, 27 batches)"
+Day 6 Glucose G-Rex B (g/L),predictor,Day 6 Glucose G-Rex B (g/L),float64,numeric,g/L,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.739 against the other members, over 18 batches with a value (candidates needed at least 18)"
+Day 6 Lactate G-Rex B (g/L)_resid,predictor,Day 6 Lactate G-Rex B (g/L),float64,numeric,g/L,cluster residual (linear),"what 'Day 6 Lactate G-Rex B (g/L)' still says once Day 6 Glucose G-Rex B (g/L) are accounted for (OLS on 1 retained parameter, 18 batches)"
+Day 8 Activity of IL-2 (IU/mg),predictor,Day 8 Activity of IL-2 (IU/mg),int64,numeric,IU/mg,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.692 against the other members, over 27 batches with a value (candidates needed at least 27)"
+IL2_IU_total_D8_resid,predictor,IL2_IU_total_D8,float64,numeric,,cluster residual (linear),"what 'IL2_IU_total_D8' still says once Day 8 Activity of IL-2 (IU/mg) are accounted for (OLS on 1 retained parameter, 27 batches)"
+Day 8 Lactate G-Rex A (g/L),predictor,Day 8 Lactate G-Rex A (g/L),float64,numeric,g/L,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.659 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Harvest Lactate (g/L)_resid,predictor,Harvest Lactate (g/L),float64,numeric,g/L,cluster residual (linear),"what 'Harvest Lactate (g/L)' still says once Day 8 Lactate G-Rex A (g/L) are accounted for (OLS on 1 retained parameter, 27 batches)"
+Final Formulation CS5 Viable Cell Concentration Average (cells/mL),predictor,Final Formulation CS5 Viable Cell Concentration Average (cells/mL),int64,numeric,cells/mL,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.880 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Harvest Post Wash Viable Cell Concentration Average (cells/mL)_resid,predictor,Harvest Post Wash Viable Cell Concentration Average (cells/mL),float64,numeric,cells/mL,cluster residual (linear),"what 'Harvest Post Wash Viable Cell Concentration Average (cells/mL)' still says once Final Formulation CS5 Viable Cell Concentration Average (cells/mL) are accounted for (OLS on 1 retained parameter, 27 batches)"
+Incubation D3-D6 (min),predictor,Incubation D3-D6 (min),int64,numeric,min,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.709 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Number of Prior Lines of Therapy_resid,predictor,Number of Prior Lines of Therapy,float64,numeric,,cluster residual (linear),"what 'Number of Prior Lines of Therapy' still says once Incubation D3-D6 (min) are accounted for (OLS on 1 retained parameter, 27 batches)"
+LV CoA CAR% - Donor 1,predictor,LV CoA CAR% - Donor 1,float64,numeric,,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.964 against the other members, over 27 batches with a value (candidates needed at least 27)"
+LV CoA pH_resid,predictor,LV CoA pH,float64,numeric,,cluster residual (linear),"what 'LV CoA pH' still says once LV CoA CAR% - Donor 1 are accounted for (OLS on 1 retained parameter, 27 batches)"
+LV CoA HCP,predictor,LV CoA HCP,float64,numeric,,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.941 against the other members, over 27 batches with a value (candidates needed at least 27)"
+LVCoA_Impurity_Index_zsum_resid,predictor,LVCoA_Impurity_Index_zsum,float64,numeric,,cluster residual (linear),"what 'LVCoA_Impurity_Index_zsum' still says once LV CoA HCP are accounted for (OLS on 1 retained parameter, 27 batches)"
+MOI_eff_G-Rex_A,predictor,MOI_eff_G-Rex_A,float64,numeric,,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.985 against the other members, over 27 batches with a value (candidates needed at least 27)"
+log_MOI_eff_G-Rex_A_resid,predictor,log_MOI_eff_G-Rex_A,float64,numeric,,cluster residual (linear),"what 'log_MOI_eff_G-Rex_A' still says once MOI_eff_G-Rex_A are accounted for (OLS on 1 retained parameter, 27 batches)"
+PE CD3+CD4+ (%),predictor,PE CD3+CD4+ (%),float64,numeric,%,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.962 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Post Wash POS FLOW CD4+ (%)_resid,predictor,Post Wash POS FLOW CD4+ (%),float64,numeric,%,cluster residual (linear),"what 'Post Wash POS FLOW CD4+ (%)' still says once PE CD3+CD4+ (%) are accounted for (OLS on 1 retained parameter, 27 batches)"
+PE CD3+CD8+ (%),predictor,PE CD3+CD8+ (%),float64,numeric,%,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.956 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Post Wash POS FLOW CD8+ (%)_resid,predictor,Post Wash POS FLOW CD8+ (%),float64,numeric,%,cluster residual (linear),"what 'Post Wash POS FLOW CD8+ (%)' still says once PE CD3+CD8+ (%) are accounted for (OLS on 1 retained parameter, 27 batches)"
+Vector_volume_mean_AB_mL,predictor,Vector_volume_mean_AB_mL,float64,numeric,,cluster representative (linear),"kept in its own units; the rest of the group is measured against it. mean pairwise R² 0.808 against the other members, over 27 batches with a value (candidates needed at least 27)"
+Vector_volume_min_AB_mL_resid,predictor,Vector_volume_min_AB_mL,float64,numeric,,cluster residual (linear),"what 'Vector_volume_min_AB_mL' still says once Vector_volume_mean_AB_mL are accounted for (OLS on 1 retained parameter, 27 batches)"
+Amount of Time G-Rex A in Incubator (120min+/-30 min),predictor,Amount of Time G-Rex A in Incubator (120min+/-30 min),int64,duration,120min+/-30 min,duration,"used as recorded, with anything at or below zero treated as missing"
+Amount of Time G-Rex B in Incubator (120min+/-30 min),predictor,Amount of Time G-Rex B in Incubator (120min+/-30 min),float64,duration,120min+/-30 min,duration,"used as recorded, with anything at or below zero treated as missing"
+CAR T produced per cell engaged D3,predictor,CAR T produced per cell engaged D3,float64,numeric,,numeric,used as recorded
+Clump_burden_weighted_post_massage,predictor,Clump_burden_weighted_post_massage,int64,numeric,,numeric,used as recorded
+Clump_burden_weighted_pre,predictor,Clump_burden_weighted_pre,int64,numeric,,numeric,used as recorded
+Clump_size_reduction_fraction,predictor,Clump_size_reduction_fraction,float64,numeric,,numeric,used as recorded
+D10 Achievable Dose (E6 CAR+ viable T-cells),predictor,D10 Achievable Dose (E6 CAR+ viable T-cells),float64,numeric,E6 CAR+ viable T-cells,numeric,used as recorded
+D10 Total CAR+ viable T-cells achieved,predictor,D10 Total CAR+ viable T-cells achieved,float64,numeric,,numeric,used as recorded
+D10_clump_bag_count,predictor,D10_clump_bag_count,int64,numeric,,numeric,used as recorded
+D3-D10 viability change (%),predictor,D3-D10 viability change (%),float64,numeric,%,numeric,used as recorded
+Day 1 Number of Mixing Cycles Post Activation,predictor,Day 1 Number of Mixing Cycles Post Activation,int64,numeric,,numeric,used as recorded
+Day 3 Incubation Time (120min+/-30 min),predictor,Day 3 Incubation Time (120min+/-30 min),int64,duration,120min+/-30 min,duration,"used as recorded, with anything at or below zero treated as missing"
+Day 6 CO2 Saturation (%),predictor,Day 6 CO2 Saturation (%),float64,numeric,%,numeric,used as recorded
+Day 6 CO2 Saturation (%) dev_from_5.0pct,predictor,Day 6 CO2 Saturation (%) dev_from_5.0pct,float64,numeric,,numeric,used as recorded
+Day 6 IL-2 Protein Content (µg/vial),predictor,Day 6 IL-2 Protein Content (µg/vial),float64,numeric,µg/vial,numeric,used as recorded
+Day 6 Temperature (°C),predictor,Day 6 Temperature (°C),float64,numeric,°C,numeric,used as recorded
+Day 6 Temperature (°C) dev_from_37.0C,predictor,Day 6 Temperature (°C) dev_from_37.0C,float64,numeric,,numeric,used as recorded
+Day 8 IL-2 Protein Content (µg/vial),predictor,Day 8 IL-2 Protein Content (µg/vial),float64,numeric,µg/vial,numeric,used as recorded
+Endotoxin (EU/mL),predictor,Endotoxin (EU/mL),float64,numeric,EU/mL,numeric,used as recorded
+Final Formulation CS5 Viability Average (%),predictor,Final Formulation CS5 Viability Average (%),float64,numeric,%,numeric,used as recorded
+Flow accuracy (effective),predictor,Flow accuracy (effective),float64,numeric,effective,numeric,used as recorded
+Harvest Post Wash Viability Average (%),predictor,Harvest Post Wash Viability Average (%),float64,numeric,%,numeric,used as recorded
+Harvest Pre-Wash Cell Viability (%),predictor,Harvest Pre-Wash Cell Viability (%),float64,numeric,%,numeric,used as recorded
+Incubation D0-D1 (min),predictor,Incubation D0-D1 (min),int64,numeric,min,numeric,used as recorded
+Incubation D1-D3,predictor,Incubation D1-D3,int64,numeric,,numeric,used as recorded
+Incubation D6-D8 (min),predictor,Incubation D6-D8 (min),float64,numeric,min,numeric,used as recorded
+Incubation D8-D10 (min),predictor,Incubation D8-D10 (min),int64,numeric,min,numeric,used as recorded
+Incubation_total_D3_to_D10_min,predictor,Incubation_total_D3_to_D10_min,float64,numeric,,numeric,used as recorded
+Lactate_perE6_slope_D6_D10,predictor,Lactate_perE6_slope_D6_D10,float64,numeric,,numeric,used as recorded
+Log (PE CD4:CD8),predictor,Log (PE CD4:CD8),float64,numeric,PE CD4:CD8,numeric,used as recorded
+Mixing_cycles_x_pre_activation_clump_count,predictor,Mixing_cycles_x_pre_activation_clump_count,int64,numeric,,numeric,used as recorded
+PT Total  CD3+ (Viable Cells),predictor,PT Total  CD3+ (Viable Cells),float64,numeric,Viable Cells,numeric,used as recorded
+Post Thaw CD4:CD8 Ratio,predictor,Post Thaw CD4:CD8 Ratio,float64,ratio,,numeric,used as recorded
+Post Thaw FLOW CD3+ (%),predictor,Post Thaw FLOW CD3+ (%),float64,numeric,%,numeric,used as recorded
+Post Wash POS FLOW CD3+ (%),predictor,Post Wash POS FLOW CD3+ (%),float64,numeric,%,numeric,used as recorded
+Post Wash POS Viability (%),predictor,Post Wash POS Viability (%),float64,numeric,%,numeric,used as recorded
+Post formulation dose,predictor,Post formulation dose,float64,numeric,,numeric,used as recorded
+Post-Massaging: Size of Clumps,predictor,Post-Massaging: Size of Clumps,int64,numeric,,numeric,used as recorded
+Post-Mixing Clumps: Size of Clumps,predictor,Post-Mixing Clumps: Size of Clumps,int64,numeric,,numeric,used as recorded
+Pre-Activation Clumps: # of Clumps before massage,predictor,Pre-Activation Clumps: # of Clumps before massage,int64,numeric,,numeric,used as recorded
+Pre-Activation Clumps: Size of Clumps before massage,predictor,Pre-Activation Clumps: Size of Clumps before massage,int64,numeric,,numeric,used as recorded
+Recovery (%),predictor,Recovery (%),float64,numeric,%,numeric,used as recorded
+Subject Weight (kg),predictor,Subject Weight (kg),float64,numeric,kg,numeric,used as recorded
+Total CS5 cell concentration (E6 cells/mL),predictor,Total CS5 cell concentration (E6 cells/mL),float64,numeric,E6 cells/mL,numeric,used as recorded
+Total Viable Cells/bag,predictor,Total Viable Cells/bag,float64,numeric,,numeric,used as recorded
+Vector_volume_cv_AB_mL,predictor,Vector_volume_cv_AB_mL,float64,numeric,,numeric,used as recorded
+Vector_volume_max_AB_mL,predictor,Vector_volume_max_AB_mL,float64,numeric,,numeric,used as recorded
+Volume Vector Added to G-Rex A (mL),predictor,Volume Vector Added to G-Rex A (mL),float64,numeric,mL,numeric,used as recorded
+Volume per Bag (mL),predictor,Volume per Bag (mL),int64,numeric,mL,numeric,used as recorded
+cPDL (D3 to D10),predictor,cPDL (D3 to D10),float64,numeric,D3 to D10,numeric,used as recorded
+total cells lost during LOVO wash (cells),predictor,total cells lost during LOVO wash (cells),int64,numeric,cells,numeric,used as recorded
+Volume Vector Added to G-Rex B (mL),predictor,Volume Vector Added to G-Rex B (mL),float64,numeric,mL,numeric,used as recorded
+D3_clumps_flag,predictor,D3_clumps_flag,float64,numeric,,numeric,used as recorded
+disposition_is_released,target,Disposition,Int64,categorical,,binary,"1 = Released, 0 = Discarded"

@@ -1,0 +1,113 @@
+# The effective settings of this run, defaults included.
+task:
+  name: ghent_car_expression
+  question: Which manufacturing parameters go with final product CAR+ expression at
+    Ghent?
+  purpose: predictive
+  seed: 20260917
+inputs:
+  pvf: /home/sdegroeve/pvf_tasks/demo/PVF.xlsx
+  ptf: /home/sdegroeve/pvf_tasks/demo/PTF.xlsx
+output:
+  root: /home/sdegroeve/pvf_tasks/demo/tasks
+cohort:
+  sites:
+  - Ghent
+  site_column: Site Merged
+  filters:
+  - column: Type
+    op: equals
+    value: Commercial
+    missing: exclude
+    normalise: false
+    reason: manufactured commercially
+  - column: Manufacturing and Release Testing Completed? (Y/N)
+    op: equals
+    value: Y
+    missing: exclude
+    normalise: false
+    reason: manufacturing and testing finished
+  - column: Non-Conformance Type
+    op: not_in
+    value:
+    - termination
+    - withdrawal
+    missing: include
+    normalise: true
+    reason: not terminated or withdrawn, however it is spelled
+  date_column: ''
+  date_from: ''
+  date_to: ''
+target:
+  column: FP Flow CAR+ (%)
+  type: numeric
+  positive_class: ''
+  negative_class: ''
+  missing: drop
+columns:
+  id: 'Patient Lot/Batch #'
+  group: Vector Lot
+  include: []
+  exclude:
+  - column: Subject Weight (kg)
+    reason: dose per kilogram already carries it
+availability:
+  cutoff: harvest (day 10)
+  reviewed: true
+  unavailable:
+  - column: Disposition
+    reason: release decision, weeks after the batch is made
+  - column: OOS Type
+    reason: recorded by the investigation that follows a failure
+  - column: Non-Conformance Type
+    reason: recorded after disposition
+  - column: Recovery (%)
+    reason: computed from the final formulation
+  - column: Endotoxin (EU/mL)
+    reason: release testing
+  - column: Mycoplasma
+    reason: release testing
+  - column: Sterility
+    reason: release testing
+  available: []
+encoding:
+  one_hot: true
+  target_encoding: true
+  feature_hashing: true
+  one_hot_top_x: 10
+  onehot_max_categories: 5
+  target_max_categories: 6
+  max_cardinality_ratio: 0.5
+  target_encoding_smoothing: 5.0
+  target_encoding_folds: 5
+  target_encoding_fallback: hashing
+  hashing_min_buckets: 8
+  hashing_max_buckets: 16
+  hashing_signed: true
+  missing_category: missing
+quality:
+  min_non_missing: 8
+  duplicate_r2_threshold: 0.99
+  duplicate_min_overlap: 8
+clustering:
+  action: report_only
+  method: spearman
+  threshold: 0.7
+  min_size: 2
+  min_overlap: 8
+  prefer: []
+missingness:
+  enabled: true
+  threshold: 0.9
+  min_rate: 0.05
+  max_rate: 0.95
+  min_size: 2
+  min_strength: 0.1
+  max_categories: 20
+split:
+  strategy: grouped
+  validation_fraction: 0.3
+  order_column: ''
+report:
+  preview_rows: 15
+  max_table_rows: 500

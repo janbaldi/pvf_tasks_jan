@@ -1,0 +1,133 @@
+Cluster,Parameter,Representative,Is representative,Action,Outcome,Output column,Retained in dataset,Rows fitted,Adjusted R2,Regressors,Smallest shared batches in cluster
+Cluster 01,Day 6 Glucose G-Rex A (g/L),Lactate_to_Glucose_perE6_ratio_D6,False,report_only,unchanged,Day 6 Glucose G-Rex A (g/L),True,14,,,14
+Cluster 01,Day 6 Glucose G-Rex B (g/L),Lactate_to_Glucose_perE6_ratio_D6,False,report_only,unchanged,Day 6 Glucose G-Rex B (g/L),True,14,,,14
+Cluster 01,Day 6 Lactate G-Rex A (g/L),Lactate_to_Glucose_perE6_ratio_D6,False,report_only,unchanged,Day 6 Lactate G-Rex A (g/L),True,14,,,14
+Cluster 01,Day 6 Lactate G-Rex B (g/L),Lactate_to_Glucose_perE6_ratio_D6,False,report_only,unchanged,Day 6 Lactate G-Rex B (g/L),True,14,,,14
+Cluster 01,Day 8 Glucose G-Rex A (g/L),Lactate_to_Glucose_perE6_ratio_D6,False,report_only,unchanged,Day 8 Glucose G-Rex A (g/L),True,14,,,14
+Cluster 01,Day 8 Glucose G-Rex B (g/L),Lactate_to_Glucose_perE6_ratio_D6,False,report_only,unchanged,Day 8 Glucose G-Rex B (g/L),True,14,,,14
+Cluster 01,Day 8 Lactate G-Rex A (g/L),Lactate_to_Glucose_perE6_ratio_D6,False,report_only,unchanged,Day 8 Lactate G-Rex A (g/L),True,14,,,14
+Cluster 01,Harvest Glucose (g/L),Lactate_to_Glucose_perE6_ratio_D6,False,report_only,unchanged,Harvest Glucose (g/L),True,14,,,14
+Cluster 01,Harvest Lactate (g/L),Lactate_to_Glucose_perE6_ratio_D6,False,report_only,unchanged,Harvest Lactate (g/L),True,14,,,14
+Cluster 01,Lactate_to_Glucose_perE6_ratio_D10,Lactate_to_Glucose_perE6_ratio_D6,False,report_only,unchanged,Lactate_to_Glucose_perE6_ratio_D10,True,14,,,14
+Cluster 01,Lactate_to_Glucose_perE6_ratio_D6,Lactate_to_Glucose_perE6_ratio_D6,True,report_only,kept as the representative,Lactate_to_Glucose_perE6_ratio_D6,True,14,,,14
+Cluster 01,cPDL (D3 to D10),Lactate_to_Glucose_perE6_ratio_D6,False,report_only,unchanged,cPDL (D3 to D10),True,14,,,14
+Cluster 02,Avg_cells_per_bag_D3,Avg_cells_per_bag_D3,True,report_only,kept as the representative,Avg_cells_per_bag_D3,True,14,,,14
+Cluster 02,D10 Glucose / E6 cells,Avg_cells_per_bag_D3,False,report_only,unchanged,D10 Glucose / E6 cells,True,14,,,14
+Cluster 02,D3_seeding_error_pct,Avg_cells_per_bag_D3,False,report_only,unchanged,D3_seeding_error_pct,True,14,,,14
+Cluster 02,D6 Glucose / E6 cells,Avg_cells_per_bag_D3,False,report_only,unchanged,D6 Glucose / E6 cells,True,14,,,14
+Cluster 02,D8 Glucose / E6 cells,Avg_cells_per_bag_D3,False,report_only,unchanged,D8 Glucose / E6 cells,True,14,,,14
+Cluster 02,Glucose_perE6_slope_D6_D10,Avg_cells_per_bag_D3,False,report_only,unchanged,Glucose_perE6_slope_D6_D10,True,14,,,14
+Cluster 02,Harvest Post Wash Viable Cell Count (cells),Avg_cells_per_bag_D3,False,report_only,unchanged,Harvest Post Wash Viable Cell Count (cells),True,14,,,14
+Cluster 02,Harvest Pre-Wash Viable Cell Count after Sampling (cells),Avg_cells_per_bag_D3,False,report_only,unchanged,Harvest Pre-Wash Viable Cell Count after Sampling (cells),True,14,,,14
+Cluster 02,Volume CS5 Used for Formulation (mL),Avg_cells_per_bag_D3,False,report_only,unchanged,Volume CS5 Used for Formulation (mL),True,14,,,14
+Cluster 02,total viable cells in formulated suspension,Avg_cells_per_bag_D3,False,report_only,unchanged,total viable cells in formulated suspension,True,14,,,14
+Cluster 03,D10 Lact / E6 cells,D10 Lact / E6 cells,True,report_only,kept as the representative,D10 Lact / E6 cells,True,14,,,14
+Cluster 03,D6 Lact / E6 cells,D10 Lact / E6 cells,False,report_only,unchanged,D6 Lact / E6 cells,True,14,,,14
+Cluster 03,Final Formulation CS5 Viability Average (%),D10 Lact / E6 cells,False,report_only,unchanged,Final Formulation CS5 Viability Average (%),True,14,,,14
+Cluster 03,Lactate_perE6_slope_D6_D10,D10 Lact / E6 cells,False,report_only,unchanged,Lactate_perE6_slope_D6_D10,True,14,,,14
+Cluster 04,Clump_burden_weighted_post_massage,Post-Massaging: # of Clumps,False,report_only,unchanged,Clump_burden_weighted_post_massage,True,14,,,14
+Cluster 04,Clump_count_reduction_fraction,Post-Massaging: # of Clumps,False,report_only,unchanged,Clump_count_reduction_fraction,True,14,,,14
+Cluster 04,Post-Massaging: # of Clumps,Post-Massaging: # of Clumps,True,report_only,kept as the representative,Post-Massaging: # of Clumps,True,14,,,14
+Cluster 05,D10 Total CAR+ viable T-cells achieved,Harvest Pre-Wash Flow CAR+ Expression (%),False,report_only,unchanged,D10 Total CAR+ viable T-cells achieved,True,14,,,14
+Cluster 05,Harvest Pre-Wash Flow CAR+ Expression (%),Harvest Pre-Wash Flow CAR+ Expression (%),True,report_only,kept as the representative,Harvest Pre-Wash Flow CAR+ Expression (%),True,14,,,14
+Cluster 05,Provirus Vector Copy Number (copies/transduced cell),Harvest Pre-Wash Flow CAR+ Expression (%),False,report_only,unchanged,Provirus Vector Copy Number (copies/transduced cell),True,14,,,14
+Cluster 06,Final Formulation CS5 Viable Cell Concentration Average (cells/mL),Final Formulation CS5 Viable Cell Concentration Average (cells/mL),True,report_only,kept as the representative,Final Formulation CS5 Viable Cell Concentration Average (cells/mL),True,14,,,14
+Cluster 06,Harvest Post Wash Viable Cell Concentration Average (cells/mL),Final Formulation CS5 Viable Cell Concentration Average (cells/mL),False,report_only,unchanged,Harvest Post Wash Viable Cell Concentration Average (cells/mL),True,14,,,14
+Cluster 06,Total CS5 cell concentration (E6 cells/mL),Final Formulation CS5 Viable Cell Concentration Average (cells/mL),False,report_only,unchanged,Total CS5 cell concentration (E6 cells/mL),True,14,,,14
+Cluster 07,Log (PE CD4:CD8),PE CD3+CD8+ (%),False,report_only,unchanged,Log (PE CD4:CD8),True,14,,,14
+Cluster 07,PE CD3+CD8+ (%),PE CD3+CD8+ (%),True,report_only,kept as the representative,PE CD3+CD8+ (%),True,14,,,14
+Cluster 07,Post Wash POS FLOW CD8+ (%),PE CD3+CD8+ (%),False,report_only,unchanged,Post Wash POS FLOW CD8+ (%),True,14,,,14
+Cluster 08,Vector_volume_max_AB_mL,Vector_volume_max_AB_mL,True,report_only,kept as the representative,Vector_volume_max_AB_mL,True,14,,,14
+Cluster 08,Vector_volume_mean_AB_mL,Vector_volume_max_AB_mL,False,report_only,unchanged,Vector_volume_mean_AB_mL,True,14,,,14
+Cluster 08,Volume Vector Added to G-Rex B (mL),Vector_volume_max_AB_mL,False,report_only,unchanged,Volume Vector Added to G-Rex B (mL),True,14,,,14
+Cluster 09,% cells lost during formulation,% cells lost during formulation,True,report_only,kept as the representative,% cells lost during formulation,True,14,,,14
+Cluster 09,D10 harvest - D10 wash viability change (%),% cells lost during formulation,False,report_only,unchanged,D10 harvest - D10 wash viability change (%),True,14,,,14
+Cluster 10,Amount of Time G-Rex A in Incubator (120min+/-30 min),Amount of Time G-Rex A in Incubator (120min+/-30 min),True,report_only,kept as the representative,Amount of Time G-Rex A in Incubator (120min+/-30 min),True,14,,,13
+Cluster 10,Day 3 Incubation Time (120min+/-30 min),Amount of Time G-Rex A in Incubator (120min+/-30 min),False,report_only,unchanged,Day 3 Incubation Time (120min+/-30 min),True,14,,,13
+Cluster 11,Amount of Time G-Rex B in Incubator (120min+/-30 min),Amount of Time G-Rex B in Incubator (120min+/-30 min),True,report_only,kept as the representative,Amount of Time G-Rex B in Incubator (120min+/-30 min),True,14,,,14
+Cluster 11,D10_clump_bag_count,Amount of Time G-Rex B in Incubator (120min+/-30 min),False,report_only,unchanged,D10_clump_bag_count,True,14,,,14
+Cluster 12,CAR T produced per cell engaged D3,CAR T produced per cell engaged D3,True,report_only,kept as the representative,CAR T produced per cell engaged D3,True,14,,,14
+Cluster 12,Day 1 Number of Mixing Cycles Post Activation,CAR T produced per cell engaged D3,False,report_only,unchanged,Day 1 Number of Mixing Cycles Post Activation,True,14,,,14
+Cluster 13,Clump_burden_weighted_post_mixing,Clump_burden_weighted_post_mixing,True,report_only,kept as the representative,Clump_burden_weighted_post_mixing,True,14,,,14
+Cluster 13,Post-Mixing Clumps: # of Clumps,Clump_burden_weighted_post_mixing,False,report_only,unchanged,Post-Mixing Clumps: # of Clumps,True,14,,,14
+Cluster 14,Clump_size_reduction_fraction,Clump_size_reduction_fraction,True,report_only,kept as the representative,Clump_size_reduction_fraction,True,14,,,14
+Cluster 14,Pre-Activation Clumps: Size of Clumps before massage,Clump_size_reduction_fraction,False,report_only,unchanged,Pre-Activation Clumps: Size of Clumps before massage,True,14,,,14
+Cluster 15,D10 Achievable Dose (E6 CAR+ viable T-cells),D10 Achievable Dose (E6 CAR+ viable T-cells),True,report_only,kept as the representative,D10 Achievable Dose (E6 CAR+ viable T-cells),True,14,,,14
+Cluster 15,Post formulation dose,D10 Achievable Dose (E6 CAR+ viable T-cells),False,report_only,unchanged,Post formulation dose,True,14,,,14
+Cluster 16,D3-D10 viability change (%),D3-D10 viability change (%),True,report_only,kept as the representative,D3-D10 viability change (%),True,14,,,14
+Cluster 16,Harvest Pre-Wash Cell Viability (%),D3-D10 viability change (%),False,report_only,unchanged,Harvest Pre-Wash Cell Viability (%),True,14,,,14
+Cluster 17,D3_contact_time_deviation,D3_contact_time_deviation,True,report_only,kept as the representative,D3_contact_time_deviation,True,14,,,14
+Cluster 17,D3_contact_time_within_window,D3_contact_time_deviation,False,report_only,unchanged,D3_contact_time_within_window,True,14,,,14
+Cluster 18,D3_contact_time_deviation_G-Rex_A,D3_contact_time_deviation_G-Rex_A,True,report_only,kept as the representative,D3_contact_time_deviation_G-Rex_A,True,14,,,14
+Cluster 18,D3_contact_time_within_window_G-Rex_A,D3_contact_time_deviation_G-Rex_A,False,report_only,unchanged,D3_contact_time_within_window_G-Rex_A,True,14,,,14
+Cluster 19,D3_contact_time_deviation_G-Rex_B,D3_contact_time_deviation_G-Rex_B,True,report_only,kept as the representative,D3_contact_time_deviation_G-Rex_B,True,14,,,14
+Cluster 19,D3_contact_time_within_window_G-Rex_B,D3_contact_time_deviation_G-Rex_B,False,report_only,unchanged,D3_contact_time_within_window_G-Rex_B,True,14,,,14
+Cluster 20,Day 6 Activity of IL-2 (IU/mg),Day 6 Activity of IL-2 (IU/mg),True,report_only,kept as the representative,Day 6 Activity of IL-2 (IU/mg),True,14,,,14
+Cluster 20,IL2_IU_total_D6,Day 6 Activity of IL-2 (IU/mg),False,report_only,unchanged,IL2_IU_total_D6,True,14,,,14
+Cluster 21,Day 6 CO2 Saturation (%) dev_from_5.0pct,Day 6 CO2 Saturation (%) dev_from_5.0pct,True,report_only,kept as the representative,Day 6 CO2 Saturation (%) dev_from_5.0pct,True,14,,,14
+Cluster 21,PT CD3+CD4+ (%),Day 6 CO2 Saturation (%) dev_from_5.0pct,False,report_only,unchanged,PT CD3+CD4+ (%),True,14,,,14
+Cluster 22,Day 8 Activity of IL-2 (IU/mg),Day 8 Activity of IL-2 (IU/mg),True,report_only,kept as the representative,Day 8 Activity of IL-2 (IU/mg),True,14,,,14
+Cluster 22,IL2_IU_total_D8,Day 8 Activity of IL-2 (IU/mg),False,report_only,unchanged,IL2_IU_total_D8,True,14,,,14
+Cluster 23,Drop viability D3 vs D0 (%),Drop viability D3 vs D0 (%),True,report_only,kept as the representative,Drop viability D3 vs D0 (%),True,14,,,14
+Cluster 23,Post Wash POS Viability (%),Drop viability D3 vs D0 (%),False,report_only,unchanged,Post Wash POS Viability (%),True,14,,,14
+Cluster 24,Incubation D3-D6 (min),Incubation D3-D6 (min),True,report_only,kept as the representative,Incubation D3-D6 (min),True,14,,,14
+Cluster 24,Incubation D6-D8 (min),Incubation D3-D6 (min),False,report_only,unchanged,Incubation D6-D8 (min),True,14,,,14
+Cluster 25,Mixing_cycles_x_pre_activation_clump_count,Mixing_cycles_x_pre_activation_clump_count,True,report_only,kept as the representative,Mixing_cycles_x_pre_activation_clump_count,True,14,,,14
+Cluster 25,Pre-Activation Clumps: # of Clumps before massage,Mixing_cycles_x_pre_activation_clump_count,False,report_only,unchanged,Pre-Activation Clumps: # of Clumps before massage,True,14,,,14
+Cluster 26,PE CD3+CD4+ (%),PE CD3+CD4+ (%),True,report_only,kept as the representative,PE CD3+CD4+ (%),True,14,,,14
+Cluster 26,Post Wash POS FLOW CD4+ (%),PE CD3+CD4+ (%),False,report_only,unchanged,Post Wash POS FLOW CD4+ (%),True,14,,,14
+Cluster 27,PT Total  CD3+ (Viable Cells),PT Total  CD3+ (Viable Cells),True,report_only,kept as the representative,PT Total  CD3+ (Viable Cells),True,14,,,14
+Cluster 27,Post Thaw FLOW CD3+ (%),PT Total  CD3+ (Viable Cells),False,report_only,unchanged,Post Thaw FLOW CD3+ (%),True,14,,,14
+Cluster 28,PT Total CD4+ (Viable Cells),PT Total CD4+ (Viable Cells),True,report_only,kept as the representative,PT Total CD4+ (Viable Cells),True,14,,,14
+Cluster 28,Volume per Bag (mL),PT Total CD4+ (Viable Cells),False,report_only,unchanged,Volume per Bag (mL),True,14,,,14
+Cluster 29,Vector_volume_min_AB_mL,Vector_volume_min_AB_mL,True,report_only,kept as the representative,Vector_volume_min_AB_mL,True,14,,,14
+Cluster 29,Volume Vector Added to G-Rex A (mL),Vector_volume_min_AB_mL,False,report_only,unchanged,Volume Vector Added to G-Rex A (mL),True,14,,,14
+,Clump_burden_weighted_pre,Clump_burden_weighted_pre,True,none,correlates with nothing above the threshold,Clump_burden_weighted_pre,True,,,,
+,Day 3 Average of Pooled Viability (%),Day 3 Average of Pooled Viability (%),True,none,correlates with nothing above the threshold,Day 3 Average of Pooled Viability (%),True,,,,
+,Day 6 CO2 Saturation (%),Day 6 CO2 Saturation (%),True,none,correlates with nothing above the threshold,Day 6 CO2 Saturation (%),True,,,,
+,Day 6 IL-2 Protein Content (µg/vial),Day 6 IL-2 Protein Content (µg/vial),True,none,correlates with nothing above the threshold,Day 6 IL-2 Protein Content (µg/vial),True,,,,
+,Day 6 Temperature (°C),Day 6 Temperature (°C),True,none,correlates with nothing above the threshold,Day 6 Temperature (°C),True,,,,
+,Day 6 Temperature (°C) dev_from_37.0C,Day 6 Temperature (°C) dev_from_37.0C,True,none,correlates with nothing above the threshold,Day 6 Temperature (°C) dev_from_37.0C,True,,,,
+,Day 8 IL-2 Protein Content (µg/vial),Day 8 IL-2 Protein Content (µg/vial),True,none,correlates with nothing above the threshold,Day 8 IL-2 Protein Content (µg/vial),True,,,,
+,Harvest Post Wash Viability Average (%),Harvest Post Wash Viability Average (%),True,none,correlates with nothing above the threshold,Harvest Post Wash Viability Average (%),True,,,,
+,Incubation D8-D10 (min),Incubation D8-D10 (min),True,none,correlates with nothing above the threshold,Incubation D8-D10 (min),True,,,,
+,Post Thaw CD4:CD8 Ratio,Post Thaw CD4:CD8 Ratio,True,none,correlates with nothing above the threshold,Post Thaw CD4:CD8 Ratio,True,,,,
+,Post Thaw FLOW CD4+ (%),Post Thaw FLOW CD4+ (%),True,none,correlates with nothing above the threshold,Post Thaw FLOW CD4+ (%),True,,,,
+,Post Wash POS FLOW CD3+ (%),Post Wash POS FLOW CD3+ (%),True,none,correlates with nothing above the threshold,Post Wash POS FLOW CD3+ (%),True,,,,
+,Post-Massaging: Size of Clumps,Post-Massaging: Size of Clumps,True,none,correlates with nothing above the threshold,Post-Massaging: Size of Clumps,True,,,,
+,Post-Mixing Clumps: Size of Clumps,Post-Mixing Clumps: Size of Clumps,True,none,correlates with nothing above the threshold,Post-Mixing Clumps: Size of Clumps,True,,,,
+,Seeded_cells_cv_AB,Seeded_cells_cv_AB,True,none,correlates with nothing above the threshold,Seeded_cells_cv_AB,True,,,,
+,Target Final Seeding Density per Area (VC/cm^2) G-Rex A,Target Final Seeding Density per Area (VC/cm^2) G-Rex A,True,none,correlates with nothing above the threshold,Target Final Seeding Density per Area (VC/cm^2) G-Rex A,True,,,,
+,Vector_volume_cv_AB_mL,Vector_volume_cv_AB_mL,True,none,correlates with nothing above the threshold,Vector_volume_cv_AB_mL,True,,,,
+,Viability_change_D3_to_D10_pct,Viability_change_D3_to_D10_pct,True,none,correlates with nothing above the threshold,Viability_change_D3_to_D10_pct,True,,,,
+,total cells lost during LOVO wash (cells),total cells lost during LOVO wash (cells),True,none,correlates with nothing above the threshold,total cells lost during LOVO wash (cells),True,,,,
+,# of Culture Bags,,False,skipped,constant,,True,14,,,
+,D3_seeding_within_5pct,,False,skipped,constant,,True,14,,,
+,Day 3 Number of G-Rex to seed,,False,skipped,constant,,True,14,,,
+,Incubation D0-D1 (min),,False,skipped,constant,,True,14,,,
+,Incubation D1-D3,,False,skipped,constant,,True,14,,,
+,Incubation_total_D3_to_D10_min,,False,skipped,constant,,True,14,,,
+,D3_clumps_flag,,False,skipped,constant,,True,9,,,
+,LV CoA CAR% - Donor 1,,False,skipped,fewer than 8 usable values,,False,7,,,
+,LV CoA CAR% - Donor 2,,False,skipped,fewer than 8 usable values,,False,7,,,
+,LV CoA DNA size,,False,skipped,fewer than 8 usable values,,False,7,,,
+,LV CoA E1a cDNA,,False,skipped,fewer than 8 usable values,,False,7,,,
+,LV CoA E1b cDNA,,False,skipped,fewer than 8 usable values,,False,7,,,
+,LV CoA HCP,,False,skipped,fewer than 8 usable values,,False,7,,,
+,LV CoA IFNg - Donor 1,,False,skipped,fewer than 8 usable values,,False,7,,,
+,LV CoA IFNg - Donor 2,,False,skipped,fewer than 8 usable values,,False,7,,,
+,LV CoA LV Titer,,False,skipped,fewer than 8 usable values,,False,7,,,
+,LV CoA Osmolality,,False,skipped,fewer than 8 usable values,,False,7,,,
+,LV CoA PI Ratio,,False,skipped,fewer than 8 usable values,,False,7,,,
+,LV CoA Physical Titer p24 ELISA,,False,skipped,fewer than 8 usable values,,False,7,,,
+,LV CoA Volume,,False,skipped,fewer than 8 usable values,,False,7,,,
+,LV CoA cDNA,,False,skipped,fewer than 8 usable values,,False,7,,,
+,LV CoA pDNA,,False,skipped,fewer than 8 usable values,,False,7,,,
+,LV CoA pH,,False,skipped,fewer than 8 usable values,,False,7,,,
+,MOI_eff_G-Rex_A,,False,skipped,fewer than 8 usable values,,False,7,,,
+,MOI_eff_G-Rex_B,,False,skipped,fewer than 8 usable values,,False,7,,,
+,MOI_eff_pool,,False,skipped,fewer than 8 usable values,,False,7,,,
+,MOI_eff_quality_adjusted,,False,skipped,fewer than 8 usable values,,False,7,,,
+,log_MOI_eff_G-Rex_A,,False,skipped,fewer than 8 usable values,,False,7,,,
+,log_MOI_eff_G-Rex_B,,False,skipped,fewer than 8 usable values,,False,7,,,
+,log_MOI_eff_pool,,False,skipped,fewer than 8 usable values,,False,7,,,

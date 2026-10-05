@@ -1,0 +1,54 @@
+Group,Parameter,Missing rate,Group missing rate,Mean Jaccard within group,Best explainer,Explainer score,Explainer passes min_strength,Explainer blanks track the group
+Missing 01,LV CoA Site/Format,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA LV Titer,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA Physical Titer p24 ELISA,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA PI Ratio,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA CAR% - Donor 1,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA CAR% - Donor 2,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA IFNg - Donor 1,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA IFNg - Donor 2,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA pH,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA Osmolality,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA Volume,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA DNA size,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA HCP,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA pDNA,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA cDNA,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA E1a cDNA,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA E1b cDNA,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA HCP below LOQ,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA Delivered Dose per GRex,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA Titer Adjustment Factor,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA Specific Infectivity,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA E1b Fraction of Total DNA,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA pH Abs Deviation,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA Osmolality Abs Deviation,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA CAR% Donor MAX,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA CAR% Donor MIN,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA CAR% Donor DIFF,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA CAR% Donor DIFF Rel,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA CAR% Donor AVG,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA IFNg Donor MAX,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA IFNg Donor MIN,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA IFNg Donor DIFF,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA IFNg Donor DIFF Rel,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LV CoA IFNg Donor AVG,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,MOI_eff_G-Rex_A,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,log_MOI_eff_G-Rex_A,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,MOI_eff_pool,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,log_MOI_eff_pool,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,MOI_eff_quality_adjusted,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 01,LVCoA_Impurity_Index_zsum,0.3333,0.3333,1.0,Clinical Site ID,1.0,True,False
+Missing 02,Day 3 Actual Viable Cells Seeded G-Rex B,0.3333,0.3333,1.0,LV CoA Site/Format,1.0,True,True
+Missing 02,Volume Vector Added to G-Rex B (mL),0.3333,0.3333,1.0,LV CoA Site/Format,1.0,True,True
+Missing 02,Day 6 Lactate G-Rex B (g/L),0.3333,0.3333,1.0,LV CoA Site/Format,1.0,True,True
+Missing 02,Day 6 Glucose G-Rex B (g/L),0.3333,0.3333,1.0,LV CoA Site/Format,1.0,True,True
+Missing 02,Day 8 Glucose G-Rex B (g/L),0.3333,0.3333,1.0,LV CoA Site/Format,1.0,True,True
+Missing 03,MOI_eff_G-Rex_B,0.6667,0.6667,1.0,LV CoA Site/Format,1.0,True,True
+Missing 03,log_MOI_eff_G-Rex_B,0.6667,0.6667,1.0,LV CoA Site/Format,1.0,True,True
+Missing 04,day 3 clump pattern,0.3333,0.3333,1.0,Media Lot,0.3183,True,False
+Missing 04,D3_clumps_flag,0.3333,0.3333,1.0,Media Lot,0.3183,True,False
+Missing 05,OOS Type,0.2381,0.2381,1.0,Media Lot,1.0,True,False
+Missing 05,Clinical Site,0.2381,0.2381,1.0,Media Lot,1.0,True,False
+,Clump Severity,,,,,,,
+,Non-Conformance Type,,,,,,,

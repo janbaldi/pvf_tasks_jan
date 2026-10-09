@@ -32,7 +32,7 @@ from typing import Any
 
 import pandas as pd
 import yaml
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 
 from . import (
     clean,
@@ -58,7 +58,9 @@ from .decorrelate import RESIDUAL_SUFFIX
 from .logger import log
 from .taskconfig import TaskConfigError, TaskSpec
 
-load_dotenv()
+# A .env in the working directory (or above it); the workspace's own .env is
+# loaded with its config, see pvf.config.load_env.
+load_dotenv(find_dotenv(usecwd=True))
 
 MODULE = "cli"
 #: Kept for callers of the old module-level name; the config is now found by

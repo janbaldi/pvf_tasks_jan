@@ -47,6 +47,9 @@ def init(folder: str | Path, demo_data: bool = False, force: bool = False) -> Pa
         target = folder / name
         if not target.exists() or force:
             target.write_text(template(name), encoding="utf-8")
+    example = folder / ".env.example"
+    if not example.exists():
+        example.write_text(template("env.example"), encoding="utf-8")
     readme = folder / "data" / "raw" / "README.txt"
     if not readme.exists():
         readme.write_text(RAW_README, encoding="utf-8")

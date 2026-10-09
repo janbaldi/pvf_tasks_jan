@@ -49,6 +49,7 @@ folder with a `pvf.yaml` in it.
 ```
 my_workspace/
   pvf.yaml            paths, sources, SharePoint locations, cleaning and feature settings
+  .env                SharePoint credentials and other secrets (git-ignored)
   corrections.yaml    known data corrections, as a table
   tasks/              one YAML per task
   data/raw/           local copies of the sources
@@ -120,7 +121,12 @@ Uploading is a separate switch, and only ever happens on a `--mode PRD` build wi
 `upload.enabled: true`; the destination is `upload.path` (or `$DATA_LINK`) and
 `upload.drive_id`, and the manifest records where it went. Reading from the share
 does not imply writing to it, and a local run cannot upload by accident.
-Environment variables are read from `.env`: `MODE` and `DATA_LINK`.
+Secrets — whatever `io_sharepoint` needs to reach SharePoint — go in a **`.env`
+file in the workspace folder, next to `pvf.yaml`** (`pvf init` writes a
+`.env.example` to copy). It is loaded with the config, never committed (`.env` is
+git-ignored everywhere), and variables already set in the shell or by a scheduler
+win over it. A `.env` in the working directory is read too. `MODE=PRD` and
+`DATA_LINK` (the upload folder) can live there as well.
 
 ### Cleaning and the corrections table
 

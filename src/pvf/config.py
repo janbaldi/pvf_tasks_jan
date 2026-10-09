@@ -161,7 +161,25 @@ def load(path: str | Path) -> dict[str, Any]:
         cleaning["corrections"] = str(_resolve(cleaning["corrections"], base))
     config["__path__"] = str(path)
     config["__dir__"] = str(base)
+    config["__env__"] = load_env(base)
     return config
+
+
+def load_env(folder: str | Path) -> str:
+    """Load the workspace's ``.env`` — the SharePoint credentials and drive ids.
+
+    Secrets belong with the workspace, next to ``pvf.yaml``, never in the code
+    or in git. Variables already set in the environment win, so a scheduler or
+    a shell can override the file. Returns the file loaded, or "".
+    """
+    from dotenv import load_dotenv
+
+    env = Path(folder) / ".env"
+    if env.is_file():
+        load_dotenv(env, override=False)
+        log.info(MODULE, f"Environment loaded from {env}")
+        return str(env)
+    return ""
 
 
 def _resolve(value: str, base: Path) -> Path:

@@ -67,6 +67,22 @@ def test_sharepoint_locations_come_from_the_config(tmp_path):
     assert workspace.source(config, "lv_coa", lambda **kw: None).header == 2
 
 
+def test_the_workspace_env_file_is_loaded_with_its_config(tmp_path, monkeypatch):
+    config_path = scaffold.init(tmp_path / "ws")
+    assert (tmp_path / "ws" / ".env.example").exists()
+    (tmp_path / "ws" / ".env").write_text("PVF_TEST_SECRET=from-file\nMODE=DEV\n")
+    monkeypatch.delenv("PVF_TEST_SECRET", raising=False)
+    monkeypatch.setenv("MODE", "PRD")  # the shell wins over the file
+    config = workspace.load(config_path)
+    import os
+
+    assert os.environ["PVF_TEST_SECRET"] == "from-file"
+    assert os.environ["MODE"] == "PRD"
+    assert config["__env__"].endswith(".env")
+    assert "__env__" not in workspace.settings(config), "never part of the config digest"
+    monkeypatch.delenv("PVF_TEST_SECRET")
+
+
 def test_the_upload_target_comes_from_the_config_or_the_environment(monkeypatch):
     config = {"paths": {"pvf": "/x/PVF.xlsx"}, "upload": {"enabled": True, "drive_id": "D"}}
     with pytest.raises(workspace.ConfigError, match="upload.path"):

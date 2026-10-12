@@ -4,7 +4,6 @@ task:
   name: ghent_car_expression
   question: Which manufacturing parameters go with final product CAR+ expression at
     Ghent?
-  purpose: predictive
   seed: 20260917
 cohort:
   sites:

@@ -920,7 +920,7 @@ _SMALL_COHORT = {
     "quality": {"min_non_missing": 8, "duplicate_r2_threshold": 0.99, "duplicate_min_overlap": 8},
 }
 
-#: The made-up PTF's stages after harvest, which the predictive demo task leaves out.
+#: The made-up PTF's stages after harvest, which the Ghent demo task leaves out.
 LATER_THAN_HARVEST = [
     "Wash", "Formulation", "Final product", "Post-thaw", "Release", "Post-release"
 ]
@@ -943,7 +943,6 @@ def write_tasks(directory: Path) -> list[Path]:
             "name": "ghent_car_expression",
             "question": "Which manufacturing parameters go with final product CAR+ "
             "expression at Ghent?",
-            "purpose": "predictive",
             "seed": SEED,
         },
         "cohort": {
@@ -1003,7 +1002,6 @@ def write_tasks(directory: Path) -> list[Path]:
         "task": {
             "name": "raritan_release",
             "question": "What does a released Raritan batch look like, next to a discarded one?",
-            "purpose": "exploratory",
             "seed": SEED,
         },
         "cohort": {

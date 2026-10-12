@@ -3,7 +3,6 @@ config: ../../config.yaml
 task:
   name: raritan_release
   question: What does a released Raritan batch look like, next to a discarded one?
-  purpose: exploratory
   seed: 20260917
 cohort:
   sites:

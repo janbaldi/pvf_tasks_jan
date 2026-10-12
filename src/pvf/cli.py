@@ -663,7 +663,6 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec) -> Path:
     fields: dict[str, Any] = {
         "config_path": spec.source,
         "question": spec.question,
-        "purpose": spec.purpose,
         "workspace": spec.workspace,
     }
 
@@ -948,9 +947,6 @@ def _parser() -> argparse.ArgumentParser:
     new = commands.add_parser("init", help="create a task workspace with a task.yaml")
     new.add_argument("folder", help="the task workspace folder; its name is the task's name")
     new.add_argument("--target", default="", help="the column the task predicts")
-    new.add_argument(
-        "--purpose", choices=taskconfig.PURPOSES, default="exploratory", help="what it is for"
-    )
     new.add_argument("--question", default="", help="the question, in words")
     new.add_argument("--force", action="store_true", help="overwrite an existing task file")
 
@@ -1007,7 +1003,6 @@ def _run(args) -> int:
         path = scaffold.init(
             args.folder,
             args.target,
-            args.purpose,
             args.question,
             args.force,
             config=found["__path__"] if found else None,

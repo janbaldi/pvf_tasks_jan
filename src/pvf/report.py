@@ -922,7 +922,6 @@ def _task_overview(run: TaskRun) -> dict | None:
     rows = [
         ["Task", esc(spec.name)],
         ["Question", esc(spec.question or "not stated in the task file")],
-        ["Intended use", esc(spec.purpose)],
         [
             "Target",
             esc(f"{spec.target.column}{f' ({unit})' if unit else ''} — {result.target_kind}"),

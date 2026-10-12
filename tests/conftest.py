@@ -4,7 +4,7 @@ The real inputs are on a corporate share, so this is the only place the pipeline
 runs end to end. It runs once per session: the stages are written to be run in
 this order, and running them separately would not test that.
 
-Two task files are run against the one PVF, because the claim worth testing is
+Two task files are run against the one batch table, because the claim worth testing is
 that a different question needs a different YAML and nothing else.
 
 Most questions are asked of the packages and the reports rather than of the
@@ -27,7 +27,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import dummy_data  # noqa: E402
-from pvf import cli, stlite, taskconfig  # noqa: E402
+from ml import cli, stlite, taskconfig  # noqa: E402
 
 #: The two example tasks, by the name each of them carries.
 PREDICTIVE = "ghent_car_expression"
@@ -42,7 +42,7 @@ def built(tmp_path_factory) -> dict:
     config = cli.load_config(config_path)
 
     reports = {
-        "ptf": cli.run_ptf(config),
+        "catalog": cli.run_catalog(config),
         "build": cli.run_build(config, mode="dev"),
     }
     packages = {}
@@ -54,7 +54,7 @@ def built(tmp_path_factory) -> dict:
         "directory": directory,
         "config": config,
         "config_path": Path(config["__path__"]),
-        "pvf": pd.read_excel(config["paths"]["pvf"]),
+        "batch_table": pd.read_excel(config["paths"]["batch_table"]),
         "new_parameters": pd.read_csv(config["paths"]["new_parameters"]),
         "reports": reports,
         "packages": packages,
@@ -175,9 +175,9 @@ def row_named(block: dict, first_cell: str) -> list:
     return next(row for row in block["rows"] if row[0] == first_cell)
 
 
-def ghent(pvf: pd.DataFrame) -> pd.DataFrame:
-    return pvf[pvf["Site Merged"] == "Ghent"]
+def ghent(batch_table: pd.DataFrame) -> pd.DataFrame:
+    return batch_table[batch_table["Site Merged"] == "Ghent"]
 
 
-def raritan(pvf: pd.DataFrame) -> pd.DataFrame:
-    return pvf[pvf["Site Merged"] == "Raritan"]
+def raritan(batch_table: pd.DataFrame) -> pd.DataFrame:
+    return batch_table[batch_table["Site Merged"] == "Raritan"]

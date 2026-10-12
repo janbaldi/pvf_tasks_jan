@@ -1,6 +1,6 @@
 """The task packages, and the reports that explain them.
 
-A task narrows the PVF to one cohort and one target and writes a folder someone
+A task narrows the batch table to one cohort and one target and writes a folder someone
 else has to be able to use without asking what is in it. What matters is that
 the narrowing is visible, that the target and everything computed from it stay
 out of the predictors, that every exported column can be read back to the
@@ -44,8 +44,8 @@ REQUIRED = (
     "report_payload.json",
     "manifest.json",
     "run.log",
-    "ptf_manifest.json",
-    "pvf_manifest.json",
+    "catalog_manifest.json",
+    "batch_table_manifest.json",
 )
 
 
@@ -87,7 +87,7 @@ def test_the_counts_agree_wherever_they_are_written(built):
 
 
 def test_two_runs_of_one_task_do_not_overwrite_each_other(built):
-    from pvf import cli, taskconfig
+    from ml import cli, taskconfig
 
     spec = taskconfig.load(built["directory"] / dummy_data.TASK_FILES[0], built["config"])
     again = cli.run_task(built["config"], spec)
@@ -100,21 +100,21 @@ def test_two_runs_of_one_task_do_not_overwrite_each_other(built):
 # ---------------------------------------------------------------------------
 # Cohort and target
 # ---------------------------------------------------------------------------
-def test_the_cohort_is_narrower_than_the_pvf_and_says_how(built):
-    dataset, pvf = csv(built, PREDICTIVE, "dataset.csv"), built["pvf"]
-    assert len(dataset) < len(pvf)
+def test_the_cohort_is_narrower_than_the_batch_table_and_says_how(built):
+    dataset, batch_table = csv(built, PREDICTIVE, "dataset.csv"), built["batch_table"]
+    assert len(dataset) < len(batch_table)
 
     steps = first_table(payload(built, PREDICTIVE), "cohort")["rows"]
     left = [int(row[-1].replace(",", "")) for row in steps]
     assert left == sorted(left, reverse=True), "each filter can only remove batches"
-    assert left[0] == len(pvf)
+    assert left[0] == len(batch_table)
     assert left[-1] == len(dataset)
 
 
 def test_withdrawals_are_excluded_however_the_source_spells_them(built):
-    pvf = built["pvf"]
+    batch_table = built["batch_table"]
     kept = set(csv(built, PREDICTIVE, "dataset.csv")["Patient Lot/Batch #"])
-    ghent = pvf[pvf["Site Merged"] == "Ghent"]
+    ghent = batch_table[batch_table["Site Merged"] == "Ghent"]
     spellings = ghent["Non-Conformance Type"].astype("string")
     assert {"withdrawn", "Withdrawal"} <= set(spellings.dropna()), "the fixture has both spellings"
 
@@ -130,7 +130,7 @@ def test_batches_without_a_target_are_counted_and_named_separately(built):
     assert any("target" in str(row[0]) for row in reasons["rows"])
 
     exclusions = csv(built, PREDICTIVE, "cohort.csv")
-    assert len(exclusions) == len(built["pvf"])
+    assert len(exclusions) == len(built["batch_table"])
     assert exclusions["Included"].sum() == len(csv(built, PREDICTIVE, "dataset.csv"))
     assert exclusions.loc[~exclusions["Included"], "Reason"].notna().all()
 
@@ -171,11 +171,11 @@ def test_roles_are_metadata_and_are_not_encoded(built):
     assert not [c for c in dataset.columns if c.startswith("patient_lot")]
 
 
-def test_parameters_in_an_excluded_ptf_category_are_left_out(built):
+def test_parameters_in_an_excluded_catalog_category_are_left_out(built):
     decisions = csv(built, PREDICTIVE, "decisions.csv")
     late = decisions[decisions["Stage"] == "category exclusion"]
     assert {"Disposition", "Endotoxin (EU/mL)"} <= set(late["Parameter"])
-    assert all(reason.startswith("PTF 'Available At' is") for reason in late["Reason"])
+    assert all(reason.startswith("Catalog 'Available At' is") for reason in late["Reason"])
     dataset = csv(built, PREDICTIVE, "dataset.csv")
     assert "Disposition" not in dataset.columns
 
@@ -331,16 +331,17 @@ def test_the_report_states_what_the_table_is_for(built):
 
 def test_provenance_records_the_inputs_this_stage_actually_read(built):
     report = payload(built, PREDICTIVE)
-    inputs = {row[0]: row for row in table_with(report, "Where it was read from")["rows"]}
-    assert set(inputs) == {"pvf", "ptf"}
+    rows = table_with(report, "Where it was read from")["rows"]
+    inputs = {row[0].replace("\\_", "_"): row for row in rows}
+    assert set(inputs) == {"batch_table", "catalog"}
     assert all(len(row[3]) == 64 for row in inputs.values())
     log = artifact(built, PREDICTIVE, "run.log").read_text(encoding="utf-8")
     assert "Task 'ghent_car_expression'" in log
-    assert "PVF build" not in log, "an earlier stage's events do not belong to this run"
+    assert "Batch table build" not in log, "an earlier stage's events do not belong to this run"
 
 
 def test_the_report_is_one_file_with_its_runtime_named(built):
-    from pvf import stlite
+    from ml import stlite
 
     page = artifact(built, PREDICTIVE, "report.html").read_text(encoding="utf-8")
     assert page.startswith("<!doctype html>")
@@ -373,22 +374,28 @@ def test_a_task_names_itself_in_its_report(built):
 # ---------------------------------------------------------------------------
 # The upstream manifests, and the new report sections
 # ---------------------------------------------------------------------------
-def test_the_task_carries_the_ptf_and_pvf_manifests_of_its_input(built):
-    from pvf import provenance
+def test_the_task_carries_the_catalog_and_batch_table_manifests_of_its_input(built):
+    from ml import provenance
 
     record = manifest(built, PREDICTIVE)
     assert record["upstream_manifests"] == {
-        "ptf": "inputs/ptf_manifest.json",
-        "pvf": "inputs/pvf_manifest.json",
+        "catalog": "inputs/catalog_manifest.json",
+        "batch_table": "inputs/batch_table_manifest.json",
     }
-    pvf = json.loads(artifact(built, PREDICTIVE, "pvf_manifest.json").read_text(encoding="utf-8"))
-    ptf = json.loads(artifact(built, PREDICTIVE, "ptf_manifest.json").read_text(encoding="utf-8"))
-    # The PVF manifest is about the very file this task read.
-    assert pvf["pvf"]["sha256"] == provenance.file_sha256(built["config"]["paths"]["pvf"])
-    assert pvf["pvf"]["rows"] == len(built["pvf"])
-    missing = set(pvf["ptf_parameters_not_in_pvf"])
-    assert missing and not missing & set(built["pvf"].columns)
-    assert "Local Comment" in ptf["not_in_ptf"]["Ghent PHF"]
+    batch_table = json.loads(
+        artifact(built, PREDICTIVE, "batch_table_manifest.json").read_text(encoding="utf-8")
+    )
+    catalog = json.loads(
+        artifact(built, PREDICTIVE, "catalog_manifest.json").read_text(encoding="utf-8")
+    )
+    # The batch table manifest is about the very file this task read.
+    assert batch_table["batch_table"]["sha256"] == provenance.file_sha256(
+        built["config"]["paths"]["batch_table"]
+    )
+    assert batch_table["batch_table"]["rows"] == len(built["batch_table"])
+    missing = set(batch_table["catalog_parameters_not_in_batch_table"])
+    assert missing and not missing & set(built["batch_table"].columns)
+    assert "Local Comment" in catalog["not_in_catalog"]["Ghent PHF"]
     assert not any("manifest" in warning for warning in record["warnings"])
 
 

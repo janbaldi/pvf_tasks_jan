@@ -1,4 +1,4 @@
-# A demo task workspace written by `python -m pvf.demo`. Its runs go to runs/.
+# A demo task workspace written by `python -m ml.demo`. Its runs go to runs/.
 config: ../../config.yaml
 task:
   name: ghent_car_expression

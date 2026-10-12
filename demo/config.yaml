@@ -1,8 +1,8 @@
-# The demo config, written by `python -m pvf.demo`. Every source under data/raw
+# The demo config, written by `python -m ml.demo`. Every source under data/raw
 # is made up. Every path below is relative to this file.
 seed: 20260917
 paths:
-  ptf: data/raw/PTF.xlsx
+  catalog: data/raw/catalog.xlsx
   phf_ghent: data/raw/phf_ghent.xlsx
   phf_raritan: data/raw/phf_raritan.xlsx
   param_mapping: data/raw/parameter_requirements.xlsx
@@ -13,7 +13,7 @@ paths:
   site_maps:
   - data/raw/site_map_hannelore.xlsx
   - data/raw/site_map_meeting.xlsx
-  pvf: data/processed/PVF.xlsx
+  batch_table: data/processed/batch_table.xlsx
   new_parameters: data/processed/new_parameters.csv
 sources:
   location: local
@@ -21,7 +21,7 @@ sources:
   fallback_to_local: false
 upload:
   enabled: false
-ptf:
+catalog:
   write_new_parameters: true
 build:
   write_parquet: true

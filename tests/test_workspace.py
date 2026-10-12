@@ -1,8 +1,8 @@
 """Config, task workspaces, manifests, and the fixes the review asked for.
 
-``config.yaml`` names the one PTF and the one PVF and holds every SharePoint
+``config.yaml`` names the one catalog and the one batch table and holds every SharePoint
 location; each task is a workspace whose runs carry the inputs they read; every
-manifest has one format; a task can leave out whole PTF categories; a column constant
+manifest has one format; a task can leave out whole catalog categories; a column constant
 to measurement precision never reaches a model; and a recipe can be read back
 and applied.
 """
@@ -20,8 +20,8 @@ import yaml
 
 import dummy_data
 from conftest import EXPLORATORY, PREDICTIVE, ROOT, artifact, csv
-from pvf import cli, corrections, dataset, encode, manifest, recipe, scaffold, taskconfig
-from pvf import config as workspace
+from ml import cli, corrections, dataset, encode, manifest, recipe, scaffold, taskconfig
+from ml import config as workspace
 
 CONFIG_TEXT = (ROOT / "config.yaml").read_text(encoding="utf-8")
 
@@ -38,7 +38,7 @@ def test_the_package_holds_no_sharepoint_address():
 
 def test_the_shipped_config_is_a_valid_config():
     config = workspace.load(ROOT / "config.yaml")
-    assert config["paths"]["pvf"] == str(Path("~/pvf_data/PVF.xlsx").expanduser())
+    assert config["paths"]["batch_table"] == str(Path("~/ml_data/batch_table.xlsx").expanduser())
     assert len(corrections.load((config.get("cleaning") or {}).get("corrections"))) > 5
 
 
@@ -69,33 +69,36 @@ def test_sharepoint_locations_come_from_the_config(tmp_path):
 def test_the_env_file_beside_the_config_is_loaded_with_it(tmp_path, monkeypatch):
     config_path = tmp_path / "config.yaml"
     config_path.write_text(CONFIG_TEXT)
-    (tmp_path / ".env").write_text("PVF_TEST_SECRET=from-file\nMODE=DEV\n")
-    monkeypatch.delenv("PVF_TEST_SECRET", raising=False)
+    (tmp_path / ".env").write_text("ML_TEST_SECRET=from-file\nMODE=DEV\n")
+    monkeypatch.delenv("ML_TEST_SECRET", raising=False)
     monkeypatch.setenv("MODE", "PRD")  # the shell wins over the file
     config = workspace.load(config_path)
     import os
 
-    assert os.environ["PVF_TEST_SECRET"] == "from-file"
+    assert os.environ["ML_TEST_SECRET"] == "from-file"
     assert os.environ["MODE"] == "PRD"
     assert config["__env__"].endswith(".env")
     assert "__env__" not in workspace.settings(config), "never part of the config digest"
-    monkeypatch.delenv("PVF_TEST_SECRET")
+    monkeypatch.delenv("ML_TEST_SECRET")
 
 
 def test_the_upload_target_comes_from_the_config_or_the_environment(monkeypatch):
-    config = {"paths": {"pvf": "/x/PVF.xlsx"}, "upload": {"enabled": True, "drive_id": "D"}}
+    config = {
+        "paths": {"batch_table": "/x/batch_table.xlsx"},
+        "upload": {"enabled": True, "drive_id": "D"},
+    }
     with pytest.raises(workspace.ConfigError, match="upload.path"):
         workspace.upload_target(config)
-    monkeypatch.setenv("DATA_LINK", "Reports/PVF/")
+    monkeypatch.setenv("DATA_LINK", "Reports/batch table/")
     target = workspace.upload_target(config)
-    assert target["location"] == "SharePoint D: Reports/PVF/PVF.xlsx"
+    assert target["location"] == "SharePoint D: Reports/batch table/batch_table.xlsx"
 
 
 @pytest.mark.parametrize(
     ("change", "field"),
     [
         ({"sources": {"location": "cloud"}}, "sources.location"),
-        ({"sharepoint": {"ptf": {"sheet": "x"}}}, "sharepoint.ptf.path"),
+        ({"sharepoint": {"catalog": {"sheet": "x"}}}, "sharepoint.catalog.path"),
         ({"cleaning": {"censord": "half"}}, "cleaning.censord"),
         ({"features": {"co2": 5}}, "features.co2"),
         ({"tasks": {"target": "x"}}, "unknown setting"),
@@ -126,13 +129,13 @@ def test_the_config_is_found_above_the_working_directory(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # A task is a workspace of its own
 # ---------------------------------------------------------------------------
-def test_a_new_task_is_a_workspace_that_reads_the_configured_pvf(built, tmp_path):
+def test_a_new_task_is_a_workspace_that_reads_the_configured_batch_table(built, tmp_path):
     folder = tmp_path / "analyses" / "my_question"
     path = scaffold.init(folder, "FP Flow CAR+ (%)", config=built["config_path"])
     assert path == folder.resolve() / "task.yaml"
     spec = taskconfig.load(folder)  # no config passed: the task names its own
     assert spec.name == "my_question"
-    assert spec.pvf == Path(built["config"]["paths"]["pvf"])
+    assert spec.batch_table == Path(built["config"]["paths"]["batch_table"])
     assert spec.output_root == folder.resolve() / "runs"
 
 
@@ -141,7 +144,7 @@ def test_a_task_without_inputs_or_config_says_what_to_do(tmp_path):
     path.write_text(
         yaml.safe_dump({"task": {"name": "t"}, "target": {"column": "x"}}), encoding="utf-8"
     )
-    with pytest.raises(taskconfig.TaskConfigError, match="inputs.pvf.*config.yaml"):
+    with pytest.raises(taskconfig.TaskConfigError, match="inputs.batch_table.*config.yaml"):
         taskconfig.load(tmp_path)
 
 
@@ -158,7 +161,7 @@ def test_init_links_the_task_to_the_config_it_was_made_with(built, tmp_path):
     assert cli.main(["--config", str(built["config_path"]), "init", str(folder)]) == 0
     text = (folder / "task.yaml").read_text(encoding="utf-8")
     assert "\nconfig: " in text and "# config:" not in text
-    assert taskconfig.load(folder).pvf == Path(built["config"]["paths"]["pvf"])
+    assert taskconfig.load(folder).batch_table == Path(built["config"]["paths"]["batch_table"])
 
 
 def test_inside_a_workspace_no_task_needs_naming(built, monkeypatch, caplog):
@@ -170,13 +173,16 @@ def test_inside_a_workspace_no_task_needs_naming(built, monkeypatch, caplog):
 
 def test_a_run_carries_its_inputs_and_can_be_redone_from_its_folder_alone(built):
     run = built["packages"][PREDICTIVE]
-    pvf = Path(built["config"]["paths"]["pvf"])
-    assert (run / "inputs" / "PVF.xlsx").read_bytes() == pvf.read_bytes()
-    assert (run / "inputs" / "PTF.xlsx").read_bytes() == Path(
-        built["config"]["paths"]["ptf"]
+    batch_table = Path(built["config"]["paths"]["batch_table"])
+    assert (run / "inputs" / "batch_table.xlsx").read_bytes() == batch_table.read_bytes()
+    assert (run / "inputs" / "catalog.xlsx").read_bytes() == Path(
+        built["config"]["paths"]["catalog"]
     ).read_bytes()
     settings = yaml.safe_load((run / "config" / "task.yaml").read_text(encoding="utf-8"))
-    assert settings["inputs"] == {"pvf": "../inputs/PVF.xlsx", "ptf": "../inputs/PTF.xlsx"}
+    assert settings["inputs"] == {
+        "batch_table": "../inputs/batch_table.xlsx",
+        "catalog": "../inputs/catalog.xlsx",
+    }
 
     again = cli.rerun(run)
     assert again.parent == run.parent, "the rerun is a new run of the same workspace"
@@ -184,50 +190,57 @@ def test_a_run_carries_its_inputs_and_can_be_redone_from_its_folder_alone(built)
         run / "data" / "dataset.csv"
     ).read_bytes()
     record = json.loads((again / "manifest.json").read_text(encoding="utf-8"))
-    stale = ("manifest", "PTF changed")
+    stale = ("manifest", "catalog changed")
     assert not [w for w in record["warnings"] if any(word in w for word in stale)]
 
 
 # ---------------------------------------------------------------------------
 # Stale inputs are said to be stale
 # ---------------------------------------------------------------------------
-def test_a_build_says_when_the_ptf_check_found_new_parameters(built):
-    record = manifest.read(Path(built["config"]["paths"]["pvf"]).parent / "pvf_manifest.json")
-    assert any("`pvf ptf` found" in warning for warning in record["warnings"])
+def test_a_build_says_when_the_catalog_check_found_new_parameters(built):
+    record = manifest.read(
+        Path(built["config"]["paths"]["batch_table"]).parent / "batch_table_manifest.json"
+    )
+    assert any("`ml check-catalog` found" in warning for warning in record["warnings"])
 
 
-def test_a_task_says_when_the_ptf_changed_after_the_build(tmp_path):
-    from pvf import package, provenance
+def test_a_task_says_when_the_catalog_changed_after_the_build(tmp_path):
+    from ml import package, provenance
 
-    pvf, ptf = tmp_path / "PVF.xlsx", tmp_path / "PTF.xlsx"
-    pvf.write_bytes(b"pvf")
-    ptf.write_bytes(b"a newer ptf")
-    built_with = {"label": "ptf", "digest": "the ptf the build read"}
-    (tmp_path / "pvf_manifest.json").write_text(json.dumps({"pvf": {}, "inputs": [built_with]}))
+    batch_table, catalog = tmp_path / "batch_table.xlsx", tmp_path / "catalog.xlsx"
+    batch_table.write_bytes(b"batch_table")
+    catalog.write_bytes(b"a newer catalog")
+    built_with = {"label": "catalog", "digest": "the catalog the build read"}
+    (tmp_path / "batch_table_manifest.json").write_text(
+        json.dumps({"batch_table": {}, "inputs": [built_with]})
+    )
     spec = taskconfig.parse(
-        {"task": {"name": "t"}, "inputs": {"pvf": str(pvf), "ptf": str(ptf)},
-         "target": {"column": "y"}},
+        {
+            "task": {"name": "t"},
+            "inputs": {"batch_table": str(batch_table), "catalog": str(catalog)},
+            "target": {"column": "y"},
+        },
         tmp_path,
     )
     pkg = package.open_package(tmp_path / "runs", "t")
-    sources = [provenance.local("pvf", pvf), provenance.local("ptf", ptf)]
+    sources = [provenance.local("batch_table", batch_table), provenance.local("catalog", catalog)]
     cli._carry_upstream(pkg, spec, sources, None)
-    assert any("PTF changed after the PVF was built" in w for w in pkg.warnings)
+    assert any("catalog changed after the batch table was built" in w for w in pkg.warnings)
 
 
 # ---------------------------------------------------------------------------
-# Columns left out by their PTF category
+# Columns left out by their catalog category
 # ---------------------------------------------------------------------------
-def test_a_ptf_category_can_be_left_out_by_name(built):
-    ptf = pd.read_excel(built["config"]["paths"]["ptf"])
-    late = set(ptf.loc[ptf["Available At"] == "Post-release", "Parameter"])
+def test_a_catalog_category_can_be_left_out_by_name(built):
+    catalog = pd.read_excel(built["config"]["paths"]["catalog"])
+    late = set(catalog.loc[catalog["Available At"] == "Post-release", "Parameter"])
     decisions = csv(built, EXPLORATORY, "decisions.csv")
     excluded = decisions[decisions["Decision"] == "excluded"].set_index("Parameter")
-    present = late & set(built["pvf"].columns)
+    present = late & set(built["batch_table"].columns)
     assert present <= set(excluded.index), "every one is out, some already for another reason"
     left_out = decisions[decisions["Stage"] == "category exclusion"]
     assert len(left_out) and set(left_out["Parameter"]) <= present
-    assert (left_out["Reason"] == "PTF 'Available At' is 'Post-release'").all()
+    assert (left_out["Reason"] == "Catalog 'Available At' is 'Post-release'").all()
     columns = csv(built, EXPLORATORY, "columns.csv")
     assert not set(columns.loc[columns["Role"] == "predictor", "Source"]) & late
 
@@ -236,38 +249,38 @@ def test_include_categories_keeps_only_those_categories():
     spec = taskconfig.parse(
         {
             "task": {"name": "t"},
-            "inputs": {"pvf": "a.xlsx", "ptf": "b.xlsx"},
+            "inputs": {"batch_table": "a.xlsx", "catalog": "b.xlsx"},
             "target": {"column": "y"},
             "columns": {"include_categories": {"Category": ["Process"]}},
         },
         Path("."),
     )
-    ptf = pd.DataFrame(
+    catalog = pd.DataFrame(
         {
             "Parameter": ["kept", "qc", "blank"],
             "Value Type": ["numeric"] * 3,
             "Category": ["Process", "QC", None],
         }
     )
-    assert dataset._category_exclusions(ptf, spec) == {
-        "qc": "PTF 'Category' is 'QC', not an included category",
-        "blank": "PTF 'Category' is empty, not an included category",
+    assert dataset._category_exclusions(catalog, spec) == {
+        "qc": "Catalog 'Category' is 'QC', not an included category",
+        "blank": "Catalog 'Category' is empty, not an included category",
     }
 
 
-def test_a_category_column_the_ptf_does_not_have_is_refused():
+def test_a_category_column_the_catalog_does_not_have_is_refused():
     spec = taskconfig.parse(
         {
             "task": {"name": "t"},
-            "inputs": {"pvf": "a.xlsx", "ptf": "b.xlsx"},
+            "inputs": {"batch_table": "a.xlsx", "catalog": "b.xlsx"},
             "target": {"column": "y"},
             "columns": {"exclude_categories": {"Categroy": ["QC"]}},
         },
         Path("."),
     )
-    ptf = pd.DataFrame({"Parameter": ["x"], "Value Type": ["numeric"], "Category": ["QC"]})
+    catalog = pd.DataFrame({"Parameter": ["x"], "Value Type": ["numeric"], "Category": ["QC"]})
     with pytest.raises(dataset.TaskRefused, match="no 'Categroy' column"):
-        dataset._category_exclusions(ptf, spec)
+        dataset._category_exclusions(catalog, spec)
 
 
 # ---------------------------------------------------------------------------
@@ -299,10 +312,10 @@ def test_a_broken_corrections_table_names_the_rule(tmp_path):
 # One manifest format
 # ---------------------------------------------------------------------------
 def test_every_manifest_follows_the_one_format(built):
-    processed = Path(built["config"]["paths"]["pvf"]).parent
+    processed = Path(built["config"]["paths"]["batch_table"]).parent
     paths = [
-        processed / "ptf_manifest.json",
-        processed / "pvf_manifest.json",
+        processed / "catalog_manifest.json",
+        processed / "batch_table_manifest.json",
         *(artifact(built, task, "manifest.json") for task in (PREDICTIVE, EXPLORATORY)),
     ]
     stages = []
@@ -311,15 +324,20 @@ def test_every_manifest_follows_the_one_format(built):
         record = manifest.read(path)
         assert list(record)[: len(manifest.ENVELOPE) - 1] == list(manifest.ENVELOPE[:-1])
         stages.append(record["stage"])
-    assert stages == ["ptf", "pvf", "task", "task"]
+    assert stages == ["catalog", "batch_table", "task", "task"]
 
 
 def test_a_manifest_names_the_files_it_describes_relative_to_itself(built):
-    record = manifest.read(Path(built["config"]["paths"]["pvf"]).parent / "pvf_manifest.json")
+    record = manifest.read(
+        Path(built["config"]["paths"]["batch_table"]).parent / "batch_table_manifest.json"
+    )
     written = {entry["what"]: entry["path"] for entry in record["outputs"]}
-    assert written["PVF"] == "PVF.xlsx" and written["PVF (Parquet)"] == "PVF.parquet"
-    assert record["pvf"]["content_sha256"]
-    assert {entry["label"] for entry in record["inputs"]} >= {"ptf", "phf_ghent", "site_map_1"}
+    assert (
+        written["Batch table"] == "batch_table.xlsx"
+        and written["Batch table (Parquet)"] == "batch_table.parquet"
+    )
+    assert record["batch_table"]["content_sha256"]
+    assert {entry["label"] for entry in record["inputs"]} >= {"catalog", "phf_ghent", "site_map_1"}
 
 
 def test_a_changed_output_is_caught(built, tmp_path):
@@ -340,7 +358,7 @@ def test_a_batch_twice_in_a_cohort_is_refused():
     spec = taskconfig.parse(
         {
             "task": {"name": "s"},
-            "inputs": {"pvf": "a.xlsx", "ptf": "b.xlsx"},
+            "inputs": {"batch_table": "a.xlsx", "catalog": "b.xlsx"},
             "target": {"column": "outcome"},
             "columns": {"id": "Patient Lot/Batch #"},
         },
@@ -393,8 +411,8 @@ def test_a_recipe_applied_to_the_cohort_reproduces_the_package(built):
     state = json.loads(artifact(built, PREDICTIVE, "recipe.json").read_text(encoding="utf-8"))
     # The package's target encoding is cross-fitted; the recipe applies the frozen means.
     crossfitted = {f["name"] for f in state["target_encoding"].get("columns", {}).values()}
-    pvf = built["pvf"].set_index("Patient Lot/Batch #")
-    rows = pvf.loc[transformed["Patient Lot/Batch #"]].copy().reset_index()
+    batch_table = built["batch_table"].set_index("Patient Lot/Batch #")
+    rows = batch_table.loc[transformed["Patient Lot/Batch #"]].copy().reset_index()
     applied = recipe.apply(run, rows)
     compared = [c for c in applied.columns if c not in crossfitted]
     assert compared

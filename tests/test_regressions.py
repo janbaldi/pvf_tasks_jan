@@ -21,7 +21,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import dummy_data  # noqa: E402
-from pvf import (  # noqa: E402
+from ml import (  # noqa: E402
     cli,
     dataset,
     decorrelate,
@@ -32,7 +32,7 @@ from pvf import (  # noqa: E402
     provenance,
     taskconfig,
 )
-from pvf.encode import TaskParams  # noqa: E402
+from ml.encode import TaskParams  # noqa: E402
 
 
 def params(**overrides) -> TaskParams:
@@ -47,7 +47,7 @@ def params(**overrides) -> TaskParams:
 def minimal_task(**overrides) -> dict:
     task = {
         "task": {"name": "probe", "seed": 1},
-        "inputs": {"pvf": "PVF.xlsx", "ptf": "PTF.xlsx"},
+        "inputs": {"batch_table": "batch_table.xlsx", "catalog": "catalog.xlsx"},
         "cohort": {"sites": ["Ghent"]},
         "target": {"column": "FP Flow CAR+ (%)"},
         "columns": {"id": "Patient Lot/Batch #", "group": "Vector Lot"},
@@ -74,13 +74,13 @@ def test_paths_resolve_against_the_task_file_wherever_it_is_run_from(tmp_path, m
     path = write_task(tmp_path, minimal_task())
     monkeypatch.chdir(tmp_path.parent)
     spec = taskconfig.load(path)
-    assert spec.pvf == tmp_path / "PVF.xlsx"
+    assert spec.batch_table == tmp_path / "batch_table.xlsx"
     assert spec.output_root == tmp_path / "runs", "runs live in the task's own workspace"
 
     absolute = minimal_task()
-    absolute["inputs"]["pvf"] = str(tmp_path / "elsewhere" / "PVF.xlsx")
+    absolute["inputs"]["batch_table"] = str(tmp_path / "elsewhere" / "batch_table.xlsx")
     spec = taskconfig.load(write_task(tmp_path, absolute, "absolute.yaml"))
-    assert spec.pvf == tmp_path / "elsewhere" / "PVF.xlsx"
+    assert spec.batch_table == tmp_path / "elsewhere" / "batch_table.xlsx"
 
 
 @pytest.mark.parametrize(
@@ -591,14 +591,14 @@ def test_a_failed_run_keeps_its_folder_and_says_it_failed(tmp_path):
 
     pkg = package.open_package(tmp_path, "probe")
     pkg.write_text("run.log", "something went wrong")
-    folder = pkg.fail("ValueError: the PVF was not readable")
+    folder = pkg.fail("ValueError: the batch table was not readable")
     assert folder.name.endswith(package.FAILED_SUFFIX)
     record = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
     assert record["status"] == "failed" and "not readable" in record["failure"]
 
 
 def test_a_report_that_fails_cannot_leave_a_finished_package(tmp_path, monkeypatch):
-    from pvf import report
+    from ml import report
 
     directory = tmp_path / "demo"
     config_path = dummy_data.write_config(directory)
@@ -627,7 +627,7 @@ def test_a_report_that_fails_cannot_leave_a_finished_package(tmp_path, monkeypat
 def test_a_sharepoint_read_is_recorded_by_location_not_by_a_local_hash(tmp_path):
     """The bug this covers: with sources.location: sharepoint, provenance hashed
     the local copies named in config, which did not exist, and warned per file."""
-    from pvf import config as workspace
+    from ml import config as workspace
 
     config = {
         "paths": {"phf_ghent": str(tmp_path / "absent" / "PHF.xlsm")},
@@ -659,7 +659,7 @@ def test_a_sharepoint_read_is_recorded_by_location_not_by_a_local_hash(tmp_path)
 # The console
 # ---------------------------------------------------------------------------
 def test_the_scanner_bounces_end_to_end_and_stays_off_a_pipe():
-    from pvf.logger import _Scanner, log
+    from ml.logger import _Scanner, log
 
     scanner = _Scanner(log)
     cycle = [scanner.frame(tick) for tick in range(2 * (scanner.TRACK - 1))]
@@ -678,7 +678,7 @@ def test_a_cp1252_console_gets_ascii_and_never_an_encoding_error(monkeypatch):
     import io as stdio
     import time
 
-    from pvf.logger import ASCII, PipelineLogger
+    from ml.logger import ASCII, PipelineLogger
 
     console = stdio.TextIOWrapper(stdio.BytesIO(), encoding="cp1252")
     monkeypatch.setattr(sys, "stdout", console)

@@ -1564,10 +1564,22 @@ def _task_clusters(run: TaskRun, membership: list[dict]) -> dict | None:
                 "keep_one": "One member of each group was kept and the others dropped.",
                 "residualise": "One member of each group was kept and the others replaced by what "
                 "is left of them once the retained ones are accounted for.",
+                "summarise": "Each group was replaced by one score: the mean of its z-scored "
+                "members, signs aligned to the representative.",
             }.get(report.action, "")
+            + f" Each group was redrawn on {decorrelate.STABILITY_RESAMPLES} subsamples of "
+            f"{decorrelate.STABILITY_FRACTION:.0%} of the batches; only groups found again in "
+            f"at least {run.spec.clustering.min_stability:.0%} of them were acted on, and "
+            "only those are explanation groups in metadata/groups.json."
+            + (
+                " Correlations were computed within site — each site's mean removed first — "
+                "so a group means the parameters move together, not that the sites differ."
+                if report.within_site
+                else ""
+            )
         )
     ]
-    if report.transforms:
+    if report.action == "residualise":
         blocks.append(
             md(
                 "Residualising does not preserve everything the group held, and it does not "
@@ -1594,6 +1606,8 @@ def _task_clusters(run: TaskRun, membership: list[dict]) -> dict | None:
                     "Cluster",
                     "Members",
                     "Representative",
+                    "Stability",
+                    "Action",
                     "Smallest shared batches",
                     "Max |r| before",
                     "Max |r| after",
@@ -1606,6 +1620,8 @@ def _task_clusters(run: TaskRun, membership: list[dict]) -> dict | None:
                         cluster.name,
                         len(cluster.members),
                         cluster.representative,
+                        _number_or_none(cluster.stability),
+                        cluster.action,
                         cluster.min_overlap,
                         _number_or_none(cluster.corr_before),
                         _number_or_none(cluster.corr_after),
@@ -1615,7 +1631,19 @@ def _task_clusters(run: TaskRun, membership: list[dict]) -> dict | None:
                     ]
                     for cluster in report.clusters
                 ],
-                formats=[None, "%d", None, "%d", "%.2f", "%.2f", "%.1f", "%.1f", "%d"],
+                formats=[
+                    None,
+                    "%d",
+                    None,
+                    "%.2f",
+                    None,
+                    "%d",
+                    "%.2f",
+                    "%.2f",
+                    "%.1f",
+                    "%.1f",
+                    "%d",
+                ],
                 filter_column="Representative",
                 note="An empty correlation or VIF cell is undefined — too few complete rows to "
                 "compute it — which is not the same as zero or as infinite. VIF is computed on "

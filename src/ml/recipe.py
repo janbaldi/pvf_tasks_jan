@@ -69,6 +69,10 @@ class TaskTransformer(TransformerMixin, BaseEstimator):
     on the training rows, as a task run does. ``X`` is the cohort (every batch table
     column, one row per batch); the grouping column, when present, keeps the
     target encoding's folds whole.
+
+    ``run`` is a finished run of the task: its groups of correlated parameters
+    (``metadata/groups.json``) are used in every fold instead of being found
+    again, so every fold explains the same groups.
     """
 
     def __init__(
@@ -76,10 +80,12 @@ class TaskTransformer(TransformerMixin, BaseEstimator):
         spec: taskconfig.TaskSpec | None = None,
         catalog: pd.DataFrame | None = None,
         predictors: tuple[str, ...] = (),
+        run: str | Path | None = None,
     ):
         self.spec = spec
         self.catalog = catalog
         self.predictors = predictors
+        self.run = run
 
     def _fit(self, X: pd.DataFrame, y) -> pd.Series:
         y = pd.Series(np.asarray(y, dtype="float64"), index=X.index)
@@ -94,8 +100,12 @@ class TaskTransformer(TransformerMixin, BaseEstimator):
             for name in (self.spec.roles.id, self.spec.roles.group, self.spec.roles.patient)
             if name
         } | {"__target__"}
+        fixed = None
+        if self.run is not None:
+            groups = json.loads((Path(self.run) / "metadata" / "groups.json").read_text())
+            fixed = [g["parameters"] for g in groups.values() if len(g["parameters"]) > 1]
         self.preprocessor_ = fit_preprocessing(
-            X, y, predictors, catalog, self.spec, result, reserved
+            X, y, predictors, catalog, self.spec, result, reserved, fixed_groups=fixed
         )
         self.feature_names_out_ = np.asarray(self.preprocessor_.output_columns, dtype=object)
         return y

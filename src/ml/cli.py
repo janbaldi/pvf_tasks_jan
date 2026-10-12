@@ -816,6 +816,7 @@ def _write_package(pkg: package.TaskPackage, result: dataset.TaskResult, final: 
     ):
         pkg.write_csv(TASK_LAYOUT["missingness.csv"], missingness.rows(result.missingness))
     pkg.write_json(TASK_LAYOUT["encoding.json"], result.recipe)
+    pkg.write_json(TASK_LAYOUT["groups.json"], result.groups)
 
 
 def _log_text(events) -> str:

@@ -40,6 +40,7 @@ ARTEFACTS = {
     "metadata/parameters.csv": "parameter decisions",
     "metadata/batches.csv": "cohort membership",
     "metadata/clusters.csv": "correlated groups",
+    "metadata/groups.json": "explanation groups",
     "metadata/missingness.csv": "parameters missing together",
     "metadata/encoding.json": "fitted preprocessing",
     "report/report.html": "report",

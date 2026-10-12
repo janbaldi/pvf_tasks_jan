@@ -43,7 +43,7 @@ OPERATORS = (
 TARGET_TYPES = ("numeric", "binary")
 MISSING_POLICIES = ("exclude", "include")
 #: What may be done about a group of parameters that move together.
-CLUSTER_ACTIONS = ("off", "describe", "keep_one", "residualise")
+CLUSTER_ACTIONS = ("off", "describe", "keep_one", "residualise", "summarise")
 IMPUTATION = ("none", "median")
 
 CORRELATION_METHODS = ("spearman", "pearson")
@@ -144,6 +144,10 @@ class Clustering:
     min_size: int = 2
     min_overlap: int = 10
     prefer: tuple[str, ...] = ()
+    #: A catalog column whose shared value names a group (and its summarise score).
+    name_by: str = ""
+    #: Act on a group only when it comes back in at least this share of subsamples.
+    min_stability: float = 0.8
 
 
 @dataclass(frozen=True)
@@ -597,7 +601,16 @@ def parse(
 
     cluster_raw = _known(
         raw.get("clustering"),
-        ("action", "method", "threshold", "min_size", "min_overlap", "prefer"),
+        (
+            "action",
+            "method",
+            "threshold",
+            "min_size",
+            "min_overlap",
+            "prefer",
+            "name_by",
+            "min_stability",
+        ),
         "clustering",
         errors,
     )
@@ -612,6 +625,10 @@ def parse(
             cluster_raw, "min_overlap", "clustering", errors, 10, low=3, integer=True
         ),
         prefer=_names(cluster_raw, "prefer", "clustering", errors),
+        name_by=_text(cluster_raw, "name_by", "clustering", errors),
+        min_stability=_number(
+            cluster_raw, "min_stability", "clustering", errors, 0.8, low=0.0, high=1.0
+        ),
     )
 
     missingness = Missingness(

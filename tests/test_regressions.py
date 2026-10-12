@@ -99,6 +99,7 @@ def test_paths_resolve_against_the_task_file_wherever_it_is_run_from(tmp_path, m
         ({"availability": {"cutoff": "Harvest"}}, "(root).availability: unknown setting"),
         ({"predictors": {"exclude_by_catalog": ["Release"]}}, "predictors.exclude_by_catalog"),
         ({"columns": {"id": "x"}}, "(root).columns: unknown setting"),
+        ({"clustering": {"min_stability": 2}}, "clustering.min_stability"),
         ({"task": {"unknown_setting": 1}}, "unknown setting"),
     ],
 )
@@ -492,6 +493,55 @@ def test_a_residual_can_be_applied_to_new_rows_without_refitting():
     # And on rows the fit never saw.
     fresh = frame.iloc[:3] * 1.5
     assert decorrelate.transform(fresh, state)[residual].notna().all()
+
+
+def test_summarise_replaces_a_group_by_one_score_with_signs_aligned():
+    frame = cluster_frame()
+    report = decorrelate.fit(
+        frame, ["up", "down"], params(cluster_min_overlap=5), action="summarise"
+    )
+    cluster = report.clusters[0]
+    assert list(cluster.frame.columns) == [cluster.summary["output"]]
+    assert cluster.summary["signs"] == {
+        cluster.representative: 1.0,
+        **{m: -1.0 for m in cluster.members if m != cluster.representative},
+    }, "the negatively correlated member counts the same way round"
+    # The score of new rows is computed with what was fitted, nothing refitted.
+    again = decorrelate.transform(frame, report.state())[cluster.summary["output"]]
+    pd.testing.assert_series_equal(again, cluster.frame.iloc[:, 0], check_names=False)
+    assert again.corr(frame[cluster.representative]) > 0.9
+
+
+def test_a_group_below_the_stability_bar_is_described_not_changed():
+    frame = cluster_frame()
+    stable = decorrelate.fit(
+        frame, ["up", "down"], params(cluster_min_overlap=5), action="keep_one"
+    )
+    assert 0.0 <= stable.clusters[0].stability <= 1.0
+    assert stable.clusters[0].action == "keep_one" and stable.changed
+    unstable = decorrelate.fit(
+        frame,
+        ["up", "down"],
+        params(cluster_min_overlap=5),
+        action="keep_one",
+        min_stability=1.01,
+    )
+    assert unstable.clusters[0].action == "describe" and not unstable.changed
+    assert decorrelate.transform(frame, unstable.state()).empty
+
+
+def test_two_sites_at_different_levels_do_not_make_a_group():
+    """The bug this covers: pooled over sites, two unrelated parameters correlate
+    only because one site runs both of them higher."""
+    rng = np.random.default_rng(3)
+    n = 40
+    site = pd.Series(["SiteA"] * (n // 2) + ["SiteB"] * (n // 2))
+    offset = np.where(site == "SiteB", 10.0, 0.0)
+    frame = pd.DataFrame({"a": rng.normal(size=n) + offset, "b": rng.normal(size=n) + offset})
+    knobs = params(cluster_min_overlap=5, cluster_corr_threshold=0.7)
+    assert decorrelate.fit(frame, ["a", "b"], knobs).clusters, "pooled, they look related"
+    within = decorrelate.fit(frame, ["a", "b"], knobs, sites=site)
+    assert within.within_site and not within.clusters
 
 
 def test_too_little_data_keeps_the_parameter_rather_than_inventing_a_residual():

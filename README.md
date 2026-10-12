@@ -1,16 +1,25 @@
-# batch_table — training datasets from CAR-T manufacturing data
+# ml — training datasets from CAR-T manufacturing data
 
-Turn the site batch records into one checked table of every batch (the batch table), and
-cut that table into a documented, reproducible training dataset for each
-question you want to model.
+Turn the site batch records into one checked table of every batch, and cut that
+table into a documented, reproducible training dataset for each question you
+want to model.
 
-- **`ml check-catalog`** checks that the catalog — the list of parameters and their metadata —
-  still covers everything the source systems record.
-- **`ml build`** merges both sites into the batch table: one row per batch, cleaned, with
-  derived features.
-- **`ml task run`** turns the batch table into one training dataset for one question: a
-  cohort, a target and the columns you choose. It also writes a report and every
-  decision behind it.
+Two files sit at the centre:
+
+- the **parameter catalog** (`catalog.xlsx`, formerly the PTF): every parameter
+  the batch table may hold, with its metadata — value type, process stage and
+  any other column you add;
+- the **batch table** (`batch_table.xlsx`, formerly the PVF): one row per batch,
+  both sites merged, cleaned, with derived features.
+
+Three steps use them:
+
+- **`ml check-catalog`** checks that the catalog still covers everything the
+  source systems record.
+- **`ml build`** builds the batch table from the sources and the catalog.
+- **`ml task run`** turns the batch table into one training dataset for one
+  question: a cohort, a target and the predictors you choose. It also writes a
+  report and every decision behind it.
 
 What it does **not** do: fit models, split data into train/validation sets, or
 decide by itself which parameters come too late in the process. The dataset is
@@ -51,15 +60,15 @@ The repository ships a demo: made-up data with the same shape as the real
 sources. These five commands build a batch table and two training datasets from it.
 
 ```bash
-uv run python -m ml.demo demo       # writes demo/data/raw/… (the made-up sources)
+uv run python -m ml.demo demo     # writes demo/data/raw/… (the made-up sources)
 cd demo
-uv run ml check-catalog                       # Ghent PHF: columns the catalog does not list (1) …
-uv run ml build                     # Written — 70 batches × 221 columns
-uv run ml task run --task tasks        # runs both example tasks in demo/tasks/
+uv run ml check-catalog           # Ghent PHF: columns the catalog does not list (1) …
+uv run ml build                   # Written — 70 batches × 221 columns
+uv run ml task run --task tasks   # runs both example tasks in demo/tasks/
 ```
 
 Each task writes a run folder such as
-`demo/tasks/ghent_car_expression/runs/20261012-154806-f3dc66/`. Open
+`demo/tasks/ghent_car_expression/runs/20261012-162142-b8c077/`. Open
 `report/report.html` in it in a browser, or load `data/dataset.csv`.
 
 ## Set up with your own data
@@ -71,7 +80,7 @@ sources or the catalog change.
 
 ```
 ~/ml_data/
-  catalog.xlsx                 the parameter list and its metadata
+  catalog.xlsx             the parameter catalog
   raw/                     local copies of the sources
     phf_ghent.xlsx
     phf_raritan.xlsx
@@ -91,8 +100,8 @@ annotated. These are the paths you need to set:
 
 ```yaml
 paths:
-  catalog: ~/ml_data/catalog.xlsx                 # read by ml check-catalog, ml build and every task
-  batch_table: ~/ml_data/batch_table.xlsx                 # written by ml build
+  catalog: ~/ml_data/catalog.xlsx           # read by ml check-catalog, ml build and every task
+  batch_table: ~/ml_data/batch_table.xlsx   # written by ml build
   phf_ghent: ~/ml_data/raw/phf_ghent.xlsx
   phf_raritan: ~/ml_data/raw/phf_raritan.xlsx
   param_mapping: ~/ml_data/raw/parameter_requirements.xlsx
@@ -115,14 +124,14 @@ next to `config.yaml` and fill in the credentials. `.env` is git-ignored.
 **4. Check, then build:**
 
 ```bash
-uv run ml validate      # validates config.yaml and the corrections table; runs nothing
-uv run ml check-catalog        # lists source columns the catalog does not know about
-uv run ml build      # writes batch_table.xlsx, batch_table.parquet, build_report.html and batch_table_manifest.json
+uv run ml validate        # validates config.yaml and the corrections table; runs nothing
+uv run ml check-catalog   # lists source columns the catalog does not know about
+uv run ml build           # writes batch_table.xlsx (+ .parquet), build_report.html, a manifest
 ```
 
-`ml check-catalog` writes `catalog_report.html` and `new_parameters.csv`. Add any parameter
-you want in the batch table to the catalog, then run `ml build`. If you build without
-doing that, `ml build` warns you:
+`ml check-catalog` writes `catalog_report.html` and `new_parameters.csv`. Add
+every parameter you want in the batch table to the catalog, then run `ml build`.
+If you build without doing that, `ml build` warns you:
 
 ```
 WARN   cli  The last `ml check-catalog` found 6 parameters the sources record and the catalog does not list; …
@@ -130,8 +139,8 @@ WARN   cli  The last `ml check-catalog` found 6 parameters the sources record an
 
 ## Walkthrough: your first task
 
-A **task** is one question asked of the batch table. It lives in its own folder, the
-*task workspace*, which holds its `task.yaml` and every run of it. This
+A **task** is one question asked of the batch table. It lives in its own folder,
+the *task workspace*, which holds its `task.yaml` and every run of it. This
 walkthrough uses the demo from the [quick start](#quick-start); run it from
 `demo/`.
 
@@ -156,7 +165,7 @@ so the task finds its batch table and catalog from wherever you run it.
 Replace the contents of `tasks/car_expression/task.yaml` with:
 
 ```yaml
-config: ../../config.yaml            # the config.yaml that names the batch table and catalog
+config: ../../config.yaml            # names the batch table and catalog
 
 task:
   name: car_expression
@@ -174,17 +183,19 @@ target:                              # what the model will predict
   column: FP Flow CAR+ (%)
   type: numeric
 
-columns:                             # which batch table columns go in
-  id: 'Patient Lot/Batch #'          # kept as metadata, never a predictor
-  group: Vector Lot                  # kept as metadata, for grouped cross-validation
+roles:                               # metadata columns, never predictors
+  id: 'Patient Lot/Batch #'          # one per batch
+  group: Vector Lot                  # for grouped cross-validation later
+
+predictors:                          # which other columns may be predictors
   exclude:                           # single columns, each with its reason
     - {column: Subject Weight (kg), reason: dose per kilogram already carries it}
-  exclude_by_catalog:                # every parameter in these catalog categories
+  exclude_by_catalog:                # every parameter with these catalog values
     Value Type: [datetime]
     Available At: [Wash, Formulation, Final product, Post-thaw, Release, Post-release]
 
 clustering:
-  action: describe                # describe correlated parameters, change nothing
+  action: describe                   # describe correlated parameters, change nothing
 
 quality:
   min_non_missing: 8                 # the demo cohort is small; the default is 20
@@ -192,18 +203,22 @@ quality:
 
 What each block does:
 
-- **`cohort`** narrows the batch table's 70 batches to the ones the question is about.
+- **`cohort`** narrows the batch table's 70 batches to the ones the question is
+  about.
   `missing: include` keeps batches with no value in that column; the default,
   `exclude`, drops them. `normalise: true` compares case-insensitively and
   treats `withdrawn` as `withdrawal`.
 - **`target`** names the column to predict. Batches without a target value are
   dropped and listed in `batches.csv`.
-- **`columns`** decides which parameters become predictors. `exclude_by_catalog`
-  looks up each parameter in the catalog and leaves it out when the named catalog column
-  holds one of the listed values. Here it removes the timestamps
-  (`Value Type: datetime`) and everything the catalog marks as measured after harvest
-  (`Available At`). Any catalog column works, for example `{Category: [QC]}`.
-  `include_by_catalog` does the opposite: it keeps only the listed values.
+- **`roles`** names the columns that describe a batch rather than predict
+  anything. They go into the dataset as metadata.
+- **`predictors`** decides which of the other parameters become predictors.
+  `exclude_by_catalog` looks up each parameter in the catalog and leaves it out
+  when the named catalog column holds one of the listed values. Here it removes
+  the timestamps (`Value Type: datetime`) and everything the catalog marks as
+  measured after harvest (`Available At`). Any catalog column works, for example
+  `{Category: [QC]}`. `include_by_catalog` does the opposite: it keeps only the
+  listed values.
 
 ### 3. Check it
 
@@ -212,8 +227,8 @@ cd tasks/car_expression
 uv run ml validate
 ```
 
-Every column the task names is checked against the batch table, and every catalog column
-against the catalog. Inside a workspace you don't need `--task`. A typo shows up
+Every column the task names is checked against the batch table, and every
+catalog column against the catalog. Inside a workspace you don't need `--task`. A typo shows up
 like this, and nothing runs:
 
 ```
@@ -229,10 +244,10 @@ uv run ml task run
 
 ```
 Written — 21 batches × 114 columns
-  Task folder  …/tasks/car_expression/runs/20261012-154806-f3dc66
-  Report       …/runs/20261012-154806-f3dc66/report/report.html
-  Dataset      …/runs/20261012-154806-f3dc66/data/dataset.csv
-  Manifest     …/runs/20261012-154806-f3dc66/manifest.json
+  Task folder  …/tasks/car_expression/runs/20261012-162142-b8c077
+  Report       …/runs/20261012-162142-b8c077/report/report.html
+  Dataset      …/runs/20261012-162142-b8c077/data/dataset.csv
+  Manifest     …/runs/20261012-162142-b8c077/manifest.json
 
   WARN   dataset  Only 3 distinct Vector Lot values: any grouped cross-validation rests on 3 groups, not on 21 batches
   WARN   dataset  137 predictor columns for 21 fitted batches (p/n = 6.5): a model needs strong regularisation, …
@@ -246,16 +261,16 @@ the table really holds.
 Every run is a new folder; earlier runs are never overwritten.
 
 ```
-runs/20261012-154806-f3dc66/
-  data/dataset.csv          21 rows: id, group, 111 raw predictors, target
-  data/dataset_encoded.csv      the same rows, encoded to numbers by metadata/encoding.json
-  metadata/parameters.csv    every parameter: included or excluded, and why
-  metadata/batches.csv       every batch table batch: in or out, and which filter decided
-  metadata/dataset_columns.csv      every dataset column: role, source parameter, type, unit, meaning
-  report/report.html        the same, with figures; open it in a browser
-  inputs/                   the exact batch table and catalog this run read, and their manifests
-  config/task.yaml          the effective settings, pointing at inputs/
-  manifest.json             a checksum of every file
+runs/20261012-162142-b8c077/
+  data/dataset.csv               21 rows: id, group, 111 raw predictors, target
+  data/dataset_encoded.csv       the same rows, encoded to numbers by metadata/encoding.json
+  metadata/parameters.csv        every parameter: included or excluded, and why
+  metadata/batches.csv           every batch: in or out, and which filter decided
+  metadata/dataset_columns.csv   every dataset column: role, source, type, unit, meaning
+  report/report.html             the same, with figures; open it in a browser
+  inputs/                        the exact batch table and catalog this run read
+  config/task.yaml               the effective settings, pointing at inputs/
+  manifest.json                  a checksum of every file
 ```
 
 `parameters.csv` explains every parameter that was left out. These are real rows
@@ -278,11 +293,11 @@ The target is written under a column-safe name (`fp_flow_car` here).
 A run folder contains everything it needs to run again:
 
 ```bash
-uv run ml task rerun runs/20261012-154806-f3dc66
+uv run ml task rerun runs/20261012-162142-b8c077
 ```
 
 ```
-OK  cli  dataset.csv is identical to the one in 20261012-154806-f3dc66
+OK  cli  dataset.csv is identical to the one in 20261012-162142-b8c077
 ```
 
 The rerun reads only that folder (`config/task.yaml` and `inputs/`) and writes
@@ -292,7 +307,7 @@ even after the batch table has moved on.
 To ask a second question, create a second workspace with `ml task new`. The two
 finished examples in `demo/tasks/` show a binary target
 (`raritan_release`: `Disposition`, positive class `Released`) and residualised
-clusters (`clustering.action: linear`).
+clusters (`clustering.action: residualise`).
 
 ## Use the dataset in your modelling code
 
@@ -335,7 +350,7 @@ import glob
 import pandas as pd
 
 run = sorted(glob.glob("runs/*/"))[-1]                      # the latest run
-data = pd.read_csv(f"{run}data/dataset_encoded.csv")            # or dataset.csv for raw values
+data = pd.read_csv(f"{run}data/dataset_encoded.csv")       # or dataset.csv for raw values
 columns = pd.read_csv(f"{run}metadata/dataset_columns.csv")
 target = columns.loc[columns["Role"] == "target", "Column"].item()
 X = data.drop(columns=["Patient Lot/Batch #", "Vector Lot", target])
@@ -348,11 +363,12 @@ y, groups = data[target], data["Vector Lot"]
 nothing refitted:
 
 ```bash
-uv run ml task encode --run runs/20261012-154806-f3dc66 --batch-table ../../data/processed/batch_table.xlsx --out encoded.csv
+uv run ml task encode --run runs/20261012-162142-b8c077 \
+    --batch-table ../../data/processed/batch_table.xlsx --out encoded.csv
 ```
 
 ```
-OK  cli  70 batches encoded with 20261012-154806-f3dc66's recipe → encoded.csv
+OK  cli  70 batches encoded with 20261012-162142-b8c077's encoding → encoded.csv
 ```
 
 ## Commands
@@ -361,14 +377,14 @@ Global options come before the command: `uv run ml [--config FILE] [--debug] COM
 
 | Command | What it does |
 |---|---|
-| `ml validate [--task T]` | Validate `config.yaml`, the corrections table and the tasks against the batch table and catalog. Runs nothing. |
+| `ml validate [--task T]` | Validate `config.yaml`, the corrections table and the tasks against the batch table and catalog. Runs nothing. Inside a task workspace, also validates that task. |
 | `ml check-catalog` | Compare every source's columns with the catalog. Writes `catalog_report.html`, `catalog_manifest.json` and `new_parameters.csv` beside the batch table. |
 | `ml build [--mode PRD\|DEV]` | Build the batch table. Writes `batch_table.xlsx`, `batch_table.parquet`, `build_report.html` and `batch_table_manifest.json`. `--mode PRD` also uploads when `upload.enabled` is set. |
 | `ml task new FOLDER [--target COL] [--question TEXT] [--force]` | Create a task workspace with an annotated `task.yaml` linked to the current `config.yaml`. |
 | `ml task run [--task T]` | Run tasks. Without `--task`, runs the task in the current folder. |
 | `ml task rerun RUN_FOLDER` | Redo a finished run from its own folder and report whether `dataset.csv` is identical. |
-| `ml update [--mode M] [--task T]` | `catalog`, then `build`, then the given tasks. |
-| `ml task encode --run RUN_FOLDER [--batch-table FILE] [--out FILE]` | Encode batches (default: the configured batch table) with a run's fitted recipe. |
+| `ml update [--mode M] [--task T]` | `check-catalog`, then `build`, then the given tasks. |
+| `ml task encode --run RUN_FOLDER [--batch-table FILE] [--out FILE]` | Encode batches (default: the configured batch table) with a run's fitted encoding. |
 
 `--task` accepts a task workspace folder, a `task.yaml`, or a folder that
 contains several workspaces, and can be repeated. `--debug` shows Python
@@ -399,14 +415,14 @@ refused, and each error names its field. Quote any column name that contains
 | `target.type` | `numeric` | `numeric` or `binary`. |
 | `target.positive_class` | — | Required for `binary`: the value that becomes 1. |
 | `target.negative_class` | the other value | The value that becomes 0. Any third value stops the run. |
-| `columns.id` | — | Identifies a batch. Must be unique in the cohort. |
-| `columns.group` | — | Grouping column (e.g. vector lot); used for grouped folds. |
-| `columns.patient` | — | Joins a patient's batches into one group. |
-| `columns.include` | all | Use exactly these predictors and nothing else. |
-| `columns.exclude` | — | `[{column, reason}]`: single columns to leave out. |
-| `columns.exclude_by_catalog` | — | `{catalog column: [values]}`: leave out parameters with these catalog values. |
-| `columns.include_by_catalog` | — | `{catalog column: [values]}`: keep only parameters with these catalog values. |
-| `clustering.action` | `describe` | `off`, `describe`, `representative` or `linear`; see [below](#correlated-parameters). |
+| `roles.id` | — | Identifies a batch. Must be unique in the cohort. |
+| `roles.group` | — | Grouping column (e.g. vector lot); used for grouped folds. |
+| `roles.patient` | — | Joins a patient's batches into one group. |
+| `predictors.include` | all | Use exactly these predictors and nothing else. |
+| `predictors.exclude` | — | `[{column, reason}]`: single columns to leave out. |
+| `predictors.exclude_by_catalog` | — | `{catalog column: [values]}`: leave out parameters with these catalog values. |
+| `predictors.include_by_catalog` | — | `{catalog column: [values]}`: keep only parameters with these catalog values. |
+| `clustering.action` | `describe` | `off`, `describe`, `keep_one` or `residualise`; see [below](#correlated-parameters). |
 | `clustering.method` | `spearman` | `spearman` or `pearson`. |
 | `clustering.threshold` | `0.7` | Correlation at which parameters are grouped. |
 | `clustering.min_size`, `min_overlap` | `2`, `10` | Smallest group; fewest shared batches before a correlation counts. |
@@ -420,8 +436,8 @@ refused, and each error names its field. Quote any column name that contains
 | `report.preview_rows` | `20` | Rows shown in the report's dataset preview. |
 
 Filter operators: `equals`, `not_equals`, `in`, `not_in`, `min`, `max` (both
-inclusive, numbers or dates), `is_null`, `not_null`. A filter on a column the batch table
-doesn't have stops the run instead of quietly keeping every batch.
+inclusive, numbers or dates), `is_null`, `not_null`. A filter on a column the
+batch table doesn't have stops the run instead of quietly keeping every batch.
 
 ## config.yaml reference
 
@@ -433,8 +449,8 @@ paths:      {catalog: …, batch_table: …, phf_ghent: …, …, reports: (defa
 sheets:     {phf_ghent: BR Data}           # worksheet per workbook, where not the default
 sources:    {location: local, fallback_to_local: false, databricks: false}
 sharepoint: {catalog: {path: …, sheet: …, drive_id: …}, …, site_maps: {folder: …, files: […], …}}
-upload:     {enabled: false, path: …, drive_id: …, file_name: batch_table.xlsx}
-catalog:        {write_new_parameters: true}
+upload:     {enabled: false, path: …, drive_id: …, file_name: PVF.xlsx}
+catalog:    {write_new_parameters: true}
 build:      {write_parquet: true}
 cleaning:   {corrections: …, disable: [], censored: limit, censored_flags: false,
              duration_unit: minutes, yes_no_defaults: {…}}
@@ -487,12 +503,13 @@ yes/no columns whose blanks may be filled.
 For each task, `ml task run`:
 
 1. **Selects the cohort**: sites, then each filter in order, then batches without
-   a target. Every batch table batch gets a row in `batches.csv` saying whether it is in,
-   and why not.
-2. **Chooses the predictors**: the catalog parameters present in the batch table, minus
-   - the target, id, group and patient columns;
+   a target. Every batch in the batch table gets a row in `batches.csv` saying
+   whether it is in, and why not.
+2. **Chooses the predictors**: the catalog parameters present in the batch
+   table, minus
+   - the target and the `roles` columns;
    - features the registry computed from the target (`VCN/cell` from `FP Flow CAR+ (%)`);
-   - `columns.exclude` and the category rules;
+   - `predictors.exclude` and the catalog rules;
    - `LVCoA_Impurity_Index_zsum`, which is standardised within each site.
 
    Each exclusion is a row in `parameters.csv`.
@@ -506,7 +523,7 @@ For each task, `ml task run`:
      treated as an identifier and left out.
    - Near-duplicates, near-constant and too-sparse columns are dropped.
 4. **Writes the dataset**: `dataset.csv` holds the id, group, the raw predictors
-   the recipe uses, and the target. It has one row per batch and no split.
+   the encoding uses, and the target. It has one row per batch and no split.
 5. **Checks** that the row and column counts agree across every file, then
    renames the run folder from `.incomplete` to its final name. A failed run
    keeps its folder as `.failed`, with the log and the reason in its manifest.
@@ -517,8 +534,8 @@ For each task, `ml task run`:
 |---|---|
 | `off` | No groups are looked for. |
 | `describe` | Groups are described in the report; every parameter stays. |
-| `representative` | One member of each group stays; the others are dropped. |
-| `linear` | One member stays; the others are replaced by what is left after regressing them on it. |
+| `keep_one` | One member of each group stays; the others are dropped. |
+| `residualise` | One member stays; the others are replaced by what is left after regressing them on it. |
 
 Groups are built by complete linkage on `1 − |correlation|`, cut at
 `threshold`. Pairs with fewer than `min_overlap` shared batches are treated as
@@ -532,7 +549,7 @@ target.
 | `data/dataset.csv` | The training dataset: id, group, raw predictors, target. One row per batch. |
 | `data/dataset_encoded.csv` | The same rows encoded by `encoding.json`. |
 | `metadata/parameters.csv` | Every parameter: included or excluded, with the reason and the step. |
-| `metadata/batches.csv` | Every batch table batch: in or out, and the first rule that ruled it out. |
+| `metadata/batches.csv` | Every batch in the batch table: in or out, and the first rule that ruled it out. |
 | `metadata/dataset_columns.csv` | Every dataset column: role, source, type, catalog value type, unit, meaning. |
 | `metadata/encoded_columns.csv` | Every encoded column and the parameter it came from. |
 | `metadata/clusters.csv` | Correlated groups, their representatives and what was done. |
@@ -558,8 +575,8 @@ file that changed after the run.
 | `No config found: there is no config.yaml here or in any folder above` | Run from the repository, add `config:` to the task, set `$ML_CONFIG`, or pass `--config`. |
 | `No task to run: run inside a task workspace or pass --task <folder>` | `cd` into a workspace, or name one with `--task`. |
 | `… is not a column of the batch table` | Check the spelling against the batch table; `ml validate` lists every such name. |
-| `columns.exclude_by_catalog: the catalog has no '…' column` | Use a column that exists in the catalog; the message lists them. |
-| `task.purpose: unknown setting` (or any `unknown setting`) | The key was removed or misspelled; the message lists the allowed keys. |
+| `predictors.exclude_by_catalog: the catalog has no '…' column` | Use a column that exists in the catalog; the message lists them. |
+| `(root).columns: unknown setting` (or any `unknown setting`) | The key was renamed, removed or misspelled; the message lists the allowed keys. `columns:` is now `roles:` and `predictors:`. |
 | `The catalog changed after the batch table was built — rerun ml build` | Run `ml build`, then the task again. |
 | `quality.min_non_missing is 20 but only N rows are being fitted on` | Lower `quality.min_non_missing` or widen the cohort. |
 
@@ -579,8 +596,8 @@ runs are generated, not committed: only `demo/config.yaml`,
 `demo/corrections.yaml` and the two `task.yaml` files are in git.
 
 **Adding a derived feature:** append one `Feature(…)` entry to the registry in
-`src/ml/features.py`. It is built only when the catalog lists its name and all its
-inputs are present, and it never overwrites a source column. Its `requires` tuple
+`src/ml/features.py`. It is built only when the catalog lists its name and all
+its inputs are present, and it never overwrites a source column. Its `requires` tuple
 is what lets a task find, and leave out, features computed from the target.
 
 ```

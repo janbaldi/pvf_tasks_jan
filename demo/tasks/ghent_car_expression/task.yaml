@@ -28,9 +28,10 @@ cohort:
 target:
   column: FP Flow CAR+ (%)
   type: numeric
-columns:
+roles:
   id: 'Patient Lot/Batch #'
   group: Vector Lot
+predictors:
   exclude:
   - column: Subject Weight (kg)
     reason: dose per kilogram already carries it
@@ -55,7 +56,7 @@ quality:
   duplicate_r2_threshold: 0.99
   duplicate_min_overlap: 8
 clustering:
-  action: report_only
+  action: describe
   method: spearman
   threshold: 0.7
   min_overlap: 8

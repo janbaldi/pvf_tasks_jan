@@ -1,14 +1,15 @@
-# batch_table config: where the sources, the catalog and the batch table are, and the settings.
+# ml config: where the sources, the parameter catalog and the batch table are,
+# and the settings.
 #
 # Code, configuration and data are kept apart: this file is configuration, and
 # the data lives in a folder of your own — set its paths below. Relative paths
 # are relative to THIS file; ~ is your home folder.
 #
-#   ml check-catalog      what the sources record that the catalog does not list
-#   ml build    the batch table: every batch, every parameter, cleaned and derived
-#   ml validate    validate this config without running anything
-#   ml task new <folder>          a task workspace with an annotated task.yaml
-#   ml task run --task <folder>      run a task; its runs go into <folder>/runs/
+#   ml validate             validate this config without running anything
+#   ml check-catalog        what the sources record that the catalog does not list
+#   ml build                the batch table: every batch, cleaned and derived
+#   ml task new <folder>    a task workspace with an annotated task.yaml
+#   ml task run             run the task in this folder; runs go into <folder>/runs/
 #
 # Secrets (SharePoint credentials) go in a .env next to this file; see .env.example.
 
@@ -17,8 +18,8 @@ seed: 20260917
 # The one catalog, the one batch table, and local copies of every source. With
 # sources.location: local these are read.
 paths:
-  catalog: ~/ml_data/catalog.xlsx                # the feature metadata; `ml check-catalog` checks it
-  batch_table: ~/ml_data/batch_table.xlsx                # `ml build` writes it; reports and manifests go beside it
+  catalog: ~/ml_data/catalog.xlsx           # the parameter catalog; `ml check-catalog` checks it
+  batch_table: ~/ml_data/batch_table.xlsx   # `ml build` writes it; reports and manifests go beside it
   phf_ghent: ~/ml_data/raw/phf_ghent.xlsx
   phf_raritan: ~/ml_data/raw/phf_raritan.xlsx
   param_mapping: ~/ml_data/raw/parameter_requirements.xlsx
@@ -42,8 +43,8 @@ sources:
 # Where each source lives on SharePoint. Only read when sources.location is
 # sharepoint; a source without an entry here is then still read locally.
 sharepoint:
-  catalog:            {path: "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/catalog/catalog.xlsx", sheet: Catalogue, drive_id: DRIVE_ID_GHENT}
-  batch_table:            {path: "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/batch table/batch_table.xlsx", sheet: Sheet1, drive_id: DRIVE_ID_GHENT}
+  catalog:        {path: "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/PTF/PTF.xlsx", sheet: Catalogue, drive_id: DRIVE_ID_GHENT}
+  batch_table:    {path: "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/PVF/PVF.xlsx", sheet: Sheet1, drive_id: DRIVE_ID_GHENT}
   phf_ghent:      {path: "Batch data/PHF.xlsm", sheet: BR Data, drive_id: DRIVE_ID_GHENT}
   phf_raritan:    {path: "General/Batch Data/Commercial Manufacturing Data.xlsx", sheet: BR Data, drive_id: DRIVE_ID_TIGER}
   param_mapping:  {path: "MS%26T%20MSAT%20Data%20Team/GxP%20container/ParameterRequirements.xlsx", sheet: Overall, drive_id: DRIVE_ID_GHENT}
@@ -61,9 +62,9 @@ sharepoint:
 # happens on a `ml build --mode PRD` run with enabled: true.
 upload:
   enabled: false
-  path: "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/batch table/"   # or $DATA_LINK
+  path: "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/PVF/"   # or $DATA_LINK
   drive_id: DRIVE_ID_GHENT
-  file_name: batch_table.xlsx
+  file_name: PVF.xlsx          # the name it has on SharePoint
 
 catalog:
   write_new_parameters: true

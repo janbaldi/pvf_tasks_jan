@@ -1,23 +1,23 @@
 """The commands, and the one place the stages are run from.
 
-    ml validate [--task ...]       validate the config and tasks; run nothing
-    ml check-catalog                      what the sources record that the catalog does not list
-    ml build                    the batch table: every batch, every parameter, cleaned and derived
-    ml task new <folder>            a task workspace: a folder with an annotated task.yaml
-    ml task run [--task ...]       each task (default: the one in this folder), as a new run
-    ml task rerun <run folder>       a finished run redone from its own folder, and compared
-    ml update [--task ...]         catalog, build and the given tasks, in that order
-    ml task encode --run <folder>     a task's fitted recipe, applied to new batches
+    ml validate [--task ...]          validate the config and tasks; run nothing
+    ml check-catalog                  what the sources record that the catalog does not list
+    ml build                          the batch table: every batch, cleaned and derived
+    ml update [--task ...]            check-catalog, build and the given tasks, in that order
+    ml task new <folder>              a task workspace: a folder with an annotated task.yaml
+    ml task run [--task ...]          each task (default: the one in this folder), as a new run
+    ml task rerun <run folder>        a finished run redone from its own folder, and compared
+    ml task encode --run <folder>     a run's fitted encoding, applied to new batches
 
-The stages are in that order because each depends on the one before it. The catalog
-is the schema, so it comes first; the build fills it in; a task narrows what the
-build produced to one question.
+The stages are in that order because each depends on the one before it. The
+catalog is the schema, so it comes first; the build fills it in; a task narrows
+what the build produced to one question.
 
-Code, configuration and data are kept apart. There is one catalog and one batch table, in a
-data folder of your own; ``config.yaml`` names them (found by ``--config``,
-``$ML_CONFIG``, the one a task names, or the nearest ``config.yaml`` above the
-working directory). Each task is a workspace folder of its own, holding its ``task.yaml``
-and every run of it, inputs included.
+Code, configuration and data are kept apart. There is one catalog and one batch
+table, in a data folder of your own; ``config.yaml`` names them (found by
+``--config``, the one a task names, ``$ML_CONFIG``, or the nearest
+``config.yaml`` above the working directory). Each task is a workspace folder of
+its own, holding its ``task.yaml`` and every run of it, inputs included.
 """
 
 from __future__ import annotations
@@ -743,7 +743,7 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec) -> Path:
                     "dataset_rows": result.rows,
                     "dataset_columns": int(final.shape[1]),
                     "predictor_columns": result.feature_columns,
-                    "transformed_columns": result.transformed_columns,
+                    "encoded_columns": result.encoded_columns,
                     "candidates": len(result.candidates),
                     "clusters": len(result.clusters.clusters),
                     "decisions": len(result.decisions),
@@ -794,7 +794,7 @@ def rerun(run: str | Path) -> Path:
 
 def _write_package(pkg: package.TaskPackage, result: dataset.TaskResult, final: pd.DataFrame):
     pkg.write_csv(TASK_LAYOUT["dataset.csv"], final)
-    pkg.write_csv(TASK_LAYOUT["dataset_encoded.csv"], result.transformed)
+    pkg.write_csv(TASK_LAYOUT["dataset_encoded.csv"], result.encoded)
     pkg.write_csv(TASK_LAYOUT["dataset_columns.csv"], result.columns)
     pkg.write_csv(
         TASK_LAYOUT["encoded_columns.csv"],
@@ -935,7 +935,7 @@ def _check_task(spec: TaskSpec) -> list[str]:
 
 
 def encode_batches(run: str | Path, rows: pd.DataFrame, out: Path | None) -> Path:
-    """Encode batches with a finished run's recipe and write them out."""
+    """Encode batches with a finished run's encoding and write them out."""
     run = Path(run)
     settings = yaml.safe_load((run / TASK_LAYOUT["task.yaml"]).read_text(encoding="utf-8"))
     identifier = ((settings or {}).get("roles") or {}).get("id") or ""
@@ -945,7 +945,7 @@ def encode_batches(run: str | Path, rows: pd.DataFrame, out: Path | None) -> Pat
     out = out or Path.cwd() / f"{run.parent.name}-{run.name}-applied.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
     encoded.to_csv(out, index=False)
-    log.success(MODULE, f"{len(encoded):,} batches encoded with {run.name}'s recipe → {out}")
+    log.success(MODULE, f"{len(encoded):,} batches encoded with {run.name}'s encoding → {out}")
     return out
 
 

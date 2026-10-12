@@ -57,7 +57,7 @@ def test_a_finished_task_folder_holds_everything_it_promises(built):
         for name in REQUIRED:
             assert artifact(built, task, name).exists(), f"{task}/{name}"
         assert manifest(built, task)["status"] == "complete"
-        # dataset.csv is the raw predictors for every task; the transformed view is beside it.
+        # dataset.csv is the raw predictors for every task; the encoded one is beside it.
         assert artifact(built, task, "dataset_encoded.csv").exists()
         assert manifest(built, task)["dataset_role"].startswith("raw modelling inputs")
 
@@ -188,7 +188,7 @@ def test_every_exported_column_has_exactly_one_dictionary_entry(built):
         assert columns["Role"].notna().all() and columns["Transformation"].notna().all()
 
 
-def test_the_transformed_table_can_be_read_back_to_its_parameters(built):
+def test_the_encoded_table_can_be_read_back_to_its_parameters(built):
     report = payload(built, EXPLORATORY)
     dictionary = {row[0]: row for row in table_with(report, "Meaning")["rows"]}
     dataset = csv(built, EXPLORATORY, "dataset_encoded.csv")

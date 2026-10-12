@@ -17,9 +17,10 @@ target:
   type: binary
   positive_class: Released
   negative_class: Discarded
-columns:
+roles:
   id: 'Patient Lot/Batch #'
   group: Vector Lot
+predictors:
   exclude:
   - column: OOS Type
     reason: it is the reason for the disposition
@@ -40,7 +41,7 @@ quality:
   duplicate_r2_threshold: 0.99
   duplicate_min_overlap: 8
 clustering:
-  action: linear
+  action: residualise
   method: spearman
   threshold: 0.8
   min_overlap: 8

@@ -2,14 +2,15 @@
 # This folder is the task's workspace. Every run goes to runs/<run id>/ with the
 # batch table and catalog it read, so the folder holds everything needed to redo it.
 #
-# From inside this folder:   ml validate     validate it against the batch table
-#                             ml task run     run it
-#                             ml task rerun runs/<run id>   redo a run from its own folder
+# From inside this folder:   ml validate                  check it against the batch table
+#                             ml task run                  run it
+#                             ml task rerun runs/<run id>  redo a run from its own folder
 #
 # Relative paths are relative to this file. Quote any column name that has a
 # '#', ':' or '%' in it — unquoted, `Patient Lot/Batch #` ends at the '#'.
 
-# The config.yaml that names the batch table and catalog (or name them: inputs: {batch_table: ..., catalog: ...}).
+# The config.yaml that names the batch table and catalog.
+# (Or name them yourself: inputs: {batch_table: ..., catalog: ...}.)
 __CONFIG__
 
 task:

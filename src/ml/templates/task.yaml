@@ -31,19 +31,22 @@ target:
   # positive_class: Released      # required for a binary target
   # negative_class: Discarded
 
-# Which batch table columns go into the dataset.
-columns:
-  id: 'Patient Lot/Batch #'       # identifies a batch; never a predictor
-  group: <vector_lot>               # grouping metadata, for grouped cross-validation later
-  # patient: <patient_id>
+# What some columns are. They are kept as metadata, never used as predictors.
+roles:
+  id: 'Patient Lot/Batch #'       # identifies a batch
+  group: <vector_lot>               # grouping column, for grouped cross-validation later
+  # patient: <patient_id>           # joins a patient's batches into one group
+
+# Which other batch table columns may be predictors.
+predictors:
   # include: []                   # an explicit predictor list, if you have one
   exclude: []                     # single columns: [{column: ..., reason: ...}]
-  include_categories: {}          # by a catalog column: {catalog column: [the only categories kept]}
-  exclude_categories: {}          # by a catalog column: {catalog column: [categories left out]}
-  # e.g. exclude_categories: {Available At: [Release, Post-release]}
+  include_by_catalog: {}          # {catalog column: [the only values kept]}
+  exclude_by_catalog: {}          # {catalog column: [values left out]}
+  # e.g. exclude_by_catalog: {Available At: [Release, Post-release]}
 
 clustering:
-  action: report_only             # off | report_only | representative | linear
+  action: describe                # off | describe | keep_one | residualise
   method: spearman
   threshold: 0.7
   min_overlap: 10

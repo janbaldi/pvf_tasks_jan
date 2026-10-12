@@ -179,12 +179,12 @@ columns:                             # which batch table columns go in
   group: <vector_lot>                  # kept as metadata, for grouped cross-validation
   exclude:                           # single columns, each with its reason
     - {column: <subject_weight>, reason: dose per kilogram already carries it}
-  exclude_categories:                # every parameter in these catalog categories
+  exclude_by_catalog:                # every parameter in these catalog categories
     Value Type: [datetime]
     Available At: [Wash, Formulation, Final product, Post-thaw, Release, Post-release]
 
 clustering:
-  action: report_only                # describe correlated parameters, change nothing
+  action: describe                # describe correlated parameters, change nothing
 
 quality:
   min_non_missing: 8                 # the demo cohort is small; the default is 20
@@ -198,12 +198,12 @@ What each block does:
   treats `withdrawn` as `withdrawal`.
 - **`target`** names the column to predict. Batches without a target value are
   dropped and listed in `batches.csv`.
-- **`columns`** decides which parameters become predictors. `exclude_categories`
+- **`columns`** decides which parameters become predictors. `exclude_by_catalog`
   looks up each parameter in the catalog and leaves it out when the named catalog column
   holds one of the listed values. Here it removes the timestamps
   (`Value Type: datetime`) and everything the catalog marks as measured after harvest
   (`Available At`). Any catalog column works, for example `{Category: [QC]}`.
-  `include_categories` does the opposite: it keeps only the listed values.
+  `include_by_catalog` does the opposite: it keeps only the listed values.
 
 ### 3. Check it
 
@@ -404,9 +404,9 @@ refused, and each error names its field. Quote any column name that contains
 | `columns.patient` | — | Joins a patient's batches into one group. |
 | `columns.include` | all | Use exactly these predictors and nothing else. |
 | `columns.exclude` | — | `[{column, reason}]`: single columns to leave out. |
-| `columns.exclude_categories` | — | `{catalog column: [values]}`: leave out parameters with these catalog values. |
-| `columns.include_categories` | — | `{catalog column: [values]}`: keep only parameters with these catalog values. |
-| `clustering.action` | `report_only` | `off`, `report_only`, `representative` or `linear`; see [below](#correlated-parameters). |
+| `columns.exclude_by_catalog` | — | `{catalog column: [values]}`: leave out parameters with these catalog values. |
+| `columns.include_by_catalog` | — | `{catalog column: [values]}`: keep only parameters with these catalog values. |
+| `clustering.action` | `describe` | `off`, `describe`, `representative` or `linear`; see [below](#correlated-parameters). |
 | `clustering.method` | `spearman` | `spearman` or `pearson`. |
 | `clustering.threshold` | `0.7` | Correlation at which parameters are grouped. |
 | `clustering.min_size`, `min_overlap` | `2`, `10` | Smallest group; fewest shared batches before a correlation counts. |
@@ -516,7 +516,7 @@ For each task, `ml task run`:
 | `clustering.action` | Effect |
 |---|---|
 | `off` | No groups are looked for. |
-| `report_only` | Groups are described in the report; every parameter stays. |
+| `describe` | Groups are described in the report; every parameter stays. |
 | `representative` | One member of each group stays; the others are dropped. |
 | `linear` | One member stays; the others are replaced by what is left after regressing them on it. |
 
@@ -558,7 +558,7 @@ file that changed after the run.
 | `No config found: there is no config.yaml here or in any folder above` | Run from the repository, add `config:` to the task, set `$ML_CONFIG`, or pass `--config`. |
 | `No task to run: run inside a task workspace or pass --task <folder>` | `cd` into a workspace, or name one with `--task`. |
 | `… is not a column of the batch table` | Check the spelling against the batch table; `ml validate` lists every such name. |
-| `columns.exclude_categories: the catalog has no '…' column` | Use a column that exists in the catalog; the message lists them. |
+| `columns.exclude_by_catalog: the catalog has no '…' column` | Use a column that exists in the catalog; the message lists them. |
 | `task.purpose: unknown setting` (or any `unknown setting`) | The key was removed or misspelled; the message lists the allowed keys. |
 | `The catalog changed after the batch table was built — rerun ml build` | Run `ml build`, then the task again. |
 | `quality.min_non_missing is 20 but only N rows are being fitted on` | Lower `quality.min_non_missing` or widen the cohort. |

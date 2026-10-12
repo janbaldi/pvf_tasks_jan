@@ -36,7 +36,7 @@ columns:
     reason: dose per kilogram already carries it
   - column: <washed_cells>
     reason: counted after the wash
-  exclude_categories:
+  exclude_by_catalog:
     Available At:
     - Wash
     - Formulation

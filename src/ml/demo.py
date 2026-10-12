@@ -976,9 +976,8 @@ def write_tasks(directory: Path) -> list[Path]:
             ],
         },
         "target": {"column": TARGET, "type": "numeric"},
-        "columns": {
-            "id": "Patient Lot/Batch #",
-            "group": "<vector_lot>",
+        "roles": {"id": "Patient Lot/Batch #", "group": "<vector_lot>"},
+        "predictors": {
             "exclude": [
                 {
                     "column": "<subject_weight>",
@@ -990,11 +989,11 @@ def write_tasks(directory: Path) -> list[Path]:
                 },
             ],
             # Everything the catalog says is measured after harvest.
-            "exclude_categories": {"Available At": LATER_THAN_HARVEST},
+            "exclude_by_catalog": {"Available At": LATER_THAN_HARVEST},
         },
         **_SMALL_COHORT,
         "clustering": {
-            "action": "report_only",
+            "action": "describe",
             "method": "spearman",
             "threshold": 0.7,
             "min_overlap": 8,
@@ -1026,12 +1025,11 @@ def write_tasks(directory: Path) -> list[Path]:
             "positive_class": "Released",
             "negative_class": "Discarded",
         },
-        "columns": {
-            "id": "Patient Lot/Batch #",
-            "group": "<vector_lot>",
+        "roles": {"id": "Patient Lot/Batch #", "group": "<vector_lot>"},
+        "predictors": {
             "exclude": [{"column": "<oos_type>", "reason": "it is the reason for the disposition"}],
             # Whole categories of the catalog's metadata can be left out by name.
-            "exclude_categories": {"Available At": ["Post-release"]},
+            "exclude_by_catalog": {"Available At": ["Post-release"]},
         },
         **_SMALL_COHORT,
         # The SiteB cohort is just big enough to show the other two encoders,
@@ -1043,7 +1041,7 @@ def write_tasks(directory: Path) -> list[Path]:
             "missing_indicators": True,
         },
         "clustering": {
-            "action": "linear",
+            "action": "residualise",
             "method": "spearman",
             "threshold": 0.8,
             "min_overlap": 8,

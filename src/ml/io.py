@@ -135,7 +135,7 @@ def read_catalog(catalog: str | Path | Source) -> pd.DataFrame:
     Every stage starts here. ``Parameter`` names what the batch table may hold and
     ``Value Type`` says what it holds — including, for an ordinal parameter, its
     categories in order, written as a bracketed list. Any other column is
-    metadata a task can select parameters by (``columns.exclude_categories``).
+    metadata a task can select parameters by (``predictors.exclude_by_catalog``).
     """
     source = as_source(catalog, "catalog")
     frame = _read(source, "Catalog")

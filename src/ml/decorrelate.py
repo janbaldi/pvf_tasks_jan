@@ -6,10 +6,10 @@ handed all four cannot say which of them mattered. This module finds those
 groups from the data. What happens next is the task's decision, not this
 module's:
 
-``report_only``     describe the groups and change nothing.
-``representative``  keep one member of each group and drop the rest.
-``linear``          keep one member and replace the others by their residuals.
-``off``             do not look.
+``describe``     describe the groups and change nothing.
+``keep_one``     keep one member of each group and drop the rest.
+``residualise``  keep one member and replace the others by their residuals.
+``off``          do not look.
 
 Two things this deliberately does not claim. Residualising does not preserve all
 the information in a cluster, and it does not make the output independent:
@@ -146,7 +146,7 @@ class ClusterReport:
 
     @property
     def transforms(self) -> bool:
-        return self.action in ("representative", "linear")
+        return self.action in ("keep_one", "residualise")
 
     def state(self) -> dict[str, Any]:
         return {
@@ -448,7 +448,7 @@ def fit(
     df: pd.DataFrame,
     columns: list[str],
     params: TaskParams,
-    action: str = "report_only",
+    action: str = "describe",
     prefer: tuple[str, ...] = (),
 ) -> ClusterReport:
     """Find the groups, choose their representatives, and carry out the action."""
@@ -508,10 +508,10 @@ def fit(
             min_overlap=int(overlap.loc[members, members].to_numpy().min()),
         )
 
-        if action == "report_only":
+        if action == "describe":
             cluster.strategy = "reported only; every member stays as it is"
             cluster.frame = pd.DataFrame(index=df.index)
-        elif action == "representative":
+        elif action == "keep_one":
             cluster.strategy = "one member kept, the rest dropped"
             cluster.dropped = [c for c in members if c != representative]
             cluster.frame = numeric[[representative]].copy()
@@ -604,7 +604,7 @@ def transform(df: pd.DataFrame, state: dict[str, Any]) -> pd.DataFrame:
     """
     action = state.get("action", "off")
     out = pd.DataFrame(index=df.index)
-    if action in ("off", "report_only"):
+    if action in ("off", "describe"):
         return out
 
     for cluster in state.get("clusters", []):
@@ -664,7 +664,7 @@ def rows(report: ClusterReport, retained: set[str]) -> list[dict]:
                     "Retained in dataset": (
                         member in retained
                         or f"{member}{RESIDUAL_SUFFIX}" in retained
-                        or report.action == "report_only"
+                        or report.action == "describe"
                     ),
                     "Rows fitted": fit.rows if fit else cluster.representative_rows,
                     "Adjusted R2": fit.adj_r2 if fit else "",

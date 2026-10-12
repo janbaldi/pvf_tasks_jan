@@ -57,11 +57,9 @@ def test_a_finished_task_folder_holds_everything_it_promises(built):
         for name in REQUIRED:
             assert artifact(built, task, name).exists(), f"{task}/{name}"
         assert manifest(built, task)["status"] == "complete"
-    # The transformed table has its untransformed inputs beside it; the raw one
-    # has its transformed view beside it.
-    assert artifact(built, EXPLORATORY, "raw_features.csv").exists()
-    assert not artifact(built, PREDICTIVE, "raw_features.csv").exists()
-    assert artifact(built, PREDICTIVE, "transformed.csv").exists()
+        # dataset.csv is the raw predictors for every task; the transformed view is beside it.
+        assert artifact(built, task, "transformed.csv").exists()
+        assert manifest(built, task)["dataset_role"].startswith("raw modelling inputs")
 
 
 def test_the_manifest_hashes_every_artefact_but_itself(built):
@@ -97,21 +95,6 @@ def test_two_runs_of_one_task_do_not_overwrite_each_other(built):
     assert again != first
     assert first.exists() and (first / cli.TASK_LAYOUT["dataset.csv"]).exists()
     assert again.parent == first.parent
-
-
-def test_report_only_writes_no_dataset_and_says_so(built, tmp_path):
-    from pvf import cli, taskconfig
-
-    spec = taskconfig.load(built["directory"] / dummy_data.TASK_FILES[0], built["config"])
-    folder = cli.run_task(built["config"], spec, report_only=True)
-    assert (folder / cli.TASK_LAYOUT["report.html"]).exists()
-    assert not (folder / cli.TASK_LAYOUT["dataset.csv"]).exists()
-    assert not (folder / cli.TASK_LAYOUT["recipe.json"]).exists()
-    record = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
-    assert record["mode"] == "report only"
-    assert "not written" in record["dataset_role"]
-    # And it left every earlier package alone.
-    assert (built["packages"][PREDICTIVE] / cli.TASK_LAYOUT["dataset.csv"]).exists()
 
 
 # ---------------------------------------------------------------------------
@@ -208,7 +191,7 @@ def test_every_exported_column_has_exactly_one_dictionary_entry(built):
 def test_the_transformed_table_can_be_read_back_to_its_parameters(built):
     report = payload(built, EXPLORATORY)
     dictionary = {row[0]: row for row in table_with(report, "Meaning")["rows"]}
-    dataset = csv(built, EXPLORATORY, "dataset.csv")
+    dataset = csv(built, EXPLORATORY, "transformed.csv")
     metadata = {"Patient Lot/Batch #", "<vector_lot>", "disposition_is_released"}
     for column in dataset.columns:
         if column not in metadata:
@@ -238,8 +221,8 @@ def test_target_encoding_is_cross_fitted_and_says_which_folds(built):
     prose = str(section(payload(built, EXPLORATORY), "parameters")["blocks"])
     assert "fold's training rows alone" in prose
 
-    dataset = csv(built, EXPLORATORY, "dataset.csv")
-    raw = csv(built, EXPLORATORY, "raw_features.csv")
+    dataset = csv(built, EXPLORATORY, "transformed.csv")
+    raw = csv(built, EXPLORATORY, "dataset.csv")
     recipe = json.loads(artifact(built, EXPLORATORY, "recipe.json").read_text(encoding="utf-8"))
     encoded = [c for c in dataset.columns if c.endswith("_target_enc")]
     assert encoded
@@ -256,7 +239,7 @@ def test_target_encoding_is_cross_fitted_and_says_which_folds(built):
 
 
 def test_an_ordinal_parameter_becomes_a_rank_and_strays_are_left_missing(built):
-    ranks = csv(built, EXPLORATORY, "dataset.csv")[dummy_data.ORDINAL_PARAMETER].dropna()
+    ranks = csv(built, EXPLORATORY, "transformed.csv")[dummy_data.ORDINAL_PARAMETER].dropna()
     assert set(ranks) <= set(range(1, len(dummy_data.ORDINAL_ORDER) + 1))
 
 
@@ -302,7 +285,7 @@ def test_every_clustered_parameter_is_in_the_membership_export(built):
 
 def test_a_dropped_duplicate_points_at_a_parameter_that_survived(built):
     decisions = csv(built, EXPLORATORY, "decisions.csv")
-    dataset = csv(built, EXPLORATORY, "dataset.csv")
+    dataset = csv(built, EXPLORATORY, "transformed.csv")
     duplicates = decisions[decisions["Stage"] == "near-duplicate"]
     assert not duplicates.empty
     for reason in duplicates["Reason"]:
@@ -340,10 +323,10 @@ def test_the_report_does_not_claim_a_model_was_evaluated(built):
 
 
 def test_the_report_states_what_the_table_is_for(built):
-    predictive = facts(first_table(payload(built, PREDICTIVE), "overview"))
-    assert "raw modelling inputs" in predictive["What the table is"]
-    exploratory = facts(first_table(payload(built, EXPLORATORY), "overview"))
-    assert "exploratory" in exploratory["What the table is"]
+    for task in (PREDICTIVE, EXPLORATORY):
+        overview = facts(first_table(payload(built, task), "overview"))
+        assert "raw modelling inputs" in overview["What the table is"]
+        assert "data/transformed.csv" in overview["What the table is"]
 
 
 def test_provenance_records_the_inputs_this_stage_actually_read(built):

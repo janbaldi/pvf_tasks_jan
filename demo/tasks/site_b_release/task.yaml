@@ -1,4 +1,5 @@
 # A demo task workspace written by `python -m pvf.demo`. Its runs go to runs/.
+config: ../../config.yaml
 task:
   name: site_b_release
   question: What does a released SiteB batch look like, next to a discarded one?

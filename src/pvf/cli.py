@@ -1,10 +1,11 @@
 """The commands, and the one place the stages are run from.
 
-    pvf new-task <folder>        a task workspace: a folder with an annotated task.yaml
     pvf check [--task ...]       validate the config and tasks; run nothing
     pvf ptf                      what the sources record that the PTF does not list
     pvf build                    the PVF: every batch, every parameter, cleaned and derived
-    pvf tasks --task ...         each task, as a run folder in its workspace
+    pvf init <folder>            a task workspace: a folder with an annotated task.yaml
+    pvf tasks [--task ...]       each task (default: the one in this folder), as a new run
+    pvf rerun <run folder>       a finished run redone from its own folder, and compared
     pvf all [--task ...]         ptf, build and the given tasks, in that order
     pvf apply --run <folder>     a task's fitted recipe, applied to new batches
 
@@ -14,8 +15,8 @@ build produced to one question.
 
 Code, configuration and data are kept apart. There is one PTF and one PVF, in a
 data folder of your own; ``config.yaml`` names them (found by ``--config``,
-``$PVF_CONFIG``, or the nearest ``config.yaml`` above the working directory or
-the task). Each task is a workspace folder of its own, holding its ``task.yaml``
+``$PVF_CONFIG``, the one a task names, or the nearest ``config.yaml`` above the
+working directory). Each task is a workspace folder of its own, holding its ``task.yaml``
 and every run of it, inputs included.
 """
 
@@ -27,6 +28,7 @@ import os
 import shutil
 import sys
 import traceback
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -39,6 +41,7 @@ from . import (
     clean,
     corrections,
     dataset,
+    decorrelate,
     enrich,
     features,
     io,
@@ -55,7 +58,6 @@ from . import (
 )
 from . import config as workspace
 from .config import ConfigError
-from .decorrelate import RESIDUAL_SUFFIX
 from .logger import log
 from .taskconfig import TaskConfigError, TaskSpec
 
@@ -65,25 +67,8 @@ load_dotenv(find_dotenv(usecwd=True))
 
 MODULE = "cli"
 
-#: Where each artefact sits in a task's run folder. ``manifest.json`` is at the top.
-TASK_LAYOUT = {
-    "task.yaml": "config/task.yaml",
-    "dataset.csv": "data/dataset.csv",
-    "raw_features.csv": "data/raw_features.csv",
-    "transformed.csv": "data/transformed.csv",
-    "columns.csv": "metadata/columns.csv",
-    "features.csv": "metadata/features.csv",
-    "decisions.csv": "metadata/decisions.csv",
-    "cohort.csv": "metadata/cohort.csv",
-    "clusters.csv": "metadata/clusters.csv",
-    "missingness.csv": "metadata/missingness.csv",
-    "recipe.json": "metadata/recipe.json",
-    "report.html": "report/report.html",
-    "report_payload.json": "report/report_payload.json",
-    "ptf_manifest.json": "inputs/ptf_manifest.json",
-    "pvf_manifest.json": "inputs/pvf_manifest.json",
-    "run.log": "logs/run.log",
-}
+#: Each artefact's place in a run folder, by its file name.
+TASK_LAYOUT = {Path(path).name: path for path in package.ARTEFACTS}
 
 #: Errors that are the user's to fix, shown as a message rather than a traceback.
 USER_ERRORS = (
@@ -233,10 +218,7 @@ def run_ptf(config: dict[str, Any], config_path: str | Path | None = None) -> Pa
 
 
 def _mapping_exclude(config: dict[str, Any]) -> list[str]:
-    mapping = config.get("mapping")
-    if mapping is None:  # configs from before the setting existed
-        return ["<excluded_mapping_row>"]
-    return [str(name) for name in mapping.get("exclude") or []]
+    return [str(name) for name in (config.get("mapping") or {}).get("exclude") or []]
 
 
 # ---------------------------------------------------------------------------
@@ -245,7 +227,6 @@ def _mapping_exclude(config: dict[str, Any]) -> list[str]:
 def run_build(
     config: dict[str, Any],
     mode: str = "dev",
-    skip_write: bool = False,
     config_path: str | Path | None = None,
 ) -> Path:
     """Build the PVF from both sites and write its report."""
@@ -268,6 +249,7 @@ def run_build(
     params = features.Params(**(config.get("features") or {}))
     log.stage("PVF build")
     log.info(MODULE, f"Mode: {mode.upper()}")
+    _check_ptf_is_current(Path(paths["pvf"]))
 
     reader = workspace.remote_reader(config)
     src = {
@@ -378,21 +360,16 @@ def run_build(
     # ── Write ──────────────────────────────────────────────────────────────
     log.section("06 · Output")
     out_path = Path(paths["pvf"])
-    uploaded = None
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    result.to_excel(out_path, index=False)
+    log.success(MODULE, f"PVF written to {out_path}")
+    # The digest of the table as a task will read it back, which is what a
+    # task compares against when it reads the PVF from SharePoint.
+    content_digest = provenance.frame_digest(io.read_table(out_path))
     parquet_path = None
-    content_digest = None
-    if not skip_write:
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        result.to_excel(out_path, index=False)
-        log.success(MODULE, f"PVF written to {out_path}")
-        # The digest of the table as a task will read it back, which is what a
-        # task compares against when it reads the PVF from SharePoint.
-        content_digest = provenance.frame_digest(io.read_table(out_path))
-        if (config.get("build") or {}).get("write_parquet", True):
-            parquet_path = _write_parquet(result, out_path.with_suffix(".parquet"))
-        uploaded = _upload(config, mode, out_path)
-    elif mode.upper() == "PRD":
-        log.info(MODULE, "--report-only: nothing was written and nothing was uploaded")
+    if (config.get("build") or {}).get("write_parquet", True):
+        parquet_path = _write_parquet(result, out_path.with_suffix(".parquet"))
+    uploaded = _upload(config, mode, out_path)
 
     prov = _provenance(config, sources)
     path = report.write(
@@ -421,53 +398,46 @@ def run_build(
     )
     log.success(MODULE, f"Report written to {path}")
 
-    written = [
-        ("PVF", str(out_path) if not skip_write else "not written (--report-only)"),
-        ("Report", str(path)),
-    ]
+    written = [("PVF", str(out_path)), ("Report", str(path))]
     if parquet_path:
         written.insert(1, ("PVF (Parquet)", str(parquet_path)))
-    if skip_write:
-        # The manifest describes the PVF on disk, which this run did not write.
-        written.append(("Manifest", "not written (--report-only)"))
-    else:
-        target = manifest_path(out_path, "pvf")
-        warnings, errors = _events(mark)
-        manifest.write(
-            target,
-            manifest.envelope(
-                "pvf",
-                run_id=package.run_id(run_start),
-                started=run_start,
-                config_path=str(config.get("__path__") or config_path or ""),
-                prov=prov,
-                sources=sources,
-                written=manifest.outputs(
-                    target.parent,
-                    {"PVF": out_path, "PVF (Parquet)": parquet_path, "report": path},
-                ),
-                warnings=warnings,
-                errors=errors,
-                mode=mode.upper(),
-                pvf={
-                    "path": out_path.name,
-                    "sha256": provenance.file_sha256(str(out_path)),
-                    "content_sha256": content_digest,
-                    "parquet": parquet_path.name if parquet_path else None,
-                    "rows": int(result.shape[0]),
-                    "columns": int(result.shape[1]),
-                    "site_rows": merge_report.site_rows,
-                },
-                ptf={"location": src["ptf"].location, "parameters": len(ptf_cols)},
-                ptf_parameters_not_in_pvf=merge_report.ptf_missing,
-                pvf_parameters_not_in_ptf=[
-                    str(c) for c in result.columns if c not in set(ptf_cols)
-                ],
-                duplicate_batches=merge_report.duplicate_batches,
-                uploaded_to=uploaded,
+    target = manifest_path(out_path, "pvf")
+    warnings, errors = _events(mark)
+    manifest.write(
+        target,
+        manifest.envelope(
+            "pvf",
+            run_id=package.run_id(run_start),
+            started=run_start,
+            config_path=str(config.get("__path__") or config_path or ""),
+            prov=prov,
+            sources=sources,
+            written=manifest.outputs(
+                target.parent,
+                {"PVF": out_path, "PVF (Parquet)": parquet_path, "report": path},
             ),
-        )
-        written.append(("Manifest", str(target)))
+            warnings=warnings,
+            errors=errors,
+            mode=mode.upper(),
+            pvf={
+                "path": out_path.name,
+                "sha256": provenance.file_sha256(str(out_path)),
+                "content_sha256": content_digest,
+                "parquet": parquet_path.name if parquet_path else None,
+                "rows": int(result.shape[0]),
+                "columns": int(result.shape[1]),
+                "site_rows": merge_report.site_rows,
+            },
+            ptf={"location": src["ptf"].location, "parameters": len(ptf_cols)},
+            ptf_parameters_not_in_pvf=merge_report.ptf_missing,
+            pvf_parameters_not_in_ptf=[
+                str(c) for c in result.columns if c not in set(ptf_cols)
+            ],
+            duplicate_batches=merge_report.duplicate_batches,
+            uploaded_to=uploaded,
+        ),
+    )
+    written.append(("Manifest", str(target)))
     if uploaded:
         written.append(("Uploaded to", uploaded))
 
@@ -475,6 +445,22 @@ def run_build(
     log.facts(f"Written — {result.shape[0]:,} batches × {result.shape[1]:,} columns", written)
     log.summary(mark)
     return path
+
+
+def _check_ptf_is_current(pvf: Path) -> None:
+    """Warn when the last ``pvf ptf`` was not run, or found what the PTF does not list."""
+    path = manifest_path(pvf, "ptf")
+    if not path.is_file():
+        log.warn(MODULE, "`pvf ptf` has not been run, so the PTF is unchecked", str(path))
+        return
+    new = manifest.read(path).get("new_parameters") or []
+    if new:
+        log.warn(
+            MODULE,
+            f"The last `pvf ptf` found {len(new)} parameters the sources record and the PTF "
+            "does not list; they are not in this PVF until the PTF lists them",
+            ", ".join(map(str, new[:10])),
+        )
 
 
 def _site_map_record(site_map: io.Source) -> provenance.Source:
@@ -549,101 +535,8 @@ def _upload(config: dict[str, Any], mode: str, written: Path) -> str | None:
 # ---------------------------------------------------------------------------
 #: What a finished task folder has to contain before it is called finished.
 REQUIRED_ARTIFACTS = tuple(
-    TASK_LAYOUT[name]
-    for name in (
-        "task.yaml",
-        "dataset.csv",
-        "columns.csv",
-        "features.csv",
-        "decisions.csv",
-        "cohort.csv",
-        "clusters.csv",
-        "recipe.json",
-        "report.html",
-        "report_payload.json",
-        "run.log",
-    )
+    path for path in package.ARTEFACTS if not path.endswith(("missingness.csv", "_manifest.json"))
 )
-REPORT_ONLY_ARTIFACTS = tuple(
-    TASK_LAYOUT[name] for name in ("task.yaml", "report.html", "report_payload.json", "run.log")
-)
-
-
-def _cluster_rows(result: dataset.TaskResult) -> list[dict]:
-    """Cluster membership, singletons and skips — the whole population, not part."""
-    rows: list[dict] = []
-    retained = set(result.recipe.get("output_columns") or [])
-    for cluster in result.clusters.clusters:
-        for member in cluster.members:
-            fit = next((f for f in cluster.fits if f.column == member), None)
-            representative = member == cluster.representative
-            rows.append(
-                {
-                    "Cluster": cluster.name,
-                    "Parameter": member,
-                    "Representative": cluster.representative,
-                    "Is representative": representative,
-                    "Action": cluster.action,
-                    "Outcome": (
-                        "kept as the representative"
-                        if representative
-                        else "dropped"
-                        if member in cluster.dropped
-                        else fit.model
-                        if fit
-                        else "unchanged"
-                    ),
-                    "Output column": (
-                        member
-                        if representative or not fit or fit.fallback
-                        else f"{member}{RESIDUAL_SUFFIX}"
-                    ),
-                    "Retained in dataset": (
-                        member in retained
-                        or f"{member}{RESIDUAL_SUFFIX}" in retained
-                        or result.clusters.action == "report_only"
-                    ),
-                    "Rows fitted": fit.rows if fit else cluster.representative_rows,
-                    "Adjusted R2": fit.adj_r2 if fit else "",
-                    "Regressors": ", ".join(fit.regressors) if fit else "",
-                    "Smallest shared batches in cluster": cluster.min_overlap,
-                }
-            )
-    for column in result.clusters.singletons:
-        rows.append(
-            {
-                "Cluster": "",
-                "Parameter": column,
-                "Representative": column,
-                "Is representative": True,
-                "Action": "none",
-                "Outcome": "correlates with nothing above the threshold",
-                "Output column": column,
-                "Retained in dataset": column in retained,
-                "Rows fitted": "",
-                "Adjusted R2": "",
-                "Regressors": "",
-                "Smallest shared batches in cluster": "",
-            }
-        )
-    for skipped in result.clusters.skipped:
-        rows.append(
-            {
-                "Cluster": "",
-                "Parameter": skipped["Parameter"],
-                "Representative": "",
-                "Is representative": False,
-                "Action": "skipped",
-                "Outcome": skipped["Reason"],
-                "Output column": "",
-                "Retained in dataset": skipped["Parameter"] in retained,
-                "Rows fitted": skipped["Values"],
-                "Adjusted R2": "",
-                "Regressors": "",
-                "Smallest shared batches in cluster": "",
-            }
-        )
-    return rows
 
 
 def _check(result: dataset.TaskResult, final: pd.DataFrame) -> None:
@@ -669,15 +562,20 @@ def _check(result: dataset.TaskResult, final: pd.DataFrame) -> None:
 
 
 def _carry_upstream(
-    pkg: package.TaskPackage, spec: TaskSpec, read: provenance.Source, content: str | None
+    pkg: package.TaskPackage,
+    spec: TaskSpec,
+    sources: list[provenance.Source],
+    content: str | None,
 ) -> dict:
-    """Copy the PTF and build manifests into the run, and check they fit its PVF.
+    """Copy the PTF and build manifests into the run, and check they fit its PVF and PTF.
 
     They are what says how the PVF this task read was made. A PVF manifest that
     describes a different file — by its bytes when the PVF was a local file, by
     its content when it came from SharePoint — belongs to some other build, and
-    is said to.
+    is said to. So is a PTF that changed after the build: the PVF is then older
+    than the schema the task reads it with.
     """
+    read, ptf_read = sources
     upstream: dict[str, str] = {}
     pvf_path = Path(spec.pvf)
     if pvf_path.suffix == ".parquet":
@@ -712,6 +610,12 @@ def _carry_upstream(
                 )
                 log.warn(MODULE, message, f"manifest {str(theirs)[:12]}, PVF {str(mine)[:12]}")
                 pkg.warnings.append(message)
+            inputs = {i["label"]: i.get("digest") for i in json.loads(text).get("inputs") or []}
+            built_with = inputs.get("ptf")
+            if built_with and ptf_read.digest and built_with != ptf_read.digest:
+                message = "The PTF changed after the PVF was built — rerun `pvf build`"
+                log.warn(MODULE, message)
+                pkg.warnings.append(message)
     return upstream
 
 
@@ -744,17 +648,12 @@ def _copy_input(pkg: package.TaskPackage, source: io.Source, frame: pd.DataFrame
         shutil.copyfile(source.path, target)
 
 
-def run_task(config: dict[str, Any] | None, spec: TaskSpec, report_only: bool = False) -> Path:
+def run_task(config: dict[str, Any] | None, spec: TaskSpec) -> Path:
     """Run one task and leave a complete folder behind, or a failed one.
 
     The run folder is under the task's workspace, ``runs/<run id>``, and holds
     the PVF and PTF it read with their manifests (``inputs/``) and a ``task.yaml``
     that points at those copies — everything needed to redo the analysis.
-
-    ``--report-only`` writes the report and its supporting metadata into a fresh
-    folder of its own. It still runs the whole analysis — there is no other way
-    to have anything to report — but it writes no dataset and uploads nothing,
-    and its manifest says the package is a report, not a dataset.
     """
     run_start = datetime.now()
     mark = log.mark()
@@ -762,7 +661,6 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec, report_only: bool = 
     pkg = package.open_package(spec.output_root, spec.name)
     inputs: dict[str, str] = {}
     fields: dict[str, Any] = {
-        "mode": "report only" if report_only else "full package",
         "config_path": spec.source,
         "question": spec.question,
         "purpose": spec.purpose,
@@ -792,12 +690,10 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec, report_only: bool = 
         )
         fields.update({"prov": prov, "sources": sources})
 
-        final, raw_table, result = dataset.build(pvf, ptf_frame, spec)
+        final, result = dataset.build(pvf, ptf_frame, spec)
         _check(result, final)
-        upstream = _carry_upstream(pkg, spec, sources[0], provenance.frame_digest(pvf))
-
-        if not report_only:
-            _write_package(pkg, spec, result, final, raw_table)
+        upstream = _carry_upstream(pkg, spec, sources, provenance.frame_digest(pvf))
+        _write_package(pkg, result, final)
 
         payload = report.build_task_payload(
             report.TaskRun(
@@ -806,10 +702,7 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec, report_only: bool = 
                 spec=spec,
                 events=log.since(mark),
                 provenance=prov,
-                output_path=""
-                if report_only
-                else str(pkg.destination / TASK_LAYOUT["dataset.csv"]),
-                report_only=report_only,
+                output_path=str(pkg.destination / TASK_LAYOUT["dataset.csv"]),
                 run_start=run_start,
             )
         )
@@ -824,7 +717,7 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec, report_only: bool = 
                 **fields,
                 "errors": errors,
                 "warnings": warnings,
-                "dataset_role": "not written (report only)" if report_only else result.dataset_role,
+                "dataset_role": result.dataset_role,
                 "upstream_manifests": upstream,
                 "counts": {
                     "pvf_rows": result.cohort.raw_rows,
@@ -839,8 +732,7 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec, report_only: bool = 
                 },
                 "input_copies": inputs,
             },
-            required=(REPORT_ONLY_ARTIFACTS if report_only else REQUIRED_ARTIFACTS)
-            + tuple(inputs.values()),
+            required=REQUIRED_ARTIFACTS + tuple(inputs.values()),
         )
     except Exception as exc:
         pkg.write_text(TASK_LAYOUT["run.log"], _log_text(log.since(mark)))
@@ -852,12 +744,7 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec, report_only: bool = 
         [
             ("Task folder", str(destination)),
             ("Report", str(destination / TASK_LAYOUT["report.html"])),
-            (
-                "Dataset",
-                "not written (--report-only)"
-                if report_only
-                else str(destination / TASK_LAYOUT["dataset.csv"]),
-            ),
+            ("Dataset", str(destination / TASK_LAYOUT["dataset.csv"])),
             ("Manifest", str(destination / package.MANIFEST)),
         ],
     )
@@ -865,21 +752,31 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec, report_only: bool = 
     return destination
 
 
-def _write_package(
-    pkg: package.TaskPackage,
-    spec: TaskSpec,
-    result: dataset.TaskResult,
-    final: pd.DataFrame,
-    raw_table: pd.DataFrame,
-) -> None:
-    pkg.write_csv(TASK_LAYOUT["dataset.csv"], final)
-    if spec.predictive:
-        # dataset.csv is the raw modelling input; the transformed view goes beside it.
-        pkg.write_csv(TASK_LAYOUT["transformed.csv"], result.transformed)
+def rerun(run: str | Path) -> Path:
+    """Redo a finished run from its own folder into the same workspace, and compare.
+
+    The run's ``config/task.yaml`` points at the inputs it copied, so nothing
+    outside the run folder is read. Says whether ``dataset.csv`` came out the same.
+    """
+    run = Path(run).expanduser().resolve()
+    settings = run / TASK_LAYOUT["task.yaml"]
+    if not settings.is_file():
+        raise FileNotFoundError(f"{settings} does not exist — is {run} a run folder?")
+    spec = replace(
+        taskconfig.load(settings), output_root=run.parent, workspace=str(run.parent.parent)
+    )
+    again = run_task(None, spec)
+    name = TASK_LAYOUT["dataset.csv"]
+    if (again / name).read_bytes() == (run / name).read_bytes():
+        log.success(MODULE, f"dataset.csv is identical to the one in {run.name}")
     else:
-        # The transformed table is dataset.csv here, so the untransformed
-        # predictors go beside it.
-        pkg.write_csv(TASK_LAYOUT["raw_features.csv"], raw_table)
+        log.warn(MODULE, f"dataset.csv differs from the one in {run.name}", str(again))
+    return again
+
+
+def _write_package(pkg: package.TaskPackage, result: dataset.TaskResult, final: pd.DataFrame):
+    pkg.write_csv(TASK_LAYOUT["dataset.csv"], final)
+    pkg.write_csv(TASK_LAYOUT["transformed.csv"], result.transformed)
     pkg.write_csv(TASK_LAYOUT["columns.csv"], result.columns)
     pkg.write_csv(
         TASK_LAYOUT["features.csv"],
@@ -894,7 +791,8 @@ def _write_package(
     )
     pkg.write_csv(TASK_LAYOUT["decisions.csv"], [d.row() for d in result.decisions])
     pkg.write_csv(TASK_LAYOUT["cohort.csv"], result.cohort.exclusions)
-    pkg.write_csv(TASK_LAYOUT["clusters.csv"], _cluster_rows(result))
+    retained = set(result.recipe.get("output_columns") or [])
+    pkg.write_csv(TASK_LAYOUT["clusters.csv"], decorrelate.rows(result.clusters, retained))
     if result.missingness is not None and (
         result.missingness.groups or result.missingness.singletons
     ):
@@ -940,15 +838,17 @@ def load_tasks(args, config: dict[str, Any] | None) -> list[TaskSpec]:
     files = task_files(getattr(args, "task", None))
     if not files:
         raise TaskConfigError(
-            "No task to run: pass --task <task workspace>. Create one with "
-            "`pvf new-task <folder>`"
+            "No task to run: run inside a task workspace or pass --task <folder>. "
+            "Create one with `pvf init <folder>`"
         )
     return [taskconfig.load(path, config) for path in files]
 
 
 def _config(args, start: str | Path | None = None, required: bool = True) -> dict | None:
+    """``--config``, else the config the task names, else ``$PVF_CONFIG`` or the nearest one."""
+    explicit = getattr(args, "config", None) or taskconfig.config_file(start)
     try:
-        return workspace.load(workspace.find(getattr(args, "config", None), start=start))
+        return workspace.load(workspace.find(explicit, start=start))
     except ConfigError:
         if required or getattr(args, "config", None):
             raise
@@ -1007,9 +907,10 @@ def _check_task(spec: TaskSpec) -> list[str]:
     if not Path(spec.ptf).exists():
         return problems
     frame = io.read_table(spec.ptf)
-    for column, _ in spec.roles.exclude_categories:
-        if column not in frame.columns:
-            problems.append(f"columns.exclude_categories: '{column}' is not a column of the PTF")
+    for key in ("include_categories", "exclude_categories"):
+        for column, _ in getattr(spec.roles, key):
+            if column not in frame.columns:
+                problems.append(f"columns.{key}: '{column}' is not a column of the PTF")
     if spec.predictive and spec.availability.cutoff:
         if io.STAGE_COLUMN not in frame.columns and not spec.availability.reviewed:
             problems.append(
@@ -1041,7 +942,8 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pvf",
         description="CAR-T manufacturing data: the PTF, the PVF, and model-ready tasks from it",
-        epilog="Set the paths in config.yaml, then `pvf all`, then `pvf new-task <folder>`.",
+        epilog="Set the paths in config.yaml, run `pvf ptf` and `pvf build`, then "
+        "`pvf init <folder>` for a task.",
     )
     parser.add_argument(
         "--config", help="the config (default: $PVF_CONFIG, or the nearest config.yaml)"
@@ -1049,7 +951,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--debug", action="store_true", help="show tracebacks for every error")
     commands = parser.add_subparsers(dest="stage", required=True, metavar="command")
 
-    new = commands.add_parser("new-task", help="create a task workspace with a task.yaml")
+    new = commands.add_parser("init", help="create a task workspace with a task.yaml")
     new.add_argument("folder", help="the task workspace folder; its name is the task's name")
     new.add_argument("--target", default="", help="the column the task predicts")
     new.add_argument(
@@ -1064,21 +966,15 @@ def _parser() -> argparse.ArgumentParser:
     commands.add_parser("ptf", help="what the sources record that the PTF does not list")
     build = commands.add_parser("build", help="build the PVF from both sites")
     build.add_argument("--mode", default=None, help="PRD or DEV (default: $MODE, else DEV)")
-    build.add_argument(
-        "--report-only", action="store_true", help="build the report without writing the PVF"
-    )
     tasks = commands.add_parser("tasks", help="run tasks and write a folder for each")
     tasks.add_argument(
         "--task",
         action="append",
-        required=True,
-        help="a task workspace, its task.yaml, or a folder of workspaces (repeatable)",
+        help="a task workspace, its task.yaml, or a folder of workspaces (repeatable); "
+        "default: the workspace in this folder",
     )
-    tasks.add_argument(
-        "--report-only",
-        action="store_true",
-        help="write only the report and its metadata, into a folder of their own",
-    )
+    redo = commands.add_parser("rerun", help="redo a run from its own folder, and compare")
+    redo.add_argument("run", help="the run folder, <task workspace>/runs/<run id>")
     everything = commands.add_parser("all", help="run ptf, build and the tasks, in order")
     everything.add_argument("--mode", default=None, help="PRD or DEV (default: $MODE, else DEV)")
     everything.add_argument("--task", action="append", help="a task workspace (repeatable)")
@@ -1109,17 +1005,31 @@ def main(argv: list[str] | None = None) -> int:
 
 def _run(args) -> int:
     mode = getattr(args, "mode", None) or os.getenv("MODE", "dev")
+    if args.stage in ("check", "tasks") and not args.task and Path(taskconfig.TASK_FILE).is_file():
+        args.task = ["."]
     first_task = (getattr(args, "task", None) or [None])[0]
-    if args.stage == "new-task":
-        path = scaffold.new_task(args.folder, args.target, args.purpose, args.question, args.force)
+    if args.stage == "init":
+        found = _config(args, start=args.folder, required=False)
+        path = scaffold.init(
+            args.folder,
+            args.target,
+            args.purpose,
+            args.question,
+            args.force,
+            config=found["__path__"] if found else None,
+        )
         log.facts(
-            "Task created",
+            "Task workspace created",
             [
                 ("File", str(path)),
-                ("Check", f"pvf check --task {path.parent}"),
-                ("Run", f"pvf tasks --task {path.parent}"),
+                ("Config", found["__path__"] if found else "none found — set config: in the file"),
+                ("Next", f"cd {path.parent} && pvf check && pvf tasks"),
             ],
         )
+        return 0
+
+    if args.stage == "rerun":
+        rerun(args.run)
         return 0
 
     if args.stage == "apply":
@@ -1141,14 +1051,14 @@ def _run(args) -> int:
             log.success(MODULE, "Everything checked out")
             return 0
         for spec in specs:
-            run_task(config, spec, report_only=args.report_only)
+            run_task(config, spec)
         return 0
 
     config = _config(args, start=first_task)
     if args.stage in ("ptf", "all"):
         run_ptf(config)
     if args.stage in ("build", "all"):
-        run_build(config, mode=mode, skip_write=getattr(args, "report_only", False))
+        run_build(config, mode=mode)
     if args.stage == "all" and args.task:
         for spec in load_tasks(args, config):
             run_task(config, spec)

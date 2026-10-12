@@ -30,24 +30,23 @@ STAGING_SUFFIX = ".incomplete"
 FAILED_SUFFIX = ".failed"
 MANIFEST = "manifest.json"
 
-#: What each artefact is, as the manifest names it.
-ARTEFACT_ROLES = {
-    "task.yaml": "effective task settings",
-    "dataset.csv": "dataset",
-    "raw_features.csv": "untransformed predictors",
-    "transformed.csv": "transformed predictors",
-    "columns.csv": "column dictionary",
-    "features.csv": "feature dictionary",
-    "decisions.csv": "parameter decisions",
-    "cohort.csv": "cohort membership",
-    "clusters.csv": "correlated groups",
-    "missingness.csv": "parameters missing together",
-    "recipe.json": "fitted preprocessing",
-    "report.html": "report",
-    "report_payload.json": "report data",
-    "ptf_manifest.json": "PTF stage manifest",
-    "pvf_manifest.json": "build stage manifest",
-    "run.log": "run log",
+#: Where each artefact sits in a run folder, and what the manifest calls it.
+ARTEFACTS = {
+    "config/task.yaml": "effective task settings",
+    "data/dataset.csv": "dataset",
+    "data/transformed.csv": "transformed predictors",
+    "metadata/columns.csv": "column dictionary",
+    "metadata/features.csv": "feature dictionary",
+    "metadata/decisions.csv": "parameter decisions",
+    "metadata/cohort.csv": "cohort membership",
+    "metadata/clusters.csv": "correlated groups",
+    "metadata/missingness.csv": "parameters missing together",
+    "metadata/recipe.json": "fitted preprocessing",
+    "report/report.html": "report",
+    "report/report_payload.json": "report data",
+    "inputs/ptf_manifest.json": "PTF stage manifest",
+    "inputs/pvf_manifest.json": "build stage manifest",
+    "logs/run.log": "run log",
 }
 
 
@@ -104,7 +103,11 @@ class TaskPackage:
     def artifacts(self) -> list[dict[str, Any]]:
         """Every file in the folder with its size and digest, manifest aside."""
         return [
-            manifest.output_entry(self.staging, path, ARTEFACT_ROLES.get(path.name, path.stem))
+            manifest.output_entry(
+                self.staging,
+                path,
+                ARTEFACTS.get(path.relative_to(self.staging).as_posix(), path.stem),
+            )
             for path in sorted(self.staging.rglob("*"))
             if path.is_file() and path.name != MANIFEST
         ]

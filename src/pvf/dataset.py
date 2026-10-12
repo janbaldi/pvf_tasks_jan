@@ -24,10 +24,8 @@ inside each of its own cross-validation folds. This module makes no split.
 
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import asdict, dataclass, field, fields
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -115,7 +113,7 @@ class TaskResult:
     #: Predictors that track the target closely on the fitted rows.
     proxies: list[dict] = field(default_factory=list)
     missingness: Any = None
-    #: The transformed table, whatever the dataset is; exported beside it.
+    #: The transformed table, exported beside the dataset.
     transformed: pd.DataFrame | None = None
 
     dictionary: list[Record] = field(default_factory=list)
@@ -128,7 +126,7 @@ class TaskResult:
     #: How many columns the recipe produces, which is not the raw predictor count.
     transformed_columns: int = 0
     selected_raw: list[str] = field(default_factory=list)
-    dataset_role: str = "exploratory"
+    dataset_role: str = ""
     fitted_on: str = ""
 
     def meaning(self, column: str) -> Record | None:
@@ -508,19 +506,24 @@ def parameter_stages(
 
 
 def _category_exclusions(ptf: pd.DataFrame, spec: TaskSpec) -> dict[str, str]:
-    """Parameter → why, for every parameter in a PTF category the task excludes."""
+    """Parameter → why, for every parameter the task's PTF category rules leave out."""
     out: dict[str, str] = {}
-    for column, categories in spec.roles.exclude_categories:
+    rules = [("include_categories", c, v) for c, v in spec.roles.include_categories] + [
+        ("exclude_categories", c, v) for c, v in spec.roles.exclude_categories
+    ]
+    for key, column, categories in rules:
         if column not in ptf.columns:
             # A typo must not quietly let every category through.
             raise TaskRefused(
-                f"columns.exclude_categories: the PTF has no '{column}' column "
+                f"columns.{key}: the PTF has no '{column}' column "
                 f"(it has {', '.join(map(str, ptf.columns))})"
             )
         values = ptf[column].fillna("").astype(str).str.strip()
+        keep = key == "include_categories"
         for parameter, value in zip(ptf["Parameter"].astype(str), values):
-            if value in categories:
-                out.setdefault(parameter, f"PTF '{column}' is '{value}'")
+            if (value in categories) != keep:
+                why = f"PTF '{column}' is '{value}'" if value else f"PTF '{column}' is empty"
+                out.setdefault(parameter, why + (", not an included category" if keep else ""))
     return out
 
 
@@ -566,7 +569,7 @@ def candidate_predictors(
     # When the PTF says from which stage each parameter exists, a predictive
     # task's cutoff is checked mechanically: later or unstaged is out.
     ranks, odd_values = parameter_stages(ptf, spec, list(cohort.columns))
-    cutoff = spec.availability.cutoff_rank
+    cutoff = spec.availability.rank(spec.availability.cutoff)
     staged = bool(ranks) and spec.predictive and cutoff is not None
     result.stages = {
         name: (spec.availability.stages[rank] if rank is not None else "")
@@ -768,10 +771,6 @@ class Preprocessor:
             output_columns=output,
             dictionary=list(state.get("dictionary") or []),
         )
-
-    @classmethod
-    def load(cls, path: str | Path) -> Preprocessor:
-        return cls.from_state(json.loads(Path(path).read_text(encoding="utf-8")))
 
     @property
     def inputs(self) -> list[str]:
@@ -1170,16 +1169,13 @@ def split_groups(cohort: pd.DataFrame, labelled: pd.Index, spec: TaskSpec) -> pd
 # ---------------------------------------------------------------------------
 # Building
 # ---------------------------------------------------------------------------
-def build(
-    pvf: pd.DataFrame, ptf: pd.DataFrame, spec: TaskSpec
-) -> tuple[pd.DataFrame, pd.DataFrame, TaskResult]:
+def build(pvf: pd.DataFrame, ptf: pd.DataFrame, spec: TaskSpec) -> tuple[pd.DataFrame, TaskResult]:
     """Run one task.
 
-    Returns the table the task is for, the selected raw predictors beside their
-    metadata, and everything that was decided. For an exploratory task the first
-    is the transformed table; for a predictive one it is the raw modelling input,
-    and the transformed view is ``result.transformed``. Every row is a training
-    row: cross-validation belongs to the tool that fits the models.
+    Returns the dataset — the raw predictors the recipe uses, with the metadata
+    and the target — and everything that was decided; the transformed view is
+    ``result.transformed``. Every row is a training row: cross-validation
+    belongs to the tool that fits the models.
     """
     result = TaskResult(spec=spec)
     cohort = select_cohort(pvf, spec, result)
@@ -1234,24 +1230,14 @@ def build(
     result.transformed_columns = len(pre.output_columns)
     raw = cohort[result.selected_raw].copy()
     metadata = _metadata(cohort, spec, result)
-    raw_table = pd.concat([metadata, raw, target.rename(result.target_column)], axis=1)
-    transformed_table = pd.concat(
+    final = pd.concat([metadata, raw, target.rename(result.target_column)], axis=1)
+    result.transformed = pd.concat(
         [metadata, transformed, target.rename(result.target_column)], axis=1
     )
-    result.transformed = transformed_table
-
-    if spec.predictive:
-        final = raw_table
-        result.dataset_role = (
-            "raw modelling inputs; the transformed view is produced by recipe.json, "
-            f"fitted on {result.fitted_on}"
-        )
-    else:
-        final = transformed_table
-        result.dataset_role = (
-            "exploratory transformed data, preprocessed over "
-            f"{result.fitted_on} — not a table to cross-validate on as it stands"
-        )
+    result.dataset_role = (
+        "raw modelling inputs, one row per batch; data/transformed.csv is the same rows "
+        f"through recipe.json, fitted on {result.fitted_on}"
+    )
 
     result.dictionary = list(pre.dictionary)
     result.recipe = pre.state()
@@ -1271,7 +1257,7 @@ def build(
         f"Task '{spec.name}': {result.rows} batches × {result.feature_columns} columns, "
         f"predicting '{result.target_column}'",
     )
-    return final, raw_table, result
+    return final, result
 
 
 def _check_unique_ids(cohort: pd.DataFrame, spec: TaskSpec) -> None:

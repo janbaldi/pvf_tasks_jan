@@ -100,18 +100,6 @@ class TaskParams:
     proxy_correlation: float = 0.95
     seed: int = 0
 
-    @property
-    def enabled_encoders(self) -> dict[str, bool]:
-        return {
-            "one_hot": self.one_hot,
-            "target": self.target_encoding,
-            "hashing": self.feature_hashing,
-        }
-
-    @property
-    def encodes_missing(self) -> bool:
-        return self.missing_category == "category"
-
 
 def sanitise(name: str) -> str:
     """A column name safe to build other names out of."""
@@ -149,7 +137,7 @@ def _labels(series: pd.Series, params: TaskParams) -> pd.Series:
     its own, in which case it gets one label and keeps it everywhere.
     """
     text = series.astype("string").str.strip()
-    if params.encodes_missing:
+    if params.missing_category == "category":
         return text.fillna(MISSING_LABEL)
     return text
 
@@ -177,7 +165,11 @@ def route_categoricals(df: pd.DataFrame, columns: list[str], params: TaskParams)
     detected here; this catches the ones nobody declared.
     """
     rows = len(df)
-    enabled = params.enabled_encoders
+    enabled = {
+        "one_hot": params.one_hot,
+        "target": params.target_encoding,
+        "hashing": params.feature_hashing,
+    }
     routes: list[Route] = []
 
     for column in columns:

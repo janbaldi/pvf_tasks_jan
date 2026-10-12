@@ -86,6 +86,10 @@ def _colour_enabled(stream) -> bool:
     return True
 
 
+def _width() -> int:
+    return max(60, min(shutil.get_terminal_size((100, 20)).columns, 140))
+
+
 class _Scanner:
     """A bar sliding to and fro, ``[  -=#   ] working 4s``, while the console is quiet.
 
@@ -216,10 +220,6 @@ class PipelineLogger:
         codes = "".join(_ANSI[s] for s in styles if s)
         return f"{codes}{text}{_ANSI['reset']}" if self.colour and codes else text
 
-    @staticmethod
-    def _width() -> int:
-        return max(60, min(shutil.get_terminal_size((100, 20)).columns, 140))
-
     def _safe(self, text: str) -> str:
         """The text as this console can print it: what its code page lacks becomes "?"."""
         return text.encode(self._encoding, "replace").decode(self._encoding)
@@ -232,7 +232,7 @@ class PipelineLogger:
 
     def _rule(self, head: str, char: str, *styles: str) -> None:
         self._print()
-        self._print(self._paint(head + char * max(3, self._width() - len(head)), *styles))
+        self._print(self._paint(head + char * max(3, _width() - len(head)), *styles))
 
     def _emit(self, level: str, module: str, message: str, detail: str | None):
         event = PipelineEvent(level, module, message, detail)
@@ -248,7 +248,7 @@ class PipelineLogger:
         if detail:
             wrapped = textwrap.fill(
                 str(detail),
-                width=self._width(),
+                width=_width(),
                 initial_indent=_INDENT,
                 subsequent_indent=_INDENT,
                 break_on_hyphens=False,

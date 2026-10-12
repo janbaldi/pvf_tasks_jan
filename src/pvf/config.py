@@ -243,7 +243,7 @@ def validate(config: dict[str, Any], source: str = "config") -> None:
     upload = _mapping(
         config.get("upload"),
         "upload",
-        ("enabled", "path", "target", "drive_id", "file_name"),
+        ("enabled", "path", "drive_id", "file_name"),
         errors,
     )
     if "enabled" in upload and not isinstance(upload["enabled"], bool):
@@ -341,7 +341,7 @@ def site_map_sources(config: dict[str, Any], reader=None) -> list[io.Source]:
 def upload_target(config: dict[str, Any]) -> dict[str, str]:
     """Where the PVF goes when a PRD run uploads it, from config or ``$DATA_LINK``."""
     upload = config.get("upload") or {}
-    path = str(upload.get("path") or upload.get("target") or os.getenv("DATA_LINK") or "")
+    path = str(upload.get("path") or os.getenv("DATA_LINK") or "")
     drive_id = str(upload.get("drive_id") or "")
     if not path or not drive_id:
         raise ConfigError(

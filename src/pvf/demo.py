@@ -940,6 +940,7 @@ def write_tasks(directory: Path) -> list[Path]:
     """
     directory = Path(directory)
     car_expression = {
+        "config": "../../config.yaml",
         "task": {
             "name": "site_a_car_expression",
             "question": "Which manufacturing parameters go with final product CAR+ "
@@ -1000,6 +1001,7 @@ def write_tasks(directory: Path) -> list[Path]:
     }
 
     release_outcome = {
+        "config": "../../config.yaml",
         "task": {
             "name": "site_b_release",
             "question": "What does a released SiteB batch look like, next to a discarded one?",

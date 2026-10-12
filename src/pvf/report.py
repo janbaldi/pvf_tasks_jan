@@ -25,7 +25,7 @@ from typing import Any
 import pandas as pd
 import yaml
 
-from . import io, missingness, plots, stlite
+from . import decorrelate, io, missingness, plots, stlite
 from .blocks import (
     Block,
     bold,
@@ -870,7 +870,6 @@ class TaskRun:
     events: list
     provenance: dict
     output_path: str = ""
-    report_only: bool = False
     run_start: datetime = field(default_factory=datetime.now)
 
     @property
@@ -937,12 +936,6 @@ def _task_overview(run: TaskRun) -> dict | None:
     rows += [
         ["Correlated groups found", f"{len(result.clusters.clusters):,}"],
         ["Clustering action", esc(result.clusters.action)],
-        [
-            "This run",
-            "report only — no dataset was written"
-            if run.report_only
-            else "complete task package written",
-        ],
         ["What the table is", esc(result.dataset_role)],
     ]
 
@@ -1604,8 +1597,6 @@ def _task_clusters(run: TaskRun, membership: list[dict]) -> dict | None:
                 "representative": "One member of each group was kept and the others dropped.",
                 "linear": "One member of each group was kept and the others replaced by what "
                 "is left of them once the retained ones are accounted for.",
-                "nonlinear": "One member was kept and the others residualised against it by "
-                "whichever curve fitted — an experimental option.",
             }.get(report.action, "")
         )
     ]
@@ -1778,17 +1769,16 @@ def _task_dataset(run: TaskRun) -> dict | None:
         rows.append(["Identifier", esc(f"{spec.roles.id} (first)")])
     if spec.roles.group:
         rows.append(["Grouping column", esc(spec.roles.group)])
-    if spec.predictive and not run.report_only:
-        rows.append(
-            [
-                "Transformed view",
-                esc(
-                    "data/transformed.csv: the recipe fitted on the whole cohort (target "
-                    "encoding cross-fitted); refit recipe.json inside each fold you evaluate in"
-                ),
-            ]
-        )
-    rows.append(["Written to", esc(run.output_path or "nothing — this is a report-only run")])
+    rows.append(
+        [
+            "Transformed view",
+            esc(
+                "data/transformed.csv: the recipe fitted on the whole cohort (target "
+                "encoding cross-fitted); refit recipe.json inside each fold you evaluate in"
+            ),
+        ]
+    )
+    rows.append(["Written to", esc(run.output_path)])
 
     blocks: list[Block | None] = [
         table(["", ""], [[bold(label), value] for label, value in rows]),
@@ -1879,11 +1869,6 @@ def _task_provenance(run: TaskRun) -> dict | None:
         "cohort. Cross-validate in the tool that fits the models, refitting the recipe in "
         "each fold."
     )
-    if run.report_only:
-        limitations.append(
-            "This run wrote a report and its metadata only. No dataset was written, nothing "
-            "was uploaded, and the analysis behind the report still ran in full."
-        )
 
     return _section(
         "provenance",
@@ -1918,9 +1903,8 @@ def _task_provenance(run: TaskRun) -> dict | None:
 
 def build_task_payload(run: TaskRun) -> dict[str, Any]:
     """One task's report, in the order a reader needs it."""
-    from .cli import _cluster_rows
-
-    membership = _cluster_rows(run.result)
+    retained = set(run.result.recipe.get("output_columns") or [])
+    membership = decorrelate.rows(run.result.clusters, retained)
     sections = [
         _task_overview(run),
         _task_cohort(run),
@@ -1937,7 +1921,6 @@ def build_task_payload(run: TaskRun) -> dict[str, Any]:
         "lead": run.spec.question
         or f"{result.rows:,} batches and {result.feature_columns:,} predictor columns, "
         f"predicting {run.spec.target.column}.",
-        "subtitle": f"CAR-T manufacturing data · run {run.run_start.strftime('%Y-%m-%d %H:%M')}"
-        + (" · report only" if run.report_only else ""),
+        "subtitle": f"CAR-T manufacturing data · run {run.run_start.strftime('%Y-%m-%d %H:%M')}",
         "sections": [section for section in sections if section],
     }

@@ -1,203 +1,469 @@
-# CAR-T manufacturing data
+# pvf — training datasets from CAR-T manufacturing data
 
-Three stages over one dataset, in one package.
+Turn the site batch records into one checked table of every batch (the PVF), and
+cut that table into a documented, reproducible training dataset for each
+question you want to model.
 
-| Stage | What it answers | Writes |
-|---|---|---|
-| `pvf ptf` | Is the PTF (the feature metadata) still up to date with what the sources record? | `ptf_report.html`, `ptf_manifest.json`, optionally `new_parameters.csv` |
-| `pvf build` | What happened to every batch, at both sites, in one table? | `PVF.xlsx` (+ `PVF.parquet`), `pvf_manifest.json`, `build_report.html` |
-| `pvf tasks` | What does one cohort and one target look like as a training dataset? | a new run folder in the task's workspace |
+- **`pvf ptf`** checks that the PTF — the list of parameters and their metadata —
+  still covers everything the source systems record.
+- **`pvf build`** merges both sites into the PVF: one row per batch, cleaned, with
+  derived features.
+- **`pvf tasks`** turns the PVF into one training dataset for one question: a
+  cohort, a target and the columns you choose. It also writes a report and every
+  decision behind it.
 
-There is one PTF and one PVF. They live in a data folder of your own, and
-`config.yaml` points at them. Each task — one question asked of the PVF — gets a
-workspace folder of its own, and every run of it carries everything needed to
-redo it. The dataset is one training table; cross-validation happens in the tool
-that fits the models.
+What it does **not** do: fit models, split data into train/validation sets, or
+decide by itself which parameters come too late in the process. The dataset is
+one training table; cross-validation and model fitting belong to the next tool,
+and leaving out late parameters is a column choice you make in the task file.
 
-## 1. Set up (once)
+**Contents:** [Install](#install) · [Quick start](#quick-start) ·
+[Set up with your own data](#set-up-with-your-own-data) ·
+[Walkthrough: your first task](#walkthrough-your-first-task) ·
+[Use the dataset](#use-the-dataset-in-your-modelling-code) ·
+[Commands](#commands) · [task.yaml reference](#taskyaml-reference) ·
+[config.yaml reference](#configyaml-reference) ·
+[How a dataset is built](#how-a-dataset-is-built) ·
+[What a run writes](#what-a-run-writes) · [Troubleshooting](#troubleshooting) ·
+[Development](#development)
+
+## Install
+
+You need Python 3.12 and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone <this repository> && cd pvf_tasks_jan
-uv sync                      # Python 3.12, the versions in uv.lock
+git clone https://github.com/janbaldi/pvf_tasks_jan.git
+cd pvf_tasks_jan
+uv sync                     # installs the exact versions in uv.lock
+uv run pvf --help
 ```
 
-1. **Make a data folder** anywhere, for example `~/pvf_data/`, and put the PTF in
-   it plus local copies of the sources in `~/pvf_data/raw/` (or read them from
-   SharePoint, below).
-2. **Edit `config.yaml`** in this repository: point `paths:` at that folder.
-   `paths.ptf` is the PTF, `paths.pvf` is where `pvf build` writes the PVF; the
-   reports and manifests go beside the PVF. Relative paths are relative to
-   `config.yaml`, and `~` is your home folder.
-3. **Secrets** (SharePoint credentials, drive ids) go in a `.env` next to
-   `config.yaml` — copy `.env.example`. It is git-ignored.
-4. **Check, then build:**
+Every command below is run with `uv run pvf …` from inside the repository (or any
+folder below it, such as a task folder).
 
-   ```bash
-   uv run pvf check     # the config and the corrections table; nothing is run
-   uv run pvf ptf       # is the PTF still up to date with the sources?
-   uv run pvf build     # write the PVF
-   ```
+Reading from SharePoint needs the internal `io_sharepoint` package, and joining
+Acridine Orange readings needs `databricks_query_tool`. Both are optional: without
+them everything runs from local files.
 
-Rerun `pvf ptf` and `pvf build` whenever the sources or the PTF change. `pvf
-build` warns when the last `pvf ptf` found parameters the PTF does not list, and
-a task warns when the PTF changed after the PVF was built.
+## Quick start
 
-A command finds `config.yaml` by `--config <file>`, then the `config:` a task
-names, then `$PVF_CONFIG`, then the nearest `config.yaml` in or above the working
-directory.
-
-## 2. Tutorial: a first task, on the demo data
-
-The demo is made-up data with the same shapes as the real sources, so every step
-below runs as written.
-
-**Make the demo and build its PVF.** This writes `demo/config.yaml`, the sources
-under `demo/data/raw/` and two example tasks under `demo/tasks/`.
+The repository ships a demo: made-up data with the same shape as the real
+sources. These five commands build a PVF and two training datasets from it.
 
 ```bash
-uv run python -m pvf.demo demo
+uv run python -m pvf.demo demo       # writes demo/data/raw/… (the made-up sources)
 cd demo
-uv run pvf ptf        # "SiteA PHF: columns the PTF does not list (1)" …
-uv run pvf build      # "Written — 70 batches × 221 columns"
+uv run pvf ptf                       # SiteA PHF: columns the PTF does not list (1) …
+uv run pvf build                     # Written — 70 batches × 221 columns
+uv run pvf tasks --task tasks        # runs both example tasks in demo/tasks/
 ```
 
-**Create a task workspace.** `pvf init` makes the folder and an annotated
-`task.yaml` that already points at this `config.yaml`:
+Each task writes a run folder such as
+`demo/tasks/site_a_car_expression/runs/20261012-154806-f3dc66/`. Open
+`report/report.html` in it in a browser, or load `data/dataset.csv`.
+
+## Set up with your own data
+
+You do this once. Afterwards you only rerun `pvf ptf` and `pvf build` when the
+sources or the PTF change.
+
+**1. Make a data folder** anywhere outside the repository, for example:
+
+```
+~/pvf_data/
+  PTF.xlsx                 the parameter list and its metadata
+  raw/                     local copies of the sources
+    phf_site_a.xlsx
+    phf_site_b.xlsx
+    parameter_requirements.xlsx
+    remfg.xlsx
+    lv_coa.xlsx
+    raw_materials.csv
+    investigations_power_query.xlsx
+    site_map_clinical_sites.xlsx
+```
+
+`pvf build` writes the PVF into this folder, and the reports and manifests go
+next to it.
+
+**2. Point `config.yaml` at it.** `config.yaml` in the repository root is
+annotated. These are the paths you need to set:
+
+```yaml
+paths:
+  ptf: ~/pvf_data/PTF.xlsx                 # read by pvf ptf, pvf build and every task
+  pvf: ~/pvf_data/PVF.xlsx                 # written by pvf build
+  phf_site_a: ~/pvf_data/raw/phf_site_a.xlsx
+  phf_site_b: ~/pvf_data/raw/phf_site_b.xlsx
+  param_mapping: ~/pvf_data/raw/parameter_requirements.xlsx
+  remfg: ~/pvf_data/raw/remfg.xlsx
+  lv_coa: ~/pvf_data/raw/lv_coa.xlsx
+  raw_materials: ~/pvf_data/raw/raw_materials.csv
+  investigations: ~/pvf_data/raw/investigations_power_query.xlsx
+  site_maps:
+    - ~/pvf_data/raw/site_map_clinical_sites.xlsx
+  new_parameters: ~/pvf_data/new_parameters.csv
+```
+
+Relative paths are relative to `config.yaml`, and `~` is your home folder. To
+read the sources from SharePoint instead, see
+[Sources and SharePoint](#sources-and-sharepoint).
+
+**3. Put secrets in `.env`.** If you use SharePoint, copy `.env.example` to `.env`
+next to `config.yaml` and fill in the credentials. `.env` is git-ignored.
+
+**4. Check, then build:**
+
+```bash
+uv run pvf check      # validates config.yaml and the corrections table; runs nothing
+uv run pvf ptf        # lists source columns the PTF does not know about
+uv run pvf build      # writes PVF.xlsx, PVF.parquet, build_report.html and pvf_manifest.json
+```
+
+`pvf ptf` writes `ptf_report.html` and `new_parameters.csv`. Add any parameter
+you want in the PVF to the PTF, then run `pvf build`. If you build without
+doing that, `pvf build` warns you:
+
+```
+WARN   cli  The last `pvf ptf` found 6 parameters the sources record and the PTF does not list; …
+```
+
+## Walkthrough: your first task
+
+A **task** is one question asked of the PVF. It lives in its own folder, the
+*task workspace*, which holds its `task.yaml` and every run of it. This
+walkthrough uses the demo from the [quick start](#quick-start); run it from
+`demo/`.
+
+### 1. Create the workspace
 
 ```bash
 uv run pvf init tasks/car_expression --target "<fp_car_pct>"
-cd tasks/car_expression
 ```
 
-**Say what the dataset is.** Open `task.yaml` and change three things: the
-cohort, the columns, and — because the demo cohort is small — the minimum number
-of values a column needs.
+```
+Task workspace created
+  File    …/demo/tasks/car_expression/task.yaml
+  Config  …/demo/config.yaml
+  Next    cd …/demo/tasks/car_expression && pvf check && pvf tasks
+```
+
+The new `task.yaml` is annotated and already contains `config: ../../config.yaml`,
+so the task finds its PVF and PTF from wherever you run it.
+
+### 2. Describe the dataset
+
+Replace the contents of `tasks/car_expression/task.yaml` with:
 
 ```yaml
-cohort:
-  sites: [SiteA]
-  filters:
-    - {column: Type, op: equals, value: Commercial, reason: manufactured commercially}
+config: ../../config.yaml            # the config.yaml that names the PVF and PTF
 
-columns:
-  id: 'Patient Lot/Batch #'
-  group: <vector_lot>
-  exclude:                                   # single columns, each with a reason
+task:
+  name: car_expression
+  question: Which manufacturing parameters go with CAR+ expression at SiteA?
+  seed: 20260917                     # makes the run repeatable
+
+cohort:                              # which batches are rows
+  sites: [SiteA]
+  filters:                           # applied in order
+    - {column: Type, op: equals, value: Commercial, reason: manufactured commercially}
+    - {column: <nonconformance>, op: not_in, value: [termination, withdrawal],
+       normalise: true, missing: include, reason: not terminated or withdrawn}
+
+target:                              # what the model will predict
+  column: <fp_car_pct>
+  type: numeric
+
+columns:                             # which PVF columns go in
+  id: 'Patient Lot/Batch #'          # kept as metadata, never a predictor
+  group: <vector_lot>                  # kept as metadata, for grouped cross-validation
+  exclude:                           # single columns, each with its reason
     - {column: <subject_weight>, reason: dose per kilogram already carries it}
-  exclude_categories:                        # every parameter in a PTF category
+  exclude_categories:                # every parameter in these PTF categories
     Value Type: [datetime]
     Available At: [Wash, Formulation, Final product, Post-thaw, Release, Post-release]
 
-quality: {min_non_missing: 8}
+clustering:
+  action: report_only                # describe correlated parameters, change nothing
+
+quality:
+  min_non_missing: 8                 # the demo cohort is small; the default is 20
 ```
 
-`exclude_categories` takes any PTF column and the categories of it to leave out —
-here the timestamps, and everything the PTF says is measured after harvest.
-`include_categories` is the opposite: only those categories are kept.
+What each block does:
 
-**Check it, then run it.** Inside a workspace no `--task` is needed:
+- **`cohort`** narrows the PVF's 70 batches to the ones the question is about.
+  `missing: include` keeps batches with no value in that column; the default,
+  `exclude`, drops them. `normalise: true` compares case-insensitively and
+  treats `withdrawn` as `withdrawal`.
+- **`target`** names the column to predict. Batches without a target value are
+  dropped and listed in `cohort.csv`.
+- **`columns`** decides which parameters become predictors. `exclude_categories`
+  looks up each parameter in the PTF and leaves it out when the named PTF column
+  holds one of the listed values. Here it removes the timestamps
+  (`Value Type: datetime`) and everything the PTF marks as measured after harvest
+  (`Available At`). Any PTF column works, for example `{Category: [QC]}`.
+  `include_categories` does the opposite: it keeps only the listed values.
+
+### 3. Check it
 
 ```bash
-uv run pvf check      # every column it names is checked against the PVF and PTF
-uv run pvf tasks      # "Written — 34 batches × 116 columns"
+cd tasks/car_expression
+uv run pvf check
 ```
 
-**Look at the run.** It is in `runs/<run id>/`:
+Every column the task names is checked against the PVF, and every PTF column
+against the PTF. Inside a workspace you don't need `--task`. A typo shows up
+like this, and nothing runs:
 
 ```
-runs/20261012-145259-dfebcd/
-  data/dataset.csv          the training dataset: id, group, raw predictors, target
-  data/transformed.csv      the same rows encoded by metadata/recipe.json
-  metadata/decisions.csv    every parameter in or out, and why
-  report/report.html        open it in a browser
-  inputs/                   the PVF and PTF this run read, and their manifests
+Problems that would stop a run (1)
+  - car_expression: target.column: 'FP Flow CAR (%)' is not a column of the PVF
+```
+
+### 4. Run it
+
+```bash
+uv run pvf tasks
+```
+
+```
+Written — 21 batches × 114 columns
+  Task folder  …/tasks/car_expression/runs/20261012-154806-f3dc66
+  Report       …/runs/20261012-154806-f3dc66/report/report.html
+  Dataset      …/runs/20261012-154806-f3dc66/data/dataset.csv
+  Manifest     …/runs/20261012-154806-f3dc66/manifest.json
+
+  WARN   dataset  Only 3 distinct <vector_lot> values: any grouped cross-validation rests on 3 groups, not on 21 batches
+  WARN   dataset  137 predictor columns for 21 fitted batches (p/n = 6.5): a model needs strong regularisation, …
+```
+
+The warnings are about the data, not errors: they tell you how much evidence
+the table really holds.
+
+### 5. Read the run
+
+Every run is a new folder; earlier runs are never overwritten.
+
+```
+runs/20261012-154806-f3dc66/
+  data/dataset.csv          21 rows: id, group, 111 raw predictors, target
+  data/transformed.csv      the same rows, encoded to numbers by metadata/recipe.json
+  metadata/decisions.csv    every parameter: included or excluded, and why
+  metadata/cohort.csv       every PVF batch: in or out, and which filter decided
+  metadata/columns.csv      every dataset column: role, source parameter, type, unit, meaning
+  report/report.html        the same, with figures; open it in a browser
+  inputs/                   the exact PVF and PTF this run read, and their manifests
   config/task.yaml          the effective settings, pointing at inputs/
+  manifest.json             a checksum of every file
 ```
 
-`decisions.csv` has a row for each parameter the task left out — the datetime
-parameters say `PTF 'Value Type' is 'datetime'`, the late ones for example
-`PTF 'Available At' is 'Post-thaw'`.
+`decisions.csv` explains every parameter that was left out. These are real rows
+from this run:
 
-**Redo it.** A run folder is enough to reproduce itself:
+| Parameter | Decision | Reason | Stage |
+|---|---|---|---|
+| Patient Lot/Batch # | excluded | the identifier, kept as metadata rather than encoded | role |
+| <subject_weight> | excluded | dose per kilogram already carries it | task exclusion |
+| <pt_cd3_pct> | excluded | PTF 'Available At' is 'Post-thaw' | category exclusion |
+| <f_vcn_per_cell> | excluded | computed from the target: <fp_car_pct> → <f_vcn_per_cell> | target lineage |
+| <f_seeding_pct> | excluded | duplicates '<f_cells_per_bag>' (R²=1.0 over 21 shared batches) | near-duplicate |
+| <f_moi_b> | excluded | '<f_moi_b>' has 7 values, below the 8 this task requires | sparsity |
+
+The target is written under a column-safe name (`fp_flow_car` here).
+`columns.csv` maps it back: it is the row whose `Role` is `target`.
+
+### 6. Reproduce it
+
+A run folder contains everything it needs to run again:
 
 ```bash
-uv run pvf rerun runs/20261012-145259-dfebcd   # "dataset.csv is identical to the one in …"
+uv run pvf rerun runs/20261012-154806-f3dc66
 ```
 
-The two finished examples in `demo/tasks/` show the rest: a binary target,
-residualised clusters and a category exclusion.
+```
+OK  cli  dataset.csv is identical to the one in 20261012-154806-f3dc66
+```
+
+The rerun reads only that folder (`config/task.yaml` and `inputs/`) and writes
+a new run next to it. You can copy or archive a run folder and redo it later,
+even after the PVF has moved on.
+
+To ask a second question, create a second workspace with `pvf init`. The two
+finished examples in `demo/tasks/` show a binary target
+(`site_b_release`: `Disposition`, positive class `Released`) and residualised
+clusters (`clustering.action: linear`).
+
+## Use the dataset in your modelling code
+
+`dataset.csv` holds the raw predictors. Every encoding step (category means,
+de-duplication, clusters) was fitted on the whole cohort, so to get an honest
+cross-validated score, refit that preprocessing inside each fold.
+`pvf.recipe.TaskTransformer` does this as a scikit-learn step. Run from the task
+folder:
+
+```python
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import RidgeCV
+from sklearn.model_selection import GroupKFold, cross_val_score
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+from pvf.recipe import TaskTransformer, task_data
+
+X, y, groups, spec = task_data(".")      # the task in this folder, cohort and target applied
+model = make_pipeline(
+    TaskTransformer(spec),                # refits the task's encoding inside every fold
+    SimpleImputer(strategy="median", keep_empty_features=True),
+    StandardScaler(),
+    RidgeCV(alphas=[0.1, 1, 10, 100]),
+)
+scores = cross_val_score(model, X, y, groups=groups, cv=GroupKFold(n_splits=3), scoring="r2")
+print(f"R² per fold: {scores.round(2)}")
+```
+
+```
+R² per fold: [ 0.12 -0.19  0.03]
+```
+
+(Made-up data: the scores mean nothing.) If your tool does its own
+preprocessing, read the files directly:
+
+```python
+import glob
+
+import pandas as pd
+
+run = sorted(glob.glob("runs/*/"))[-1]                      # the latest run
+data = pd.read_csv(f"{run}data/transformed.csv")            # or dataset.csv for raw values
+columns = pd.read_csv(f"{run}metadata/columns.csv")
+target = columns.loc[columns["Role"] == "target", "Column"].item()
+X = data.drop(columns=["Patient Lot/Batch #", "<vector_lot>", target])
+y, groups = data[target], data["<vector_lot>"]
+```
+
+### Encode new batches with a finished run
+
+`pvf apply` encodes new batches exactly as a run encoded its cohort, with
+nothing refitted:
+
+```bash
+uv run pvf apply --run runs/20261012-154806-f3dc66 --pvf ../../data/processed/PVF.xlsx --out encoded.csv
+```
+
+```
+OK  cli  70 batches encoded with 20261012-154806-f3dc66's recipe → encoded.csv
+```
 
 ## Commands
 
-| Command | Does |
+Global options come before the command: `uv run pvf [--config FILE] [--debug] COMMAND …`.
+
+| Command | What it does |
 |---|---|
-| `pvf check [--task …]` | validate the config, the corrections table and the tasks against the PVF; run nothing |
-| `pvf ptf` / `pvf build` | the PTF check and the PVF build |
-| `pvf init <folder>` | create a task workspace: the folder and an annotated `task.yaml` |
-| `pvf tasks [--task …]` | run tasks; default: the workspace in the current folder |
-| `pvf rerun <run folder>` | redo a run from its own folder, and say whether `dataset.csv` came out the same |
-| `pvf all [--task …]` | ptf, build and the given tasks, in that order |
-| `pvf apply --run <run folder>` | encode new batches with a finished run's fitted recipe |
+| `pvf check [--task T]` | Validate `config.yaml`, the corrections table and the tasks against the PVF and PTF. Runs nothing. |
+| `pvf ptf` | Compare every source's columns with the PTF. Writes `ptf_report.html`, `ptf_manifest.json` and `new_parameters.csv` beside the PVF. |
+| `pvf build [--mode PRD\|DEV]` | Build the PVF. Writes `PVF.xlsx`, `PVF.parquet`, `build_report.html` and `pvf_manifest.json`. `--mode PRD` also uploads when `upload.enabled` is set. |
+| `pvf init FOLDER [--target COL] [--question TEXT] [--force]` | Create a task workspace with an annotated `task.yaml` linked to the current `config.yaml`. |
+| `pvf tasks [--task T]` | Run tasks. Without `--task`, runs the task in the current folder. |
+| `pvf rerun RUN_FOLDER` | Redo a finished run from its own folder and report whether `dataset.csv` is identical. |
+| `pvf all [--mode M] [--task T]` | `ptf`, then `build`, then the given tasks. |
+| `pvf apply --run RUN_FOLDER [--pvf FILE] [--out FILE]` | Encode batches (default: the configured PVF) with a run's fitted recipe. |
 
-`--task` takes a task workspace, its `task.yaml`, or a folder of workspaces, and
-can be repeated. Errors that are yours to fix (a typo in a config, a filter on a
-column the PVF does not have) are printed as one message naming the field, with
-exit code 2; `--debug` shows the traceback.
+`--task` accepts a task workspace folder, a `task.yaml`, or a folder that
+contains several workspaces, and can be repeated. `--debug` shows Python
+tracebacks instead of one-line error messages.
 
-# Reference
+The config is found in this order: `--config`, the `config:` line of the task,
+`$PVF_CONFIG`, then the nearest `config.yaml` in the current folder or above it.
 
-## config.yaml
+## task.yaml reference
 
-`config.yaml` is annotated; this is its shape.
+Every key is optional except `target.column`. Unknown keys are
+refused, and each error names its field. Quote any column name that contains
+`#`, `:` or `%` when it is not inside `{…}` or `[…]`; unquoted,
+`Patient Lot/Batch #` is read as `Patient Lot/Batch` followed by a comment.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `config` | — | Path to the `config.yaml` that supplies the PVF and PTF. `pvf init` fills it in. |
+| `inputs.pvf`, `inputs.ptf` | from config | Read this PVF / PTF instead. |
+| `task.name` | `task` | The task's name, shown in the report and manifest. |
+| `task.question` | — | The question, in words; heads the report. |
+| `task.seed` | `0` | Seed for the target-encoding folds, so a run is repeatable. |
+| `cohort.sites` | all | Sites to keep, matched against `cohort.site_column`. |
+| `cohort.site_column` | `Site Merged` | The column that says which site a batch is from. |
+| `cohort.filters` | — | Rules applied in order: `{column, op, value, missing, normalise, reason}`. |
+| `cohort.date_column`, `date_from`, `date_to` | — | Keep batches whose date lies in this range (inclusive). |
+| `target.column` | required | The column to predict. |
+| `target.type` | `numeric` | `numeric` or `binary`. |
+| `target.positive_class` | — | Required for `binary`: the value that becomes 1. |
+| `target.negative_class` | the other value | The value that becomes 0. Any third value stops the run. |
+| `columns.id` | — | Identifies a batch. Must be unique in the cohort. |
+| `columns.group` | — | Grouping column (e.g. vector lot); used for grouped folds. |
+| `columns.patient` | — | Joins a patient's batches into one group. |
+| `columns.include` | all | Use exactly these predictors and nothing else. |
+| `columns.exclude` | — | `[{column, reason}]`: single columns to leave out. |
+| `columns.exclude_categories` | — | `{PTF column: [values]}`: leave out parameters with these PTF values. |
+| `columns.include_categories` | — | `{PTF column: [values]}`: keep only parameters with these PTF values. |
+| `clustering.action` | `report_only` | `off`, `report_only`, `representative` or `linear`; see [below](#correlated-parameters). |
+| `clustering.method` | `spearman` | `spearman` or `pearson`. |
+| `clustering.threshold` | `0.7` | Correlation at which parameters are grouped. |
+| `clustering.min_size`, `min_overlap` | `2`, `10` | Smallest group; fewest shared batches before a correlation counts. |
+| `clustering.prefer` | — | Parameters to pick as a group's representative on a tie. |
+| `encoding.*` | see `taskconfig.ENCODING_FIELDS` | Encoder limits, e.g. `missing_indicators: true`, `impute: median`, `target_min_rows_per_category: 5`. |
+| `quality.min_non_missing` | `20` | A predictor needs at least this many values. |
+| `quality.duplicate_r2_threshold` | `0.99` | Above this R², one of two parameters is a near-duplicate and is dropped. |
+| `quality.near_constant_tolerance` | `0.0001` | Columns constant to this precision are dropped. |
+| `quality.proxy_correlation` | `0.95` | Predictors this correlated with the target are flagged as possible leaks. |
+| `missingness.enabled` | `true` | Describe which parameters go missing together (report only). |
+| `report.preview_rows` | `20` | Rows shown in the report's dataset preview. |
+
+Filter operators: `equals`, `not_equals`, `in`, `not_in`, `min`, `max` (both
+inclusive, numbers or dates), `is_null`, `not_null`. A filter on a column the PVF
+doesn't have stops the run instead of quietly keeping every batch.
+
+## config.yaml reference
+
+`config.yaml` in the repository root is annotated; this is its shape:
 
 ```yaml
-paths:        {ptf: ~/pvf_data/PTF.xlsx, pvf: ~/pvf_data/PVF.xlsx, phf_site_a: …, reports: (default: beside the PVF)}
-sources:      {location: local, fallback_to_local: false, databricks: false}
-sharepoint:   {ptf: {path: …, sheet: Catalogue, drive_id: DRIVE_ID_SITE_A}, phf_site_a: {…}, site_maps: {folder: …, files: […]}}
-upload:       {enabled: false, path: …, drive_id: DRIVE_ID_SITE_A, file_name: PVF.xlsx}
-build:        {write_parquet: true}
-cleaning:     {corrections: corrections.yaml, disable: [], censored: limit, censored_flags: false, …}
-mapping:      {exclude: [<excluded_mapping_row>]}
-features:     {co2_target: 5.0, …}
-lv_coa:       {ph_nominal: 7.2, osmo_nominal: 300.0}
+seed: 20260917
+paths:      {ptf: …, pvf: …, phf_site_a: …, …, reports: (default: beside the PVF)}
+sheets:     {phf_site_a: <sheet:phf_site_a>}           # worksheet per workbook, where not the default
+sources:    {location: local, fallback_to_local: false, databricks: false}
+sharepoint: {ptf: {path: …, sheet: …, drive_id: …}, …, site_maps: {folder: …, files: […], …}}
+upload:     {enabled: false, path: …, drive_id: …, file_name: PVF.xlsx}
+ptf:        {write_new_parameters: true}
+build:      {write_parquet: true}
+cleaning:   {corrections: …, disable: [], censored: limit, censored_flags: false,
+             duration_unit: minutes, yes_no_defaults: {…}}
+mapping:    {exclude: [<excluded_mapping_row>]}
+features:   {co2_target: 5.0, temp_target: 37.0, …}
+lv_coa:     {ph_nominal: 7.2, osmo_nominal: 300.0}
 ```
 
-Unknown settings, wrong types and missing SharePoint fields are refused before
-anything runs, each naming its field.
+Unknown keys, wrong types and incomplete SharePoint entries are refused before
+anything runs.
 
 ### Sources and SharePoint
 
-Which sources a run reads is a setting, not a consequence of what happens to be
-installed. With `sources.location: local` every input is the local file under
-`paths:`, and an installed `io_sharepoint` changes nothing. With `sharepoint`,
-**every input that has an entry under `sharepoint:` is read from that location**
-— the PTF, both PHFs, the mapping, the Re-MFG supplement, the vector
-certificates, the consumables workbook, the investigations workbook, the
-clinical-site mapping files, and the PVF a task reads. An input without an entry
-is still read locally. No SharePoint address is written in the code; they are all
-in the config. A missing `io_sharepoint` stops the run unless `fallback_to_local`
-allows otherwise, and a fallback that is taken is logged.
+With `sources.location: local`, every input is read from its path under
+`paths:`. With `sources.location: sharepoint`, every input that has an entry
+under `sharepoint:` is read from SharePoint instead, and the rest stay local.
+Without `io_sharepoint` installed the run stops, unless
+`sources.fallback_to_local: true`. All SharePoint addresses live in
+`config.yaml`; none are in the code.
 
-Provenance follows the read: a source that came from SharePoint is recorded by its
-SharePoint location and a digest of the table that came back, and a local file by
-the digest of its bytes. Each stage records only the sources it actually read.
+Uploading the PVF is a separate switch. It only happens on
+`pvf build --mode PRD` with `upload.enabled: true`, to `upload.path` (or
+`$DATA_LINK`). `MODE`, `DATA_LINK` and credentials can all live in `.env`;
+variables already set in the shell win.
 
-Uploading is a separate switch, and only ever happens on a `--mode PRD` build with
-`upload.enabled: true`; the destination is `upload.path` (or `$DATA_LINK`) and
-`upload.drive_id`, and the manifest records where it went. Reading from the share
-does not imply writing to it, and a local run cannot upload by accident.
-Secrets — whatever `io_sharepoint` needs to reach SharePoint — go in a **`.env`
-file next to `config.yaml`** (copy `.env.example`). It is loaded with the config, never committed (`.env` is
-git-ignored everywhere), and variables already set in the shell or by a scheduler
-win over it. A `.env` in the working directory is read too. `MODE=PRD` and
-`DATA_LINK` (the upload folder) can live there as well.
+### Corrections
 
-### Cleaning and the corrections table
-
-The known data corrections — a clump count Excel turned into a date, a clinical
-site under the wrong country, cell counts stored without their 1e6 divisor — are
-facts about the sources, not about the code, so they are rules in a
-`corrections.yaml` (`cleaning.corrections`; the package's own table when unset):
+Known errors in the sources are rules in a `corrections.yaml`
+(`cleaning.corrections`; without it the package's own table is used):
 
 ```yaml
 corrections:
@@ -210,320 +476,127 @@ corrections:
   - {site: SiteB, column: <cells_per_bag>, divide_by: 1000000, reason: stored without the 1e6 divisor}
 ```
 
-Actions are `set`, `replace_text` (substrings, in order), `replace_values` (whole
-values) and `divide_by` (applied after numeric coercion). `cleaning.disable`
-switches named rules off; `site_b_type_commercial: false` still switches off the
-rule that fills the SiteB `Type` column. The build report lists every rule that
-ran, the rows it touched and why.
+The actions are `set`, `replace_text`, `replace_values` and `divide_by`.
+`cleaning.disable: [name]` switches a rule off. The build report lists every
+rule that ran and the rows it changed. `cleaning.censored` decides what `<0.5`
+becomes (`limit`, `half` or `missing`), and `cleaning.yes_no_defaults` names the
+yes/no columns whose blanks may be filled.
 
-Two cleaning decisions are settings rather than facts:
+## How a dataset is built
 
-- `cleaning.censored` — what a value written `<0.5` becomes: `limit`, `half` or
-  `missing`. With `censored_flags: true` each such column also gets a
-  `<column> censored` 0/1 indicator, so the operator survives whichever policy
-  rewrote the number.
-- `cleaning.yes_no_defaults` — a blank in a yes/no column is *unknown*. It is
-  filled only for the columns this names, in each site's own spelling.
+For each task, `pvf tasks`:
 
-`cleaning.duration_unit` says what a bare number in a duration cell means —
-`HH:MM` and `HH:MM:SS` are read as clock times whatever it says — and a ratio
-written `a:b` keeps its right-hand side, because these columns are recorded
-normalised to 1.
+1. **Selects the cohort**: sites, then each filter in order, then batches without
+   a target. Every PVF batch gets a row in `cohort.csv` saying whether it is in,
+   and why not.
+2. **Chooses the predictors**: the PTF parameters present in the PVF, minus
+   - the target, id, group and patient columns;
+   - features the registry computed from the target (`<f_vcn_per_cell>` from `<fp_car_pct>`);
+   - `columns.exclude` and the category rules;
+   - `<f_coa_impurity_index>`, which is standardised within each site.
 
-## task.yaml
+   Each exclusion is a row in `decisions.csv`.
+3. **Fits the preprocessing** on the whole cohort, records it in `recipe.json`,
+   and writes the encoded table as `transformed.csv`:
+   - Two categories become 0/1. A few become one column each. More become the
+     target's mean per category (cross-fitted, so no row sees its own target).
+     Very many are hashed into buckets.
+   - Each encoder is used only when there are enough rows; otherwise the next
+     one down is used. A column with a different value in nearly every batch is
+     treated as an identifier and left out.
+   - Near-duplicates, near-constant and too-sparse columns are dropped.
+4. **Writes the dataset**: `dataset.csv` holds the id, group, the raw predictors
+   the recipe uses, and the target. It has one row per batch and no split.
+5. **Checks** that the row and column counts agree across every file, then
+   renames the run folder from `.incomplete` to its final name. A failed run
+   keeps its folder as `.failed`, with the log and the reason in its manifest.
 
-One task per workspace: a cohort, a target, which columns go in, and what to do
-about parameters that move together.
-Defining a second task means writing a second file — there is no Python to edit.
-`pvf init` writes an annotated one; `demo/tasks/` has two that differ in every
-one of those things.
+### Correlated parameters
 
-```yaml
-config: ../../config.yaml   # the config with the PVF and PTF; or inputs: {pvf: …, ptf: …}
-task:    {name: site_a_car_expression, seed: 20260917}
-cohort:
-  sites: [SiteA]
-  filters:
-    - {column: Type, op: equals, value: Commercial, reason: manufactured commercially}
-    - {column: <nonconformance>, op: not_in, value: [termination, withdrawal],
-       normalise: true, missing: include, reason: not terminated or withdrawn}
-target:  {column: <fp_car_pct>, type: numeric}
-columns:
-  id: 'Patient Lot/Batch #'
-  group: <vector_lot>
-  exclude: [{column: <subject_weight>, reason: dose per kilogram already carries it}]
-  exclude_categories: {Available At: [Wash, Formulation, Final product, Post-thaw, Release, Post-release]}
-clustering: {action: report_only, method: spearman, threshold: 0.7, min_overlap: 10}
-```
-
-Everything is validated before the run touches the output directory, and every
-complaint names the field and what to do about it.
-
-- **Filters** are a fixed set of operators — `equals`, `not_equals`, `in`,
-  `not_in`, `min`, `max`, `is_null`, `not_null` — applied in the order written.
-  No expressions and no Python come out of YAML. `missing:` says what happens to
-  a row whose value is absent, and `normalise: true` flattens case, spacing and
-  the known aliases (`withdrawn` → `withdrawal`) for the comparison while the
-  PVF keeps what the source actually said. A filter whose column is missing
-  stops the run rather than quietly widening the cohort.
-- **Which columns go in** is `columns:`. `exclude` leaves out single columns,
-  each with its reason. `exclude_categories` leaves out every parameter whose
-  value in a PTF column is one of the listed categories — any PTF column, so
-  `{Category: [QC]}` works as well as `{Available At: [Release]}`.
-  `include_categories` keeps only the listed categories. A PTF column that does
-  not exist stops the run. `include` is an explicit predictor list.
-  Every exclusion is a row in `decisions.csv`.
-- **Quote a column name with a `#`, `:` or `%` in it.** Unquoted,
-  `Patient Lot/Batch #` is read as `Patient Lot/Batch` followed by a comment.
-
-## Roles, leakage and what the dataset is
-
-A task declares which column is the target, which is the identifier, which is the
-grouping metadata and, optionally, which is the patient. Those are authoritative:
-
-- The target and the role columns are removed from the predictor candidates
-  **before** anything is encoded, de-duplicated or clustered. They are carried
-  into the output as metadata, once each. An identifier that is not unique in the
-  cohort stops the run: a batch twice in a dataset is counted twice and can sit in
-  two cross-validation folds at once.
-- Anything the feature registry computed **from the target** is removed with
-  them, walked through `Feature.requires`: `<f_vcn_per_cell>` and
-  `<f_flow_accuracy>` are both derived from `<fp_car_pct>`, and
-  `decisions.csv` names the chain that got each one excluded. Derived certificate
-  columns and censoring indicators are covered too.
-- **What comes too late is a column choice.** There is no built-in notion of
-  process order: leave out late parameters with `exclude_categories` on the PTF
-  column that holds the stage, or one by one with `exclude`. A derived feature
-  has no PTF category of its own, so check `decisions.csv` and exclude any that
-  are computed from late parameters.
-- A predictor that correlates with the target above `quality.proxy_correlation`
-  (0.95) on the fitted rows is named in the report: it is often the target
-  measured another way.
-- `<f_coa_impurity_index>` is standardised within its own site's batches, so
-  every task drops it.
-
-**There is one dataset and no split.** Every batch in the cohort is a row of
-`dataset.csv`; cross-validation belongs to the tool that fits the models. Category
-vocabularies, target means, near-duplicate selection, clusters, residual
-regressions, the sparsity and near-constant checks, indicators and imputation
-medians are fitted on the whole cohort and recorded in `recipe.json`.
-`dataset.csv` is always the raw predictors the recipe uses; `transformed.csv`
-beside it is the same rows through the recipe.
-
-A table preprocessed over every row is not a table to cross-validate on as it
-stands. For an honest estimate, refit the preprocessing inside every fold:
-
-- `metadata/recipe.json` holds the fitted decisions as plain JSON and is read
-  back by `Preprocessor.from_state` — `pvf apply --run <folder> --pvf <file>`
-  encodes new batches exactly as the cohort was encoded.
-- `pvf.recipe.TaskTransformer` is the same preprocessing as a scikit-learn step:
-
-  ```python
-  from pvf.recipe import TaskTransformer, task_data
-  X, y, groups, spec = task_data("demo/tasks/site_a_car_expression")
-  model = make_pipeline(TaskTransformer(spec), SimpleImputer(), StandardScaler(), RidgeCV())
-  cross_val_score(model, X, y, groups=groups, cv=GroupKFold(3))
-  ```
-
-Target encoding is cross-fitted: each fold's prior *and* its category means come
-from that fold's training rows only, folds keep the grouping column (joined up by
-`columns.patient`) whole, and a category the training rows never held gets the
-training prior.
-
-The report says how much evidence the table really holds: how many distinct
-groups a grouped estimate rests on, the ratio of predictor columns to batches,
-and — for a binary target — the events per variable.
-
-### Encodings
-
-A parameter with two categories is 0/1, one with few categories one column per
-category, one with several the target's mean per category, and one with very many
-is hashed into buckets — **but only where the rows can support it**: target
-encoding needs `encoding.target_min_rows_per_category` (5) rows per category and
-hashing `encoding.hashing_min_rows` (100) rows, otherwise the next encoder in line
-is used. A column with nearly a category per batch is an identifier and is left
-out. An absent value is absent in every encoder's output. A column that is
-constant to measurement precision on the fitted rows (`quality.near_constant_tolerance`)
-is dropped: an empty one-hot tail, an unused hash bucket, or a ratio that only
-differs in its seventh digit — which, scaled to unit variance, would dominate any
-model. `encoding.missing_indicators: true` adds a 0/1 column for every column with
-gaps, and `encoding.impute: median` fills gaps with the training median.
-
-## Parameters that move together
-
-Discovery and what is done about it are separate settings. `clustering.action`:
-
-| Action | What happens |
+| `clustering.action` | Effect |
 |---|---|
-| `off` | no groups are looked for |
-| `report_only` | the groups are described; every parameter goes into the dataset unchanged |
-| `representative` | one member of each group is kept, the rest dropped |
-| `linear` | one member is kept, the others residualised on what is retained before them |
+| `off` | No groups are looked for. |
+| `report_only` | Groups are described in the report; every parameter stays. |
+| `representative` | One member of each group stays; the others are dropped. |
+| `linear` | One member stays; the others are replaced by what is left after regressing them on it. |
 
-Correlation becomes a distance (`1 - |r|`, Spearman by default), complete linkage
-builds the tree and it is cut at the threshold. Below `min_overlap` shared
-batches a relationship is **unknown**, drawn blank in the heatmap and never merged
-into a group, and residualising is not claimed to preserve everything or to make
-columns independent. The representative is chosen without the target.
-Near-duplicates are a deterministic sweep, so a dropped parameter always names a
-representative that is still in the dataset.
+Groups are built by complete linkage on `1 − |correlation|`, cut at
+`threshold`. Pairs with fewer than `min_overlap` shared batches are treated as
+unknown and never grouped. The representative is chosen without looking at the
+target.
 
-Parameters that go **missing** together are described too (`missingness:` in a
-task, on by default): groups of columns with the same gaps, and the categorical
-parameter that best explains when they are missing. That is description only.
+## What a run writes
 
-## What a task run leaves behind
-
-Each run writes a fresh folder, `<task workspace>/runs/<run id>`. Nothing is
-ever overwritten. The run writes into a staging folder marked incomplete and
-promotes it only once the required artefacts are there and the counts inside them
-agree; a run that fails keeps its folder marked `.failed`, with its log and the
-reason in the manifest.
-
-| File | What it is |
+| File | Contents |
 |---|---|
-| `manifest.json` | the run's manifest (see below) |
-| `config/task.yaml` | the effective settings, defaults included; its inputs are the copies in `inputs/` |
-| `inputs/PVF.xlsx`, `inputs/PTF.xlsx` | the PVF and PTF this run read (byte for byte when local, as read when from SharePoint) |
-| `data/dataset.csv` | the training dataset: identifier, group, the raw predictors the recipe uses, target |
-| `data/transformed.csv` | the same rows through `recipe.json` |
-| `metadata/columns.csv` | one row per exported column in output order: role, source, type, unit, transformation, meaning |
-| `metadata/features.csv` | the feature dictionary: every column the recipe produces, and its parameter |
-| `metadata/decisions.csv` | every parameter included, excluded or changed, with the reason and the stage |
-| `metadata/cohort.csv` | every batch in the PVF: in or out, and the first filter that ruled it out |
-| `metadata/clusters.csv` | correlated groups: membership, representatives, actions, singletons and skipped parameters |
-| `metadata/missingness.csv` | parameters missing together, and their best explainer |
-| `metadata/recipe.json` | the fitted preprocessing state, readable by `pvf apply` and `Preprocessor.from_state` |
-| `report/report.html` | the Streamlit report |
-| `report/report_payload.json` | the same numbers, usable without a browser |
-| `inputs/ptf_manifest.json` | the manifest of the `pvf ptf` run that checked the PTF |
-| `inputs/pvf_manifest.json` | the manifest of the `pvf build` run that wrote the PVF |
-| `logs/run.log` | the events of this run and this stage only |
+| `data/dataset.csv` | The training dataset: id, group, raw predictors, target. One row per batch. |
+| `data/transformed.csv` | The same rows encoded by `recipe.json`. |
+| `metadata/decisions.csv` | Every parameter: included or excluded, with the reason and the step. |
+| `metadata/cohort.csv` | Every PVF batch: in or out, and the first rule that ruled it out. |
+| `metadata/columns.csv` | Every dataset column: role, source, type, PTF value type, unit, meaning. |
+| `metadata/features.csv` | Every encoded column and the parameter it came from. |
+| `metadata/clusters.csv` | Correlated groups, their representatives and what was done. |
+| `metadata/missingness.csv` | Parameters that go missing together (when there are any). |
+| `metadata/recipe.json` | The fitted preprocessing, used by `pvf apply` and `TaskTransformer`. |
+| `report/report.html` | The report: cohort, data quality, encodings, clusters, dataset, provenance. |
+| `report/report_payload.json` | The report's numbers as JSON. |
+| `inputs/PVF.xlsx`, `inputs/PTF.xlsx` | The exact inputs this run read. |
+| `inputs/pvf_manifest.json`, `inputs/ptf_manifest.json` | How those inputs were made. |
+| `config/task.yaml` | Every setting, defaults included, pointing at `inputs/`. |
+| `logs/run.log` | This run's log. |
+| `manifest.json` | Inputs, outputs with SHA-256 checksums, counts, warnings, git commit. |
 
-`pvf rerun <run folder>` reads only that folder — its `config/task.yaml` points
-at `inputs/` — writes a new run beside it, and says whether `dataset.csv` came
-out byte for byte the same.
+The reports are self-contained Streamlit pages: they run Python in the browser
+via stlite, so the first time you open one it needs network access and takes
+10–30 seconds to start. `pvf.manifest.verify("…/manifest.json")` reports any
+file that changed after the run.
 
-### Manifests
+## Troubleshooting
 
-`pvf ptf` and `pvf build` write `ptf_manifest.json` and `pvf_manifest.json` beside
-the PVF; each task run writes `manifest.json`. All three follow one format
-(`pvf.manifest`): `manifest_version`, `stage`, `status`, `run_id`, `started`,
-`finished`, `config` (path and digest), `inputs` (every source as it was actually
-read — where from, local or remote, digest), `outputs` (every file written, with
-its size and sha256, by a path relative to the manifest), `warnings`, `errors`,
-`provenance` (commit, seed, library versions), and the stage's own facts. A
-manifest is validated before it is written, and `pvf.manifest.verify(path)` checks
-one on disk, including whether any output has changed since.
+| Message | What to do |
+|---|---|
+| `No config found: there is no config.yaml here or in any folder above` | Run from the repository, add `config:` to the task, set `$PVF_CONFIG`, or pass `--config`. |
+| `No task to run: run inside a task workspace or pass --task <folder>` | `cd` into a workspace, or name one with `--task`. |
+| `… is not a column of the PVF` | Check the spelling against the PVF; `pvf check` lists every such name. |
+| `columns.exclude_categories: the PTF has no '…' column` | Use a column that exists in the PTF; the message lists them. |
+| `task.purpose: unknown setting` (or any `unknown setting`) | The key was removed or misspelled; the message lists the allowed keys. |
+| `The PTF changed after the PVF was built — rerun pvf build` | Run `pvf build`, then the task again. |
+| `quality.min_non_missing is 20 but only N rows are being fitted on` | Lower `quality.min_non_missing` or widen the cohort. |
 
-A task copies the two stage manifests into its `inputs/` and checks that the PVF
-manifest describes the PVF it read — by the file's bytes for a local file, by the
-table's content for one read from SharePoint — and that the PTF has not changed
-since that build, and warns when either does not hold. A missing manifest is a
-warning too, recorded as `not found`.
-
-## Parameters and features
-
-A **parameter** is something a source recorded. It may be cleaned, renamed,
-rescaled or harmonised on the way in, but nothing computes it. Parameters are the
-business of `io.py`, `clean.py` and `enrich.py`.
-
-A **feature** is arithmetic over one or more parameters — an MOI, a slope, a
-ratio, a profile class. Every feature the build computes lives in one ordered
-registry in `src/pvf/features.py`, one entry each:
-
-```python
-Feature(
-    "<f_moi_per_cd3>",
-    (TITER, VOL_A, VOL_B, "<f_pt_cd3_cells>"),
-    lambda d: _first(d, *TITER) * safe_div(_pooled_vector_volume(d), d["<f_pt_cd3_cells>"]),
-    "MOI", "D3", "numeric",
-    "Infectious units per CD3+ cell rather than per cell of any kind — only T cells are the target",
-)
-```
-
-To add one, append an entry. Nothing else changes. The `requires` tuple is what a
-task walks to find the descendants of its target.
-
-- **A feature is created only if the PTF lists its name.**
-- **A feature whose inputs are not all present is not created**, and the report
-  names the inputs it wanted.
-- **A feature never overwrites a column a source supplies.**
-
-The certificate loader derives columns of its own while parsing the workbook —
-below-LOQ flags, delivered dose, donor summaries. Each is declared in
-`features.coa_lineage()` with its inputs.
-
-## Reports
-
-Every stage writes a Streamlit page that needs no Streamlit server: the file
-carries its own Python runtime through stlite. Open it; there is nothing to run.
-It fetches that runtime from a CDN, **so a fresh report needs network access
-once**, and it spends 10 to 30 seconds starting Python before the first figure
-appears. Every number was computed before the file was written.
-
-A task report has eight sections: overview (question, target, cohort, what the
-table is for, what needs attention), cohort, data quality, parameters and
-encodings (the dictionary, every decision, possible target proxies), correlated groups, parameters missing together, the dataset, and
-provenance with the run log.
-
-## The demo
-
-`uv run python -m pvf.demo <folder>` writes made-up sources, a `config.yaml` and
-two task workspaces (from `pvf.demo`). The numbers are invented; the *shapes* are
-not: every path the stages can take is represented by something in that data — a
-204-parameter PTF with an `Available At` column and a 70 × 221 PVF. Only
-`demo/config.yaml`, `demo/corrections.yaml` and the two `task.yaml` files are in
-git; the data and the runs are generated.
-
-| | `tasks/site_a_car_expression/` | `tasks/site_b_release/` |
-|---|---|---|
-| Question | what goes with CAR+ expression at SiteA | what a released SiteB batch looks like |
-| Cohort | SiteA, commercial, finished, no withdrawals | SiteB, finished |
-| Target | `<fp_car_pct>`, numeric | `Disposition`, binary, positive class `Released` |
-| Columns | two excluded by hand, everything after harvest excluded by its `Available At` category | one excluded by hand, `Available At: [Post-release]` excluded by category |
-| Clustering | `report_only` | `linear`, threshold 0.8 |
-| Result | 21 batches, 111 raw predictors (137 transformed); 25 parameters left out by category | 27 batches, 167 transformed columns, 29 groups residualised |
-
-## Code layout
-
-```
-src/pvf/
-  cli.py               the commands, and the one place the stages are run from
-  config.py            config.yaml: discovery, validation, where each input is read from
-  scaffold.py          pvf init; templates/ holds the task.yaml it writes
-  taskconfig.py        the task YAML, and the validation it has to pass
-  ptf.py               stage 1: source parameters the PTF does not list
-  io.py                reading every source, local or SharePoint
-  clean.py             type coercion and harmonisation
-  corrections.py       the corrections table
-  enrich.py            parameters joined from other systems
-  features.py          the feature registry, and derived-column lineage
-  merge.py             stacking the sites, and the checks over the result
-  dataset.py           stage 3: cohort, roles, column selection, fit/transform, assembly
-  encode.py            one fit/apply pair per encoding
-  decorrelate.py       correlated groups, representatives and residuals
-  missingness.py       parameters missing together
-  recipe.py            a fitted recipe applied to new rows, and as a scikit-learn transformer
-  package.py           the run folder: staging, promotion
-  manifest.py          the one manifest format
-  provenance.py        commit, input digests, environment, config digest
-  blocks.py plots.py report.py streamlit_app.py stlite.py   the reports
-  logger.py            the run log the reports show, scoped per run
-  demo.py              made-up sources for the demo and the tests
-tests/                 one run of every stage over the demo data, plus focused regressions
-demo/                  the demo's config and task files; `python -m pvf.demo demo` adds the data
-config.yaml            the config: set the paths to your data folder here
-.env.example           what goes in .env, next to config.yaml
-```
+Errors you can fix exit with code 2 and a one-line message; `--debug` shows the
+traceback.
 
 ## Development
 
-Python 3.12 with uv; `uv.lock` pins every version, so `uv sync --locked` gives the
-environment the tests ran in. `uv run pytest` runs every stage over made-up data,
-and `uv run ruff check src tests` lints; CI runs both on every push
-(`.github/workflows/ci.yml`). `io_sharepoint` and `databricks_query_tool` are
-internal packages, available where the pipeline runs in production; whether they
-are used is `sources.location` and `sources.databricks`, not whether they are
-installed. Streamlit is deliberately not a dependency: the reports run it in the
-browser.
+```bash
+uv sync --locked              # the environment the tests ran in
+uv run pytest                 # every stage, end to end, on the demo data
+uv run ruff check src tests   # lint
+```
+
+CI runs both on every push (`.github/workflows/ci.yml`). The demo's data and
+runs are generated, not committed: only `demo/config.yaml`,
+`demo/corrections.yaml` and the two `task.yaml` files are in git.
+
+**Adding a derived feature:** append one `Feature(…)` entry to the registry in
+`src/pvf/features.py`. It is built only when the PTF lists its name and all its
+inputs are present, and it never overwrites a source column. Its `requires` tuple
+is what lets a task find, and leave out, features computed from the target.
+
+```
+src/pvf/
+  cli.py          the commands
+  config.py       config.yaml: discovery, validation, where each input is read from
+  taskconfig.py   task.yaml and its validation
+  scaffold.py     pvf init; templates/ holds the task.yaml it writes
+  ptf.py io.py clean.py corrections.py enrich.py features.py merge.py   pvf ptf and pvf build
+  dataset.py encode.py decorrelate.py missingness.py recipe.py         pvf tasks
+  package.py manifest.py provenance.py logger.py                       run folders and provenance
+  report.py plots.py blocks.py streamlit_app.py stlite.py              the reports
+  demo.py         the made-up demo data
+```
+
+## License
+
+This repository has no license file yet, so no license has been granted. Add one
+before sharing it outside the team.

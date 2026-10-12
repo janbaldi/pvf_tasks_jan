@@ -59,7 +59,7 @@ from . import (
 from . import config as workspace
 from .config import ConfigError
 from .logger import log
-from .taskconfig import TaskConfigError, TaskSpec
+from .taskconfig import TASK_FILE, TaskConfigError, TaskSpec
 
 # A .env in the working directory (or above it); the .env beside config.yaml is
 # loaded with its config, see ml.config.load_env.
@@ -557,11 +557,12 @@ def _check(result: dataset.TaskResult, final: pd.DataFrame) -> None:
         problems.append(f"the dataset has {len(final)} rows, the run recorded {result.rows}")
     if len(result.columns) != final.shape[1]:
         problems.append(
-            f"columns.csv has {len(result.columns)} rows for {final.shape[1]} dataset columns"
+            f"dataset_columns.csv has {len(result.columns)} rows for {final.shape[1]} "
+            "dataset columns"
         )
     exported = {row["Column"] for row in result.columns}
     if exported != set(final.columns):
-        problems.append("columns.csv and the dataset do not name the same columns")
+        problems.append("dataset_columns.csv and the dataset do not name the same columns")
     if result.cohort.funnel:
         left = result.cohort.funnel[-1]["Batches left"]
         if left != result.rows:
@@ -793,10 +794,10 @@ def rerun(run: str | Path) -> Path:
 
 def _write_package(pkg: package.TaskPackage, result: dataset.TaskResult, final: pd.DataFrame):
     pkg.write_csv(TASK_LAYOUT["dataset.csv"], final)
-    pkg.write_csv(TASK_LAYOUT["transformed.csv"], result.transformed)
-    pkg.write_csv(TASK_LAYOUT["columns.csv"], result.columns)
+    pkg.write_csv(TASK_LAYOUT["dataset_encoded.csv"], result.transformed)
+    pkg.write_csv(TASK_LAYOUT["dataset_columns.csv"], result.columns)
     pkg.write_csv(
-        TASK_LAYOUT["features.csv"],
+        TASK_LAYOUT["encoded_columns.csv"],
         pd.DataFrame(result.dictionary, columns=["output", "source", "strategy", "detail"]).rename(
             columns={
                 "output": "Feature",
@@ -806,15 +807,15 @@ def _write_package(pkg: package.TaskPackage, result: dataset.TaskResult, final: 
             }
         ),
     )
-    pkg.write_csv(TASK_LAYOUT["decisions.csv"], [d.row() for d in result.decisions])
-    pkg.write_csv(TASK_LAYOUT["cohort.csv"], result.cohort.exclusions)
+    pkg.write_csv(TASK_LAYOUT["parameters.csv"], [d.row() for d in result.decisions])
+    pkg.write_csv(TASK_LAYOUT["batches.csv"], result.cohort.exclusions)
     retained = set(result.recipe.get("output_columns") or [])
     pkg.write_csv(TASK_LAYOUT["clusters.csv"], decorrelate.rows(result.clusters, retained))
     if result.missingness is not None and (
         result.missingness.groups or result.missingness.singletons
     ):
         pkg.write_csv(TASK_LAYOUT["missingness.csv"], missingness.rows(result.missingness))
-    pkg.write_json(TASK_LAYOUT["recipe.json"], result.recipe)
+    pkg.write_json(TASK_LAYOUT["encoding.json"], result.recipe)
 
 
 def _log_text(events) -> str:
@@ -875,7 +876,7 @@ def _config(args, start: str | Path | None = None, required: bool = True) -> dic
 # ---------------------------------------------------------------------------
 # The helper commands
 # ---------------------------------------------------------------------------
-def check(config: dict[str, Any] | None, specs: list[TaskSpec]) -> list[str]:
+def validate(config: dict[str, Any] | None, specs: list[TaskSpec]) -> list[str]:
     """Everything that would stop a run, found without running anything."""
     problems: list[str] = []
     if config:
@@ -933,7 +934,7 @@ def _check_task(spec: TaskSpec) -> list[str]:
     return problems
 
 
-def apply_recipe(run: str | Path, rows: pd.DataFrame, out: Path | None) -> Path:
+def encode_batches(run: str | Path, rows: pd.DataFrame, out: Path | None) -> Path:
     """Encode batches with a finished run's recipe and write them out."""
     run = Path(run)
     settings = yaml.safe_load((run / TASK_LAYOUT["task.yaml"]).read_text(encoding="utf-8"))
@@ -962,65 +963,68 @@ def _parser() -> argparse.ArgumentParser:
         "--config", help="the config (default: $ML_CONFIG, or the nearest config.yaml)"
     )
     parser.add_argument("--debug", action="store_true", help="show tracebacks for every error")
-    commands = parser.add_subparsers(dest="stage", required=True, metavar="command")
+    commands = parser.add_subparsers(dest="command", required=True, metavar="command")
 
-    new = commands.add_parser("init", help="create a task workspace with a task.yaml")
+    validate = commands.add_parser("validate", help="validate the config and tasks; run nothing")
+    validate.add_argument("--task", action="append", help="a task workspace (repeatable)")
+    commands.add_parser("check-catalog", help="what the sources record that the catalog lacks")
+    build = commands.add_parser("build", help="build the batch table from both sites")
+    build.add_argument("--mode", default=None, help="PRD or DEV (default: $MODE, else DEV)")
+    update = commands.add_parser("update", help="check-catalog, build, then the given tasks")
+    update.add_argument("--mode", default=None, help="PRD or DEV (default: $MODE, else DEV)")
+    update.add_argument("--task", action="append", help="a task workspace (repeatable)")
+
+    task = commands.add_parser("task", help="create, run, rerun and encode with tasks")
+    actions = task.add_subparsers(dest="action", required=True, metavar="action")
+    new = actions.add_parser("new", help="create a task workspace with a task.yaml")
     new.add_argument("folder", help="the task workspace folder; its name is the task's name")
     new.add_argument("--target", default="", help="the column the task predicts")
     new.add_argument("--question", default="", help="the question, in words")
     new.add_argument("--force", action="store_true", help="overwrite an existing task file")
-
-    checking = commands.add_parser("check", help="validate the config and tasks; run nothing")
-    checking.add_argument("--task", action="append", help="a task workspace (repeatable)")
-
-    commands.add_parser("catalog", help="what the sources record that the catalog does not list")
-    build = commands.add_parser("build", help="build the batch table from both sites")
-    build.add_argument("--mode", default=None, help="PRD or DEV (default: $MODE, else DEV)")
-    tasks = commands.add_parser("tasks", help="run tasks and write a folder for each")
-    tasks.add_argument(
+    run = actions.add_parser("run", help="run tasks, each into a new run folder")
+    run.add_argument(
         "--task",
         action="append",
         help="a task workspace, its task.yaml, or a folder of workspaces (repeatable); "
         "default: the workspace in this folder",
     )
-    redo = commands.add_parser("rerun", help="redo a run from its own folder, and compare")
+    redo = actions.add_parser("rerun", help="redo a run from its own folder, and compare")
     redo.add_argument("run", help="the run folder, <task workspace>/runs/<run id>")
-    everything = commands.add_parser("all", help="run catalog, build and the tasks, in order")
-    everything.add_argument("--mode", default=None, help="PRD or DEV (default: $MODE, else DEV)")
-    everything.add_argument("--task", action="append", help="a task workspace (repeatable)")
-
-    applying = commands.add_parser("apply", help="encode batches with a task run's recipe")
-    applying.add_argument("--run", required=True, help="the task run folder")
-    applying.add_argument(
+    encode = actions.add_parser("encode", help="encode batches with a run's fitted encoding")
+    encode.add_argument("--run", required=True, help="the task run folder")
+    encode.add_argument(
         "--batch-table", help="the batches to encode (default: the configured batch table)"
     )
-    applying.add_argument("--out", help="the CSV to write (default: in the working directory)")
+    encode.add_argument("--out", help="the CSV to write (default: in the working directory)")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    args.command = " ".join(filter(None, (args.command, getattr(args, "action", None))))
     try:
         return _run(args)
     except USER_ERRORS as exc:
         if args.debug:
             raise
-        print(f"\nml {args.stage}: {exc}", file=sys.stderr)
+        print(f"\nml {args.command}: {exc}", file=sys.stderr)
         return 2
     except Exception:
         if args.debug:
             raise
         traceback.print_exc()
-        print(f"\nml {args.stage}: failed unexpectedly (details above)", file=sys.stderr)
+        print(f"\nml {args.command}: failed unexpectedly (details above)", file=sys.stderr)
         return 1
 
 
 def _run(args) -> int:
+    command = args.command
     mode = getattr(args, "mode", None) or os.getenv("MODE", "dev")
-    if args.stage in ("check", "tasks") and not args.task and Path(taskconfig.TASK_FILE).is_file():
+    if command in ("validate", "task run") and not args.task and Path(TASK_FILE).is_file():
         args.task = ["."]
     first_task = (getattr(args, "task", None) or [None])[0]
-    if args.stage == "init":
+
+    if command == "task new":
         found = _config(args, start=args.folder, required=False)
         path = scaffold.init(
             args.folder,
@@ -1039,38 +1043,40 @@ def _run(args) -> int:
         )
         return 0
 
-    if args.stage == "rerun":
+    if command == "task rerun":
         rerun(args.run)
         return 0
 
-    if args.stage == "apply":
+    if command == "task encode":
         config = _config(args, required=not args.batch_table)
         rows = io.load_batch_table(args.batch_table or config["paths"]["batch_table"])
-        apply_recipe(args.run, rows, Path(args.out) if args.out else None)
+        encode_batches(args.run, rows, Path(args.out) if args.out else None)
         return 0
 
-    if args.stage in ("check", "tasks"):
+    if command == "validate":
         config = _config(args, start=first_task, required=False)
-        specs = load_tasks(args, config) if args.stage == "tasks" or args.task else []
-        if args.stage == "check":
-            problems = check(config, specs)
-            for spec in specs:
-                log.success(MODULE, f"Task '{spec.name}' is valid", spec.source)
-            if problems:
-                log.names("Problems that would stop a run", problems, level="ERROR")
-                return 2
-            log.success(MODULE, "Everything checked out")
-            return 0
+        specs = load_tasks(args, config) if args.task else []
+        problems = validate(config, specs)
         for spec in specs:
+            log.success(MODULE, f"Task '{spec.name}' is valid", spec.source)
+        if problems:
+            log.names("Problems that would stop a run", problems, level="ERROR")
+            return 2
+        log.success(MODULE, "Everything checked out")
+        return 0
+
+    if command == "task run":
+        config = _config(args, start=first_task, required=False)
+        for spec in load_tasks(args, config):
             run_task(config, spec)
         return 0
 
     config = _config(args, start=first_task)
-    if args.stage in ("catalog", "all"):
+    if command in ("check-catalog", "update"):
         run_catalog(config)
-    if args.stage in ("build", "all"):
+    if command in ("build", "update"):
         run_build(config, mode=mode)
-    if args.stage == "all" and args.task:
+    if command == "update" and args.task:
         for spec in load_tasks(args, config):
             run_task(config, spec)
     return 0

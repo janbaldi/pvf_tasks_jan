@@ -197,7 +197,7 @@ What each block does:
   `exclude`, drops them. `normalise: true` compares case-insensitively and
   treats `withdrawn` as `withdrawal`.
 - **`target`** names the column to predict. Batches without a target value are
-  dropped and listed in `cohort.csv`.
+  dropped and listed in `batches.csv`.
 - **`columns`** decides which parameters become predictors. `exclude_categories`
   looks up each parameter in the catalog and leaves it out when the named catalog column
   holds one of the listed values. Here it removes the timestamps
@@ -248,17 +248,17 @@ Every run is a new folder; earlier runs are never overwritten.
 ```
 runs/20261012-154806-f3dc66/
   data/dataset.csv          21 rows: id, group, 111 raw predictors, target
-  data/transformed.csv      the same rows, encoded to numbers by metadata/recipe.json
-  metadata/decisions.csv    every parameter: included or excluded, and why
-  metadata/cohort.csv       every batch table batch: in or out, and which filter decided
-  metadata/columns.csv      every dataset column: role, source parameter, type, unit, meaning
+  data/dataset_encoded.csv      the same rows, encoded to numbers by metadata/encoding.json
+  metadata/parameters.csv    every parameter: included or excluded, and why
+  metadata/batches.csv       every batch table batch: in or out, and which filter decided
+  metadata/dataset_columns.csv      every dataset column: role, source parameter, type, unit, meaning
   report/report.html        the same, with figures; open it in a browser
   inputs/                   the exact batch table and catalog this run read, and their manifests
   config/task.yaml          the effective settings, pointing at inputs/
   manifest.json             a checksum of every file
 ```
 
-`decisions.csv` explains every parameter that was left out. These are real rows
+`parameters.csv` explains every parameter that was left out. These are real rows
 from this run:
 
 | Parameter | Decision | Reason | Stage |
@@ -271,7 +271,7 @@ from this run:
 | MOI_eff_G-Rex_B | excluded | 'MOI_eff_G-Rex_B' has 7 values, below the 8 this task requires | sparsity |
 
 The target is written under a column-safe name (`fp_flow_car` here).
-`columns.csv` maps it back: it is the row whose `Role` is `target`.
+`dataset_columns.csv` maps it back: it is the row whose `Role` is `target`.
 
 ### 6. Reproduce it
 
@@ -335,8 +335,8 @@ import glob
 import pandas as pd
 
 run = sorted(glob.glob("runs/*/"))[-1]                      # the latest run
-data = pd.read_csv(f"{run}data/transformed.csv")            # or dataset.csv for raw values
-columns = pd.read_csv(f"{run}metadata/columns.csv")
+data = pd.read_csv(f"{run}data/dataset_encoded.csv")            # or dataset.csv for raw values
+columns = pd.read_csv(f"{run}metadata/dataset_columns.csv")
 target = columns.loc[columns["Role"] == "target", "Column"].item()
 X = data.drop(columns=["Patient Lot/Batch #", "Vector Lot", target])
 y, groups = data[target], data["Vector Lot"]
@@ -487,7 +487,7 @@ yes/no columns whose blanks may be filled.
 For each task, `ml task run`:
 
 1. **Selects the cohort**: sites, then each filter in order, then batches without
-   a target. Every batch table batch gets a row in `cohort.csv` saying whether it is in,
+   a target. Every batch table batch gets a row in `batches.csv` saying whether it is in,
    and why not.
 2. **Chooses the predictors**: the catalog parameters present in the batch table, minus
    - the target, id, group and patient columns;
@@ -495,9 +495,9 @@ For each task, `ml task run`:
    - `columns.exclude` and the category rules;
    - `LVCoA_Impurity_Index_zsum`, which is standardised within each site.
 
-   Each exclusion is a row in `decisions.csv`.
-3. **Fits the preprocessing** on the whole cohort, records it in `recipe.json`,
-   and writes the encoded table as `transformed.csv`:
+   Each exclusion is a row in `parameters.csv`.
+3. **Fits the preprocessing** on the whole cohort, records it in `encoding.json`,
+   and writes the encoded table as `dataset_encoded.csv`:
    - Two categories become 0/1. A few become one column each. More become the
      target's mean per category (cross-fitted, so no row sees its own target).
      Very many are hashed into buckets.
@@ -530,14 +530,14 @@ target.
 | File | Contents |
 |---|---|
 | `data/dataset.csv` | The training dataset: id, group, raw predictors, target. One row per batch. |
-| `data/transformed.csv` | The same rows encoded by `recipe.json`. |
-| `metadata/decisions.csv` | Every parameter: included or excluded, with the reason and the step. |
-| `metadata/cohort.csv` | Every batch table batch: in or out, and the first rule that ruled it out. |
-| `metadata/columns.csv` | Every dataset column: role, source, type, catalog value type, unit, meaning. |
-| `metadata/features.csv` | Every encoded column and the parameter it came from. |
+| `data/dataset_encoded.csv` | The same rows encoded by `encoding.json`. |
+| `metadata/parameters.csv` | Every parameter: included or excluded, with the reason and the step. |
+| `metadata/batches.csv` | Every batch table batch: in or out, and the first rule that ruled it out. |
+| `metadata/dataset_columns.csv` | Every dataset column: role, source, type, catalog value type, unit, meaning. |
+| `metadata/encoded_columns.csv` | Every encoded column and the parameter it came from. |
 | `metadata/clusters.csv` | Correlated groups, their representatives and what was done. |
 | `metadata/missingness.csv` | Parameters that go missing together (when there are any). |
-| `metadata/recipe.json` | The fitted preprocessing, used by `ml task encode` and `TaskTransformer`. |
+| `metadata/encoding.json` | The fitted preprocessing, used by `ml task encode` and `TaskTransformer`. |
 | `report/report.html` | The report: cohort, data quality, encodings, clusters, dataset, provenance. |
 | `report/report_payload.json` | The report's numbers as JSON. |
 | `inputs/batch_table.xlsx`, `inputs/catalog.xlsx` | The exact inputs this run read. |

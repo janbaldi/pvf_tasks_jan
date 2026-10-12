@@ -110,6 +110,8 @@ class TaskResult:
     #: Predictors that track the target closely on the fitted rows.
     proxies: list[dict] = field(default_factory=list)
     missingness: Any = None
+    #: Explanation group → its parameters and encoded columns (groups.json).
+    groups: dict[str, dict[str, list[str]]] = field(default_factory=dict)
     #: The encoded table, exported beside the dataset.
     encoded: pd.DataFrame | None = None
 
@@ -676,7 +678,10 @@ class Preprocessor:
     @property
     def inputs(self) -> list[str]:
         """The batch table parameters a row needs for this recipe to encode it."""
-        return list(dict.fromkeys(record["source"] for record in self.dictionary))
+        summarised = [
+            c for k in self.clusters.get("clusters", []) if k.get("summary") for c in k["members"]
+        ]
+        return list(dict.fromkeys([r["source"] for r in self.dictionary] + summarised))
 
     # -- applying -----------------------------------------------------------
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -758,8 +763,13 @@ def fit_preprocessing(
     spec: TaskSpec,
     result: TaskResult,
     reserved: set[str],
+    fixed_groups: list[list[str]] | None = None,
 ) -> Preprocessor:
-    """Learn every data-derived decision from one population of rows."""
+    """Learn every data-derived decision from one population of rows.
+
+    ``fixed_groups`` uses these parameter groups instead of finding them, so that
+    every cross-validation fold explains the same groups.
+    """
     params = spec.params
     if params.min_non_missing > len(train):
         raise TaskRefused(
@@ -859,15 +869,25 @@ def fit_preprocessing(
         )
 
     # ── Clusters ──────────────────────────────────────────────────────────
+    name_by = spec.clustering.name_by
+    if name_by and name_by not in catalog.columns:
+        raise TaskRefused(f"clustering.name_by: the catalog has no '{name_by}' column")
+    site_column = spec.cohort.site_column
     result.clusters = decorrelate.fit(
         numbers,
         pre.retained_numeric,
         params,
         action=spec.clustering.action,
         prefer=spec.clustering.prefer,
+        sites=train[site_column] if site_column in train.columns else None,
+        names=dict(zip(catalog["Parameter"].astype(str), catalog[name_by].fillna("").astype(str)))
+        if name_by
+        else None,
+        fixed=fixed_groups,
+        min_stability=spec.clustering.min_stability,
     )
     pre.clusters = result.clusters.state() if result.clusters.transforms else {}
-    clustered = set(result.clusters.members) if result.clusters.transforms else set()
+    clustered = set(result.clusters.changed)
     pre.passthrough = [c for c in pre.retained_numeric if c not in clustered]
     for cluster in result.clusters.clusters:
         for dropped in cluster.dropped:
@@ -876,6 +896,16 @@ def fit_preprocessing(
                     dropped,
                     "excluded",
                     f"represented by '{cluster.representative}' in {cluster.name}",
+                    "clustering",
+                )
+            )
+        for member in cluster.members if cluster.summary else []:
+            result.decisions.append(
+                Decision(
+                    member,
+                    "changed",
+                    f"summarised into '{cluster.summary['output']}' with "
+                    f"{len(cluster.members) - 1} other members of {cluster.name}",
                     "clustering",
                 )
             )
@@ -1138,15 +1168,14 @@ def build(
     raw = cohort[result.selected_raw].copy()
     metadata = _metadata(cohort, spec, result)
     final = pd.concat([metadata, raw, target.rename(result.target_column)], axis=1)
-    result.encoded = pd.concat(
-        [metadata, transformed, target.rename(result.target_column)], axis=1
-    )
+    result.encoded = pd.concat([metadata, transformed, target.rename(result.target_column)], axis=1)
     result.dataset_role = (
         "raw modelling inputs, one row per batch; data/dataset_encoded.csv is the same rows "
         f"through encoding.json, fitted on {result.fitted_on}"
     )
 
     result.dictionary = list(pre.dictionary)
+    result.groups = explanation_groups(pre, result.clusters, spec.clustering.min_stability)
     result.recipe = pre.state()
     result.rows = len(final)
     result.feature_columns = final.shape[1] - metadata.shape[1] - 1
@@ -1165,6 +1194,39 @@ def build(
         f"predicting '{result.target_column}'",
     )
     return final, result
+
+
+def explanation_groups(
+    pre: Preprocessor, clusters: decorrelate.ClusterReport, min_stability: float
+) -> dict[str, dict[str, list[str]]]:
+    """Every encoded column, grouped by what it measures, for group-level explanations.
+
+    A stable group of correlated parameters is one group; any other parameter is
+    a group of its own, holding all its encoded columns (every one-hot column of
+    a category, its missing indicator). Summing SHAP values over a group, or
+    permuting a group's columns together, then explains the group as a whole
+    instead of splitting its credit arbitrarily between members.
+    """
+    group_of = {
+        member: cluster.name
+        for cluster in clusters.clusters
+        if cluster.stability >= min_stability
+        for member in cluster.members
+    }
+    source = {r["output"]: r["source"] for r in pre.dictionary}
+    groups: dict[str, dict[str, list[str]]] = {}
+    for column in pre.output_columns:
+        parameter = source.get(column, column)
+        group = groups.setdefault(
+            group_of.get(parameter, parameter), {"parameters": [], "columns": []}
+        )
+        group["columns"].append(column)
+        if parameter not in group["parameters"]:
+            group["parameters"].append(parameter)
+    for cluster in clusters.clusters:  # every member, also those summarised or dropped
+        if cluster.name in groups:
+            groups[cluster.name]["parameters"] = list(cluster.members)
+    return groups
 
 
 def _check_unique_ids(cohort: pd.DataFrame, spec: TaskSpec) -> None:

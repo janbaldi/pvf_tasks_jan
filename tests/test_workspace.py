@@ -424,6 +424,38 @@ def test_a_recipe_applied_to_the_cohort_reproduces_the_package(built):
     )
 
 
+def test_every_encoded_column_belongs_to_exactly_one_explanation_group(built):
+    for task in (PREDICTIVE, EXPLORATORY):
+        groups = json.loads(artifact(built, task, "groups.json").read_text(encoding="utf-8"))
+        encoded = csv(built, task, "dataset_encoded.csv")
+        columns = [c for g in groups.values() for c in g["columns"]]
+        assert sorted(columns) == sorted(
+            json.loads(artifact(built, task, "encoding.json").read_text(encoding="utf-8"))[
+                "output_columns"
+            ]
+        )
+        assert set(columns) <= set(encoded.columns)
+        clusters = csv(built, task, "clusters.csv").dropna(subset=["Cluster"])
+        for name, group in groups.items():
+            if len(group["parameters"]) > 1:  # a group of correlated parameters
+                stability = clusters.loc[clusters["Cluster"] == name, "Stability"]
+                assert (stability >= 0.8).all(), name
+    # Every one-hot column of a category explains together with its category.
+    groups = json.loads(artifact(built, EXPLORATORY, "groups.json").read_text(encoding="utf-8"))
+    assert any(len(g["columns"]) > 1 and len(g["parameters"]) == 1 for g in groups.values())
+
+
+def test_the_task_transformer_uses_the_runs_groups_in_every_fold(built):
+    run = built["packages"][EXPLORATORY]
+    groups = json.loads((run / "metadata" / "groups.json").read_text(encoding="utf-8"))
+    fixed = [set(g["parameters"]) for g in groups.values() if len(g["parameters"]) > 1]
+    X, y, _, spec = recipe.task_data(built["directory"] / dummy_data.TASK_FILES[1], built["config"])
+    half = X.iloc[: len(X) // 2 + 4]
+    transformer = recipe.TaskTransformer(spec, run=run).fit(half, y.loc[half.index])
+    used = [set(k["members"]) for k in transformer.preprocessor_.clusters["clusters"]]
+    assert used and all(any(members <= group for group in fixed) for members in used)
+
+
 def test_the_task_transformer_runs_inside_grouped_cross_validation(built):
     from sklearn.impute import SimpleImputer
     from sklearn.linear_model import RidgeCV

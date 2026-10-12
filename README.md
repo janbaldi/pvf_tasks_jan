@@ -306,8 +306,8 @@ even after the batch table has moved on.
 
 To ask a second question, create a second workspace with `ml task new`. The two
 finished examples in `demo/tasks/` show a binary target
-(`raritan_release`: `Disposition`, positive class `Released`) and residualised
-clusters (`clustering.action: residualise`).
+(`raritan_release`: `Disposition`, positive class `Released`) and correlated
+parameters summarised into one score per group (`clustering.action: summarise`).
 
 ## Use the dataset in your modelling code
 
@@ -318,6 +318,8 @@ cross-validated score, refit that preprocessing inside each fold.
 folder:
 
 ```python
+import glob
+
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import RidgeCV
 from sklearn.model_selection import GroupKFold, cross_val_score
@@ -326,9 +328,10 @@ from sklearn.preprocessing import StandardScaler
 
 from ml.recipe import TaskTransformer, task_data
 
+run = sorted(glob.glob("runs/*/"))[-1]   # the latest run of this task
 X, y, groups, spec = task_data(".")      # the task in this folder, cohort and target applied
 model = make_pipeline(
-    TaskTransformer(spec),                # refits the task's encoding inside every fold
+    TaskTransformer(spec, run=run),       # refits the encoding per fold, with the run's groups
     SimpleImputer(strategy="median", keep_empty_features=True),
     StandardScaler(),
     RidgeCV(alphas=[0.1, 1, 10, 100]),
@@ -356,6 +359,79 @@ target = columns.loc[columns["Role"] == "target", "Column"].item()
 X = data.drop(columns=["Patient Lot/Batch #", "Vector Lot", target])
 y, groups = data[target], data["Vector Lot"]
 ```
+
+### Explain the model by group, not by parameter
+
+Correlated parameters share their credit arbitrarily: a tree splits on whichever
+of four Day 3 cell counts happens to win, ridge spreads the credit thinly, and a
+different fold picks a different one. So explain per **group**.
+`metadata/groups.json` lists every group with its parameters and its encoded
+columns:
+
+```json
+"Cluster 04": {"parameters": ["FP Flow CAR+ (%)", "Harvest Pre-Wash Flow CAR+ Expression (%)",
+                              "Provirus Vector Copy Number (copies/transduced cell)", "VCN/cell"],
+               "columns": ["VCN/cell group"]},
+"Clinical Site": {"parameters": ["Clinical Site"],
+                  "columns": ["Clinical Site_Memorial Sloan Kettering Cancer Center", "…"]}
+```
+
+A group is either a stable group of correlated parameters or one parameter with
+all its encoded columns (one-hot columns, missing indicator). With SHAP, sum each
+row's values over a group's `columns`. Without SHAP, permute a group's
+`parameters` together on held-out batches. Run from `demo/tasks/raritan_release`:
+
+```python
+import glob
+import json
+
+import numpy as np
+import pandas as pd
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import RidgeClassifierCV
+from sklearn.model_selection import GroupKFold
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+from ml.recipe import TaskTransformer, task_data
+
+run = sorted(glob.glob("runs/*/"))[-1]                 # the run whose groups to use
+groups_of = json.load(open(f"{run}metadata/groups.json"))
+X, y, batch_groups, spec = task_data(".")
+
+rng = np.random.default_rng(0)
+drops = {name: [] for name in groups_of}
+for train, test in GroupKFold(n_splits=3).split(X, y, batch_groups):
+    model = make_pipeline(
+        TaskTransformer(spec, run=run),                    # the same groups in every fold
+        SimpleImputer(strategy="median", keep_empty_features=True),
+        StandardScaler(),
+        RidgeClassifierCV(alphas=[0.1, 1, 10, 100]),
+    ).fit(X.iloc[train], y.iloc[train])
+    held_out = X.iloc[test]
+    base = model.score(held_out, y.iloc[test])
+    for name, group in groups_of.items():
+        shuffled = held_out.copy()
+        order = rng.permutation(len(held_out))
+        shuffled[group["parameters"]] = held_out[group["parameters"]].to_numpy()[order]
+        drops[name].append(base - model.score(shuffled, y.iloc[test]))
+
+importance = pd.Series({name: np.mean(d) for name, d in drops.items()}).sort_values()
+print(importance.tail(5).round(3))
+```
+
+```
+Post-Massaging: Size of Clumps                           0.037
+Media Lot                                                0.074
+Incubator ID                                             0.074
+Amount of Time G-Rex A in Incubator (120min+/-30 min)    0.074
+Amount of Time G-Rex B in Incubator (120min+/-30 min)    0.148
+```
+
+(Made-up data again.) `TaskTransformer(spec, run=run)` uses the run's groups in
+every fold instead of finding them again, so every fold explains the same
+groups. Finding groups never looks at the target, so fixing them once on the
+whole cohort leaks nothing.
 
 ### Encode new batches with a finished run
 
@@ -422,7 +498,9 @@ refused, and each error names its field. Quote any column name that contains
 | `predictors.exclude` | — | `[{column, reason}]`: single columns to leave out. |
 | `predictors.exclude_by_catalog` | — | `{catalog column: [values]}`: leave out parameters with these catalog values. |
 | `predictors.include_by_catalog` | — | `{catalog column: [values]}`: keep only parameters with these catalog values. |
-| `clustering.action` | `describe` | `off`, `describe`, `keep_one` or `residualise`; see [below](#correlated-parameters). |
+| `clustering.action` | `describe` | `off`, `describe`, `keep_one`, `residualise` or `summarise`; see [below](#correlated-parameters). |
+| `clustering.min_stability` | `0.8` | Act on a group only if it comes back in this share of subsamples. |
+| `clustering.name_by` | — | A catalog column; a group whose members share its value is named after it. |
 | `clustering.method` | `spearman` | `spearman` or `pearson`. |
 | `clustering.threshold` | `0.7` | Correlation at which parameters are grouped. |
 | `clustering.min_size`, `min_overlap` | `2`, `10` | Smallest group; fewest shared batches before a correlation counts. |
@@ -522,6 +600,9 @@ For each task, `ml task run`:
      one down is used. A column with a different value in nearly every batch is
      treated as an identifier and left out.
    - Near-duplicates, near-constant and too-sparse columns are dropped.
+   - Correlated parameters are grouped, and stable groups get the
+     `clustering.action`. Every encoded column is assigned to an explanation
+     group in `groups.json`.
 4. **Writes the dataset**: `dataset.csv` holds the id, group, the raw predictors
    the encoding uses, and the target. It has one row per batch and no split.
 5. **Checks** that the row and column counts agree across every file, then
@@ -536,11 +617,26 @@ For each task, `ml task run`:
 | `describe` | Groups are described in the report; every parameter stays. |
 | `keep_one` | One member of each group stays; the others are dropped. |
 | `residualise` | One member stays; the others are replaced by what is left after regressing them on it. |
+| `summarise` | The group becomes one score, `<name> group`: the mean of its members after z-scoring, with negatively related members flipped. Every member feeds it. |
 
-Groups are built by complete linkage on `1 − |correlation|`, cut at
-`threshold`. Pairs with fewer than `min_overlap` shared batches are treated as
-unknown and never grouped. The representative is chosen without looking at the
-target.
+- **How groups are found.** Complete linkage on `1 − |correlation|`, cut at
+  `threshold`. Pairs with fewer than `min_overlap` shared batches are unknown and
+  never grouped. The representative is the most central member, chosen without
+  looking at the target.
+- **Only stable groups are acted on.** Each group is redrawn on 50 subsamples of
+  80% of the batches. A group that comes back in fewer than `min_stability`
+  of them is described and left alone, and isn't an explanation group. With 20–30
+  batches many groups hang on a handful of them. `clusters.csv` and the
+  report show each group's stability.
+- **Within site.** When the cohort spans several sites, each site's mean is
+  removed before correlating, so two parameters that only differ by site are not
+  grouped.
+- **Which action, for explanations.** `describe` keeps everything and leaves the
+  grouping to [group-level explanations](#explain-the-model-by-group-not-by-parameter).
+  `summarise` gives one named, stable column per group, which is the easiest to
+  explain to a process owner; name groups with `name_by` on a catalog column
+  such as a process step. `keep_one` loses the other members' information, and
+  residuals are hard to read unless their order means something.
 
 ## What a run writes
 
@@ -552,7 +648,8 @@ target.
 | `metadata/batches.csv` | Every batch in the batch table: in or out, and the first rule that ruled it out. |
 | `metadata/dataset_columns.csv` | Every dataset column: role, source, type, catalog value type, unit, meaning. |
 | `metadata/encoded_columns.csv` | Every encoded column and the parameter it came from. |
-| `metadata/clusters.csv` | Correlated groups, their representatives and what was done. |
+| `metadata/clusters.csv` | Correlated groups: stability, representative and what was done. |
+| `metadata/groups.json` | Explanation groups: every encoded column, grouped with what it measures. |
 | `metadata/missingness.csv` | Parameters that go missing together (when there are any). |
 | `metadata/encoding.json` | The fitted preprocessing, used by `ml task encode` and `TaskTransformer`. |
 | `report/report.html` | The report: cohort, data quality, encodings, clusters, dataset, provenance. |

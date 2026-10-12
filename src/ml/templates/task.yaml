@@ -46,11 +46,15 @@ predictors:
   exclude_by_catalog: {}          # {catalog column: [values left out]}
   # e.g. exclude_by_catalog: {Available At: [Release, Post-release]}
 
+# Parameters that move together. Every run writes metadata/groups.json: explain
+# the model per group (sum SHAP values, permute together), not per parameter.
 clustering:
-  action: describe                # off | describe | keep_one | residualise
+  action: describe                # off | describe | keep_one | residualise | summarise
   method: spearman
-  threshold: 0.7
+  threshold: 0.7                  # |r| at which parameters are grouped
   min_overlap: 10
+  min_stability: 0.8              # act only on groups found in 80% of subsamples
+  # name_by: Process step         # a catalog column whose shared value names a group
 
 # encoding:  {missing_indicators: false, impute: none, target_min_rows_per_category: 5}
 # quality:   {min_non_missing: 20, duplicate_r2_threshold: 0.99, near_constant_tolerance: 0.0001}

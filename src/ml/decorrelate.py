@@ -9,7 +9,13 @@ module's:
 ``describe``     describe the groups and change nothing.
 ``keep_one``     keep one member of each group and drop the rest.
 ``residualise``  keep one member and replace the others by their residuals.
+``summarise``    replace the group by one score: the mean of its z-scored members.
 ``off``          do not look.
+
+Only a group that comes back in most subsamples of the batches is acted on
+(``clustering.min_stability``); an unstable group is described and left alone.
+When the cohort spans several sites, correlations are computed on site-centred
+values, so a group means "moves together within a site", not "differs by site".
 
 Two things this deliberately does not claim. Residualising does not preserve all
 the information in a cluster, and it does not make the output independent:
@@ -43,6 +49,11 @@ from .logger import log
 MODULE = "decorrelate"
 
 RESIDUAL_SUFFIX = "_resid"
+#: The actions that change what reaches the dataset.
+CHANGING = ("keep_one", "residualise", "summarise")
+#: Subsamples drawn to measure how often a group comes back, and their size.
+STABILITY_RESAMPLES = 50
+STABILITY_FRACTION = 0.8
 #: The distance a pair with too little shared data is given. Above any threshold
 #: cut, including a cut at |r| = 0, so unknown evidence can never merge a group.
 UNKNOWN_DISTANCE = 2.0
@@ -79,6 +90,12 @@ class Cluster:
     representative: str
     action: str
     strategy: str = ""
+    #: The catalog value every member shares (``clustering.name_by``), if any.
+    label: str = ""
+    #: Share of subsamples in which every member landed in one group again.
+    stability: float = float("nan")
+    #: For ``summarise``: the score column and how it is computed.
+    summary: dict[str, Any] = field(default_factory=dict)
     why_representative: str = ""
     representative_rows: int = 0
     representative_score: float = float("nan")
@@ -105,6 +122,9 @@ class Cluster:
             "members": list(self.members),
             "representative": self.representative,
             "action": self.action,
+            "label": self.label,
+            "stability": float(self.stability),
+            "summary": self.summary,
             "dropped": list(self.dropped),
             "fits": [
                 {
@@ -139,14 +159,21 @@ class ClusterReport:
     action: str = "off"
     linkage: list[list[float]] = field(default_factory=list)
     linkage_labels: list[str] = field(default_factory=list)
+    #: Correlations were computed on site-centred values.
+    within_site: bool = False
 
     @property
     def members(self) -> list[str]:
         return [column for cluster in self.clusters for column in cluster.members]
 
     @property
+    def changed(self) -> list[str]:
+        """Members of the groups that were acted on, so are not passed through as they are."""
+        return [c for k in self.clusters if k.action in CHANGING for c in k.members]
+
+    @property
     def transforms(self) -> bool:
-        return self.action in ("keep_one", "residualise")
+        return self.action in CHANGING
 
     def state(self) -> dict[str, Any]:
         return {
@@ -444,14 +471,73 @@ def _sequential_linear(
     return frame, fits
 
 
+def stability(
+    values: pd.DataFrame, groups: list[list[str]], params: TaskParams
+) -> list[float]:
+    """How often each group comes back when the clustering is redone on subsamples.
+
+    A group found on 21 batches can hang on two or three of them. Redrawing 80%
+    of the batches and clustering again shows whether it is a property of the
+    process or of this particular handful.
+    """
+    rng = np.random.default_rng(params.seed)
+    hits = [0] * len(groups)
+    size = max(params.cluster_min_overlap, int(round(STABILITY_FRACTION * len(values))))
+    for _ in range(STABILITY_RESAMPLES):
+        rows = rng.choice(len(values), size=min(size, len(values)), replace=False)
+        # shortcut: pandas' corr instead of encode.pairwise, for speed; same
+        # coefficient, same minimum overlap.
+        r = values.iloc[rows].corr(
+            method=params.cluster_corr_method, min_periods=params.cluster_min_overlap
+        )
+        found = [set(g) for g in find_clusters(r, params)[0]]
+        for i, group in enumerate(groups):
+            hits[i] += any(set(group) <= other for other in found)
+    return [h / STABILITY_RESAMPLES for h in hits]
+
+
+def summary(numeric: pd.DataFrame, members: list[str], representative: str, method: str) -> dict:
+    """How a group becomes one score: z-score each member, align its sign, average."""
+    out: dict[str, Any] = {"means": {}, "scales": {}, "signs": {}}
+    for column in members:
+        values = numeric[column]
+        r = pairwise(numeric[representative], values, method)[0]
+        out["means"][column] = float(values.mean())
+        out["scales"][column] = float(values.std()) or 1.0
+        out["signs"][column] = -1.0 if np.isfinite(r) and r < 0 else 1.0
+    return out
+
+
+def score(df: pd.DataFrame, fitted: dict) -> pd.Series:
+    """A group's score for any rows: the mean over the members each row has."""
+    parts = [
+        fitted["signs"][c] * (pd.to_numeric(df[c], errors="coerce") - fitted["means"][c])
+        / fitted["scales"][c]
+        for c in fitted["means"]
+        if c in df.columns
+    ]
+    return pd.concat(parts, axis=1).mean(axis=1) if parts else pd.Series(np.nan, index=df.index)
+
+
 def fit(
     df: pd.DataFrame,
     columns: list[str],
     params: TaskParams,
     action: str = "describe",
     prefer: tuple[str, ...] = (),
+    sites: pd.Series | None = None,
+    names: dict[str, str] | None = None,
+    fixed: list[list[str]] | None = None,
+    min_stability: float = 0.0,
 ) -> ClusterReport:
-    """Find the groups, choose their representatives, and carry out the action."""
+    """Find the groups, choose their representatives, and carry out the action.
+
+    ``sites`` centres every parameter within its site before correlating, when
+    there is more than one. ``names`` gives each parameter its catalog value for
+    ``clustering.name_by``. ``fixed`` uses these groups instead of finding them
+    (so every cross-validation fold explains the same groups). A group found on
+    the data is only acted on when its stability reaches ``min_stability``.
+    """
     report = ClusterReport(
         candidates=len(columns),
         method=params.cluster_corr_method,
@@ -470,10 +556,19 @@ def fit(
         return report
 
     numeric = df[usable].apply(pd.to_numeric, errors="coerce").replace([np.inf, -np.inf], np.nan)
+    centred = numeric
+    if sites is not None and sites.loc[numeric.index].nunique() > 1:
+        # Two sites at different levels would otherwise look like a correlation.
+        centred = numeric - numeric.groupby(sites.loc[numeric.index]).transform("mean")
+        report.within_site = True
+        log.info(MODULE, "Correlations computed within site: each site's mean is removed first")
     r, overlap = correlations(
-        numeric, usable, params.cluster_corr_method, params.cluster_min_overlap
+        centred, usable, params.cluster_corr_method, params.cluster_min_overlap
     )
     groups, tree, unsupported = find_clusters(r, params)
+    if fixed is not None:
+        groups = [m for m in ([c for c in g if c in usable] for g in fixed) if len(m) >= 2]
+    stable = [1.0] * len(groups) if fixed is not None else stability(centred, groups, params)
     report.unsupported_pairs = unsupported
     report.linkage, report.linkage_labels = tree, list(usable)
     grouped = {column for members in groups for column in members}
@@ -493,25 +588,56 @@ def fit(
         )
         return report
 
+    outputs: set[str] = set()
     for number, members in enumerate(groups, start=1):
-        representative, score, rows, why = choose_representative(
+        representative, fit_score, rows, why = choose_representative(
             numeric, members, params.cluster_min_overlap, prefer
         )
+        labels = {(names or {}).get(c, "") for c in members}
+        label = labels.pop() if len(labels) == 1 else ""
+        acted = action if stable[number - 1] >= min_stability else "describe"
         cluster = Cluster(
-            name=f"Cluster {number:02d}",
+            name=f"Cluster {number:02d}" + (f" ({label})" if label else ""),
             members=members,
             representative=representative,
-            action=action,
+            action=acted,
+            label=label,
+            stability=stable[number - 1],
             why_representative=why,
             representative_rows=rows,
-            representative_score=score,
+            representative_score=fit_score,
             min_overlap=int(overlap.loc[members, members].to_numpy().min()),
         )
 
-        if action == "describe":
-            cluster.strategy = "reported only; every member stays as it is"
+        if acted == "describe":
+            cluster.strategy = (
+                "reported only; every member stays as it is"
+                if action == "describe"
+                else f"left alone: found in {stable[number - 1]:.0%} of subsamples, "
+                f"below clustering.min_stability ({min_stability:.0%})"
+            )
             cluster.frame = pd.DataFrame(index=df.index)
-        elif action == "keep_one":
+        elif acted == "summarise":
+            fitted = summary(numeric, members, representative, params.cluster_corr_method)
+            output = f"{label or representative} group"
+            if output in outputs:
+                output = f"{output} {number:02d}"
+            outputs.add(output)
+            fitted["output"] = output
+            cluster.summary = fitted
+            cluster.strategy = "one score: the mean of the z-scored members, signs aligned"
+            cluster.frame = pd.DataFrame({output: score(numeric, fitted)}, index=df.index)
+            flipped = [c for c in members if fitted["signs"][c] < 0]
+            cluster.records.append(
+                _record(
+                    output,
+                    representative,
+                    "cluster summary (summarise)",
+                    f"mean of the z-scored {', '.join(members)}"
+                    + (f"; sign flipped for {', '.join(flipped)}" if flipped else ""),
+                )
+            )
+        elif acted == "keep_one":
             cluster.strategy = "one member kept, the rest dropped"
             cluster.dropped = [c for c in members if c != representative]
             cluster.frame = numeric[[representative]].copy()
@@ -584,7 +710,7 @@ def fit(
         log.info(
             MODULE,
             f"{cluster.name}: {len(members)} parameters, represented by "
-            f"'{representative}' ({action})",
+            f"'{representative}' ({acted}, stability {cluster.stability:.0%})",
         )
         report.clusters.append(cluster)
 
@@ -602,12 +728,13 @@ def transform(df: pd.DataFrame, state: dict[str, Any]) -> pd.DataFrame:
     row is residualised by what the training rows said, which is the only version
     of this that means anything.
     """
-    action = state.get("action", "off")
     out = pd.DataFrame(index=df.index)
-    if action in ("off", "describe"):
-        return out
-
     for cluster in state.get("clusters", []):
+        if cluster.get("action", state.get("action")) not in CHANGING:
+            continue
+        if cluster.get("summary"):
+            out[cluster["summary"]["output"]] = score(df, cluster["summary"])
+            continue
         representative = cluster["representative"]
         if representative in df.columns:
             out[representative] = pd.to_numeric(df[representative], errors="coerce")
@@ -647,9 +774,12 @@ def rows(report: ClusterReport, retained: set[str]) -> list[dict]:
                     "Representative": cluster.representative,
                     "Is representative": representative,
                     "Action": cluster.action,
+                    "Stability": round(cluster.stability, 2),
                     "Outcome": (
-                        "kept as the representative"
-                        if representative
+                        "summarised into the group score"
+                        if cluster.summary
+                        else "kept as the representative"
+                        if representative and cluster.action in CHANGING
                         else "dropped"
                         if member in cluster.dropped
                         else fit.model
@@ -657,14 +787,16 @@ def rows(report: ClusterReport, retained: set[str]) -> list[dict]:
                         else "unchanged"
                     ),
                     "Output column": (
-                        member
+                        cluster.summary["output"]
+                        if cluster.summary
+                        else member
                         if representative or not fit or fit.fallback
                         else f"{member}{RESIDUAL_SUFFIX}"
                     ),
                     "Retained in dataset": (
                         member in retained
                         or f"{member}{RESIDUAL_SUFFIX}" in retained
-                        or report.action == "describe"
+                        or cluster.summary.get("output") in retained
                     ),
                     "Rows fitted": fit.rows if fit else cluster.representative_rows,
                     "Adjusted R2": fit.adj_r2 if fit else "",

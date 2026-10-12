@@ -41,7 +41,8 @@ quality:
   duplicate_r2_threshold: 0.99
   duplicate_min_overlap: 8
 clustering:
-  action: residualise
+  action: summarise
+  name_by: Available At
   method: spearman
   threshold: 0.8
   min_overlap: 8

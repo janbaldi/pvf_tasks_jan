@@ -40,6 +40,7 @@ REQUIRED = (
     "batches.csv",
     "clusters.csv",
     "encoding.json",
+    "groups.json",
     "report.html",
     "report_payload.json",
     "manifest.json",
@@ -256,20 +257,20 @@ def test_report_only_clustering_leaves_the_predictors_alone(built):
     assert any(name in kept for name in clustered), "the parameters are still there, unchanged"
 
 
-def test_linear_residuals_name_the_parameters_they_were_fitted_on(built):
+def test_a_summarised_group_becomes_one_score_fed_by_every_member(built):
     membership = csv(built, EXPLORATORY, "clusters.csv")
-    residualised = membership[membership["Outcome"].astype(str).str.startswith("OLS on")]
-    assert not residualised.empty
-    assert residualised["Regressors"].notna().all()
+    summarised = membership[membership["Outcome"] == "summarised into the group score"]
+    assert not summarised.empty
+    assert (summarised["Output column"].str.endswith(" group")).all()
+    assert (summarised["Stability"] >= 0.8).all(), "only stable groups are acted on"
 
-    recipe = json.loads(artifact(built, EXPLORATORY, "encoding.json").read_text(encoding="utf-8"))
-    for cluster in recipe["clusters"]["clusters"]:
-        assert cluster["representative"] in set(cluster["members"])
-        for fit in cluster["fits"]:
-            if fit["fallback"]:
-                continue
-            assert fit["regressors"], fit
-            assert len(fit["coefficients"]) == len(fit["regressors"])
+    encoded = csv(built, EXPLORATORY, "dataset_encoded.csv")
+    raw = csv(built, EXPLORATORY, "dataset.csv")
+    assert set(summarised["Output column"]) <= set(encoded.columns)
+    # The score needs every member, so every member is a raw input of the dataset.
+    assert set(summarised["Parameter"]) <= set(raw.columns)
+    changed = csv(built, EXPLORATORY, "parameters.csv").query("Decision == 'changed'")
+    assert set(summarised["Parameter"]) <= set(changed["Parameter"])
 
 
 def test_every_clustered_parameter_is_in_the_membership_export(built):
@@ -285,12 +286,12 @@ def test_every_clustered_parameter_is_in_the_membership_export(built):
 
 def test_a_dropped_duplicate_points_at_a_parameter_that_survived(built):
     decisions = csv(built, EXPLORATORY, "parameters.csv")
-    dataset = csv(built, EXPLORATORY, "dataset_encoded.csv")
+    dataset = csv(built, EXPLORATORY, "dataset.csv")
     duplicates = decisions[decisions["Stage"] == "near-duplicate"]
     assert not duplicates.empty
     for reason in duplicates["Reason"]:
         kept = reason.split("duplicates '")[1].split("'")[0]
-        assert kept in dataset.columns or f"{kept}_resid" in dataset.columns, kept
+        assert kept in dataset.columns, kept
 
 
 # ---------------------------------------------------------------------------

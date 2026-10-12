@@ -1041,7 +1041,10 @@ def write_tasks(directory: Path) -> list[Path]:
             "missing_indicators": True,
         },
         "clustering": {
-            "action": "residualise",
+            # Each stable group becomes one score, named after the process stage
+            # its members share in the catalog.
+            "action": "summarise",
+            "name_by": "Available At",
             "method": "spearman",
             "threshold": 0.8,
             "min_overlap": 8,

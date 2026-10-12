@@ -96,6 +96,7 @@ def test_paths_resolve_against_the_task_file_wherever_it_is_run_from(tmp_path, m
         ({"cohort": {"filters": [{"column": "Type", "op": "matches", "value": "x"}]}}, "op"),
         ({"columns": {"include": ["Vector Lot"]}}, "columns.include"),
         ({"split": {"folds": 5}}, "(root).split: unknown setting"),
+        ({"availability": {"cutoff": "Harvest"}}, "(root).availability: unknown setting"),
         ({"columns": {"exclude_categories": ["Release"]}}, "columns.exclude_categories"),
         ({"task": {"unknown_setting": 1}}, "unknown setting"),
     ],
@@ -112,15 +113,6 @@ def test_validation_happens_before_anything_is_written(tmp_path):
     with pytest.raises(taskconfig.TaskConfigError):
         taskconfig.load(write_task(tmp_path, bad))
     assert not (tmp_path / "runs").exists()
-
-
-def test_a_predictive_task_has_to_have_been_reviewed(tmp_path):
-    task = minimal_task(task={"purpose": "predictive"})
-    with pytest.raises(taskconfig.TaskConfigError, match="availability.reviewed"):
-        taskconfig.load(write_task(tmp_path, task))
-
-    task["availability"] = {"reviewed": True, "cutoff": "harvest"}
-    assert taskconfig.load(write_task(tmp_path, task, "reviewed.yaml")).predictive
 
 
 # ---------------------------------------------------------------------------

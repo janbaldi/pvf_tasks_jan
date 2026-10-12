@@ -669,9 +669,8 @@ def _value_type(parameter: str) -> str:
     return "numeric"
 
 
-#: When in the process each made-up parameter exists, by its name. Earliest match
-#: wins. Features are left without a stage on purpose: a task derives theirs from
-#: their inputs. Two parameters stay unstaged, so the report shows what that does.
+#: The made-up PTF's 'Available At' column, by parameter name: a category a task
+#: can select parameters by. Earliest match wins; features are left without one.
 STAGE_RULES = (
     ("Disposition", "Post-release"),
     ("OOS Type", "Post-release"),
@@ -921,10 +920,9 @@ _SMALL_COHORT = {
     "quality": {"min_non_missing": 8, "duplicate_r2_threshold": 0.99, "duplicate_min_overlap": 8},
 }
 
-#: A parameter the made-up PTF stages at harvest, excluded by hand on top of the
-#: mechanical check: a task can always say more than the PTF does.
-DECLARED_UNAVAILABLE = [
-    {"column": "Harvest Post Wash Viable Cell Count (cells)", "reason": "counted after the wash"},
+#: The made-up PTF's stages after harvest, which the predictive demo task leaves out.
+LATER_THAN_HARVEST = [
+    "Wash", "Formulation", "Final product", "Post-thaw", "Release", "Post-release"
 ]
 
 #: The demo's task workspaces, relative to the config.
@@ -981,14 +979,14 @@ def write_tasks(directory: Path) -> list[Path]:
                 {
                     "column": "Subject Weight (kg)",
                     "reason": "dose per kilogram already carries it",
-                }
+                },
+                {
+                    "column": "Harvest Post Wash Viable Cell Count (cells)",
+                    "reason": "counted after the wash",
+                },
             ],
-        },
-        "availability": {
-            # The PTF says from which stage every parameter exists, so naming the
-            # cutoff is enough: everything later, or unstaged, is left out.
-            "cutoff": "Harvest",
-            "unavailable": DECLARED_UNAVAILABLE,
+            # Everything the PTF says is measured after harvest.
+            "exclude_categories": {"Available At": LATER_THAN_HARVEST},
         },
         **_SMALL_COHORT,
         "clustering": {

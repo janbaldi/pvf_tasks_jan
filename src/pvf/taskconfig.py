@@ -47,24 +47,6 @@ MISSING_POLICIES = ("exclude", "include")
 CLUSTER_ACTIONS = ("off", "report_only", "representative", "linear")
 IMPUTATION = ("none", "median")
 
-#: Process stages, earliest first. A PTF ``Available At`` value names one of
-#: these, and a predictive task's ``availability.cutoff`` names the last stage
-#: whose parameters it may use. A task can replace the list (availability.stages).
-DEFAULT_STAGES = (
-    "D0",
-    "D1",
-    "D3",
-    "D6",
-    "D8",
-    "D10",
-    "Harvest",
-    "Wash",
-    "Formulation",
-    "Final product",
-    "Post-thaw",
-    "Release",
-    "Post-release",
-)
 CORRELATION_METHODS = ("spearman", "pearson")
 
 #: Status spellings that mean the same thing, flattened before a filter runs.
@@ -148,34 +130,6 @@ class Roles:
 
 
 @dataclass(frozen=True)
-class Availability:
-    """What is known at the moment a prediction would be made.
-
-    Nothing is inferred from a column's name. Where the PTF has an
-    ``Available At`` column, ``cutoff`` names the last process stage a
-    prediction may draw on and everything later — or unstaged — is left out
-    mechanically. Without that column, the task has to declare which parameters
-    come too late and state that the predictor list was reviewed.
-    """
-
-    cutoff: str = ""
-    reviewed: bool = False
-    unavailable: tuple[tuple[str, str], ...] = ()
-    available: tuple[str, ...] = ()
-    stages: tuple[str, ...] = DEFAULT_STAGES
-
-    def rank(self, stage: object) -> int | None:
-        """Where a stage falls in the process, or ``None`` when it is not one."""
-        if stage is None or (isinstance(stage, float) and stage != stage):
-            return None
-        wanted = str(stage).strip().lower()
-        for position, name in enumerate(self.stages):
-            if name.lower() == wanted:
-                return position
-        return None
-
-
-@dataclass(frozen=True)
 class Clustering:
     """Discovery is one setting; what is done about what was found is another."""
 
@@ -220,7 +174,6 @@ class TaskSpec:
     cohort: Cohort = field(default_factory=Cohort)
     target: Target = field(default_factory=Target)
     roles: Roles = field(default_factory=Roles)
-    availability: Availability = field(default_factory=Availability)
     encoding: dict[str, Any] = field(default_factory=dict)
     quality: dict[str, Any] = field(default_factory=dict)
     clustering: Clustering = field(default_factory=Clustering)
@@ -249,11 +202,8 @@ class TaskSpec:
     def as_dict(self) -> dict[str, Any]:
         """The effective settings, defaults included, in the shape of ``task.yaml``."""
         d = _plain(asdict(self))
-        columns, availability = d["roles"], d["availability"]
+        columns = d["roles"]
         columns["exclude"] = [{"column": c, "reason": r} for c, r in columns["exclude"]]
-        availability["unavailable"] = [
-            {"column": c, "reason": r} for c, r in availability["unavailable"]
-        ]
         for key in ("include_categories", "exclude_categories"):
             columns[key] = dict(columns[key])
         return {
@@ -262,7 +212,6 @@ class TaskSpec:
             "cohort": d["cohort"],
             "target": d["target"],
             "columns": columns,
-            "availability": availability,
             **{key: d[key] for key in ("encoding", "quality", "clustering", "missingness")},
             "report": d["report"],
         }
@@ -565,7 +514,6 @@ def parse(
             "cohort",
             "target",
             "columns",
-            "availability",
             "encoding",
             "quality",
             "clustering",
@@ -647,23 +595,6 @@ def parse(
         exclude_categories=_categories(roles_raw, "exclude_categories", "columns", errors),
     )
 
-    availability_raw = _known(
-        raw.get("availability"),
-        ("cutoff", "reviewed", "unavailable", "available", "stages"),
-        "availability",
-        errors,
-    )
-    stages = _names(availability_raw, "stages", "availability", errors) or DEFAULT_STAGES
-    if len({stage.lower() for stage in stages}) != len(stages):
-        errors.append("availability.stages: a stage is listed twice")
-    availability = Availability(
-        cutoff=_text(availability_raw, "cutoff", "availability", errors),
-        reviewed=_flag(availability_raw, "reviewed", "availability", errors, False),
-        unavailable=_reasoned(availability_raw, "unavailable", "availability", errors),
-        available=_names(availability_raw, "available", "availability", errors),
-        stages=tuple(stages),
-    )
-
     encoding = _knobs(raw.get("encoding"), ENCODING_FIELDS, "encoding", errors)
     quality = _knobs(raw.get("quality"), QUALITY_FIELDS, "quality", errors)
 
@@ -713,23 +644,6 @@ def parse(
         if column in dict(roles.exclude):
             errors.append(f"columns.include: '{column}' is in columns.exclude as well")
 
-    if purpose == "predictive" and not (
-        roles.include or availability.reviewed or availability.cutoff
-    ):
-        errors.append(
-            "availability.cutoff: a predictive task has to say what is known at the "
-            "prediction point — name the last process stage it may use in "
-            f"availability.cutoff (one of {', '.join(availability.stages)}), give an "
-            "explicit columns.include list, or state availability.reviewed: true"
-        )
-    unknown_cutoff = availability.rank(availability.cutoff) is None
-    if availability.cutoff and unknown_cutoff and not availability.reviewed:
-        errors.append(
-            f"availability.cutoff: '{availability.cutoff}' is not one of the process stages "
-            f"({', '.join(availability.stages)}); use one of them, or set "
-            "availability.reviewed: true to keep a free-text cutoff checked by hand"
-        )
-
     def located(section: dict, key: str, where: str, fallback: str, what: str) -> Path:
         text = _text(section, key, where, errors).strip()
         if text:
@@ -765,7 +679,6 @@ def parse(
         cohort=cohort,
         target=target,
         roles=roles,
-        availability=availability,
         encoding=encoding,
         quality=quality,
         clustering=clustering,

@@ -69,9 +69,9 @@ uv run pvf init tasks/car_expression --target "FP Flow CAR+ (%)" --purpose predi
 cd tasks/car_expression
 ```
 
-**Say what the dataset is.** Open `task.yaml` and change four things: the cohort,
-the columns, what is known when the prediction is made, and — because the demo
-cohort is small — the minimum number of values a column needs.
+**Say what the dataset is.** Open `task.yaml` and change three things: the
+cohort, the columns, and — because the demo cohort is small — the minimum number
+of values a column needs.
 
 ```yaml
 cohort:
@@ -86,21 +86,20 @@ columns:
     - {column: Subject Weight (kg), reason: dose per kilogram already carries it}
   exclude_categories:                        # every parameter in a PTF category
     Value Type: [datetime]
-
-availability:
-  cutoff: Harvest                            # nothing measured after harvest
+    Available At: [Wash, Formulation, Final product, Post-thaw, Release, Post-release]
 
 quality: {min_non_missing: 8}
 ```
 
-`exclude_categories` takes any PTF column and the categories of it to leave out;
+`exclude_categories` takes any PTF column and the categories of it to leave out —
+here the timestamps, and everything the PTF says is measured after harvest.
 `include_categories` is the opposite: only those categories are kept.
 
 **Check it, then run it.** Inside a workspace no `--task` is needed:
 
 ```bash
 uv run pvf check      # every column it names is checked against the PVF and PTF
-uv run pvf tasks      # "Written — 34 batches × 94 columns"
+uv run pvf tasks      # "Written — 34 batches × 116 columns"
 ```
 
 **Look at the run.** It is in `runs/<run id>/`:
@@ -116,8 +115,8 @@ runs/20261012-145259-dfebcd/
 ```
 
 `decisions.csv` has a row for each parameter the task left out — the datetime
-parameters say `PTF 'Value Type' is 'datetime'`, the late ones `available at
-Post-thaw, after the prediction point (Harvest)`.
+parameters say `PTF 'Value Type' is 'datetime'`, the late ones for example
+`PTF 'Available At' is 'Post-thaw'`.
 
 **Redo it.** A run folder is enough to reproduce itself:
 
@@ -233,8 +232,8 @@ normalised to 1.
 
 ## task.yaml
 
-One task per workspace: a cohort, a target, which columns go in, what is known at
-the prediction point, and what to do about parameters that move together.
+One task per workspace: a cohort, a target, which columns go in, and what to do
+about parameters that move together.
 Defining a second task means writing a second file — there is no Python to edit.
 `pvf init` writes an annotated one; `demo/tasks/` has two that differ in every
 one of those things.
@@ -253,8 +252,7 @@ columns:
   id: 'Patient Lot/Batch #'
   group: Vector Lot
   exclude: [{column: Subject Weight (kg), reason: dose per kilogram already carries it}]
-  exclude_categories: {Available At: [Release, Post-release]}
-availability: {cutoff: Harvest}
+  exclude_categories: {Available At: [Wash, Formulation, Final product, Post-thaw, Release, Post-release]}
 clustering: {action: report_only, method: spearman, threshold: 0.7, min_overlap: 10}
 ```
 
@@ -293,16 +291,11 @@ grouping metadata and, optionally, which is the patient. Those are authoritative
   `Flow accuracy (effective)` are both derived from `FP Flow CAR+ (%)`, and
   `decisions.csv` names the chain that got each one excluded. Derived certificate
   columns and censoring indicators are covered too.
-- **What is known at the prediction point is checked mechanically.** The PTF's
-  optional `Available At` column says from which process stage a parameter exists
-  (`D0 D1 D3 D6 D8 D10 Harvest Wash Formulation "Final product" Post-thaw Release
-  Post-release`; a task can replace the list in `availability.stages`). A derived
-  column is as late as its latest input. A predictive task names its
-  `availability.cutoff`, and everything from a later stage — or with no stage at
-  all — is left out, with the stage in `decisions.csv`. `availability.unavailable`
-  adds exclusions by hand and `availability.available` lets a parameter through
-  whatever its stage. Without the PTF column, a predictive task has to list the
-  late parameters itself and state `availability.reviewed: true`, as before.
+- **What comes too late is a column choice.** There is no built-in notion of
+  process order: leave out late parameters with `exclude_categories` on the PTF
+  column that holds the stage, or one by one with `exclude`. A derived feature
+  has no PTF category of its own, so check `decisions.csv` and exclude any that
+  are computed from late parameters.
 - A predictor that correlates with the target above `quality.proxy_correlation`
   (0.95) on the fitted rows is named in the report: it is often the target
   measured another way.
@@ -315,9 +308,7 @@ vocabularies, target means, near-duplicate selection, clusters, residual
 regressions, the sparsity and near-constant checks, indicators and imputation
 medians are fitted on the whole cohort and recorded in `recipe.json`.
 `dataset.csv` is always the raw predictors the recipe uses; `transformed.csv`
-beside it is the same rows through the recipe. `purpose: predictive` adds the
-availability checks above; `exploratory` describes stages without leaving
-anything out.
+beside it is the same rows through the recipe.
 
 A table preprocessed over every row is not a table to cross-validate on as it
 stands. For an honest estimate, refit the preprocessing inside every fold:
@@ -452,8 +443,7 @@ Feature(
 ```
 
 To add one, append an entry. Nothing else changes. The `requires` tuple is what a
-task walks to find the descendants of its target, and to find the stage from
-which a feature exists.
+task walks to find the descendants of its target.
 
 - **A feature is created only if the PTF lists its name.**
 - **A feature whose inputs are not all present is not created**, and the report
@@ -474,8 +464,7 @@ appears. Every number was computed before the file was written.
 
 A task report has eight sections: overview (question, target, cohort, what the
 table is for, what needs attention), cohort, data quality, parameters and
-encodings (the dictionary, every decision, the availability stages, possible
-target proxies), correlated groups, parameters missing together, the dataset, and
+encodings (the dictionary, every decision, possible target proxies), correlated groups, parameters missing together, the dataset, and
 provenance with the run log.
 
 ## The demo
@@ -492,10 +481,10 @@ git; the data and the runs are generated.
 | Question | what goes with CAR+ expression at Ghent | what a released Raritan batch looks like |
 | Cohort | Ghent, commercial, finished, no withdrawals | Raritan, finished |
 | Target | `FP Flow CAR+ (%)`, numeric | `Disposition`, binary, positive class `Released` |
-| Purpose | predictive, cutoff `Harvest` | exploratory |
-| Columns | one excluded by hand | one excluded by hand, `Available At: [Post-release]` excluded by category |
+| Purpose | predictive | exploratory |
+| Columns | two excluded by hand, everything after harvest excluded by its `Available At` category | one excluded by hand, `Available At: [Post-release]` excluded by category |
 | Clustering | `report_only` | `linear`, threshold 0.8 |
-| Result | 21 batches, 89 raw predictors (113 transformed); 50 parameters left out as later than harvest | 27 batches, 168 transformed columns, 30 groups residualised |
+| Result | 21 batches, 111 raw predictors (137 transformed); 25 parameters left out by category | 27 batches, 168 transformed columns, 30 groups residualised |
 
 ## Code layout
 
@@ -512,7 +501,7 @@ src/pvf/
   enrich.py            parameters joined from other systems
   features.py          the feature registry, and derived-column lineage
   merge.py             stacking the sites, and the checks over the result
-  dataset.py           stage 3: cohort, roles, column selection, availability, fit/transform, assembly
+  dataset.py           stage 3: cohort, roles, column selection, fit/transform, assembly
   encode.py            one fit/apply pair per encoding
   decorrelate.py       correlated groups, representatives and residuals
   missingness.py       parameters missing together

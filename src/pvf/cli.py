@@ -911,12 +911,6 @@ def _check_task(spec: TaskSpec) -> list[str]:
         for column, _ in getattr(spec.roles, key):
             if column not in frame.columns:
                 problems.append(f"columns.{key}: '{column}' is not a column of the PTF")
-    if spec.predictive and spec.availability.cutoff:
-        if io.STAGE_COLUMN not in frame.columns and not spec.availability.reviewed:
-            problems.append(
-                f"availability.cutoff: the PTF has no '{io.STAGE_COLUMN}' column to check it "
-                "against; add it, or set availability.reviewed with an unavailable list"
-            )
     return problems
 
 

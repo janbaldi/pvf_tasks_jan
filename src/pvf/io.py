@@ -30,9 +30,6 @@ MODULE = "io"
 #: The value types the PTF may declare, besides a bracketed ordinal category list.
 VALUE_TYPES = frozenset({"numeric", "categorical", "datetime", "duration", "ratio", "boolean"})
 
-#: The PTF column that says when in the process a parameter exists. Optional.
-STAGE_COLUMN = "Available At"
-
 #: The worksheet each source's data is on, in the files as the sites produce them.
 #: config.yaml can override any of these under ``sheets:``.
 DEFAULT_SHEETS: dict[str, str | int] = {
@@ -137,9 +134,8 @@ def read_ptf(ptf: str | Path | Source) -> pd.DataFrame:
 
     Every stage starts here. ``Parameter`` names what the PVF may hold and
     ``Value Type`` says what it holds — including, for an ordinal parameter, its
-    categories in order, written as a bracketed list. An optional
-    ``Available At`` column says from which process stage a parameter exists,
-    which is what lets a predictive task check availability mechanically.
+    categories in order, written as a bracketed list. Any other column is
+    metadata a task can select parameters by (``columns.exclude_categories``).
     """
     source = as_source(ptf, "ptf")
     frame = _read(source, "PTF")
@@ -178,8 +174,7 @@ def read_ptf(ptf: str | Path | Source) -> pd.DataFrame:
     counts = frame["Value Type"].value_counts().to_dict()
     log.success(
         MODULE,
-        f"PTF loaded — {len(frame)} parameters"
-        + (f", with an '{STAGE_COLUMN}' column" if STAGE_COLUMN in frame.columns else ""),
+        f"PTF loaded — {len(frame)} parameters",
         "  |  ".join(f"{k}: {v}" for k, v in counts.items()),
     )
     return frame

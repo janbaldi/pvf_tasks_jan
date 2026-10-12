@@ -171,11 +171,11 @@ def test_roles_are_metadata_and_are_not_encoded(built):
     assert not [c for c in dataset.columns if c.startswith("patient_lot")]
 
 
-def test_parameters_that_come_too_late_are_excluded_as_declared(built):
+def test_parameters_in_an_excluded_ptf_category_are_left_out(built):
     decisions = csv(built, PREDICTIVE, "decisions.csv")
-    late = decisions[decisions["Stage"] == "availability"]
+    late = decisions[decisions["Stage"] == "category exclusion"]
     assert {"Disposition", "Endotoxin (EU/mL)"} <= set(late["Parameter"])
-    assert all("prediction point" in reason for reason in late["Reason"])
+    assert all(reason.startswith("PTF 'Available At' is") for reason in late["Reason"])
     dataset = csv(built, PREDICTIVE, "dataset.csv")
     assert "Disposition" not in dataset.columns
 

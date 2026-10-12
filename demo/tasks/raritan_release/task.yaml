@@ -1,4 +1,5 @@
 # A demo task workspace written by `python -m pvf.demo`. Its runs go to runs/.
+config: ../../config.yaml
 task:
   name: raritan_release
   question: What does a released Raritan batch look like, next to a discarded one?

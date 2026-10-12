@@ -21,6 +21,7 @@ things can be done with it here:
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -47,7 +48,7 @@ def find(run: str | Path) -> Path:
 
 def apply(run: str | Path, rows: pd.DataFrame) -> pd.DataFrame:
     """Encode ``rows`` with a run's fitted recipe, and say what was missing."""
-    pre = Preprocessor.load(find(run))
+    pre = Preprocessor.from_state(json.loads(find(run).read_text(encoding="utf-8")))
     absent = [column for column in pre.inputs if column not in rows.columns]
     if absent:
         log.warn(

@@ -11,19 +11,22 @@ run is better refused at the boundary than half written to disk.
 
 Each task is a workspace: a folder holding its ``task.yaml``, with every run
 written into ``runs/`` beside it. Relative paths resolve against that folder.
-The PVF and PTF come from ``config.yaml`` (``--config``, ``$PVF_CONFIG`` or the
-nearest ``config.yaml``) unless the task names its own under ``inputs``.
+The PVF and PTF come from ``config.yaml`` — the one the task names under
+``config:``, or ``--config``, ``$PVF_CONFIG`` or the nearest ``config.yaml`` —
+unless the task names its own under ``inputs``.
 """
 
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+from .config import ConfigError
+from .config import load as load_config
 from .encode import TaskParams
 
 #: Filter operators a cohort may use. No expressions, no eval: a fixed set.
@@ -41,7 +44,7 @@ PURPOSES = ("exploratory", "predictive")
 TARGET_TYPES = ("numeric", "binary")
 MISSING_POLICIES = ("exclude", "include")
 #: What may be done about a group of parameters that move together.
-CLUSTER_ACTIONS = ("off", "report_only", "representative", "linear", "nonlinear")
+CLUSTER_ACTIONS = ("off", "report_only", "representative", "linear")
 IMPUTATION = ("none", "median")
 
 #: Process stages, earliest first. A PTF ``Available At`` value names one of
@@ -138,12 +141,10 @@ class Roles:
     patient: str = ""
     include: tuple[str, ...] = ()
     exclude: tuple[tuple[str, str], ...] = ()
+    #: PTF column → categories of it whose parameters are kept; the rest are left out.
+    include_categories: tuple[tuple[str, tuple[str, ...]], ...] = ()
     #: PTF column → categories of it whose parameters are left out.
     exclude_categories: tuple[tuple[str, tuple[str, ...]], ...] = ()
-
-    @property
-    def excluded_columns(self) -> tuple[str, ...]:
-        return tuple(name for name, _ in self.exclude)
 
 
 @dataclass(frozen=True)
@@ -163,10 +164,6 @@ class Availability:
     available: tuple[str, ...] = ()
     stages: tuple[str, ...] = DEFAULT_STAGES
 
-    @property
-    def unavailable_columns(self) -> tuple[str, ...]:
-        return tuple(name for name, _ in self.unavailable)
-
     def rank(self, stage: object) -> int | None:
         """Where a stage falls in the process, or ``None`` when it is not one."""
         if stage is None or (isinstance(stage, float) and stage != stage):
@@ -176,10 +173,6 @@ class Availability:
             if name.lower() == wanted:
                 return position
         return None
-
-    @property
-    def cutoff_rank(self) -> int | None:
-        return self.rank(self.cutoff)
 
 
 @dataclass(frozen=True)
@@ -192,14 +185,6 @@ class Clustering:
     min_size: int = 2
     min_overlap: int = 10
     prefer: tuple[str, ...] = ()
-
-    @property
-    def discovers(self) -> bool:
-        return self.action != "off"
-
-    @property
-    def transforms(self) -> bool:
-        return self.action in ("representative", "linear", "nonlinear")
 
 
 @dataclass(frozen=True)
@@ -262,81 +247,34 @@ class TaskSpec:
         )
 
     def as_dict(self) -> dict[str, Any]:
-        """The effective settings, defaults included, for ``task.yaml``."""
+        """The effective settings, defaults included, in the shape of ``task.yaml``."""
+        d = _plain(asdict(self))
+        columns, availability = d["roles"], d["availability"]
+        columns["exclude"] = [{"column": c, "reason": r} for c, r in columns["exclude"]]
+        availability["unavailable"] = [
+            {"column": c, "reason": r} for c, r in availability["unavailable"]
+        ]
+        for key in ("include_categories", "exclude_categories"):
+            columns[key] = dict(columns[key])
         return {
-            "task": {
-                "name": self.name,
-                "question": self.question,
-                "purpose": self.purpose,
-                "seed": self.seed,
-            },
+            "task": {key: d[key] for key in ("name", "question", "purpose", "seed")},
             "inputs": {"pvf": str(self.pvf), "ptf": str(self.ptf)},
-            "cohort": {
-                "sites": list(self.cohort.sites),
-                "site_column": self.cohort.site_column,
-                "filters": [
-                    {
-                        "column": f.column,
-                        "op": f.op,
-                        "value": f.value,
-                        "missing": f.missing,
-                        "normalise": f.normalise,
-                        "reason": f.reason,
-                    }
-                    for f in self.cohort.filters
-                ],
-                "date_column": self.cohort.date_column,
-                "date_from": self.cohort.date_from,
-                "date_to": self.cohort.date_to,
-            },
-            "target": {
-                "column": self.target.column,
-                "type": self.target.type,
-                "positive_class": self.target.positive_class,
-                "negative_class": self.target.negative_class,
-                "missing": self.target.missing,
-            },
-            "columns": {
-                "id": self.roles.id,
-                "group": self.roles.group,
-                "patient": self.roles.patient,
-                "include": list(self.roles.include),
-                "exclude": [{"column": c, "reason": r} for c, r in self.roles.exclude],
-                "exclude_categories": {c: list(v) for c, v in self.roles.exclude_categories},
-            },
-            "availability": {
-                "cutoff": self.availability.cutoff,
-                "reviewed": self.availability.reviewed,
-                "unavailable": [
-                    {"column": c, "reason": r} for c, r in self.availability.unavailable
-                ],
-                "available": list(self.availability.available),
-                "stages": list(self.availability.stages),
-            },
-            "encoding": dict(self.encoding),
-            "quality": dict(self.quality),
-            "clustering": {
-                "action": self.clustering.action,
-                "method": self.clustering.method,
-                "threshold": self.clustering.threshold,
-                "min_size": self.clustering.min_size,
-                "min_overlap": self.clustering.min_overlap,
-                "prefer": list(self.clustering.prefer),
-            },
-            "missingness": {
-                "enabled": self.missingness.enabled,
-                "threshold": self.missingness.threshold,
-                "min_rate": self.missingness.min_rate,
-                "max_rate": self.missingness.max_rate,
-                "min_size": self.missingness.min_size,
-                "min_strength": self.missingness.min_strength,
-                "max_categories": self.missingness.max_categories,
-            },
-            "report": {
-                "preview_rows": self.report.preview_rows,
-                "max_table_rows": self.report.max_table_rows,
-            },
+            "cohort": d["cohort"],
+            "target": d["target"],
+            "columns": columns,
+            "availability": availability,
+            **{key: d[key] for key in ("encoding", "quality", "clustering", "missingness")},
+            "report": d["report"],
         }
+
+
+def _plain(value: Any) -> Any:
+    """Tuples as lists, all the way down, so the settings can be written as YAML."""
+    if isinstance(value, (tuple, list)):
+        return [_plain(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _plain(item) for key, item in value.items()}
+    return value
 
 
 # ---------------------------------------------------------------------------
@@ -442,10 +380,10 @@ def _reasoned(data: dict, key: str, where: str, errors: list[str]) -> tuple[tupl
 def _categories(
     data: dict, key: str, where: str, errors: list[str]
 ) -> tuple[tuple[str, tuple[str, ...]], ...]:
-    """``{PTF column: [category, ...]}`` — the categories whose parameters are left out."""
+    """``{PTF column: [category, ...]}`` — categories whose parameters are kept or left out."""
     value = data.get(key) or {}
     if not isinstance(value, dict):
-        errors.append(f"{where}.{key}: expected {{PTF column: [categories to exclude]}}")
+        errors.append(f"{where}.{key}: expected {{PTF column: [categories]}}")
         return ()
     out = []
     for column, categories in value.items():
@@ -531,6 +469,16 @@ QUALITY_FIELDS = {
     "near_constant_tolerance": (float, 1e-4),
     "proxy_correlation": (float, 0.95),
 }
+MISSINGNESS_FIELDS = {
+    "enabled": (bool, True),
+    "threshold": (float, 0.9),
+    "min_rate": (float, 0.05),
+    "max_rate": (float, 0.95),
+    "min_size": (int, 2),
+    "min_strength": (float, 0.1),
+    "max_categories": (int, 20),
+}
+REPORT_FIELDS = {"preview_rows": (int, 20), "max_table_rows": (int, 500)}
 _RANGES = {
     "one_hot_top_x": (1, 200),
     "onehot_max_categories": (2, 200),
@@ -547,13 +495,21 @@ _RANGES = {
     "hashing_min_rows": (0, 10_000_000),
     "near_constant_tolerance": (0.0, 0.5),
     "proxy_correlation": (0.0, 1.0),
+    "threshold": (0.0, 1.0),
+    "min_rate": (0.0, 1.0),
+    "max_rate": (0.0, 1.0),
+    "min_size": (2, None),
+    "min_strength": (0.0, 1.0),
+    "max_categories": (2, None),
+    "preview_rows": (0, None),
+    "max_table_rows": (10, None),
 }
 
 
 def _knobs(
     data: dict, fields: dict[str, tuple[type, Any]], where: str, errors: list[str]
 ) -> dict[str, Any]:
-    _known(data, tuple(fields), where, errors)
+    data = _known(data, tuple(fields), where, errors)
     out: dict[str, Any] = {}
     for name, (kind, default) in fields.items():
         if kind is bool:
@@ -603,6 +559,7 @@ def parse(
     _known(
         raw,
         (
+            "config",
             "task",
             "inputs",
             "cohort",
@@ -668,7 +625,15 @@ def parse(
 
     roles_raw = _known(
         raw.get("columns"),
-        ("id", "group", "patient", "include", "exclude", "exclude_categories"),
+        (
+            "id",
+            "group",
+            "patient",
+            "include",
+            "exclude",
+            "include_categories",
+            "exclude_categories",
+        ),
         "columns",
         errors,
     )
@@ -678,6 +643,7 @@ def parse(
         patient=_text(roles_raw, "patient", "columns", errors),
         include=_names(roles_raw, "include", "columns", errors),
         exclude=_reasoned(roles_raw, "exclude", "columns", errors),
+        include_categories=_categories(roles_raw, "include_categories", "columns", errors),
         exclude_categories=_categories(roles_raw, "exclude_categories", "columns", errors),
     )
 
@@ -698,8 +664,8 @@ def parse(
         stages=tuple(stages),
     )
 
-    encoding = _knobs(raw.get("encoding") or {}, ENCODING_FIELDS, "encoding", errors)
-    quality = _knobs(raw.get("quality") or {}, QUALITY_FIELDS, "quality", errors)
+    encoding = _knobs(raw.get("encoding"), ENCODING_FIELDS, "encoding", errors)
+    quality = _knobs(raw.get("quality"), QUALITY_FIELDS, "quality", errors)
 
     cluster_raw = _known(
         raw.get("clustering"),
@@ -720,33 +686,10 @@ def parse(
         prefer=_names(cluster_raw, "prefer", "clustering", errors),
     )
 
-    missing_raw = _known(
-        raw.get("missingness"),
-        tuple(f for f in Missingness.__dataclass_fields__),
-        "missingness",
-        errors,
-    )
     missingness = Missingness(
-        enabled=_flag(missing_raw, "enabled", "missingness", errors, True),
-        threshold=_number(missing_raw, "threshold", "missingness", errors, 0.9, low=0.0, high=1.0),
-        min_rate=_number(missing_raw, "min_rate", "missingness", errors, 0.05, low=0.0, high=1.0),
-        max_rate=_number(missing_raw, "max_rate", "missingness", errors, 0.95, low=0.0, high=1.0),
-        min_size=_number(missing_raw, "min_size", "missingness", errors, 2, low=2, integer=True),
-        min_strength=_number(
-            missing_raw, "min_strength", "missingness", errors, 0.1, low=0.0, high=1.0
-        ),
-        max_categories=_number(
-            missing_raw, "max_categories", "missingness", errors, 20, low=2, integer=True
-        ),
+        **_knobs(raw.get("missingness"), MISSINGNESS_FIELDS, "missingness", errors)
     )
-
-    report_raw = _known(raw.get("report"), ("preview_rows", "max_table_rows"), "report", errors)
-    report = Reporting(
-        preview_rows=_number(report_raw, "preview_rows", "report", errors, 20, low=0, integer=True),
-        max_table_rows=_number(
-            report_raw, "max_table_rows", "report", errors, 500, low=10, integer=True
-        ),
-    )
+    report = Reporting(**_knobs(raw.get("report"), REPORT_FIELDS, "report", errors))
 
     # ── Roles cannot overlap, and a predictor cannot also be metadata ──────
     roles_by_column: dict[str, list[str]] = {}
@@ -767,7 +710,7 @@ def parse(
                 f"columns.include: '{column}' is already the "
                 f"{roles_by_column[column][0]} column and cannot also be a predictor"
             )
-        if column in roles.excluded_columns:
+        if column in dict(roles.exclude):
             errors.append(f"columns.include: '{column}' is in columns.exclude as well")
 
     if purpose == "predictive" and not (
@@ -779,7 +722,8 @@ def parse(
             f"availability.cutoff (one of {', '.join(availability.stages)}), give an "
             "explicit columns.include list, or state availability.reviewed: true"
         )
-    if availability.cutoff and availability.cutoff_rank is None and not availability.reviewed:
+    unknown_cutoff = availability.rank(availability.cutoff) is None
+    if availability.cutoff and unknown_cutoff and not availability.reviewed:
         errors.append(
             f"availability.cutoff: '{availability.cutoff}' is not one of the process stages "
             f"({', '.join(availability.stages)}); use one of them, or set "
@@ -835,9 +779,27 @@ def parse(
 def load(path: str | Path, config: dict[str, Any] | None = None) -> TaskSpec:
     """Read a task workspace's ``task.yaml`` (or a task file) and validate it.
 
-    ``config`` is the ``config.yaml`` the run was started with; it supplies the
-    PVF and PTF a task leaves out.
+    ``config`` is the ``config.yaml`` the run was started with, or else the one
+    the task names under ``config:``; it supplies the PVF and PTF a task leaves out.
     """
+    path, raw = _read(path)
+    named = _config_path(path, raw)
+    if config is None and named:
+        try:
+            config = load_config(named)
+        except ConfigError as exc:
+            raise TaskConfigError(f"{path}: config: {exc}") from exc
+    return parse(raw, path.parent, source=str(path), defaults=config_defaults(config))
+
+
+def config_file(task: str | Path | None) -> Path | None:
+    """The ``config.yaml`` a task names under ``config:``, if ``task`` is a task at all."""
+    if not task or not (Path(task).is_file() or (Path(task) / TASK_FILE).is_file()):
+        return None
+    return _config_path(*_read(task))
+
+
+def _read(path: str | Path) -> tuple[Path, dict[str, Any]]:
     path = Path(path).expanduser().resolve()
     if path.is_dir():
         path = path / TASK_FILE
@@ -847,7 +809,16 @@ def load(path: str | Path, config: dict[str, Any] | None = None) -> TaskSpec:
         raw = yaml.safe_load(handle)
     if not isinstance(raw, dict):
         raise TaskConfigError(f"{path} is not a mapping")
-    return parse(raw, path.parent, source=str(path), defaults=config_defaults(config))
+    return path, raw
+
+
+def _config_path(path: Path, raw: dict[str, Any]) -> Path | None:
+    value = raw.get("config")
+    if not value:
+        return None
+    if not isinstance(value, str):
+        raise TaskConfigError(f"{path}: config: expected the path to a config.yaml")
+    return _resolve(value, path.parent)
 
 
 def config_defaults(config: dict[str, Any] | None) -> dict[str, str]:

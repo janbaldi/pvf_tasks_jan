@@ -129,9 +129,9 @@ def test_the_config_is_found_above_the_working_directory(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 def test_a_new_task_is_a_workspace_that_reads_the_configured_pvf(built, tmp_path):
     folder = tmp_path / "analyses" / "my_question"
-    path = scaffold.new_task(folder, "FP Flow CAR+ (%)")
+    path = scaffold.init(folder, "FP Flow CAR+ (%)", config=built["config_path"])
     assert path == folder.resolve() / "task.yaml"
-    spec = taskconfig.load(folder, built["config"])
+    spec = taskconfig.load(folder)  # no config passed: the task names its own
     assert spec.name == "my_question"
     assert spec.pvf == Path(built["config"]["paths"]["pvf"])
     assert spec.output_root == folder.resolve() / "runs"
@@ -154,7 +154,22 @@ def test_the_command_line_checks_and_reports_errors_plainly(built, capsys):
     assert "does not exist" in capsys.readouterr().err
 
 
-def test_a_run_carries_its_inputs_and_can_be_redone_from_its_folder_alone(built, tmp_path):
+def test_init_links_the_task_to_the_config_it_was_made_with(built, tmp_path):
+    folder = tmp_path / "q3"
+    assert cli.main(["--config", str(built["config_path"]), "init", str(folder)]) == 0
+    text = (folder / "task.yaml").read_text(encoding="utf-8")
+    assert "\nconfig: " in text and "# config:" not in text
+    assert taskconfig.load(folder).pvf == Path(built["config"]["paths"]["pvf"])
+
+
+def test_inside_a_workspace_no_task_needs_naming(built, monkeypatch, caplog):
+    monkeypatch.delenv(workspace.CONFIG_ENV, raising=False)
+    monkeypatch.chdir(built["directory"] / dummy_data.TASK_FILES[0])
+    assert cli.main(["check"]) == 0
+    assert "Task 'ghent_car_expression' is valid" in caplog.text
+
+
+def test_a_run_carries_its_inputs_and_can_be_redone_from_its_folder_alone(built):
     run = built["packages"][PREDICTIVE]
     pvf = Path(built["config"]["paths"]["pvf"])
     assert (run / "inputs" / "PVF.xlsx").read_bytes() == pvf.read_bytes()
@@ -164,14 +179,41 @@ def test_a_run_carries_its_inputs_and_can_be_redone_from_its_folder_alone(built,
     settings = yaml.safe_load((run / "config" / "task.yaml").read_text(encoding="utf-8"))
     assert settings["inputs"] == {"pvf": "../inputs/PVF.xlsx", "ptf": "../inputs/PTF.xlsx"}
 
-    copy = tmp_path / "copied_run"
-    shutil.copytree(run, copy)
-    again = cli.run_task(None, taskconfig.load(copy / "config" / "task.yaml"))
+    again = cli.rerun(run)
+    assert again.parent == run.parent, "the rerun is a new run of the same workspace"
     assert (again / "data" / "dataset.csv").read_bytes() == (
         run / "data" / "dataset.csv"
     ).read_bytes()
     record = json.loads((again / "manifest.json").read_text(encoding="utf-8"))
-    assert not any("manifest" in warning for warning in record["warnings"])
+    stale = ("manifest", "PTF changed")
+    assert not [w for w in record["warnings"] if any(word in w for word in stale)]
+
+
+# ---------------------------------------------------------------------------
+# Stale inputs are said to be stale
+# ---------------------------------------------------------------------------
+def test_a_build_says_when_the_ptf_check_found_new_parameters(built):
+    record = manifest.read(Path(built["config"]["paths"]["pvf"]).parent / "pvf_manifest.json")
+    assert any("`pvf ptf` found" in warning for warning in record["warnings"])
+
+
+def test_a_task_says_when_the_ptf_changed_after_the_build(tmp_path):
+    from pvf import package, provenance
+
+    pvf, ptf = tmp_path / "PVF.xlsx", tmp_path / "PTF.xlsx"
+    pvf.write_bytes(b"pvf")
+    ptf.write_bytes(b"a newer ptf")
+    built_with = {"label": "ptf", "digest": "the ptf the build read"}
+    (tmp_path / "pvf_manifest.json").write_text(json.dumps({"pvf": {}, "inputs": [built_with]}))
+    spec = taskconfig.parse(
+        {"task": {"name": "t"}, "inputs": {"pvf": str(pvf), "ptf": str(ptf)},
+         "target": {"column": "y"}},
+        tmp_path,
+    )
+    pkg = package.open_package(tmp_path / "runs", "t")
+    sources = [provenance.local("pvf", pvf), provenance.local("ptf", ptf)]
+    cli._carry_upstream(pkg, spec, sources, None)
+    assert any("PTF changed after the PVF was built" in w for w in pkg.warnings)
 
 
 # ---------------------------------------------------------------------------
@@ -189,6 +231,29 @@ def test_a_ptf_category_can_be_left_out_by_name(built):
     assert (left_out["Reason"] == "PTF 'Available At' is 'Post-release'").all()
     columns = csv(built, EXPLORATORY, "columns.csv")
     assert not set(columns.loc[columns["Role"] == "predictor", "Source"]) & late
+
+
+def test_include_categories_keeps_only_those_categories():
+    spec = taskconfig.parse(
+        {
+            "task": {"name": "t"},
+            "inputs": {"pvf": "a.xlsx", "ptf": "b.xlsx"},
+            "target": {"column": "y"},
+            "columns": {"include_categories": {"Category": ["Process"]}},
+        },
+        Path("."),
+    )
+    ptf = pd.DataFrame(
+        {
+            "Parameter": ["kept", "qc", "blank"],
+            "Value Type": ["numeric"] * 3,
+            "Category": ["Process", "QC", None],
+        }
+    )
+    assert dataset._category_exclusions(ptf, spec) == {
+        "qc": "PTF 'Category' is 'QC', not an included category",
+        "blank": "PTF 'Category' is empty, not an included category",
+    }
 
 
 def test_a_category_column_the_ptf_does_not_have_is_refused():
@@ -261,7 +326,6 @@ def test_a_manifest_names_the_files_it_describes_relative_to_itself(built):
 def test_a_changed_output_is_caught(built, tmp_path):
     source = artifact(built, PREDICTIVE, "manifest.json").parent
     copy = tmp_path / "run"
-    import shutil
 
     shutil.copytree(source, copy)
     (copy / "data" / "dataset.csv").write_text("tampered\n", encoding="utf-8")
@@ -329,13 +393,10 @@ def test_floating_point_jitter_is_constant():
 
 
 def test_no_constant_column_reaches_an_exported_table(built):
-    for task, name in ((EXPLORATORY, "dataset.csv"), (PREDICTIVE, "transformed.csv")):
-        table = csv(built, task, name)
-        columns = csv(built, task, "columns.csv")
-        predictors = columns[columns["Role"] == "predictor"]["Column"]
-        if name == "transformed.csv":
-            recipe_ = json.loads(artifact(built, task, "recipe.json").read_text(encoding="utf-8"))
-            predictors = recipe_["output_columns"]
+    for task in (EXPLORATORY, PREDICTIVE):
+        table = csv(built, task, "transformed.csv")
+        recipe_ = json.loads(artifact(built, task, "recipe.json").read_text(encoding="utf-8"))
+        predictors = recipe_["output_columns"]
         constant = [c for c in predictors if encode.near_constant(table[c])]
         assert not constant, (task, constant[:5])
 

@@ -9,7 +9,6 @@ module's:
 ``report_only``     describe the groups and change nothing.
 ``representative``  keep one member of each group and drop the rest.
 ``linear``          keep one member and replace the others by their residuals.
-``nonlinear``       the same, by whichever curve fits the pair — experimental.
 ``off``             do not look.
 
 Two things this deliberately does not claim. Residualising does not preserve all
@@ -28,14 +27,12 @@ turns that into figures.
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 import pandas as pd
 from scipy.cluster.hierarchy import fcluster, linkage
-from scipy.optimize import OptimizeWarning, curve_fit
 from scipy.spatial.distance import squareform
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
@@ -63,9 +60,6 @@ class Fit:
     adj_r2: float = float("nan")
     rows: int = 0
     fallback: str = ""
-    #: A curve is fitted on scaled inputs, so scoring new rows needs the scales.
-    x_scale: float = 1.0
-    y_scale: float = 1.0
     x: list[float] = field(default_factory=list)
     y: list[float] = field(default_factory=list)
     fitted: list[float] = field(default_factory=list)
@@ -104,10 +98,6 @@ class Cluster:
     overlap_matrix: list[list[int]] = field(default_factory=list)
     labels_after: list[str] = field(default_factory=list)
 
-    @property
-    def anchor(self) -> str:  # the name the reports used before there were actions
-        return self.representative
-
     def state(self) -> dict[str, Any]:
         """The fitted part, as plain data the run writes next to the dataset."""
         return {
@@ -126,8 +116,6 @@ class Cluster:
                     "adj_r2": float(fit.adj_r2),
                     "rows": int(fit.rows),
                     "model": fit.model,
-                    "x_scale": float(fit.x_scale),
-                    "y_scale": float(fit.y_scale),
                     "fallback": fit.fallback,
                 }
                 for fit in self.fits
@@ -158,7 +146,7 @@ class ClusterReport:
 
     @property
     def transforms(self) -> bool:
-        return self.action in ("representative", "linear", "nonlinear")
+        return self.action in ("representative", "linear")
 
     def state(self) -> dict[str, Any]:
         return {
@@ -456,120 +444,6 @@ def _sequential_linear(
     return frame, fits
 
 
-def _curve(name: str):
-    """The shapes the experimental non-linear action may try, and their domains."""
-    return {
-        "Exponential": (lambda t, a, b, c: a * np.exp(b * t) + c, 3, lambda t: True),
-        "Inverse": (lambda t, a, c: a / (t + 1e-8) + c, 2, lambda t: np.all(np.abs(t) > 1e-6)),
-        "Logarithmic": (
-            lambda t, a, c: a * np.log(np.abs(t) + 1e-8) + c,
-            2,
-            lambda t: np.all(np.abs(t) > 1e-6),
-        ),
-    }[name]
-
-
-def _anchor_fit(
-    df: pd.DataFrame, members: list[str], representative: str, params: TaskParams
-) -> tuple[pd.DataFrame, list[Fit]]:
-    """Every member against the representative alone, by whichever shape fits it.
-
-    Kept for compatibility with tasks that were set up this way. In-sample
-    adjusted R² is descriptive: a curve that fits these batches better has not
-    been validated on any others, which is why a curve has to beat the straight
-    line by a margin before it is used at all.
-    """
-    frame = pd.DataFrame({representative: df[representative]}, index=df.index)
-    fits: list[Fit] = []
-
-    for column in (c for c in members if c != representative):
-        mask = df[representative].notna() & df[column].notna()
-        n = int(mask.sum())
-        if n < max(params.cluster_min_overlap, 6):
-            frame[column] = df[column]
-            fits.append(
-                Fit(
-                    column=column,
-                    model=f"kept as recorded ({n} shared batches)",
-                    regressors=[representative],
-                    rows=n,
-                    fallback=f"{n} shared batches is too few to fit a curve to",
-                )
-            )
-            continue
-
-        x = df.loc[mask, [representative]]
-        y = df.loc[mask, column]
-        values_x = x.to_numpy(dtype="float64").ravel()
-        values_y = y.to_numpy(dtype="float64")
-
-        linear = LinearRegression().fit(x, y)
-        predicted = linear.predict(x)
-        best = (
-            "Linear",
-            _adjusted_r2(values_y, predicted, 1),
-            predicted,
-            [float(c) for c in np.ravel(linear.coef_)],
-            float(linear.intercept_),
-        )
-
-        x_scale = np.max(np.abs(values_x)) or 1.0
-        y_scale = np.max(np.abs(values_y)) or 1.0
-        scaled_x, scaled_y = values_x / x_scale, values_y / y_scale
-        direction = 1.0 if np.corrcoef(values_x, values_y)[0, 1] > 0 else -1.0
-        starts = {
-            "Exponential": [1.0, direction, float(np.min(scaled_y))],
-            "Inverse": [1.0, float(np.min(scaled_y))],
-            "Logarithmic": [1.0, float(np.mean(scaled_y))],
-        }
-        for shape, start in starts.items():
-            function, count, domain = _curve(shape)
-            inputs = values_x if shape == "Inverse" else scaled_x
-            if not domain(inputs):
-                continue
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", OptimizeWarning)
-                warnings.simplefilter("ignore", RuntimeWarning)
-                try:
-                    coefficients, _ = curve_fit(function, inputs, scaled_y, p0=start, maxfev=10000)
-                except (RuntimeError, ValueError):
-                    continue
-            curve_predicted = function(inputs, *coefficients) * y_scale
-            if not np.all(np.isfinite(curve_predicted)):
-                continue
-            adj = _adjusted_r2(values_y, curve_predicted, count)
-            if adj > best[1] + 0.02:
-                best = (shape, adj, curve_predicted, [float(c) for c in coefficients], float("nan"))
-
-        shape, adj, predicted, coefficients, intercept = best
-        name = f"{column}{RESIDUAL_SUFFIX}"
-        frame[name] = np.nan
-        frame.loc[mask, name] = values_y - np.asarray(predicted, dtype="float64")
-        fits.append(
-            Fit(
-                column=column,
-                model=shape,
-                regressors=[representative],
-                coefficients=coefficients,
-                intercept=intercept,
-                adj_r2=adj,
-                rows=n,
-                x_scale=1.0 if shape == "Linear" else x_scale,
-                y_scale=1.0 if shape == "Linear" else y_scale,
-                x=values_x.tolist(),
-                y=values_y.tolist(),
-                fitted=np.asarray(predicted, dtype="float64").tolist(),
-                residual=(values_y - np.asarray(predicted, dtype="float64")).tolist(),
-            )
-        )
-        log.info(MODULE, f"{column}: residualised against {representative} by {shape.lower()} fit")
-
-    return frame, fits
-
-
-# ---------------------------------------------------------------------------
-# Fitting and applying
-# ---------------------------------------------------------------------------
 def fit(
     df: pd.DataFrame,
     columns: list[str],
@@ -650,13 +524,12 @@ def fit(
                 )
             )
         else:
-            builder = _sequential_linear if action == "linear" else _anchor_fit
             cluster.strategy = (
                 "sequential linear residuals (each member against those retained before it)"
-                if action == "linear"
-                else "anchor fit, straight or curved — experimental"
             )
-            cluster.frame, cluster.fits = builder(numeric, members, representative, params)
+            cluster.frame, cluster.fits = _sequential_linear(
+                numeric, members, representative, params
+            )
             cluster.records.append(
                 _record(
                     representative,
@@ -750,18 +623,87 @@ def transform(df: pd.DataFrame, state: dict[str, Any]) -> pd.DataFrame:
                 continue
             x = df[regressors].apply(pd.to_numeric, errors="coerce")
             y = pd.to_numeric(df[column], errors="coerce")
-            model = fit_.get("model", "")
-            if model in ("Exponential", "Inverse", "Logarithmic"):
-                function, _, domain = _curve(model)
-                scaled = x.iloc[:, 0] / (fit_.get("x_scale") or 1.0)
-                inputs = x.iloc[:, 0] if model == "Inverse" else scaled
-                predicted = pd.Series(
-                    function(inputs.to_numpy(dtype="float64"), *fit_["coefficients"]),
-                    index=df.index,
-                ) * (fit_.get("y_scale") or 1.0)
-                predicted = predicted.where(np.isfinite(predicted))
-            else:
-                predicted = x.mul(fit_["coefficients"], axis=1).sum(axis=1) + fit_["intercept"]
+            predicted = x.mul(fit_["coefficients"], axis=1).sum(axis=1) + fit_["intercept"]
             residual = y - predicted
             out[fit_["output"]] = residual.where(x.notna().all(axis=1) & y.notna())
     return out
+
+
+def rows(report: ClusterReport, retained: set[str]) -> list[dict]:
+    """Cluster membership, singletons and skips — the whole population, not part.
+
+    ``retained`` is the recipe's output columns, so each row says whether its
+    parameter reached the dataset.
+    """
+    rows: list[dict] = []
+    for cluster in report.clusters:
+        for member in cluster.members:
+            fit = next((f for f in cluster.fits if f.column == member), None)
+            representative = member == cluster.representative
+            rows.append(
+                {
+                    "Cluster": cluster.name,
+                    "Parameter": member,
+                    "Representative": cluster.representative,
+                    "Is representative": representative,
+                    "Action": cluster.action,
+                    "Outcome": (
+                        "kept as the representative"
+                        if representative
+                        else "dropped"
+                        if member in cluster.dropped
+                        else fit.model
+                        if fit
+                        else "unchanged"
+                    ),
+                    "Output column": (
+                        member
+                        if representative or not fit or fit.fallback
+                        else f"{member}{RESIDUAL_SUFFIX}"
+                    ),
+                    "Retained in dataset": (
+                        member in retained
+                        or f"{member}{RESIDUAL_SUFFIX}" in retained
+                        or report.action == "report_only"
+                    ),
+                    "Rows fitted": fit.rows if fit else cluster.representative_rows,
+                    "Adjusted R2": fit.adj_r2 if fit else "",
+                    "Regressors": ", ".join(fit.regressors) if fit else "",
+                    "Smallest shared batches in cluster": cluster.min_overlap,
+                }
+            )
+    for column in report.singletons:
+        rows.append(
+            {
+                "Cluster": "",
+                "Parameter": column,
+                "Representative": column,
+                "Is representative": True,
+                "Action": "none",
+                "Outcome": "correlates with nothing above the threshold",
+                "Output column": column,
+                "Retained in dataset": column in retained,
+                "Rows fitted": "",
+                "Adjusted R2": "",
+                "Regressors": "",
+                "Smallest shared batches in cluster": "",
+            }
+        )
+    for skipped in report.skipped:
+        rows.append(
+            {
+                "Cluster": "",
+                "Parameter": skipped["Parameter"],
+                "Representative": "",
+                "Is representative": False,
+                "Action": "skipped",
+                "Outcome": skipped["Reason"],
+                "Output column": "",
+                "Retained in dataset": skipped["Parameter"] in retained,
+                "Rows fitted": skipped["Values"],
+                "Adjusted R2": "",
+                "Regressors": "",
+                "Smallest shared batches in cluster": "",
+            }
+        )
+    return rows

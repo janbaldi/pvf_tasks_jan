@@ -2,12 +2,15 @@
 # This folder is the task's workspace. Every run goes to runs/<run id>/ with the
 # PVF and PTF it read, so the folder holds everything needed to redo it.
 #
-# Check it with:   pvf check --task __FOLDER__
-# Run it with:     pvf tasks --task __FOLDER__
+# From inside this folder:   pvf check     validate it against the PVF
+#                             pvf tasks     run it
+#                             pvf rerun runs/<run id>   redo a run from its own folder
 #
-# The PVF and PTF come from config.yaml (or name them: inputs: {pvf: ..., ptf: ...}).
 # Relative paths are relative to this file. Quote any column name that has a
 # '#', ':' or '%' in it — unquoted, `Patient Lot/Batch #` ends at the '#'.
+
+# The config.yaml that names the PVF and PTF (or name them: inputs: {pvf: ..., ptf: ...}).
+__CONFIG__
 
 task:
   name: __NAME__
@@ -36,9 +39,9 @@ columns:
   # patient: Patient ID
   # include: []                   # an explicit predictor list, if you have one
   exclude: []                     # single columns: [{column: ..., reason: ...}]
-  exclude_categories: {}          # by a PTF column: {PTF column: [categories to leave out]}
-  # exclude_categories:
-  #   Available At: [Release, Post-release]
+  include_categories: {}          # by a PTF column: {PTF column: [the only categories kept]}
+  exclude_categories: {}          # by a PTF column: {PTF column: [categories left out]}
+  # e.g. exclude_categories: {Available At: [Release, Post-release]}
 
 # Only for a predictive task: what is known at the moment of prediction.
 # With an 'Available At' column in the PTF, everything from a later stage — or
@@ -50,7 +53,7 @@ availability:
   available: []                   # parameters allowed whatever their stage
 
 clustering:
-  action: report_only             # off | report_only | representative | linear | nonlinear
+  action: report_only             # off | report_only | representative | linear
   method: spearman
   threshold: 0.7
   min_overlap: 10

@@ -25,7 +25,6 @@ def template(name: str) -> str:
 def init(
     folder: str | Path,
     target: str = "",
-    purpose: str = "exploratory",
     question: str = "",
     force: bool = False,
     config: str | Path | None = None,
@@ -45,7 +44,6 @@ def init(
         .replace("__CONFIG__", link)
         .replace("__NAME__", slug)
         .replace("__QUESTION__", question or f"What goes with {target or 'the target'}?")
-        .replace("__PURPOSE__", purpose)
         .replace("__TARGET__", target or "<fp_car_pct>")
         .replace("__TARGET_TYPE__", "numeric")
     )

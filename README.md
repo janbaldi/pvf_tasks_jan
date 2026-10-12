@@ -65,7 +65,7 @@ uv run pvf build      # "Written — 70 batches × 221 columns"
 `task.yaml` that already points at this `config.yaml`:
 
 ```bash
-uv run pvf init tasks/car_expression --target "<fp_car_pct>" --purpose predictive
+uv run pvf init tasks/car_expression --target "<fp_car_pct>"
 cd tasks/car_expression
 ```
 
@@ -240,7 +240,7 @@ one of those things.
 
 ```yaml
 config: ../../config.yaml   # the config with the PVF and PTF; or inputs: {pvf: …, ptf: …}
-task:    {name: site_a_car_expression, purpose: predictive, seed: 20260917}
+task:    {name: site_a_car_expression, seed: 20260917}
 cohort:
   sites: [SiteA]
   filters:
@@ -300,7 +300,7 @@ grouping metadata and, optionally, which is the patient. Those are authoritative
   (0.95) on the fitted rows is named in the report: it is often the target
   measured another way.
 - `<f_coa_impurity_index>` is standardised within its own site's batches, so
-  it is exploratory only and a predictive task drops it.
+  every task drops it.
 
 **There is one dataset and no split.** Every batch in the cohort is a row of
 `dataset.csv`; cross-validation belongs to the tool that fits the models. Category
@@ -481,10 +481,9 @@ git; the data and the runs are generated.
 | Question | what goes with CAR+ expression at SiteA | what a released SiteB batch looks like |
 | Cohort | SiteA, commercial, finished, no withdrawals | SiteB, finished |
 | Target | `<fp_car_pct>`, numeric | `Disposition`, binary, positive class `Released` |
-| Purpose | predictive | exploratory |
 | Columns | two excluded by hand, everything after harvest excluded by its `Available At` category | one excluded by hand, `Available At: [Post-release]` excluded by category |
 | Clustering | `report_only` | `linear`, threshold 0.8 |
-| Result | 21 batches, 111 raw predictors (137 transformed); 25 parameters left out by category | 27 batches, 168 transformed columns, 30 groups residualised |
+| Result | 21 batches, 111 raw predictors (137 transformed); 25 parameters left out by category | 27 batches, 167 transformed columns, 29 groups residualised |
 
 ## Code layout
 

@@ -40,7 +40,6 @@ OPERATORS = (
     "is_null",
     "not_null",
 )
-PURPOSES = ("exploratory", "predictive")
 TARGET_TYPES = ("numeric", "binary")
 MISSING_POLICIES = ("exclude", "include")
 #: What may be done about a group of parameters that move together.
@@ -166,7 +165,6 @@ class TaskSpec:
 
     name: str = "task"
     question: str = ""
-    purpose: str = "exploratory"
     seed: int = 0
     pvf: Path = Path("PVF.xlsx")
     ptf: Path = Path("PTF.xlsx")
@@ -181,10 +179,6 @@ class TaskSpec:
     report: Reporting = field(default_factory=Reporting)
     source: str = ""
     workspace: str = ""
-
-    @property
-    def predictive(self) -> bool:
-        return self.purpose == "predictive"
 
     @property
     def params(self) -> TaskParams:
@@ -207,7 +201,7 @@ class TaskSpec:
         for key in ("include_categories", "exclude_categories"):
             columns[key] = dict(columns[key])
         return {
-            "task": {key: d[key] for key in ("name", "question", "purpose", "seed")},
+            "task": {key: d[key] for key in ("name", "question", "seed")},
             "inputs": {"pvf": str(self.pvf), "ptf": str(self.ptf)},
             "cohort": d["cohort"],
             "target": d["target"],
@@ -524,9 +518,8 @@ def parse(
         errors,
     )
 
-    meta = _known(raw.get("task"), ("name", "question", "purpose", "seed"), "task", errors)
+    meta = _known(raw.get("task"), ("name", "question", "seed"), "task", errors)
     name = _text(meta, "name", "task", errors, "task")
-    purpose = _choice(meta, "purpose", PURPOSES, "task", errors, "exploratory")
     seed = _number(meta, "seed", "task", errors, 0, low=0, integer=True)
 
     inputs = _known(raw.get("inputs"), ("pvf", "ptf"), "inputs", errors)
@@ -671,7 +664,6 @@ def parse(
     return TaskSpec(
         name=name,
         question=_text(meta, "question", "task", errors),
-        purpose=purpose,
         seed=seed,
         pvf=pvf,
         ptf=ptf,

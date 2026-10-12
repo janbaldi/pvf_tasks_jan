@@ -46,7 +46,7 @@ def params(**overrides) -> TaskParams:
 # ---------------------------------------------------------------------------
 def minimal_task(**overrides) -> dict:
     task = {
-        "task": {"name": "probe", "purpose": "exploratory", "seed": 1},
+        "task": {"name": "probe", "seed": 1},
         "inputs": {"pvf": "PVF.xlsx", "ptf": "PTF.xlsx"},
         "cohort": {"sites": ["SiteA"]},
         "target": {"column": "<fp_car_pct>"},
@@ -86,7 +86,7 @@ def test_paths_resolve_against_the_task_file_wherever_it_is_run_from(tmp_path, m
 @pytest.mark.parametrize(
     ("overrides", "expected"),
     [
-        ({"task": {"purpose": "magic"}}, "task.purpose"),
+        ({"task": {"purpose": "predictive"}}, "task.purpose: unknown setting"),
         ({"target": {"type": "binary"}}, "target.positive_class"),
         ({"clustering": {"action": "pca"}}, "clustering.action"),
         ({"clustering": {"threshold": 2.5}}, "clustering.threshold"),

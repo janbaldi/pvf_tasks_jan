@@ -15,7 +15,6 @@ __CONFIG__
 task:
   name: __NAME__
   question: "__QUESTION__"
-  purpose: __PURPOSE__            # exploratory | predictive
   seed: 20260917
 
 cohort:

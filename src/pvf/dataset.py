@@ -529,11 +529,11 @@ def candidate_predictors(
             refuse(
                 parameter, f"computed from the target: {descendants[parameter]}", "target lineage"
             )
-        elif spec.predictive and parameter in features.SITE_RELATIVE:
+        elif parameter in features.SITE_RELATIVE:
             refuse(
                 parameter,
                 "standardised within its own site's batches, so its value depends on which "
-                "batches were processed with it — exploratory only",
+                "batches were processed with it",
                 "site-relative",
             )
         elif spec.roles.include and parameter not in spec.roles.include:

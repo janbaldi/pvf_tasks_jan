@@ -3,7 +3,6 @@ config: ../../config.yaml
 task:
   name: site_b_release
   question: What does a released SiteB batch look like, next to a discarded one?
-  purpose: exploratory
   seed: 20260917
 cohort:
   sites:

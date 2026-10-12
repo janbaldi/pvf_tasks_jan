@@ -54,7 +54,7 @@ ENVELOPE = (
 STAGE_FIELDS = {
     "ptf": ("ptf", "sources_compared", "not_in_ptf", "new_parameters"),
     "pvf": ("pvf", "ptf", "ptf_parameters_not_in_pvf", "pvf_parameters_not_in_ptf"),
-    "task": ("task", "purpose", "dataset_role", "counts", "upstream_manifests"),
+    "task": ("task", "dataset_role", "counts", "upstream_manifests"),
 }
 
 

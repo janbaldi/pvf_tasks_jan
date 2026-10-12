@@ -1,15 +1,17 @@
-"""Workspaces, config, manifests, and the fixes the review asked for.
+"""Config, task workspaces, manifests, and the fixes the review asked for.
 
-The workspace keeps configuration and data apart from the code; the config
-holds every SharePoint location; every manifest has one format; a predictive
-task's availability is checked against the PTF's stages; a split is seeded and
-keeps groups — and patients — whole; a column constant to measurement precision
-never reaches a model; and a recipe can be read back and applied.
+``config.yaml`` names the one PTF and the one PVF and holds every SharePoint
+location; each task is a workspace whose runs carry the inputs they read; every
+manifest has one format; a predictive task's availability is checked against
+the PTF's stages; a task can leave out whole PTF categories; a column constant
+to measurement precision never reaches a model; and a recipe can be read back
+and applied.
 """
 
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -18,9 +20,11 @@ import pytest
 import yaml
 
 import dummy_data
-from conftest import EXPLORATORY, PREDICTIVE, artifact, csv
+from conftest import EXPLORATORY, PREDICTIVE, ROOT, artifact, csv
 from pvf import cli, corrections, dataset, encode, manifest, recipe, scaffold, taskconfig
 from pvf import config as workspace
+
+CONFIG_TEXT = (ROOT / "config.yaml").read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -30,22 +34,18 @@ def test_the_package_holds_no_sharepoint_address():
     source = Path(cli.__file__).parent
     code = "\n".join(path.read_text(encoding="utf-8") for path in source.glob("*.py"))
     assert "MS%26T" not in code and "DRIVE_ID_" not in code
-    assert "MS%26T" in scaffold.template("pvf.yaml"), "the template carries them instead"
+    assert "MS%26T" in CONFIG_TEXT, "config.yaml carries them instead"
 
 
-def test_the_config_template_is_a_valid_config(tmp_path):
-    config_path = scaffold.init(tmp_path / "ws")
-    config = workspace.load(config_path)
-    assert config["paths"]["pvf"].endswith("data/processed/PVF.xlsx")
-    assert (tmp_path / "ws" / "corrections.yaml").exists()
-    assert {"data", "outputs", "tasks"} <= {p.name for p in (tmp_path / "ws").iterdir()}
-    assert len(corrections.load(config["cleaning"]["corrections"])) > 5
+def test_the_shipped_config_is_a_valid_config():
+    config = workspace.load(ROOT / "config.yaml")
+    assert config["paths"]["pvf"] == str(Path("~/pvf_data/PVF.xlsx").expanduser())
+    assert len(corrections.load((config.get("cleaning") or {}).get("corrections"))) > 5
 
 
 def test_sharepoint_locations_come_from_the_config(tmp_path):
-    text = scaffold.template("pvf.yaml").replace("location: local", "location: sharepoint")
-    path = tmp_path / "pvf.yaml"
-    path.write_text(text, encoding="utf-8")
+    path = tmp_path / "config.yaml"
+    path.write_text(CONFIG_TEXT.replace("location: local", "location: sharepoint"))
     config = workspace.load(path)
     calls = []
     source = workspace.source(config, "phf_raritan", lambda **kw: calls.append(kw))
@@ -67,10 +67,10 @@ def test_sharepoint_locations_come_from_the_config(tmp_path):
     assert workspace.source(config, "lv_coa", lambda **kw: None).header == 2
 
 
-def test_the_workspace_env_file_is_loaded_with_its_config(tmp_path, monkeypatch):
-    config_path = scaffold.init(tmp_path / "ws")
-    assert (tmp_path / "ws" / ".env.example").exists()
-    (tmp_path / "ws" / ".env").write_text("PVF_TEST_SECRET=from-file\nMODE=DEV\n")
+def test_the_env_file_beside_the_config_is_loaded_with_it(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(CONFIG_TEXT)
+    (tmp_path / ".env").write_text("PVF_TEST_SECRET=from-file\nMODE=DEV\n")
     monkeypatch.delenv("PVF_TEST_SECRET", raising=False)
     monkeypatch.setenv("MODE", "PRD")  # the shell wins over the file
     config = workspace.load(config_path)
@@ -99,57 +99,111 @@ def test_the_upload_target_comes_from_the_config_or_the_environment(monkeypatch)
         ({"sharepoint": {"ptf": {"sheet": "x"}}}, "sharepoint.ptf.path"),
         ({"cleaning": {"censord": "half"}}, "cleaning.censord"),
         ({"features": {"co2": 5}}, "features.co2"),
-        ({"surprise": 1}, "unknown setting"),
+        ({"tasks": {"target": "x"}}, "unknown setting"),
     ],
 )
 def test_a_config_that_cannot_be_used_is_refused_by_field(tmp_path, change, field):
-    config = yaml.safe_load(scaffold.template("pvf.yaml"))
+    config = yaml.safe_load(CONFIG_TEXT)
     config.update(change)
-    path = tmp_path / "pvf.yaml"
+    path = tmp_path / "config.yaml"
     path.write_text(yaml.safe_dump(config), encoding="utf-8")
     with pytest.raises(workspace.ConfigError, match=field.replace(".", r"\.")):
         workspace.load(path)
 
 
 def test_the_config_is_found_above_the_working_directory(tmp_path, monkeypatch):
-    config_path = scaffold.init(tmp_path / "ws")
-    deep = tmp_path / "ws" / "tasks" / "drafts"
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(CONFIG_TEXT)
+    deep = tmp_path / "tasks" / "drafts"
     deep.mkdir(parents=True)
     monkeypatch.delenv(workspace.CONFIG_ENV, raising=False)
     monkeypatch.chdir(deep)
     assert workspace.find() == config_path
-    monkeypatch.setenv(workspace.CONFIG_ENV, "/somewhere/pvf.yaml")
-    assert workspace.find() == Path("/somewhere/pvf.yaml")
+    monkeypatch.setenv(workspace.CONFIG_ENV, "/somewhere/config.yaml")
+    assert workspace.find() == Path("/somewhere/config.yaml")
     assert workspace.find("explicit.yaml") == Path("explicit.yaml")
 
 
 # ---------------------------------------------------------------------------
-# A task can live anywhere
+# A task is a workspace of its own
 # ---------------------------------------------------------------------------
-def test_a_new_task_outside_the_workspace_reads_the_workspace(built, tmp_path):
-    path = scaffold.new_task(
-        built["config"], str(tmp_path / "elsewhere" / "my_question.yaml"), "FP Flow CAR+ (%)"
-    )
-    spec = taskconfig.load(path)  # no config passed: the file says where its workspace is
+def test_a_new_task_is_a_workspace_that_reads_the_configured_pvf(built, tmp_path):
+    folder = tmp_path / "analyses" / "my_question"
+    path = scaffold.new_task(folder, "FP Flow CAR+ (%)")
+    assert path == folder.resolve() / "task.yaml"
+    spec = taskconfig.load(folder, built["config"])
+    assert spec.name == "my_question"
     assert spec.pvf == Path(built["config"]["paths"]["pvf"])
-    assert spec.output_root == Path(built["config"]["paths"]["tasks"])
-    assert spec.workspace == built["config"]["__path__"]
+    assert spec.output_root == folder.resolve() / "runs"
 
 
-def test_a_task_without_inputs_or_workspace_says_what_to_do(tmp_path):
+def test_a_task_without_inputs_or_config_says_what_to_do(tmp_path):
     path = tmp_path / "task.yaml"
     path.write_text(
         yaml.safe_dump({"task": {"name": "t"}, "target": {"column": "x"}}), encoding="utf-8"
     )
-    with pytest.raises(taskconfig.TaskConfigError, match="inputs.pvf.*workspace"):
-        taskconfig.load(path)
+    with pytest.raises(taskconfig.TaskConfigError, match="inputs.pvf.*config.yaml"):
+        taskconfig.load(tmp_path)
 
 
 def test_the_command_line_checks_and_reports_errors_plainly(built, capsys):
     config = built["config"]["__path__"]
-    assert cli.main(["--config", config, "check"]) == 0
-    assert cli.main(["--config", config, "tasks", "--task", "no_such_task.yaml"]) == 2
+    task = str(built["directory"] / dummy_data.TASK_FILES[0])
+    assert cli.main(["--config", config, "check", "--task", task]) == 0
+    assert cli.main(["--config", config, "tasks", "--task", "no_such_task"]) == 2
     assert "does not exist" in capsys.readouterr().err
+
+
+def test_a_run_carries_its_inputs_and_can_be_redone_from_its_folder_alone(built, tmp_path):
+    run = built["packages"][PREDICTIVE]
+    pvf = Path(built["config"]["paths"]["pvf"])
+    assert (run / "inputs" / "PVF.xlsx").read_bytes() == pvf.read_bytes()
+    assert (run / "inputs" / "PTF.xlsx").read_bytes() == Path(
+        built["config"]["paths"]["ptf"]
+    ).read_bytes()
+    settings = yaml.safe_load((run / "config" / "task.yaml").read_text(encoding="utf-8"))
+    assert settings["inputs"] == {"pvf": "../inputs/PVF.xlsx", "ptf": "../inputs/PTF.xlsx"}
+
+    copy = tmp_path / "copied_run"
+    shutil.copytree(run, copy)
+    again = cli.run_task(None, taskconfig.load(copy / "config" / "task.yaml"))
+    assert (again / "data" / "dataset.csv").read_bytes() == (
+        run / "data" / "dataset.csv"
+    ).read_bytes()
+    record = json.loads((again / "manifest.json").read_text(encoding="utf-8"))
+    assert not any("manifest" in warning for warning in record["warnings"])
+
+
+# ---------------------------------------------------------------------------
+# Columns left out by their PTF category
+# ---------------------------------------------------------------------------
+def test_a_ptf_category_can_be_left_out_by_name(built):
+    ptf = pd.read_excel(built["config"]["paths"]["ptf"])
+    late = set(ptf.loc[ptf["Available At"] == "Post-release", "Parameter"])
+    decisions = csv(built, EXPLORATORY, "decisions.csv")
+    excluded = decisions[decisions["Decision"] == "excluded"].set_index("Parameter")
+    present = late & set(built["pvf"].columns)
+    assert present <= set(excluded.index), "every one is out, some already for another reason"
+    left_out = decisions[decisions["Stage"] == "category exclusion"]
+    assert len(left_out) and set(left_out["Parameter"]) <= present
+    assert (left_out["Reason"] == "PTF 'Available At' is 'Post-release'").all()
+    columns = csv(built, EXPLORATORY, "columns.csv")
+    assert not set(columns.loc[columns["Role"] == "predictor", "Source"]) & late
+
+
+def test_a_category_column_the_ptf_does_not_have_is_refused():
+    spec = taskconfig.parse(
+        {
+            "task": {"name": "t"},
+            "inputs": {"pvf": "a.xlsx", "ptf": "b.xlsx"},
+            "target": {"column": "y"},
+            "columns": {"exclude_categories": {"Categroy": ["QC"]}},
+        },
+        Path("."),
+    )
+    ptf = pd.DataFrame({"Parameter": ["x"], "Value Type": ["numeric"], "Category": ["QC"]})
+    with pytest.raises(dataset.TaskRefused, match="no 'Categroy' column"):
+        dataset._category_exclusions(ptf, spec)
 
 
 # ---------------------------------------------------------------------------
@@ -247,73 +301,22 @@ def test_a_cutoff_that_is_not_a_stage_is_refused_unless_reviewed(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Splits: seeded, stratified, whole groups and whole patients
+# One row per batch
 # ---------------------------------------------------------------------------
-def split_frame(n: int = 40) -> pd.DataFrame:
-    return pd.DataFrame(
+def test_a_batch_twice_in_a_cohort_is_refused():
+    frame = pd.DataFrame({"Patient Lot/Batch #": [f"B{i}" for i in range(8)]})
+    frame.loc[3, "Patient Lot/Batch #"] = "B0"
+    spec = taskconfig.parse(
         {
-            "Site Merged": "Ghent",
-            "Patient Lot/Batch #": [f"B{i}" for i in range(n)],
-            "Vector Lot": [f"LV-{i % 8}" for i in range(n)],
-            # Patients 0..3 each have a batch in two different lots.
-            "Patient ID": [f"P{i % 36}" for i in range(n)],
-            "outcome": ["Pass", "Fail"] * (n // 2),
-        }
-    )
-
-
-def split_spec(seed: int = 1, **split) -> taskconfig.TaskSpec:
-    return taskconfig.parse(
-        {
-            "task": {"name": "s", "seed": seed},
+            "task": {"name": "s"},
             "inputs": {"pvf": "a.xlsx", "ptf": "b.xlsx"},
-            "target": {"column": "outcome", "type": "binary", "positive_class": "Pass"},
-            "columns": {
-                "id": "Patient Lot/Batch #",
-                "group": "Vector Lot",
-                "patient": "Patient ID",
-            },
-            "split": {"strategy": "grouped", "validation_fraction": 0.25, **split},
+            "target": {"column": "outcome"},
+            "columns": {"id": "Patient Lot/Batch #"},
         },
         Path("."),
     )
-
-
-def test_a_grouped_split_keeps_patients_whole_and_moves_with_the_seed():
-    frame = split_frame()
-    target = (frame["outcome"] == "Pass").astype(int)
-    held = []
-    for seed in (1, 2, 3):
-        spec = split_spec(seed)
-        training, validation = dataset.assign_split(
-            frame, frame.index, spec, dataset.TaskResult(spec=spec), target
-        )
-        for column in ("Vector Lot", "Patient ID"):
-            assert not set(frame.loc[training, column]) & set(frame.loc[validation, column])
-        held.append(frozenset(validation))
-    again, _ = dataset.assign_split(
-        frame, frame.index, split_spec(1), dataset.TaskResult(spec=split_spec(1)), target
-    )
-    assert frozenset(frame.index.difference(again)) == held[0], "same seed, same split"
-    assert len(set(held)) > 1, "a different seed draws different groups"
-
-
-def test_folds_keep_groups_whole_and_reach_splits_csv(built):
-    splits = csv(built, PREDICTIVE, "splits.csv")
-    dataset_ = csv(built, PREDICTIVE, "dataset.csv")
-    folded = splits[splits["Split"] == "training"]
-    assert folded["Fold"].notna().all()
-    assert splits.loc[splits["Split"] == "validation", "Fold"].isna().all()
-    lots = dataset_.set_index("Patient Lot/Batch #")["Vector Lot"]
-    per_lot = folded.assign(lot=folded["Batch"].map(lots)).groupby("lot")["Fold"].nunique()
-    assert (per_lot == 1).all()
-
-
-def test_a_batch_twice_in_a_cohort_is_refused():
-    frame = split_frame(8)
-    frame.loc[3, "Patient Lot/Batch #"] = "B0"
     with pytest.raises(dataset.TaskRefused, match="not unique"):
-        dataset._check_unique_ids(frame, split_spec())
+        dataset._check_unique_ids(frame, spec)
 
 
 # ---------------------------------------------------------------------------
@@ -333,8 +336,7 @@ def test_no_constant_column_reaches_an_exported_table(built):
         if name == "transformed.csv":
             recipe_ = json.loads(artifact(built, task, "recipe.json").read_text(encoding="utf-8"))
             predictors = recipe_["output_columns"]
-        training = table[table["split"] == "training"] if "split" in table.columns else table
-        constant = [c for c in predictors if encode.near_constant(training[c])]
+        constant = [c for c in predictors if encode.near_constant(table[c])]
         assert not constant, (task, constant[:5])
 
 
@@ -357,17 +359,20 @@ def test_a_small_cohort_is_not_target_encoded_or_hashed():
 # ---------------------------------------------------------------------------
 # The recipe is read back, and fits inside cross-validation
 # ---------------------------------------------------------------------------
-def test_a_recipe_applied_to_the_validation_rows_reproduces_the_package(built):
+def test_a_recipe_applied_to_the_cohort_reproduces_the_package(built):
     run = artifact(built, PREDICTIVE, "manifest.json").parent
     transformed = csv(built, PREDICTIVE, "transformed.csv")
+    state = json.loads(artifact(built, PREDICTIVE, "recipe.json").read_text(encoding="utf-8"))
+    # The package's target encoding is cross-fitted; the recipe applies the frozen means.
+    crossfitted = {f["name"] for f in state["target_encoding"].get("columns", {}).values()}
     pvf = built["pvf"].set_index("Patient Lot/Batch #")
-    validation = transformed[transformed["split"] == "validation"]
-    rows = pvf.loc[validation["Patient Lot/Batch #"]].copy().reset_index()
+    rows = pvf.loc[transformed["Patient Lot/Batch #"]].copy().reset_index()
     applied = recipe.apply(run, rows)
-    expected = validation[list(applied.columns)].reset_index(drop=True)
+    compared = [c for c in applied.columns if c not in crossfitted]
+    assert compared
     pd.testing.assert_frame_equal(
-        applied.reset_index(drop=True).astype("float64"),
-        expected.astype("float64"),
+        applied[compared].reset_index(drop=True).astype("float64"),
+        transformed[compared].reset_index(drop=True).astype("float64"),
         check_exact=False,
         atol=1e-9,
     )

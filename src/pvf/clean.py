@@ -104,7 +104,7 @@ def apply_integrity_corrections(
     """The known data-quality fixes, each with how many rows it touched.
 
     These are business corrections someone established against the source
-    systems, not general truths, so they are a table in the workspace
+    systems, not general truths, so they are a table named in config.yaml
     (``cleaning.corrections``), not code. ``raritan_type_commercial: false`` and
     ``cleaning.disable`` switch named rules off.
     """

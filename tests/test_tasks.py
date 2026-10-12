@@ -91,7 +91,7 @@ def test_the_counts_agree_wherever_they_are_written(built):
 def test_two_runs_of_one_task_do_not_overwrite_each_other(built):
     from pvf import cli, taskconfig
 
-    spec = taskconfig.load(built["directory"] / dummy_data.TASK_FILES[0])
+    spec = taskconfig.load(built["directory"] / dummy_data.TASK_FILES[0], built["config"])
     again = cli.run_task(built["config"], spec)
     first = built["packages"][PREDICTIVE]
     assert again != first
@@ -102,7 +102,7 @@ def test_two_runs_of_one_task_do_not_overwrite_each_other(built):
 def test_report_only_writes_no_dataset_and_says_so(built, tmp_path):
     from pvf import cli, taskconfig
 
-    spec = taskconfig.load(built["directory"] / dummy_data.TASK_FILES[0])
+    spec = taskconfig.load(built["directory"] / dummy_data.TASK_FILES[0], built["config"])
     folder = cli.run_task(built["config"], spec, report_only=True)
     assert (folder / cli.TASK_LAYOUT["report.html"]).exists()
     assert not (folder / cli.TASK_LAYOUT["dataset.csv"]).exists()
@@ -395,8 +395,8 @@ def test_the_task_carries_the_ptf_and_pvf_manifests_of_its_input(built):
 
     record = manifest(built, PREDICTIVE)
     assert record["upstream_manifests"] == {
-        "ptf": "provenance/ptf_manifest.json",
-        "pvf": "provenance/pvf_manifest.json",
+        "ptf": "inputs/ptf_manifest.json",
+        "pvf": "inputs/pvf_manifest.json",
     }
     pvf = json.loads(artifact(built, PREDICTIVE, "pvf_manifest.json").read_text(encoding="utf-8"))
     ptf = json.loads(artifact(built, PREDICTIVE, "ptf_manifest.json").read_text(encoding="utf-8"))
@@ -412,7 +412,8 @@ def test_the_task_carries_the_ptf_and_pvf_manifests_of_its_input(built):
 def test_the_task_folder_is_split_into_subfolders(built):
     folder = built["packages"][PREDICTIVE]
     top = {path.name for path in folder.iterdir()}
-    assert top == {"manifest.json", "config", "data", "metadata", "report", "provenance", "logs"}
+    assert top == {"manifest.json", "config", "data", "metadata", "report", "inputs", "logs"}
+    assert folder.parent == built["directory"] / dummy_data.TASK_FILES[0] / "runs"
     names = {entry["path"] for entry in manifest(built, PREDICTIVE)["outputs"]}
     assert "data/dataset.csv" in names and "metadata/clusters.csv" in names
 

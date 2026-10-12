@@ -9,25 +9,22 @@ Everything is validated before the run touches the output directory, and every
 complaint names the YAML field and what to do about it. A task that cannot be
 run is better refused at the boundary than half written to disk.
 
-Relative paths resolve against the directory the YAML file itself is in, so a
-task folder can be moved without editing it. Absolute paths are left alone.
-
-A task can live anywhere. Its PVF, PTF and output folder may be written out under
-``inputs``/``output``; or left out, in which case they come from the workspace
-config — the one named by ``workspace:``, or else the one the run was started
-with (``--config``, ``$PVF_CONFIG`` or the nearest ``pvf.yaml``).
+Each task is a workspace: a folder holding its ``task.yaml``, with every run
+written into ``runs/`` beside it. Relative paths resolve against that folder.
+The PVF and PTF come from ``config.yaml`` (``--config``, ``$PVF_CONFIG`` or the
+nearest ``config.yaml``) unless the task names its own under ``inputs``.
 """
 
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from .encode import TaskParams, sanitise
+from .encode import TaskParams
 
 #: Filter operators a cohort may use. No expressions, no eval: a fixed set.
 OPERATORS = (
@@ -45,7 +42,6 @@ TARGET_TYPES = ("numeric", "binary")
 MISSING_POLICIES = ("exclude", "include")
 #: What may be done about a group of parameters that move together.
 CLUSTER_ACTIONS = ("off", "report_only", "representative", "linear", "nonlinear")
-SPLIT_STRATEGIES = ("grouped", "chronological")
 IMPUTATION = ("none", "median")
 
 #: Process stages, earliest first. A PTF ``Available At`` value names one of
@@ -74,6 +70,10 @@ STATUS_ALIASES = {
     "withdrawl": "withdrawal",
     "terminated": "termination",
 }
+
+
+#: The file that makes a folder a task workspace.
+TASK_FILE = "task.yaml"
 
 
 class TaskConfigError(ValueError):
@@ -134,10 +134,12 @@ class Roles:
     id: str = ""
     group: str = ""
     #: Batches of one patient (a re-manufacture, say) share biology, so they are
-    #: kept on one side of a split together with their group.
+    #: kept together with their group when the target encoding is cross-fitted.
     patient: str = ""
     include: tuple[str, ...] = ()
     exclude: tuple[tuple[str, str], ...] = ()
+    #: PTF column → categories of it whose parameters are left out.
+    exclude_categories: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
     @property
     def excluded_columns(self) -> tuple[str, ...]:
@@ -201,21 +203,6 @@ class Clustering:
 
 
 @dataclass(frozen=True)
-class Split:
-    strategy: str = ""
-    validation_fraction: float = 0.25
-    order_column: str = ""
-    #: Cross-validation folds over the training rows, written to splits.csv. 0: none.
-    folds: int = 0
-    #: Keep the classes of a binary target balanced across the split and folds.
-    stratify: bool = True
-
-    @property
-    def requested(self) -> bool:
-        return bool(self.strategy)
-
-
-@dataclass(frozen=True)
 class Missingness:
     """Parameters that go missing together, and what explains it (description only)."""
 
@@ -244,7 +231,7 @@ class TaskSpec:
     seed: int = 0
     pvf: Path = Path("PVF.xlsx")
     ptf: Path = Path("PTF.xlsx")
-    output_root: Path = Path("outputs/tasks")
+    output_root: Path = Path("runs")
     cohort: Cohort = field(default_factory=Cohort)
     target: Target = field(default_factory=Target)
     roles: Roles = field(default_factory=Roles)
@@ -252,7 +239,6 @@ class TaskSpec:
     encoding: dict[str, Any] = field(default_factory=dict)
     quality: dict[str, Any] = field(default_factory=dict)
     clustering: Clustering = field(default_factory=Clustering)
-    split: Split = field(default_factory=Split)
     missingness: Missingness = field(default_factory=Missingness)
     report: Reporting = field(default_factory=Reporting)
     source: str = ""
@@ -285,7 +271,6 @@ class TaskSpec:
                 "seed": self.seed,
             },
             "inputs": {"pvf": str(self.pvf), "ptf": str(self.ptf)},
-            "output": {"root": str(self.output_root)},
             "cohort": {
                 "sites": list(self.cohort.sites),
                 "site_column": self.cohort.site_column,
@@ -317,6 +302,7 @@ class TaskSpec:
                 "patient": self.roles.patient,
                 "include": list(self.roles.include),
                 "exclude": [{"column": c, "reason": r} for c, r in self.roles.exclude],
+                "exclude_categories": {c: list(v) for c, v in self.roles.exclude_categories},
             },
             "availability": {
                 "cutoff": self.availability.cutoff,
@@ -336,13 +322,6 @@ class TaskSpec:
                 "min_size": self.clustering.min_size,
                 "min_overlap": self.clustering.min_overlap,
                 "prefer": list(self.clustering.prefer),
-            },
-            "split": {
-                "strategy": self.split.strategy,
-                "validation_fraction": self.split.validation_fraction,
-                "order_column": self.split.order_column,
-                "folds": self.split.folds,
-                "stratify": self.split.stratify,
             },
             "missingness": {
                 "enabled": self.missingness.enabled,
@@ -457,6 +436,25 @@ def _reasoned(data: dict, key: str, where: str, errors: list[str]) -> tuple[tupl
             continue
         _known(item, ("column", "reason"), spot, errors)
         out.append((str(item["column"]), str(item.get("reason") or "no reason given")))
+    return tuple(out)
+
+
+def _categories(
+    data: dict, key: str, where: str, errors: list[str]
+) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """``{PTF column: [category, ...]}`` — the categories whose parameters are left out."""
+    value = data.get(key) or {}
+    if not isinstance(value, dict):
+        errors.append(f"{where}.{key}: expected {{PTF column: [categories to exclude]}}")
+        return ()
+    out = []
+    for column, categories in value.items():
+        if isinstance(categories, (str, int, float)):
+            categories = [categories]
+        if not isinstance(categories, list) or not categories:
+            errors.append(f"{where}.{key}.{column}: expected a non-empty list of categories")
+            continue
+        out.append((str(column), tuple(str(c) for c in categories)))
     return tuple(out)
 
 
@@ -597,7 +595,7 @@ def parse(
 ) -> TaskSpec:
     """Validate a task mapping and resolve its paths. Raises on any problem.
 
-    ``defaults`` holds the workspace's ``pvf``, ``ptf`` and ``tasks`` paths, used
+    ``defaults`` holds the ``pvf`` and ``ptf`` paths from ``config.yaml``, used
     for whatever the task file itself leaves out.
     """
     errors: list[str] = []
@@ -605,10 +603,8 @@ def parse(
     _known(
         raw,
         (
-            "workspace",
             "task",
             "inputs",
-            "output",
             "cohort",
             "target",
             "columns",
@@ -616,7 +612,6 @@ def parse(
             "encoding",
             "quality",
             "clustering",
-            "split",
             "missingness",
             "report",
         ),
@@ -630,7 +625,6 @@ def parse(
     seed = _number(meta, "seed", "task", errors, 0, low=0, integer=True)
 
     inputs = _known(raw.get("inputs"), ("pvf", "ptf"), "inputs", errors)
-    output = _known(raw.get("output"), ("root",), "output", errors)
 
     cohort_raw = _known(
         raw.get("cohort"),
@@ -673,7 +667,10 @@ def parse(
         errors.append("target.positive_class: only a binary target has one")
 
     roles_raw = _known(
-        raw.get("columns"), ("id", "group", "patient", "include", "exclude"), "columns", errors
+        raw.get("columns"),
+        ("id", "group", "patient", "include", "exclude", "exclude_categories"),
+        "columns",
+        errors,
     )
     roles = Roles(
         id=_text(roles_raw, "id", "columns", errors),
@@ -681,6 +678,7 @@ def parse(
         patient=_text(roles_raw, "patient", "columns", errors),
         include=_names(roles_raw, "include", "columns", errors),
         exclude=_reasoned(roles_raw, "exclude", "columns", errors),
+        exclude_categories=_categories(roles_raw, "exclude_categories", "columns", errors),
     )
 
     availability_raw = _known(
@@ -721,28 +719,6 @@ def parse(
         ),
         prefer=_names(cluster_raw, "prefer", "clustering", errors),
     )
-
-    split_raw = _known(
-        raw.get("split"),
-        ("strategy", "validation_fraction", "order_column", "folds", "stratify"),
-        "split",
-        errors,
-    )
-    split = Split(
-        strategy=_choice(split_raw, "strategy", SPLIT_STRATEGIES, "split", errors, ""),
-        validation_fraction=_number(
-            split_raw, "validation_fraction", "split", errors, 0.25, low=0.05, high=0.9
-        ),
-        order_column=_text(split_raw, "order_column", "split", errors),
-        folds=_number(split_raw, "folds", "split", errors, 0, low=0, high=50, integer=True),
-        stratify=_flag(split_raw, "stratify", "split", errors, True),
-    )
-    if split.folds == 1:
-        errors.append("split.folds: 0 for none, or at least 2")
-    if split.strategy == "grouped" and not roles.group:
-        errors.append("split.strategy: a grouped split needs columns.group")
-    if split.strategy == "chronological" and not split.order_column:
-        errors.append("split.order_column: a chronological split needs the column it orders by")
 
     missing_raw = _known(
         raw.get("missingness"),
@@ -817,28 +793,17 @@ def parse(
         if fallback:
             return Path(fallback)
         errors.append(
-            f"{where}.{key}: {what} — name it here, set workspace: <path to pvf.yaml>, "
-            "or run from inside a workspace"
+            f"{where}.{key}: {what} — set paths.{key} in config.yaml (found by --config, "
+            "$PVF_CONFIG or the nearest config.yaml), or name it here"
         )
         return Path(f"<{key}>")
 
     pvf = located(inputs, "pvf", "inputs", defaults.get("pvf", ""), "the PVF this task reads")
     ptf = located(inputs, "ptf", "inputs", defaults.get("ptf", ""), "the PTF this task reads")
-    root = (
-        _resolve(_text(output, "root", "output", errors), base)
-        if str(output.get("root") or "").strip()
-        else Path(defaults["tasks"])
-        if defaults.get("tasks")
-        else base / "outputs" / "tasks"
-    )
     if pvf == ptf:
         errors.append("inputs: the PVF and the PTF cannot be the same file")
-    if root in (pvf.parent / pvf.name, ptf):
-        errors.append("output.root: the destination collides with an input file")
     if not name.strip():
-        errors.append("task.name: a task needs a name; it is the folder the run is written to")
-    if any(char in name for char in '/\\:*?"<>|'):
-        errors.append(f"task.name: '{name}' has characters that cannot be a folder name")
+        errors.append("task.name: a task needs a name")
 
     if errors:
         raise TaskConfigError(
@@ -852,7 +817,7 @@ def parse(
         seed=seed,
         pvf=pvf,
         ptf=ptf,
-        output_root=root,
+        output_root=base / "runs",
         cohort=cohort,
         target=target,
         roles=roles,
@@ -860,147 +825,34 @@ def parse(
         encoding=encoding,
         quality=quality,
         clustering=clustering,
-        split=split,
         missingness=missingness,
         report=report,
         source=source or str(base),
-        workspace=defaults.get("config", ""),
+        workspace=str(base),
     )
 
 
 def load(path: str | Path, config: dict[str, Any] | None = None) -> TaskSpec:
-    """Read a task YAML and validate it. Paths resolve against the file's folder.
+    """Read a task workspace's ``task.yaml`` (or a task file) and validate it.
 
-    ``config`` is the workspace config the run was started with; it supplies the
-    inputs and output folder a task file leaves out, unless the task names its
-    own workspace.
+    ``config`` is the ``config.yaml`` the run was started with; it supplies the
+    PVF and PTF a task leaves out.
     """
     path = Path(path).expanduser().resolve()
+    if path.is_dir():
+        path = path / TASK_FILE
     if not path.is_file():
         raise TaskConfigError(f"{path} does not exist")
     with open(path, encoding="utf-8") as handle:
         raw = yaml.safe_load(handle)
     if not isinstance(raw, dict):
         raise TaskConfigError(f"{path} is not a mapping")
-    if "tasks" in raw and "task" not in raw:
-        return from_legacy(raw, path)
-    workspace = raw.get("workspace")
-    if workspace:
-        if not isinstance(workspace, str):
-            raise TaskConfigError(f"{path}: workspace: expected the path to a pvf.yaml")
-        config = _workspace(_resolve(workspace, path.parent))
-    return parse(raw, path.parent, source=str(path), defaults=workspace_defaults(config))
+    return parse(raw, path.parent, source=str(path), defaults=config_defaults(config))
 
 
-def _workspace(path: Path) -> dict[str, Any]:
-    from . import config as workspace_config
-
-    if path.is_dir():
-        path = workspace_config.find(start=path)
-    try:
-        return workspace_config.load(path)
-    except workspace_config.ConfigError as exc:
-        raise TaskConfigError(f"workspace: {exc}") from exc
-
-
-def workspace_defaults(config: dict[str, Any] | None) -> dict[str, str]:
-    """The paths a task inherits from a workspace config."""
+def config_defaults(config: dict[str, Any] | None) -> dict[str, str]:
+    """The paths a task inherits from ``config.yaml``."""
     if not config:
         return {}
     paths = config.get("paths") or {}
-    return {
-        "pvf": str(paths.get("pvf") or ""),
-        "ptf": str(paths.get("ptf") or ""),
-        "tasks": str(paths.get("tasks") or ""),
-        "config": str(config.get("__path__") or ""),
-    }
-
-
-# ---------------------------------------------------------------------------
-# The configuration this package used to take
-# ---------------------------------------------------------------------------
-#: The cohort the old `tasks:` section applied without saying so.
-LEGACY_FILTERS = [
-    {
-        "column": "Type",
-        "op": "equals",
-        "value": "Commercial",
-        "reason": "manufactured commercially",
-    },
-    {
-        "column": "Manufacturing and Release Testing Completed? (Y/N)",
-        "op": "equals",
-        "value": "Y",
-        "reason": "manufacturing and testing finished",
-    },
-    {
-        "column": "Non-Conformance Type",
-        "op": "not_in",
-        "value": ["termination", "withdrawal"],
-        "normalise": True,
-        "missing": "include",
-        "reason": "not terminated or withdrawn",
-    },
-]
-#: What the old code excluded by hand, in dataset.EXCLUDED.
-LEGACY_EXCLUDE = [
-    {
-        "column": "Target CAR+ Viable Cells per dose (cells per dose)",
-        "reason": "already carried by Subject Weight (kg)",
-    }
-]
-
-
-def from_legacy(config: dict[str, Any], config_path: str | Path) -> TaskSpec:
-    """Translate the old ``paths:`` + ``tasks:`` config into one task.
-
-    Kept so existing commands keep working. The cohort rules that used to be
-    written into ``dataset.py`` become declared filters here, which is the only
-    way they can be seen or changed.
-    """
-    path = Path(config_path).expanduser().resolve()
-    paths = config.get("paths") or {}
-    tasks = dict(config.get("tasks") or {})
-
-    site = tasks.pop("site", "")
-    decorrelation = str(tasks.pop("decorrelation", "report_only")).lower()
-    clustering = {
-        "action": {"off": "off", "false": "off", "none": "off"}.get(decorrelation, decorrelation),
-        "method": tasks.pop("cluster_corr_method", "spearman"),
-        "threshold": tasks.pop("cluster_corr_threshold", 0.7),
-        "min_size": tasks.pop("cluster_min_size", 2),
-    }
-    if "cluster_min_overlap" in tasks:
-        clustering["min_overlap"] = tasks.pop("cluster_min_overlap")
-    tasks.pop("cluster_r2_improvement_margin", None)
-
-    target_column = tasks.pop("target", "")
-    identifier = tasks.pop("id_column", "") or ""
-    group = tasks.pop("group_column", "") or ""
-    quality = {key: tasks.pop(key) for key in list(QUALITY_FIELDS) if key in tasks}
-
-    raw = {
-        "task": {
-            # A folder name, so it is a slug rather than the target's own
-            # punctuation: "FP Flow CAR+ (%)" is a column name, not a directory.
-            "name": sanitise(f"{site or 'cohort'}_{target_column}")[:60] or "task",
-            "question": f"What does {target_column} look like for the {site} cohort?",
-            "purpose": "exploratory",
-            "seed": config.get("seed", 0),
-        },
-        "inputs": {"pvf": paths.get("pvf", ""), "ptf": paths.get("ptf", "")},
-        "output": {"root": paths.get("tasks", "outputs/tasks")},
-        "cohort": {"sites": [site] if site else [], "filters": LEGACY_FILTERS},
-        "target": {"column": target_column},
-        "columns": {"id": identifier, "group": group, "exclude": LEGACY_EXCLUDE},
-        "encoding": {k: v for k, v in tasks.items() if k in ENCODING_FIELDS},
-        "quality": quality,
-        "clustering": clustering,
-    }
-    unknown = [k for k in tasks if k not in ENCODING_FIELDS]
-    if unknown:
-        raise TaskConfigError(f"{path}: tasks.{', tasks.'.join(unknown)} is not a known setting")
-    # One rule for every config this package reads: a relative path is relative
-    # to the file it is written in.
-    spec = parse(raw, path.parent, source=str(path))
-    return replace(spec, source=str(path))
+    return {"pvf": str(paths.get("pvf") or ""), "ptf": str(paths.get("ptf") or "")}

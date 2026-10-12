@@ -48,7 +48,6 @@ def minimal_task(**overrides) -> dict:
     task = {
         "task": {"name": "probe", "purpose": "exploratory", "seed": 1},
         "inputs": {"pvf": "PVF.xlsx", "ptf": "PTF.xlsx"},
-        "output": {"root": "tasks"},
         "cohort": {"sites": ["Ghent"]},
         "target": {"column": "FP Flow CAR+ (%)"},
         "columns": {"id": "Patient Lot/Batch #", "group": "Vector Lot"},
@@ -76,7 +75,7 @@ def test_paths_resolve_against_the_task_file_wherever_it_is_run_from(tmp_path, m
     monkeypatch.chdir(tmp_path.parent)
     spec = taskconfig.load(path)
     assert spec.pvf == tmp_path / "PVF.xlsx"
-    assert spec.output_root == tmp_path / "tasks"
+    assert spec.output_root == tmp_path / "runs", "runs live in the task's own workspace"
 
     absolute = minimal_task()
     absolute["inputs"]["pvf"] = str(tmp_path / "elsewhere" / "PVF.xlsx")
@@ -96,7 +95,8 @@ def test_paths_resolve_against_the_task_file_wherever_it_is_run_from(tmp_path, m
         ({"encoding": {"target_encoding_folds": 1}}, "encoding.target_encoding_folds"),
         ({"cohort": {"filters": [{"column": "Type", "op": "matches", "value": "x"}]}}, "op"),
         ({"columns": {"include": ["Vector Lot"]}}, "columns.include"),
-        ({"split": {"strategy": "chronological"}}, "split.order_column"),
+        ({"split": {"folds": 5}}, "(root).split: unknown setting"),
+        ({"columns": {"exclude_categories": ["Release"]}}, "columns.exclude_categories"),
         ({"task": {"unknown_setting": 1}}, "unknown setting"),
     ],
 )
@@ -109,10 +109,9 @@ def test_a_task_that_cannot_be_run_is_refused_by_field(tmp_path, overrides, expe
 
 def test_validation_happens_before_anything_is_written(tmp_path):
     bad = minimal_task(clustering={"action": "pca"})
-    bad["output"]["root"] = str(tmp_path / "out")
     with pytest.raises(taskconfig.TaskConfigError):
         taskconfig.load(write_task(tmp_path, bad))
-    assert not (tmp_path / "out").exists()
+    assert not (tmp_path / "runs").exists()
 
 
 def test_a_predictive_task_has_to_have_been_reviewed(tmp_path):
@@ -122,32 +121,6 @@ def test_a_predictive_task_has_to_have_been_reviewed(tmp_path):
 
     task["availability"] = {"reviewed": True, "cutoff": "harvest"}
     assert taskconfig.load(write_task(tmp_path, task, "reviewed.yaml")).predictive
-
-
-def test_the_old_config_still_describes_a_task(tmp_path):
-    config = {
-        "seed": 3,
-        "paths": {"pvf": "PVF.xlsx", "ptf": "PTF.xlsx", "tasks": "out"},
-        "features": {},
-        "tasks": {
-            "site": "Ghent",
-            "target": "FP Flow CAR+ (%)",
-            "id_column": "Patient Lot/Batch #",
-            "group_column": "Vector Lot",
-            "decorrelation": "off",
-        },
-    }
-    path = tmp_path / "config.yaml"
-    path.write_text(yaml.safe_dump(config), encoding="utf-8")
-    spec = taskconfig.load(path)
-    assert spec.roles.id == "Patient Lot/Batch #"
-    assert spec.clustering.action == "off"
-    # The cohort rules that used to be written into dataset.py are declared now.
-    assert [f.column for f in spec.cohort.filters] == [
-        "Type",
-        "Manufacturing and Release Testing Completed? (Y/N)",
-        "Non-Conformance Type",
-    ]
 
 
 # ---------------------------------------------------------------------------
@@ -336,36 +309,6 @@ def test_a_chronological_fold_never_looks_forward():
     assert strategy == "chronological" and "earliest block" in note
     for train, test in pairs:
         assert order.loc[train].max() < order.loc[test].min()
-
-
-def test_a_grouped_split_keeps_whole_groups_on_one_side():
-    spec = probe_spec(split={"strategy": "grouped", "validation_fraction": 0.34})
-    frame = probe_frame()
-    result = dataset.TaskResult(spec=spec)
-    training, validation = dataset.assign_split(frame, frame.index, spec, result)
-    lots = frame["Vector Lot"]
-    assert not set(lots.loc[training]) & set(lots.loc[validation])
-    assert result.split["strategy"] == "grouped"
-
-
-def test_a_chronological_split_takes_the_last_batches():
-    spec = probe_spec(
-        split={"strategy": "chronological", "validation_fraction": 0.5, "order_column": "when"}
-    )
-    frame = probe_frame()
-    frame["when"] = pd.date_range("2026-01-01", periods=len(frame))
-    training, validation = dataset.assign_split(
-        frame, frame.index, spec, dataset.TaskResult(spec=spec)
-    )
-    assert frame.loc[training, "when"].max() < frame.loc[validation, "when"].min()
-
-
-def test_a_split_that_cannot_be_made_is_refused():
-    spec = probe_spec(split={"strategy": "grouped", "validation_fraction": 0.3})
-    frame = probe_frame()
-    frame["Vector Lot"] = "one lot"
-    with pytest.raises(dataset.TaskRefused, match="at least two distinct"):
-        dataset.assign_split(frame, frame.index, spec, dataset.TaskResult(spec=spec))
 
 
 # ---------------------------------------------------------------------------
@@ -669,7 +612,7 @@ def test_a_report_that_fails_cannot_leave_a_finished_package(tmp_path, monkeypat
     config_path = dummy_data.write_config(directory)
     config = cli.load_config(config_path)
     cli.run_build(config, mode="dev")
-    spec = taskconfig.load(directory / dummy_data.TASK_FILES[0])
+    spec = taskconfig.load(directory / dummy_data.TASK_FILES[0], config)
 
     def explode(*args, **kwargs):
         raise RuntimeError("the report broke")
@@ -678,7 +621,7 @@ def test_a_report_that_fails_cannot_leave_a_finished_package(tmp_path, monkeypat
     with pytest.raises(RuntimeError, match="the report broke"):
         cli.run_task(config, spec)
 
-    folders = list((spec.output_root / spec.name).iterdir())
+    folders = list(spec.output_root.iterdir())
     assert folders and all(f.name.endswith(package.FAILED_SUFFIX) for f in folders)
     assert not any(
         (f / "manifest.json").exists() and "complete" in (f / "manifest.json").read_text()

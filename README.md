@@ -6,7 +6,7 @@ Three stages over one dataset, in one package.
 |---|---|---|
 | `pvf ptf` | What do the source systems record that the PTF has never been told about? | `ptf_report.html`, `ptf_manifest.json`, optionally `new_parameters.csv` |
 | `pvf build` | What happened to every batch, at both sites, in one table? | `PVF.xlsx` (+ `PVF.parquet`), `pvf_manifest.json`, `build_report.html` |
-| `pvf tasks` | What does one cohort and one target look like as a dataset someone else can use? | one folder per run under `outputs/tasks/<task name>/` |
+| `pvf tasks` | What does one cohort and one target look like as a dataset someone else can use? | one folder per run under `<task workspace>/runs/` |
 
 They are in that order because each depends on the one before. The PTF is the
 schema: it names every parameter the PVF may hold. The build fills that schema in
@@ -16,77 +16,79 @@ produced to one question.
 ## Quick start
 
 ```bash
-uv sync                                # Python 3.12, the versions in uv.lock
-uv run pvf init my_workspace --demo    # a workspace full of made-up data
-cd my_workspace
-uv run pvf all                         # ptf, build, and every task in tasks/
-uv run pvf new-task my_question --target "FP Flow CAR+ (%)" --purpose predictive
-uv run pvf check --task tasks/my_question.yaml
-uv run pvf tasks --task tasks/my_question.yaml
+uv sync                          # Python 3.12, the versions in uv.lock
+# edit config.yaml: point paths.ptf, paths.pvf and the sources at your data folder
+uv run pvf check                 # the config and the corrections table, nothing run
+uv run pvf ptf                   # is the PTF still up to date with the sources?
+uv run pvf build                 # write the PVF
+uv run pvf new-task ~/analyses/car_expression --target "FP Flow CAR+ (%)" --purpose predictive
+uv run pvf check --task ~/analyses/car_expression
+uv run pvf tasks --task ~/analyses/car_expression
 ```
 
-Without `--demo`, `pvf init` writes the same layout with an annotated config and
-an empty `data/raw/` for the real sources.
+`uv run python -m pvf.demo demo` writes the same layout filled with made-up data
+(see [The demo](#the-demo)).
 
 | Command | Does |
 |---|---|
-| `pvf init <folder> [--demo]` | create a workspace: `pvf.yaml`, `corrections.yaml`, `tasks/`, `data/`, `outputs/` |
-| `pvf new-task <name or path>` | write an annotated task file — in `tasks/`, or anywhere if given a path |
+| `pvf new-task <folder>` | create a task workspace: the folder and an annotated `task.yaml` in it |
 | `pvf check [--task …]` | validate the config, the corrections table and the tasks against the PVF; run nothing |
-| `pvf ptf` / `pvf build` / `pvf tasks` | the three stages; `pvf tasks` with no `--task` runs every task in `tasks/` |
-| `pvf all [--task …]` | the three in order |
+| `pvf ptf` / `pvf build` | the PTF check and the PVF build |
+| `pvf tasks --task …` | run tasks; each run goes into its workspace's `runs/` |
+| `pvf all [--task …]` | ptf, build and the given tasks, in that order |
 | `pvf apply --run <run folder>` | encode new batches with a finished run's fitted recipe |
 
-`--task` takes a file or a folder and can be repeated. Errors that are yours to
-fix (a typo in a config, a filter on a column the PVF does not have) are printed
-as one message naming the field, with exit code 2; `--debug` shows the traceback.
+`--task` takes a task workspace, its `task.yaml`, or a folder of task workspaces,
+and can be repeated. Errors that are yours to fix (a typo in a config, a filter on
+a column the PVF does not have) are printed as one message naming the field, with
+exit code 2; `--debug` shows the traceback.
 
 ## Code, configuration and data are kept apart
 
-This repository is code. Configuration and data live in a **workspace**: any
-folder with a `pvf.yaml` in it.
+This repository is code plus `config.yaml`. There is one PTF and one PVF; they,
+and the local copies of the sources, live in a data folder of your own, and
+`config.yaml` names them:
 
 ```
-my_workspace/
-  pvf.yaml            paths, sources, SharePoint locations, cleaning and feature settings
-  .env                SharePoint credentials and other secrets (git-ignored)
-  corrections.yaml    known data corrections, as a table
-  tasks/              one YAML per task
-  data/raw/           local copies of the sources
-  data/processed/     PVF.xlsx, PVF.parquet, ptf_manifest.json, pvf_manifest.json
-  outputs/reports/    ptf_report.html, build_report.html
-  outputs/tasks/      one folder per task run
+~/pvf_data/              your data folder (any name, anywhere)
+  PTF.xlsx               the feature metadata `pvf ptf` checks against the sources
+  PVF.xlsx PVF.parquet   written by `pvf build`
+  ptf_manifest.json pvf_manifest.json ptf_report.html build_report.html   beside the PVF
+  raw/                   local copies of the sources
 ```
 
-A command finds its config by `--config <file>`, then `$PVF_CONFIG`, then the
-nearest `pvf.yaml` in the working directory or above it (or above the task file),
-then the old `config/config.yaml`. **Every relative path in a config or a task
-file is relative to that file**, so a workspace — or a task file — can be moved
-and still reads the same inputs.
+A command finds the config by `--config <file>`, then `$PVF_CONFIG`, then the
+nearest `config.yaml` in the working directory or above it (or above the task).
+**Every relative path in a config or a task file is relative to that file**, and
+`~` is your home folder.
 
-### A task can live anywhere
+### Each task is a workspace
 
-A task file names its workspace, relative to itself, and inherits the PVF, the
-PTF and the output folder from it:
+A task workspace is a folder with a `task.yaml` in it. Every run of the task is
+written into it, and **each run carries everything needed to redo it**: the PVF
+and PTF it read, their manifests, and a `config/task.yaml` that points at those
+copies.
+
+```
+~/analyses/car_expression/
+  task.yaml                     the cohort, target, columns, settings
+  runs/<run id>/
+    inputs/PVF.xlsx PTF.xlsx    the files this run read, byte for byte
+    inputs/*_manifest.json      how they were made
+    config/task.yaml            the effective settings; its inputs are ../inputs
+    data/ metadata/ report/ logs/ manifest.json
+```
+
+`pvf tasks --task <run>/config/task.yaml` redoes a run from its folder alone,
+without `config.yaml`. A task takes its PVF and PTF from `config.yaml`, or from
+its own `inputs: {pvf: …, ptf: …}`.
+
+## The config
+
+`config.yaml` is annotated; this is its shape.
 
 ```yaml
-workspace: ../../shared/pvf_workspace/pvf.yaml
-task: {name: my_question, purpose: predictive, seed: 20260917}
-target: {column: FP Flow CAR+ (%), type: numeric}
-...
-```
-
-`pvf new-task ~/analyses/q3/my_question.yaml` writes exactly that, so a task
-for a new question can sit with the analysis it belongs to rather than inside
-the package or the workspace. Anything a task wants to say for itself — its own
-`inputs: {pvf: …, ptf: …}` or `output: {root: …}` — overrides the workspace.
-
-## The workspace config
-
-`pvf init` writes an annotated `pvf.yaml`; this is its shape.
-
-```yaml
-paths:        {ptf: data/raw/PTF.xlsx, phf_ghent: …, pvf: data/processed/PVF.xlsx, tasks: outputs/tasks, task_files: tasks}
+paths:        {ptf: ~/pvf_data/PTF.xlsx, pvf: ~/pvf_data/PVF.xlsx, phf_ghent: …, reports: (default: beside the PVF)}
 sources:      {location: local, fallback_to_local: false, databricks: false}
 sharepoint:   {ptf: {path: …, sheet: Catalogue, drive_id: DRIVE_ID_GHENT}, phf_ghent: {…}, site_maps: {folder: …, files: […]}}
 upload:       {enabled: false, path: …, drive_id: DRIVE_ID_GHENT, file_name: PVF.xlsx}
@@ -122,8 +124,7 @@ Uploading is a separate switch, and only ever happens on a `--mode PRD` build wi
 `upload.drive_id`, and the manifest records where it went. Reading from the share
 does not imply writing to it, and a local run cannot upload by accident.
 Secrets — whatever `io_sharepoint` needs to reach SharePoint — go in a **`.env`
-file in the workspace folder, next to `pvf.yaml`** (`pvf init` writes a
-`.env.example` to copy). It is loaded with the config, never committed (`.env` is
+file next to `config.yaml`** (copy `.env.example`). It is loaded with the config, never committed (`.env` is
 git-ignored everywhere), and variables already set in the shell or by a scheduler
 win over it. A `.env` in the working directory is read too. `MODE=PRD` and
 `DATA_LINK` (the upload folder) can live there as well.
@@ -132,8 +133,8 @@ win over it. A `.env` in the working directory is read too. `MODE=PRD` and
 
 The known data corrections — a clump count Excel turned into a date, a clinical
 site under the wrong country, cell counts stored without their 1e6 divisor — are
-facts about the sources, not about the code, so they are rules in the workspace's
-`corrections.yaml`:
+facts about the sources, not about the code, so they are rules in a
+`corrections.yaml` (`cleaning.corrections`; the package's own table when unset):
 
 ```yaml
 corrections:
@@ -168,14 +169,13 @@ normalised to 1.
 
 ## A task is a YAML file
 
-One task per file: a cohort, a target, the role of every column, what is known at
-the prediction point, what to do about parameters that move together, and how to
-split. Defining a second task means writing a second file — there is no Python to
-edit. `pvf new-task` writes an annotated one; `demo/tasks/` has two that differ in
-every one of those things.
+One task per workspace: a cohort, a target, which columns go in, what is known at
+the prediction point, and what to do about parameters that move together.
+Defining a second task means writing a second file — there is no Python to edit.
+`pvf new-task` writes an annotated one; `demo/tasks/` has two that differ in every
+one of those things.
 
 ```yaml
-workspace: ../pvf.yaml
 task:    {name: ghent_car_expression, purpose: predictive, seed: 20260917}
 cohort:
   sites: [Ghent]
@@ -184,10 +184,13 @@ cohort:
     - {column: Non-Conformance Type, op: not_in, value: [termination, withdrawal],
        normalise: true, missing: include, reason: not terminated or withdrawn}
 target:  {column: FP Flow CAR+ (%), type: numeric}
-columns: {id: 'Patient Lot/Batch #', group: Vector Lot, patient: Patient ID}
+columns:
+  id: 'Patient Lot/Batch #'
+  group: Vector Lot
+  exclude: [{column: Subject Weight (kg), reason: dose per kilogram already carries it}]
+  exclude_categories: {Available At: [Release, Post-release]}
 availability: {cutoff: Harvest}
 clustering: {action: report_only, method: spearman, threshold: 0.7, min_overlap: 10}
-split:   {strategy: grouped, validation_fraction: 0.25, folds: 5}
 ```
 
 Everything is validated before the run touches the output directory, and every
@@ -200,10 +203,14 @@ complaint names the field and what to do about it.
   the known aliases (`withdrawn` → `withdrawal`) for the comparison while the
   PVF keeps what the source actually said. A filter whose column is missing
   stops the run rather than quietly widening the cohort.
+- **Which columns go in** is `columns:`. `exclude` leaves out single columns,
+  each with its reason. `exclude_categories` leaves out every parameter whose
+  value in a PTF column is one of the listed categories — any PTF column, so
+  `{Category: [QC]}` works as well as `{Available At: [Release]}`. A PTF column
+  that does not exist stops the run. `include` is an explicit predictor list.
+  Every exclusion is a row in `decisions.csv`.
 - **Quote a column name with a `#`, `:` or `%` in it.** Unquoted,
   `Patient Lot/Batch #` is read as `Patient Lot/Batch` followed by a comment.
-- The old `tasks:` block in a config still works — `pvf tasks` translates it,
-  cohort rules included — but it cannot say most of what a task file can.
 
 ## Roles, leakage and what the dataset is
 
@@ -213,8 +220,8 @@ grouping metadata and, optionally, which is the patient. Those are authoritative
 - The target and the role columns are removed from the predictor candidates
   **before** anything is encoded, de-duplicated or clustered. They are carried
   into the output as metadata, once each. An identifier that is not unique in the
-  cohort stops the run: a batch twice in a dataset is counted twice and can sit on
-  both sides of a split.
+  cohort stops the run: a batch twice in a dataset is counted twice and can sit in
+  two cross-validation folds at once.
 - Anything the feature registry computed **from the target** is removed with
   them, walked through `Feature.requires`: `VCN/cell` and
   `Flow accuracy (effective)` are both derived from `FP Flow CAR+ (%)`, and
@@ -236,53 +243,40 @@ grouping metadata and, optionally, which is the patient. Those are authoritative
 - `LVCoA_Impurity_Index_zsum` is standardised within its own site's batches, so
   it is exploratory only and a predictive task drops it.
 
-**What is learned is learned on training rows.** Category vocabularies, target
-means, near-duplicate selection, clusters, residual regressions, the sparsity and
-near-constant checks, indicators and imputation medians are fitted on one
-population and applied unchanged to any other:
+**There is one dataset and no split.** Every batch in the cohort is a row of
+`dataset.csv`; cross-validation belongs to the tool that fits the models. Category
+vocabularies, target means, near-duplicate selection, clusters, residual
+regressions, the sparsity and near-constant checks, indicators and imputation
+medians are fitted on the whole cohort and recorded:
 
-| The task says | `dataset.csv` is | Beside it | Fitted on |
-|---|---|---|---|
-| `purpose: exploratory` | the transformed table, labelled exploratory | `raw_features.csv` | the whole cohort |
-| `purpose: predictive`, no `split` | the selected raw predictors | `transformed.csv` | the whole cohort, for description only |
-| `purpose: predictive` with a `split` | the selected raw predictors, with `split` and `fold` | `transformed.csv` | the training rows alone |
+| The task says | `dataset.csv` is | Beside it |
+|---|---|---|
+| `purpose: exploratory` | the transformed table, labelled exploratory | `raw_features.csv` |
+| `purpose: predictive` | the selected raw predictors | `transformed.csv` |
 
-A table preprocessed over every row is not a table to cross-validate on
-afterwards. Two ways to do it properly:
+A table preprocessed over every row is not a table to cross-validate on as it
+stands. For an honest estimate, refit the preprocessing inside every fold:
 
 - `metadata/recipe.json` holds the fitted decisions as plain JSON and is read
   back by `Preprocessor.from_state` — `pvf apply --run <folder> --pvf <file>`
-  encodes new batches exactly as the training rows were encoded.
-- `pvf.recipe.TaskTransformer` is the same preprocessing as a scikit-learn step,
-  so it can be refitted inside every fold:
+  encodes new batches exactly as the cohort was encoded.
+- `pvf.recipe.TaskTransformer` is the same preprocessing as a scikit-learn step:
 
   ```python
   from pvf.recipe import TaskTransformer, task_data
-  X, y, groups, spec = task_data("tasks/ghent_car_expression.yaml")
+  X, y, groups, spec = task_data("tasks/ghent_car_expression", config)
   model = make_pipeline(TaskTransformer(spec), SimpleImputer(), StandardScaler(), RidgeCV())
   cross_val_score(model, X, y, groups=groups, cv=GroupKFold(3))
   ```
 
 Target encoding is cross-fitted: each fold's prior *and* its category means come
-from that fold's training rows only, folds respect the grouping column or the
-chronological order, and a category the training rows never held gets the
+from that fold's training rows only, folds keep the grouping column (joined up by
+`columns.patient`) whole, and a category the training rows never held gets the
 training prior.
 
-### Splits and folds
-
-`split.strategy: grouped` holds out whole groups, drawn with the task's seed
-(and, for a binary target, keeping the classes balanced where the groups allow).
-With `columns.patient`, batches that share a patient are kept together with their
-groups, so a re-manufactured batch never sits across the split from the first one.
-`chronological` holds out the last batches by `split.order_column`.
-`split.folds: k` adds k cross-validation folds over the training rows — grouped
-and class-balanced, or time-ordered blocks for a chronological task — written to
-`data/splits.csv` and to the `fold` column. Asking for folds without a strategy
-gives folds over the whole cohort and no validation rows.
-
 The report says how much evidence the table really holds: how many distinct
-groups a grouped estimate rests on, the ratio of predictor columns to fitted
-batches, and — for a binary target — the events per variable.
+groups a grouped estimate rests on, the ratio of predictor columns to batches,
+and — for a binary target — the events per variable.
 
 ### Encodings
 
@@ -325,7 +319,7 @@ parameter that best explains when they are missing. That is description only.
 
 ## What a task run leaves behind
 
-Each run writes a fresh folder, `outputs/tasks/<task name>/<run id>`. Nothing is
+Each run writes a fresh folder, `<task workspace>/runs/<run id>`. Nothing is
 ever overwritten. The run writes into a staging folder marked incomplete and
 promotes it only once the required artefacts are there and the counts inside them
 agree; a run that fails keeps its folder marked `.failed`, with its log and the
@@ -334,11 +328,11 @@ reason in the manifest.
 | File | What it is |
 |---|---|
 | `manifest.json` | the run's manifest (see below) |
-| `config/task.yaml` | the effective settings, defaults included |
+| `config/task.yaml` | the effective settings, defaults included; its inputs are the copies in `inputs/` |
+| `inputs/PVF.xlsx`, `inputs/PTF.xlsx` | the PVF and PTF this run read (byte for byte when local, as read when from SharePoint) |
 | `data/dataset.csv` | the task's table, with its role stated in the manifest and the report |
 | `data/raw_features.csv` | the untransformed predictors, when `dataset.csv` is the transformed view |
 | `data/transformed.csv` | the transformed view, when `dataset.csv` is the raw predictors |
-| `data/splits.csv` | split and fold assignments, when asked for |
 | `metadata/columns.csv` | one row per exported column in output order: role, source, type, unit, transformation, meaning |
 | `metadata/features.csv` | the feature dictionary: every column the recipe produces, and its parameter |
 | `metadata/decisions.csv` | every parameter included, excluded or changed, with the reason and the stage |
@@ -348,8 +342,8 @@ reason in the manifest.
 | `metadata/recipe.json` | the fitted preprocessing state, readable by `pvf apply` and `Preprocessor.from_state` |
 | `report/report.html` | the Streamlit report |
 | `report/report_payload.json` | the same numbers, usable without a browser |
-| `provenance/ptf_manifest.json` | the manifest of the `pvf ptf` run that checked the PTF |
-| `provenance/pvf_manifest.json` | the manifest of the `pvf build` run that wrote the PVF |
+| `inputs/ptf_manifest.json` | the manifest of the `pvf ptf` run that checked the PTF |
+| `inputs/pvf_manifest.json` | the manifest of the `pvf build` run that wrote the PVF |
 | `logs/run.log` | the events of this run and this stage only |
 
 `--report-only` writes the report and its metadata to a fresh folder of its own.
@@ -368,7 +362,7 @@ its size and sha256, by a path relative to the manifest), `warnings`, `errors`,
 manifest is validated before it is written, and `pvf.manifest.verify(path)` checks
 one on disk, including whether any output has changed since.
 
-A task copies the two stage manifests into its folder and checks that the PVF
+A task copies the two stage manifests into its `inputs/` and checks that the PVF
 manifest describes the PVF it read — by the file's bytes for a local file, by the
 table's content for one read from SharePoint — and warns when it does not. A
 missing manifest is a warning too, recorded as `not found`.
@@ -422,29 +416,32 @@ provenance with the run log.
 
 ## The demo
 
-`pvf init <folder> --demo` writes a workspace of made-up sources (from
-`pvf.demo`). The numbers are invented; the *shapes* are not: every path the stages
-can take is represented by something in that data. The committed `demo/` is one
-such workspace after `pvf all`: a 204-parameter PTF with an `Available At` column,
-a 70 × 221 PVF, and two tasks. `demo/run.log` is the console output.
+`uv run python -m pvf.demo <folder>` writes made-up sources, a `config.yaml` and
+two task workspaces (from `pvf.demo`). The numbers are invented; the *shapes* are
+not: every path the stages can take is represented by something in that data.
+The committed `demo/` is one such folder after
+`pvf all --task tasks/ghent_car_expression --task tasks/raritan_release`: a
+204-parameter PTF with an `Available At` column, a 70 × 221 PVF, and two tasks.
+`demo/run.log` is the console output.
 
-| | `tasks/task_car_expression.yaml` | `tasks/task_release_outcome.yaml` |
+| | `tasks/ghent_car_expression/` | `tasks/raritan_release/` |
 |---|---|---|
 | Question | what goes with CAR+ expression at Ghent | what a released Raritan batch looks like |
 | Cohort | Ghent, commercial, finished, no withdrawals | Raritan, finished |
 | Target | `FP Flow CAR+ (%)`, numeric | `Disposition`, binary, positive class `Released` |
-| Purpose | predictive, cutoff `Harvest`, grouped 30% validation split, folds | exploratory |
+| Purpose | predictive, cutoff `Harvest` | exploratory |
+| Columns | one excluded by hand | one excluded by hand, `Available At: [Post-release]` excluded by category |
 | Clustering | `report_only` | `linear`, threshold 0.8 |
-| Result | 21 batches, 83 raw predictors (95 transformed); 50 parameters left out as later than harvest | 27 × 176 transformed, 30 groups residualised |
-| Written to | `demo/outputs/tasks/ghent_car_expression/<run>/` | `demo/outputs/explorations/raritan_release/<run>/` |
+| Result | 21 batches, 89 raw predictors (113 transformed); 50 parameters left out as later than harvest | 27 × 168 transformed, 30 groups residualised |
+| Written to | `demo/tasks/ghent_car_expression/runs/<run>/` | `demo/tasks/raritan_release/runs/<run>/` |
 
 ## Code layout
 
 ```
 src/pvf/
   cli.py               the commands, and the one place the stages are run from
-  config.py            the workspace config: discovery, validation, where each input is read from
-  scaffold.py          pvf init and pvf new-task; templates/ holds the files they write
+  config.py            config.yaml: discovery, validation, where each input is read from
+  scaffold.py          pvf new-task; templates/ holds the task.yaml it writes
   taskconfig.py        the task YAML, and the validation it has to pass
   ptf.py               stage 1: source parameters the PTF does not list
   io.py                reading every source, local or SharePoint
@@ -453,7 +450,7 @@ src/pvf/
   enrich.py            parameters joined from other systems
   features.py          the feature registry, and derived-column lineage
   merge.py             stacking the sites, and the checks over the result
-  dataset.py           stage 3: cohort, roles, availability, split, fit/transform, assembly
+  dataset.py           stage 3: cohort, roles, column selection, availability, fit/transform, assembly
   encode.py            one fit/apply pair per encoding
   decorrelate.py       correlated groups, representatives and residuals
   missingness.py       parameters missing together
@@ -465,7 +462,9 @@ src/pvf/
   logger.py            the run log the reports show, scoped per run
   demo.py              made-up sources for the demo and the tests
 tests/                 one run of every stage over the demo data, plus focused regressions
-demo/                  a demo workspace after `pvf all`
+demo/                  the demo data, config and task workspaces after `pvf all`
+config.yaml            the config: set the paths to your data folder here
+.env.example           what goes in .env, next to config.yaml
 ```
 
 ## Development

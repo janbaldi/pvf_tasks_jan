@@ -1,19 +1,10 @@
-"""The workspace config: where the inputs are, where they come from, and the settings.
+"""``config.yaml``: where the sources, the PTF and the PVF are, and the settings.
 
-Code, configuration and data live apart. This package is code only. A
-*workspace* is any folder that holds a ``pvf.yaml`` — the config read here — next
-to the data and outputs it names::
-
-    my_workspace/
-      pvf.yaml            this file: paths, sources, SharePoint locations, settings
-      corrections.yaml    known data corrections, as a table (see pvf.corrections)
-      tasks/              one YAML per task
-      data/raw/           the local copies of the sources
-      data/processed/     the PVF and the manifests of the stages that wrote it
-      outputs/            reports and task packages
-
-``pvf init <folder>`` writes that layout. Every relative path in the config is
-relative to the config file, so a workspace can be moved or shared as a folder.
+Code, configuration and data live apart. There is one PTF and one PVF; they and
+the local copies of the sources sit in a data folder of your own, and
+``config.yaml`` names them under ``paths:``. The PTF and build reports and
+manifests are written beside the PVF. Every relative path in the config is
+relative to the config file.
 
 Where a source is read from is a setting too. With ``sources.location: local``
 every input is the local file under ``paths``. With ``sharepoint``, every input
@@ -36,10 +27,8 @@ from .logger import log
 
 MODULE = "config"
 
-#: The file names a workspace config may have, in the order they are looked for.
-CONFIG_NAMES = ("pvf.yaml", "pvf.yml")
-#: Where configs lived before workspaces, relative to the working directory.
-LEGACY_CONFIG = Path("config/config.yaml")
+#: The file names the config may have, in the order they are looked for.
+CONFIG_NAMES = ("config.yaml", "config.yml")
 #: The environment variable that names a config, for runs started anywhere.
 CONFIG_ENV = "PVF_CONFIG"
 
@@ -57,8 +46,6 @@ PATH_KEYS = (
     "pvf",
     "new_parameters",
     "reports",
-    "tasks",
-    "task_files",
 )
 #: Inputs that may be read from SharePoint, by the label they have everywhere else.
 SHAREPOINT_SOURCES = (
@@ -86,7 +73,6 @@ TOP_KEYS = (
     "features",
     "lv_coa",
     "mapping",
-    "tasks",
 )
 CLEANING_KEYS = (
     "censored",
@@ -101,7 +87,7 @@ CLEANING_KEYS = (
 
 
 class ConfigError(ValueError):
-    """One or more problems with a workspace config, each naming its field."""
+    """One or more problems with config.yaml, each naming its field."""
 
 
 # ---------------------------------------------------------------------------
@@ -110,9 +96,9 @@ class ConfigError(ValueError):
 def find(explicit: str | Path | None = None, start: str | Path | None = None) -> Path:
     """The config a run uses.
 
-    In order: the path given on the command line, ``$PVF_CONFIG``, a ``pvf.yaml``
-    in ``start`` (a task file's folder, say) or any folder above it, the same
-    from the working directory, and finally the old ``config/config.yaml``.
+    In order: the path given on the command line, ``$PVF_CONFIG``, a
+    ``config.yaml`` in ``start`` (a task's folder, say) or any folder above it,
+    and the same from the working directory.
     """
     if explicit:
         return Path(explicit).expanduser()
@@ -127,12 +113,10 @@ def find(explicit: str | Path | None = None, start: str | Path | None = None) ->
             for name in CONFIG_NAMES:
                 if (folder / name).is_file():
                     return folder / name
-    if LEGACY_CONFIG.is_file():
-        return LEGACY_CONFIG
     raise ConfigError(
-        "No workspace config found: there is no pvf.yaml here or in any folder above, "
+        "No config found: there is no config.yaml here or in any folder above, "
         f"${CONFIG_ENV} is not set and --config was not given. "
-        "Create a workspace with `pvf init <folder>` or pass --config <file>"
+        "Pass --config <file>, or run from the folder that holds config.yaml"
     )
 
 
@@ -166,11 +150,11 @@ def load(path: str | Path) -> dict[str, Any]:
 
 
 def load_env(folder: str | Path) -> str:
-    """Load the workspace's ``.env`` — the SharePoint credentials and drive ids.
+    """Load the ``.env`` next to ``config.yaml`` — the SharePoint credentials and drive ids.
 
-    Secrets belong with the workspace, next to ``pvf.yaml``, never in the code
-    or in git. Variables already set in the environment win, so a scheduler or
-    a shell can override the file. Returns the file loaded, or "".
+    Secrets never go in the code or in git. Variables already set in the
+    environment win, so a scheduler or a shell can override the file. Returns
+    the file loaded, or "".
     """
     from dotenv import load_dotenv
 
@@ -253,7 +237,7 @@ def validate(config: dict[str, Any], source: str = "config") -> None:
     if location == "sharepoint" and not sharepoint:
         errors.append(
             "sharepoint: sources.location is 'sharepoint' but no SharePoint locations are "
-            "configured; add a sharepoint: block (see the template from `pvf init`)"
+            "configured; add a sharepoint: block"
         )
 
     upload = _mapping(

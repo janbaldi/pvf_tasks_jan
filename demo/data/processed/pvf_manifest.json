@@ -2,19 +2,19 @@
   "manifest_version": 2,
   "stage": "pvf",
   "status": "complete",
-  "run_id": "20261005-150818-a08805",
-  "started": "2026-10-05T15:08:18",
-  "finished": "2026-10-05T15:08:19",
+  "run_id": "20261012-142651-0e02e2",
+  "started": "2026-10-12T14:26:51",
+  "finished": "2026-10-12T14:26:52",
   "config": {
-    "path": "/home/user/pvf_tasks_jan/demo/pvf.yaml",
-    "digest": "0f49b62002574f4a6c84c919a3d8c6ceda134002c85c9cd6b372b853a33052b0"
+    "path": "/home/user/pvf_tasks_jan/demo/config.yaml",
+    "digest": "66b2b6044b27cf2668c382baf2ac6d57a66dd79363c2583b74128ad9f62a7a28"
   },
   "inputs": [
     {
       "label": "ptf",
       "location": "/home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx",
       "kind": "local file",
-      "digest": "db04afebbe50145d8a3a11ce0bd90afaad86a5bafcf507a552d048dd48f126b3",
+      "digest": "df9a235f36f42160fe8c0d9216243ed369b0cf79d37abc9305443879bf98ce0d",
       "digest_of": "file bytes",
       "note": ""
     },
@@ -22,7 +22,7 @@
       "label": "phf_ghent",
       "location": "/home/user/pvf_tasks_jan/demo/data/raw/phf_ghent.xlsx",
       "kind": "local file",
-      "digest": "a6dca3ee3fdcb31f42302eb5e404545a458cf31a27c0a353f80bdee7c7c7c38b",
+      "digest": "4d2f99dd5bd134217b0257b9a4ed839d0a4f044bfaedd92867abcabe80e464c2",
       "digest_of": "file bytes",
       "note": ""
     },
@@ -30,7 +30,7 @@
       "label": "phf_raritan",
       "location": "/home/user/pvf_tasks_jan/demo/data/raw/phf_raritan.xlsx",
       "kind": "local file",
-      "digest": "b56c64235cc3610cb7d52f287c69a90bfdb9a221abacac86fed6ee1c872c39b1",
+      "digest": "95a10b51c20c083b22baa672877e0f0a29b70c919d6d40e234476ebd5dbece44",
       "digest_of": "file bytes",
       "note": ""
     },
@@ -38,7 +38,7 @@
       "label": "param_mapping",
       "location": "/home/user/pvf_tasks_jan/demo/data/raw/parameter_requirements.xlsx",
       "kind": "local file",
-      "digest": "2587ee3f3ea96cee4416346146afe6b111c2dbae9c3eb6e68aa296cce9cd3006",
+      "digest": "4a12541697a94d4def6639c0e1743bc92e404c3da139dc343172b45ef267a848",
       "digest_of": "file bytes",
       "note": ""
     },
@@ -46,7 +46,7 @@
       "label": "remfg",
       "location": "/home/user/pvf_tasks_jan/demo/data/raw/remfg.xlsx",
       "kind": "local file",
-      "digest": "5420093e9a68502ea080f054a2099acea209120e02eecf63d57f1c80e2bdf99d",
+      "digest": "e3f3872f5c7b3ab68b45f97ed3247ed51c297232b68a6876af0aa4c2a09862b2",
       "digest_of": "file bytes",
       "note": ""
     },
@@ -54,7 +54,7 @@
       "label": "lv_coa",
       "location": "/home/user/pvf_tasks_jan/demo/data/raw/lv_coa.xlsx",
       "kind": "local file",
-      "digest": "2c7f9aeff0776d2bc8dbc9457313799e71e084807801267ccc26d08a1636cc69",
+      "digest": "bf21146fbdd94ffbb6a93860dab105eadbf368eb19ed9a11e83619cdfa166cb7",
       "digest_of": "file bytes",
       "note": ""
     },
@@ -70,7 +70,7 @@
       "label": "site_map_1",
       "location": "/home/user/pvf_tasks_jan/demo/data/raw/site_map_hannelore.xlsx",
       "kind": "local file",
-      "digest": "90e87b06a25bd90a3450629611698aab0003b3011d09374b8f359d621b5ff4ab",
+      "digest": "07038acfcb1b3d2835d0defceb1e433945f09a2ac356b4ad504d2c102ef38206",
       "digest_of": "file bytes",
       "note": ""
     },
@@ -78,7 +78,7 @@
       "label": "site_map_2",
       "location": "/home/user/pvf_tasks_jan/demo/data/raw/site_map_meeting.xlsx",
       "kind": "local file",
-      "digest": "ec7d6029fed5f5fb21dc833ca02757bede25917feef470d8123b2a8375361d33",
+      "digest": "338894a3516a221cf3f3e626fa4470f383696c2b86abc967fea177ea9f50650b",
       "digest_of": "file bytes",
       "note": ""
     }
@@ -87,8 +87,8 @@
     {
       "what": "PVF",
       "path": "PVF.xlsx",
-      "bytes": 116936,
-      "sha256": "35c962e11f5ed1d9c519ce5dd548c08fe6c9e527ae3a01bd07282f9187b9fbcc"
+      "bytes": 116935,
+      "sha256": "2e357f5ecd8c3cf182b0a85f60cdbe4e558a2757832b0ca436abce1f5e05b4b5"
     },
     {
       "what": "PVF (Parquet)",
@@ -98,9 +98,9 @@
     },
     {
       "what": "report",
-      "path": "../../outputs/reports/build_report.html",
-      "bytes": 108395,
-      "sha256": "b021580d6e491704ca63b038fc4a1e64f8beef7a52a6305ce9dcde9ac4f59d1e"
+      "path": "build_report.html",
+      "bytes": 108399,
+      "sha256": "6fa379eb7d7cb73b8bc23caac06e49a7b38a17b4a10ed6527aa913d666598cda"
     }
   ],
   "warnings": [
@@ -140,7 +140,7 @@
   "mode": "DEV",
   "pvf": {
     "path": "PVF.xlsx",
-    "sha256": "35c962e11f5ed1d9c519ce5dd548c08fe6c9e527ae3a01bd07282f9187b9fbcc",
+    "sha256": "2e357f5ecd8c3cf182b0a85f60cdbe4e558a2757832b0ca436abce1f5e05b4b5",
     "content_sha256": "7aa58ddda9296ff344d78f91ae75e47a06b1b34c17252d633b8add99efe41976",
     "parquet": "PVF.parquet",
     "rows": 70,
@@ -188,17 +188,17 @@
   "duplicate_batches": [],
   "uploaded_to": null,
   "provenance": {
-    "run_date": "2026-10-05T15:08:19",
-    "git_commit": "ecc2e282dc5dc5a9e41775075785cf7351f5236f-dirty",
+    "run_date": "2026-10-12T14:26:52",
+    "git_commit": "ef467b90c5479c7a257aa530f50dd0be323da5dc-dirty",
     "seed": 20260917,
-    "config": "/home/user/pvf_tasks_jan/demo/pvf.yaml",
-    "config_digest": "0f49b62002574f4a6c84c919a3d8c6ceda134002c85c9cd6b372b853a33052b0",
+    "config": "/home/user/pvf_tasks_jan/demo/config.yaml",
+    "config_digest": "66b2b6044b27cf2668c382baf2ac6d57a66dd79363c2583b74128ad9f62a7a28",
     "sources": [
       {
         "label": "ptf",
         "location": "/home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx",
         "kind": "local file",
-        "digest": "db04afebbe50145d8a3a11ce0bd90afaad86a5bafcf507a552d048dd48f126b3",
+        "digest": "df9a235f36f42160fe8c0d9216243ed369b0cf79d37abc9305443879bf98ce0d",
         "digest_of": "file bytes",
         "note": ""
       },
@@ -206,7 +206,7 @@
         "label": "phf_ghent",
         "location": "/home/user/pvf_tasks_jan/demo/data/raw/phf_ghent.xlsx",
         "kind": "local file",
-        "digest": "a6dca3ee3fdcb31f42302eb5e404545a458cf31a27c0a353f80bdee7c7c7c38b",
+        "digest": "4d2f99dd5bd134217b0257b9a4ed839d0a4f044bfaedd92867abcabe80e464c2",
         "digest_of": "file bytes",
         "note": ""
       },
@@ -214,7 +214,7 @@
         "label": "phf_raritan",
         "location": "/home/user/pvf_tasks_jan/demo/data/raw/phf_raritan.xlsx",
         "kind": "local file",
-        "digest": "b56c64235cc3610cb7d52f287c69a90bfdb9a221abacac86fed6ee1c872c39b1",
+        "digest": "95a10b51c20c083b22baa672877e0f0a29b70c919d6d40e234476ebd5dbece44",
         "digest_of": "file bytes",
         "note": ""
       },
@@ -222,7 +222,7 @@
         "label": "param_mapping",
         "location": "/home/user/pvf_tasks_jan/demo/data/raw/parameter_requirements.xlsx",
         "kind": "local file",
-        "digest": "2587ee3f3ea96cee4416346146afe6b111c2dbae9c3eb6e68aa296cce9cd3006",
+        "digest": "4a12541697a94d4def6639c0e1743bc92e404c3da139dc343172b45ef267a848",
         "digest_of": "file bytes",
         "note": ""
       },
@@ -230,7 +230,7 @@
         "label": "remfg",
         "location": "/home/user/pvf_tasks_jan/demo/data/raw/remfg.xlsx",
         "kind": "local file",
-        "digest": "5420093e9a68502ea080f054a2099acea209120e02eecf63d57f1c80e2bdf99d",
+        "digest": "e3f3872f5c7b3ab68b45f97ed3247ed51c297232b68a6876af0aa4c2a09862b2",
         "digest_of": "file bytes",
         "note": ""
       },
@@ -238,7 +238,7 @@
         "label": "lv_coa",
         "location": "/home/user/pvf_tasks_jan/demo/data/raw/lv_coa.xlsx",
         "kind": "local file",
-        "digest": "2c7f9aeff0776d2bc8dbc9457313799e71e084807801267ccc26d08a1636cc69",
+        "digest": "bf21146fbdd94ffbb6a93860dab105eadbf368eb19ed9a11e83619cdfa166cb7",
         "digest_of": "file bytes",
         "note": ""
       },
@@ -254,7 +254,7 @@
         "label": "site_map_1",
         "location": "/home/user/pvf_tasks_jan/demo/data/raw/site_map_hannelore.xlsx",
         "kind": "local file",
-        "digest": "90e87b06a25bd90a3450629611698aab0003b3011d09374b8f359d621b5ff4ab",
+        "digest": "07038acfcb1b3d2835d0defceb1e433945f09a2ac356b4ad504d2c102ef38206",
         "digest_of": "file bytes",
         "note": ""
       },
@@ -262,25 +262,25 @@
         "label": "site_map_2",
         "location": "/home/user/pvf_tasks_jan/demo/data/raw/site_map_meeting.xlsx",
         "kind": "local file",
-        "digest": "ec7d6029fed5f5fb21dc833ca02757bede25917feef470d8123b2a8375361d33",
+        "digest": "338894a3516a221cf3f3e626fa4470f383696c2b86abc967fea177ea9f50650b",
         "digest_of": "file bytes",
         "note": ""
       }
     ],
     "inputs": {
-      "ptf": "db04afebbe50145d8a3a11ce0bd90afaad86a5bafcf507a552d048dd48f126b3",
-      "phf_ghent": "a6dca3ee3fdcb31f42302eb5e404545a458cf31a27c0a353f80bdee7c7c7c38b",
-      "phf_raritan": "b56c64235cc3610cb7d52f287c69a90bfdb9a221abacac86fed6ee1c872c39b1",
-      "param_mapping": "2587ee3f3ea96cee4416346146afe6b111c2dbae9c3eb6e68aa296cce9cd3006",
-      "remfg": "5420093e9a68502ea080f054a2099acea209120e02eecf63d57f1c80e2bdf99d",
-      "lv_coa": "2c7f9aeff0776d2bc8dbc9457313799e71e084807801267ccc26d08a1636cc69",
+      "ptf": "df9a235f36f42160fe8c0d9216243ed369b0cf79d37abc9305443879bf98ce0d",
+      "phf_ghent": "4d2f99dd5bd134217b0257b9a4ed839d0a4f044bfaedd92867abcabe80e464c2",
+      "phf_raritan": "95a10b51c20c083b22baa672877e0f0a29b70c919d6d40e234476ebd5dbece44",
+      "param_mapping": "4a12541697a94d4def6639c0e1743bc92e404c3da139dc343172b45ef267a848",
+      "remfg": "e3f3872f5c7b3ab68b45f97ed3247ed51c297232b68a6876af0aa4c2a09862b2",
+      "lv_coa": "bf21146fbdd94ffbb6a93860dab105eadbf368eb19ed9a11e83619cdfa166cb7",
       "raw_materials": "2f4e4fc3a3236dfcf6dc7cc965a997b0e3f434cfbcad012d8bdd217c0cbb7833",
-      "site_map_1": "90e87b06a25bd90a3450629611698aab0003b3011d09374b8f359d621b5ff4ab",
-      "site_map_2": "ec7d6029fed5f5fb21dc833ca02757bede25917feef470d8123b2a8375361d33"
+      "site_map_1": "07038acfcb1b3d2835d0defceb1e433945f09a2ac356b4ad504d2c102ef38206",
+      "site_map_2": "338894a3516a221cf3f3e626fa4470f383696c2b86abc967fea177ea9f50650b"
     },
     "environment": {
       "python": "3.12.3",
-      "platform": "Linux-6.18.44-fc-v70-x86_64-with-glibc2.39",
+      "platform": "Linux-6.18.44-fc-v114-x86_64-with-glibc2.39",
       "pandas": "3.0.6",
       "numpy": "2.5.3",
       "scipy": "1.18.1",

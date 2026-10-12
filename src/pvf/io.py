@@ -3,8 +3,8 @@
 The PTF specification, both sites' PHF files, the parameter-name mapping between
 them, the re-manufacturing treatment-line supplement, the lentiviral vector
 certificates of analysis, and the raw-material identifiers. Each loader takes a
-:class:`Source`: a local file, or — when the workspace config says so — a
-SharePoint location configured in ``pvf.yaml``. Nothing here knows an address.
+:class:`Source`: a local file, or — when config.yaml says so — a
+SharePoint location configured in ``config.yaml``. Nothing here knows an address.
 
 Everything returned here is an *original* parameter. Nothing in this module
 calculates anything from another column.
@@ -34,7 +34,7 @@ VALUE_TYPES = frozenset({"numeric", "categorical", "datetime", "duration", "rati
 STAGE_COLUMN = "Available At"
 
 #: The worksheet each source's data is on, in the files as the sites produce them.
-#: A workspace can override any of these under ``sheets:`` in its config.
+#: config.yaml can override any of these under ``sheets:``.
 DEFAULT_SHEETS: dict[str, str | int] = {
     "ptf": 0,
     "pvf": 0,
@@ -67,7 +67,7 @@ class Source:
 
     ``remote`` holds the keyword arguments the SharePoint reader takes; when it is
     set the source is read from there, otherwise from ``path``. Built by
-    :func:`pvf.config.source` from the workspace config.
+    :func:`pvf.config.source` from config.yaml.
     """
 
     label: str

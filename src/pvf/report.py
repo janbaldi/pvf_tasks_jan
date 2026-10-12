@@ -1778,34 +1778,13 @@ def _task_dataset(run: TaskRun) -> dict | None:
         rows.append(["Identifier", esc(f"{spec.roles.id} (first)")])
     if spec.roles.group:
         rows.append(["Grouping column", esc(spec.roles.group)])
-    if result.split:
-        rows.append(
-            [
-                "Split",
-                esc(
-                    f"{result.split['strategy']}: {result.split['training']} training, "
-                    f"{result.split['validation']} validation — {result.split['detail']}"
-                ),
-            ]
-        )
-    if result.split.get("folds"):
-        rows.append(
-            [
-                "Cross-validation folds",
-                esc(
-                    f"{result.split['folds']} over the training rows "
-                    f"({result.split.get('fold_strategy')}), in data/splits.csv and the "
-                    "'fold' column"
-                ),
-            ]
-        )
     if spec.predictive and not run.report_only:
         rows.append(
             [
                 "Transformed view",
                 esc(
-                    "data/transformed.csv: the recipe fitted on the training rows (target "
-                    "encoding cross-fitted) and applied unchanged to the validation rows"
+                    "data/transformed.csv: the recipe fitted on the whole cohort (target "
+                    "encoding cross-fitted); refit recipe.json inside each fold you evaluate in"
                 ),
             ]
         )
@@ -1895,11 +1874,11 @@ def _task_provenance(run: TaskRun) -> dict | None:
         "A fresh report fetches its Python runtime from a CDN, so opening one needs network "
         "access once. It is not an offline file.",
     ]
-    if not run.result.split.get("validation"):
-        limitations.append(
-            "No train/validation split was requested, so the preprocessing was fitted over the "
-            "whole cohort. Treat the transformed view as exploratory."
-        )
+    limitations.append(
+        "There is no train/validation split: the preprocessing was fitted over the whole "
+        "cohort. Cross-validate in the tool that fits the models, refitting the recipe in "
+        "each fold."
+    )
     if run.report_only:
         limitations.append(
             "This run wrote a report and its metadata only. No dataset was written, nothing "

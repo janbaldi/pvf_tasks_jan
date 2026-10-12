@@ -1559,10 +1559,10 @@ def _task_clusters(run: TaskRun, membership: list[dict]) -> dict | None:
             f"{report.min_overlap} shared batches before its correlation counts as evidence. "
             f"Action: **{report.action}**. "
             + {
-                "report_only": "The groups are described here and every parameter went into "
+                "describe": "The groups are described here and every parameter went into "
                 "the dataset unchanged.",
-                "representative": "One member of each group was kept and the others dropped.",
-                "linear": "One member of each group was kept and the others replaced by what "
+                "keep_one": "One member of each group was kept and the others dropped.",
+                "residualise": "One member of each group was kept and the others replaced by what "
                 "is left of them once the retained ones are accounted for.",
             }.get(report.action, "")
         )

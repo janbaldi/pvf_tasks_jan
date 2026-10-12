@@ -50,7 +50,7 @@ def minimal_task(**overrides) -> dict:
         "inputs": {"batch_table": "batch_table.xlsx", "catalog": "catalog.xlsx"},
         "cohort": {"sites": ["Ghent"]},
         "target": {"column": "FP Flow CAR+ (%)"},
-        "columns": {"id": "Patient Lot/Batch #", "group": "Vector Lot"},
+        "roles": {"id": "Patient Lot/Batch #", "group": "Vector Lot"},
     }
     for section, values in overrides.items():
         task.setdefault(section, {}).update(values)
@@ -94,10 +94,11 @@ def test_paths_resolve_against_the_task_file_wherever_it_is_run_from(tmp_path, m
         ({"quality": {"min_non_missing": 0}}, "quality.min_non_missing"),
         ({"encoding": {"target_encoding_folds": 1}}, "encoding.target_encoding_folds"),
         ({"cohort": {"filters": [{"column": "Type", "op": "matches", "value": "x"}]}}, "op"),
-        ({"columns": {"include": ["Vector Lot"]}}, "columns.include"),
+        ({"predictors": {"include": ["Vector Lot"]}}, "predictors.include"),
         ({"split": {"folds": 5}}, "(root).split: unknown setting"),
         ({"availability": {"cutoff": "Harvest"}}, "(root).availability: unknown setting"),
-        ({"columns": {"exclude_categories": ["Release"]}}, "columns.exclude_categories"),
+        ({"predictors": {"exclude_by_catalog": ["Release"]}}, "predictors.exclude_by_catalog"),
+        ({"columns": {"id": "x"}}, "(root).columns: unknown setting"),
         ({"task": {"unknown_setting": 1}}, "unknown setting"),
     ],
 )
@@ -431,7 +432,7 @@ def test_a_negative_correlation_still_makes_a_group():
         cluster_frame(),
         ["up", "down", "unrelated"],
         params(cluster_corr_threshold=0.7, cluster_min_overlap=10),
-        action="report_only",
+        action="describe",
     )
     assert len(report.clusters) == 1
     assert set(report.clusters[0].members) == {"up", "down"}
@@ -447,7 +448,7 @@ def test_a_pair_with_too_few_shared_batches_cannot_form_a_group():
         frame,
         ["thin", "thin_twin", "up"],
         params(cluster_corr_threshold=0.5, cluster_min_overlap=10),
-        action="report_only",
+        action="describe",
     )
     assert not any({"thin", "thin_twin"} <= set(c.members) for c in report.clusters)
     reasons = {row["Parameter"]: row["Reason"] for row in report.skipped}
@@ -459,7 +460,7 @@ def test_a_constant_parameter_is_skipped_with_a_reason():
         cluster_frame(),
         ["up", "down", "constant"],
         params(cluster_min_overlap=5),
-        action="report_only",
+        action="describe",
     )
     assert {"constant"} == {
         row["Parameter"] for row in report.skipped if row["Reason"] == "constant"
@@ -469,7 +470,7 @@ def test_a_constant_parameter_is_skipped_with_a_reason():
 def test_report_only_clustering_changes_no_value():
     frame = cluster_frame()
     report = decorrelate.fit(
-        frame, ["up", "down"], params(cluster_min_overlap=5), action="report_only"
+        frame, ["up", "down"], params(cluster_min_overlap=5), action="describe"
     )
     assert report.clusters and report.clusters[0].frame.empty
     assert decorrelate.transform(frame, report.state()).empty
@@ -477,7 +478,9 @@ def test_report_only_clustering_changes_no_value():
 
 def test_a_residual_can_be_applied_to_new_rows_without_refitting():
     frame = cluster_frame()
-    report = decorrelate.fit(frame, ["up", "down"], params(cluster_min_overlap=5), action="linear")
+    report = decorrelate.fit(
+        frame, ["up", "down"], params(cluster_min_overlap=5), action="residualise"
+    )
     cluster = report.clusters[0]
     state = report.state()
 
@@ -502,7 +505,7 @@ def test_too_little_data_keeps_the_parameter_rather_than_inventing_a_residual():
         frame,
         ["up", "twin", "sparse_twin"],
         params(cluster_corr_threshold=0.6, cluster_min_overlap=3),
-        action="linear",
+        action="residualise",
     )
     assert report.clusters, "the three of them move together"
     kept = [fit for fit in report.clusters[0].fits if not fit.residualised]

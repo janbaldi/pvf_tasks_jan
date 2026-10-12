@@ -251,7 +251,7 @@ def test_report_only_clustering_leaves_the_predictors_alone(built):
     membership = csv(built, PREDICTIVE, "clusters.csv")
     assert manifest(built, PREDICTIVE)["counts"]["clusters"] > 0
     assert not [c for c in dataset.columns if c.endswith("_resid")]
-    clustered = membership[membership["Action"] == "report_only"]["Parameter"]
+    clustered = membership[membership["Action"] == "describe"]["Parameter"]
     kept = set(dataset.columns)
     assert any(name in kept for name in clustered), "the parameters are still there, unchanged"
 

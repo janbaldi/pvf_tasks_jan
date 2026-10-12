@@ -23,7 +23,7 @@ columns:
   exclude:
   - column: OOS Type
     reason: it is the reason for the disposition
-  exclude_categories:
+  exclude_by_catalog:
     Available At:
     - Post-release
 encoding:

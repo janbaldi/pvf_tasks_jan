@@ -909,10 +909,10 @@ def _check_task(spec: TaskSpec) -> list[str]:
     )
     named = {
         "target.column": [spec.target.column],
-        "columns.id": [spec.roles.id],
-        "columns.group": [spec.roles.group],
-        "columns.patient": [spec.roles.patient],
-        "columns.include": list(spec.roles.include),
+        "roles.id": [spec.roles.id],
+        "roles.group": [spec.roles.group],
+        "roles.patient": [spec.roles.patient],
+        "predictors.include": list(spec.predictors.include),
         "cohort.filters": [f.column for f in spec.cohort.filters],
         "cohort.date_column": [spec.cohort.date_column],
     }
@@ -927,10 +927,10 @@ def _check_task(spec: TaskSpec) -> list[str]:
     if not Path(spec.catalog).exists():
         return problems
     frame = io.read_table(spec.catalog)
-    for key in ("include_categories", "exclude_categories"):
-        for column, _ in getattr(spec.roles, key):
+    for key in ("include_by_catalog", "exclude_by_catalog"):
+        for column, _ in getattr(spec.predictors, key):
             if column not in frame.columns:
-                problems.append(f"columns.{key}: '{column}' is not a column of the catalog")
+                problems.append(f"predictors.{key}: '{column}' is not a column of the catalog")
     return problems
 
 
@@ -938,7 +938,7 @@ def encode_batches(run: str | Path, rows: pd.DataFrame, out: Path | None) -> Pat
     """Encode batches with a finished run's recipe and write them out."""
     run = Path(run)
     settings = yaml.safe_load((run / TASK_LAYOUT["task.yaml"]).read_text(encoding="utf-8"))
-    identifier = ((settings or {}).get("columns") or {}).get("id") or ""
+    identifier = ((settings or {}).get("roles") or {}).get("id") or ""
     encoded = recipe.apply(run, rows)
     if identifier and identifier in rows.columns:
         encoded.insert(0, identifier, rows[identifier])

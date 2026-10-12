@@ -43,7 +43,7 @@ OPERATORS = (
 TARGET_TYPES = ("numeric", "binary")
 MISSING_POLICIES = ("exclude", "include")
 #: What may be done about a group of parameters that move together.
-CLUSTER_ACTIONS = ("off", "report_only", "representative", "linear")
+CLUSTER_ACTIONS = ("off", "describe", "keep_one", "residualise")
 IMPUTATION = ("none", "median")
 
 CORRELATION_METHODS = ("spearman", "pearson")
@@ -120,19 +120,25 @@ class Roles:
     #: Batches of one patient (a re-manufacture, say) share biology, so they are
     #: kept together with their group when the target encoding is cross-fitted.
     patient: str = ""
+
+
+@dataclass(frozen=True)
+class Predictors:
+    """Which parameters may be predictors, beyond what the roles already rule out."""
+
     include: tuple[str, ...] = ()
     exclude: tuple[tuple[str, str], ...] = ()
     #: Catalog column → categories of it whose parameters are kept; the rest are left out.
-    include_categories: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    include_by_catalog: tuple[tuple[str, tuple[str, ...]], ...] = ()
     #: Catalog column → categories of it whose parameters are left out.
-    exclude_categories: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    exclude_by_catalog: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
 
 @dataclass(frozen=True)
 class Clustering:
     """Discovery is one setting; what is done about what was found is another."""
 
-    action: str = "report_only"
+    action: str = "describe"
     method: str = "spearman"
     threshold: float = 0.7
     min_size: int = 2
@@ -172,6 +178,7 @@ class TaskSpec:
     cohort: Cohort = field(default_factory=Cohort)
     target: Target = field(default_factory=Target)
     roles: Roles = field(default_factory=Roles)
+    predictors: Predictors = field(default_factory=Predictors)
     encoding: dict[str, Any] = field(default_factory=dict)
     quality: dict[str, Any] = field(default_factory=dict)
     clustering: Clustering = field(default_factory=Clustering)
@@ -196,16 +203,17 @@ class TaskSpec:
     def as_dict(self) -> dict[str, Any]:
         """The effective settings, defaults included, in the shape of ``task.yaml``."""
         d = _plain(asdict(self))
-        columns = d["roles"]
-        columns["exclude"] = [{"column": c, "reason": r} for c, r in columns["exclude"]]
-        for key in ("include_categories", "exclude_categories"):
-            columns[key] = dict(columns[key])
+        predictors = d["predictors"]
+        predictors["exclude"] = [{"column": c, "reason": r} for c, r in predictors["exclude"]]
+        for key in ("include_by_catalog", "exclude_by_catalog"):
+            predictors[key] = dict(predictors[key])
         return {
             "task": {key: d[key] for key in ("name", "question", "seed")},
             "inputs": {"batch_table": str(self.batch_table), "catalog": str(self.catalog)},
             "cohort": d["cohort"],
             "target": d["target"],
-            "columns": columns,
+            "roles": d["roles"],
+            "predictors": predictors,
             **{key: d[key] for key in ("encoding", "quality", "clustering", "missingness")},
             "report": d["report"],
         }
@@ -507,7 +515,8 @@ def parse(
             "inputs",
             "cohort",
             "target",
-            "columns",
+            "roles",
+            "predictors",
             "encoding",
             "quality",
             "clustering",
@@ -564,28 +573,23 @@ def parse(
     if target.type == "numeric" and target.positive_class:
         errors.append("target.positive_class: only a binary target has one")
 
-    roles_raw = _known(
-        raw.get("columns"),
-        (
-            "id",
-            "group",
-            "patient",
-            "include",
-            "exclude",
-            "include_categories",
-            "exclude_categories",
-        ),
-        "columns",
+    roles_raw = _known(raw.get("roles"), ("id", "group", "patient"), "roles", errors)
+    predictors_raw = _known(
+        raw.get("predictors"),
+        ("include", "exclude", "include_by_catalog", "exclude_by_catalog"),
+        "predictors",
         errors,
     )
     roles = Roles(
-        id=_text(roles_raw, "id", "columns", errors),
-        group=_text(roles_raw, "group", "columns", errors),
-        patient=_text(roles_raw, "patient", "columns", errors),
-        include=_names(roles_raw, "include", "columns", errors),
-        exclude=_reasoned(roles_raw, "exclude", "columns", errors),
-        include_categories=_categories(roles_raw, "include_categories", "columns", errors),
-        exclude_categories=_categories(roles_raw, "exclude_categories", "columns", errors),
+        id=_text(roles_raw, "id", "roles", errors),
+        group=_text(roles_raw, "group", "roles", errors),
+        patient=_text(roles_raw, "patient", "roles", errors),
+    )
+    predictors = Predictors(
+        include=_names(predictors_raw, "include", "predictors", errors),
+        exclude=_reasoned(predictors_raw, "exclude", "predictors", errors),
+        include_by_catalog=_categories(predictors_raw, "include_by_catalog", "predictors", errors),
+        exclude_by_catalog=_categories(predictors_raw, "exclude_by_catalog", "predictors", errors),
     )
 
     encoding = _knobs(raw.get("encoding"), ENCODING_FIELDS, "encoding", errors)
@@ -598,7 +602,7 @@ def parse(
         errors,
     )
     clustering = Clustering(
-        action=_choice(cluster_raw, "action", CLUSTER_ACTIONS, "clustering", errors, "report_only"),
+        action=_choice(cluster_raw, "action", CLUSTER_ACTIONS, "clustering", errors, "describe"),
         method=_choice(
             cluster_raw, "method", CORRELATION_METHODS, "clustering", errors, "spearman"
         ),
@@ -627,15 +631,15 @@ def parse(
             roles_by_column.setdefault(column, []).append(label)
     for column, labels in roles_by_column.items():
         if len(labels) > 1:
-            errors.append(f"columns: '{column}' is declared as {' and '.join(labels)} at once")
-    for column in roles.include:
+            errors.append(f"roles: '{column}' is declared as {' and '.join(labels)} at once")
+    for column in predictors.include:
         if column in roles_by_column:
             errors.append(
-                f"columns.include: '{column}' is already the "
+                f"predictors.include: '{column}' is already the "
                 f"{roles_by_column[column][0]} column and cannot also be a predictor"
             )
-        if column in dict(roles.exclude):
-            errors.append(f"columns.include: '{column}' is in columns.exclude as well")
+        if column in dict(predictors.exclude):
+            errors.append(f"predictors.include: '{column}' is in predictors.exclude as well")
 
     def located(section: dict, key: str, where: str, fallback: str, what: str) -> Path:
         text = _text(section, key, where, errors).strip()
@@ -679,6 +683,7 @@ def parse(
         cohort=cohort,
         target=target,
         roles=roles,
+        predictors=predictors,
         encoding=encoding,
         quality=quality,
         clustering=clustering,

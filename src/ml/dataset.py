@@ -465,18 +465,18 @@ def target_descendants(
 def _category_exclusions(catalog: pd.DataFrame, spec: TaskSpec) -> dict[str, str]:
     """Parameter → why, for every parameter the task's catalog category rules leave out."""
     out: dict[str, str] = {}
-    rules = [("include_categories", c, v) for c, v in spec.roles.include_categories] + [
-        ("exclude_categories", c, v) for c, v in spec.roles.exclude_categories
+    rules = [("include_by_catalog", c, v) for c, v in spec.predictors.include_by_catalog] + [
+        ("exclude_by_catalog", c, v) for c, v in spec.predictors.exclude_by_catalog
     ]
     for key, column, categories in rules:
         if column not in catalog.columns:
             # A typo must not quietly let every category through.
             raise TaskRefused(
-                f"columns.{key}: the catalog has no '{column}' column "
+                f"predictors.{key}: the catalog has no '{column}' column "
                 f"(it has {', '.join(map(str, catalog.columns))})"
             )
         values = catalog[column].fillna("").astype(str).str.strip()
-        keep = key == "include_categories"
+        keep = key == "include_by_catalog"
         for parameter, value in zip(catalog["Parameter"].astype(str), values):
             if (value in categories) != keep:
                 why = (
@@ -529,8 +529,8 @@ def candidate_predictors(
             refuse(parameter, f"{roles[parameter]}, kept as metadata rather than encoded", "role")
         elif parameter == result.target_column:
             refuse(parameter, "collides with the target's output name", "role")
-        elif parameter in dict(spec.roles.exclude):
-            refuse(parameter, dict(spec.roles.exclude)[parameter], "task exclusion")
+        elif parameter in dict(spec.predictors.exclude):
+            refuse(parameter, dict(spec.predictors.exclude)[parameter], "task exclusion")
         elif parameter in excluded_category:
             refuse(parameter, excluded_category[parameter], "category exclusion")
         elif parameter in descendants:
@@ -544,21 +544,21 @@ def candidate_predictors(
                 "batches were processed with it",
                 "site-relative",
             )
-        elif spec.roles.include and parameter not in spec.roles.include:
-            refuse(parameter, "not in the task's columns.include list", "include list")
+        elif spec.predictors.include and parameter not in spec.predictors.include:
+            refuse(parameter, "not in the task's predictors.include list", "include list")
         else:
             kept.append(parameter)
 
-    if spec.roles.include:
-        for parameter in spec.roles.include:
+    if spec.predictors.include:
+        for parameter in spec.predictors.include:
             if parameter not in cohort.columns:
                 raise TaskRefused(
-                    f"columns.include: '{parameter}' is not in the batch table, so the predictors "
-                    "this task asked for cannot all be supplied"
+                    f"predictors.include: '{parameter}' is not in the batch table, so the "
+                    "predictors this task asked for cannot all be supplied"
                 )
             if parameter not in kept:
                 raise TaskRefused(
-                    f"columns.include: '{parameter}' was asked for as a predictor but is "
+                    f"predictors.include: '{parameter}' was asked for as a predictor but is "
                     "excluded for another reason — see parameters.csv"
                 )
 
@@ -1176,7 +1176,7 @@ def _check_unique_ids(cohort: pd.DataFrame, spec: TaskSpec) -> None:
     repeated = ids[ids.notna() & ids.duplicated(keep=False)]
     if len(repeated):
         raise TaskRefused(
-            f"columns.id: '{column}' is not unique in this cohort — "
+            f"roles.id: '{column}' is not unique in this cohort — "
             f"{', '.join(sorted(map(str, set(repeated)))[:5])} appear more than once. "
             "Fix the source, or narrow the cohort so each batch is in it once"
         )

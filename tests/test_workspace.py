@@ -245,13 +245,13 @@ def test_a_catalog_category_can_be_left_out_by_name(built):
     assert not set(columns.loc[columns["Role"] == "predictor", "Source"]) & late
 
 
-def test_include_categories_keeps_only_those_categories():
+def test_include_by_catalog_keeps_only_those_categories():
     spec = taskconfig.parse(
         {
             "task": {"name": "t"},
             "inputs": {"batch_table": "a.xlsx", "catalog": "b.xlsx"},
             "target": {"column": "y"},
-            "columns": {"include_categories": {"Category": ["Process"]}},
+            "predictors": {"include_by_catalog": {"Category": ["Process"]}},
         },
         Path("."),
     )
@@ -274,7 +274,7 @@ def test_a_category_column_the_catalog_does_not_have_is_refused():
             "task": {"name": "t"},
             "inputs": {"batch_table": "a.xlsx", "catalog": "b.xlsx"},
             "target": {"column": "y"},
-            "columns": {"exclude_categories": {"Categroy": ["QC"]}},
+            "predictors": {"exclude_by_catalog": {"Categroy": ["QC"]}},
         },
         Path("."),
     )
@@ -360,7 +360,7 @@ def test_a_batch_twice_in_a_cohort_is_refused():
             "task": {"name": "s"},
             "inputs": {"batch_table": "a.xlsx", "catalog": "b.xlsx"},
             "target": {"column": "outcome"},
-            "columns": {"id": "Patient Lot/Batch #"},
+            "roles": {"id": "Patient Lot/Batch #"},
         },
         Path("."),
     )

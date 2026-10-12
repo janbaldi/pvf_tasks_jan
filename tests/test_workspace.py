@@ -407,18 +407,18 @@ def test_a_small_cohort_is_not_target_encoded_or_hashed():
 # ---------------------------------------------------------------------------
 def test_a_recipe_applied_to_the_cohort_reproduces_the_package(built):
     run = artifact(built, PREDICTIVE, "manifest.json").parent
-    transformed = csv(built, PREDICTIVE, "dataset_encoded.csv")
+    encoded = csv(built, PREDICTIVE, "dataset_encoded.csv")
     state = json.loads(artifact(built, PREDICTIVE, "encoding.json").read_text(encoding="utf-8"))
     # The package's target encoding is cross-fitted; the recipe applies the frozen means.
     crossfitted = {f["name"] for f in state["target_encoding"].get("columns", {}).values()}
     batch_table = built["batch_table"].set_index("Patient Lot/Batch #")
-    rows = batch_table.loc[transformed["Patient Lot/Batch #"]].copy().reset_index()
+    rows = batch_table.loc[encoded["Patient Lot/Batch #"]].copy().reset_index()
     applied = recipe.apply(run, rows)
     compared = [c for c in applied.columns if c not in crossfitted]
     assert compared
     pd.testing.assert_frame_equal(
         applied[compared].reset_index(drop=True).astype("float64"),
-        transformed[compared].reset_index(drop=True).astype("float64"),
+        encoded[compared].reset_index(drop=True).astype("float64"),
         check_exact=False,
         atol=1e-9,
     )

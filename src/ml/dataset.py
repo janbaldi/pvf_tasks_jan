@@ -110,8 +110,8 @@ class TaskResult:
     #: Predictors that track the target closely on the fitted rows.
     proxies: list[dict] = field(default_factory=list)
     missingness: Any = None
-    #: The transformed table, exported beside the dataset.
-    transformed: pd.DataFrame | None = None
+    #: The encoded table, exported beside the dataset.
+    encoded: pd.DataFrame | None = None
 
     dictionary: list[Record] = field(default_factory=list)
     columns: list[dict] = field(default_factory=list)
@@ -121,7 +121,7 @@ class TaskResult:
     rows: int = 0
     feature_columns: int = 0
     #: How many columns the recipe produces, which is not the raw predictor count.
-    transformed_columns: int = 0
+    encoded_columns: int = 0
     selected_raw: list[str] = field(default_factory=list)
     dataset_role: str = ""
     fitted_on: str = ""
@@ -1080,8 +1080,8 @@ def build(
     """Run one task.
 
     Returns the dataset — the raw predictors the recipe uses, with the metadata
-    and the target — and everything that was decided; the transformed view is
-    ``result.transformed``. Every row is a training row: cross-validation
+    and the target — and everything that was decided; the encoded view is
+    ``result.encoded``. Every row is a training row: cross-validation
     belongs to the tool that fits the models.
     """
     result = TaskResult(spec=spec)
@@ -1134,11 +1134,11 @@ def build(
     # candidate. A parameter the encoders then skipped is not a modelling input,
     # and exporting it as one would overstate what this dataset offers.
     result.selected_raw = [column for column in pre.inputs if column in cohort.columns]
-    result.transformed_columns = len(pre.output_columns)
+    result.encoded_columns = len(pre.output_columns)
     raw = cohort[result.selected_raw].copy()
     metadata = _metadata(cohort, spec, result)
     final = pd.concat([metadata, raw, target.rename(result.target_column)], axis=1)
-    result.transformed = pd.concat(
+    result.encoded = pd.concat(
         [metadata, transformed, target.rename(result.target_column)], axis=1
     )
     result.dataset_role = (
@@ -1187,7 +1187,7 @@ def _sample_size_notes(
 ) -> None:
     """How much evidence the table really holds, said where a reader will see it."""
     fitted = len(cohort)
-    columns = result.transformed_columns
+    columns = result.encoded_columns
     if spec.roles.group and spec.roles.group in cohort.columns:
         distinct = int(cohort[spec.roles.group].nunique())
         if distinct < 10:

@@ -34,7 +34,7 @@ MANIFEST = "manifest.json"
 ARTEFACTS = {
     "config/task.yaml": "effective task settings",
     "data/dataset.csv": "dataset",
-    "data/dataset_encoded.csv": "transformed predictors",
+    "data/dataset_encoded.csv": "encoded dataset",
     "metadata/dataset_columns.csv": "column dictionary",
     "metadata/encoded_columns.csv": "feature dictionary",
     "metadata/parameters.csv": "parameter decisions",

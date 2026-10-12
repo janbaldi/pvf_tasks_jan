@@ -1015,8 +1015,8 @@ def _task_cohort(run: TaskRun) -> dict | None:
                             ["Batch"],
                             [[batch] for batch in examples],
                             filter_column="Batch",
-                            note="They stay in the batch table. metadata/cohort.csv in the package "
-                            "has every batch with the filter that excluded it.",
+                            note="They stay in the batch table. metadata/batches.csv in the "
+                            "package has every batch with the filter that excluded it.",
                         )
                     ],
                 )
@@ -1025,9 +1025,9 @@ def _task_cohort(run: TaskRun) -> dict | None:
     excluded = [row for row in result.cohort.exclusions if not row["Included"]]
     blocks.append(
         download(
-            f"Download cohort.csv ({len(result.cohort.exclusions):,} batches, "
+            f"Download batches.csv ({len(result.cohort.exclusions):,} batches, "
             f"{len(excluded):,} excluded)",
-            "cohort.csv",
+            "batches.csv",
             csv_text(result.cohort.exclusions),
             note="One row per batch in the batch table: whether it is in the dataset, "
             "and the first "
@@ -1162,8 +1162,8 @@ def _task_parameters(run: TaskRun) -> dict | None:
             "`…_target_enc` or `…_hash_07` is read back to the parameter it came from.",
         ),
         download(
-            f"Download columns.csv ({len(result.columns):,} columns)",
-            "columns.csv",
+            f"Download dataset_columns.csv ({len(result.columns):,} columns)",
+            "dataset_columns.csv",
             csv_text(result.columns),
             note="One row per exported column, in output order, including the identifier, the "
             "grouping column and the target.",
@@ -1176,13 +1176,13 @@ def _task_parameters(run: TaskRun) -> dict | None:
             "with the chain that produced it.",
         ),
         download(
-            f"Download decisions.csv ({len(decisions):,} decisions)",
-            "decisions.csv",
+            f"Download parameters.csv ({len(decisions):,} decisions)",
+            "parameters.csv",
             csv_text(decisions),
         ),
         download(
-            f"Download features.csv ({len(result.dictionary):,} features)",
-            "features.csv",
+            f"Download encoded_columns.csv ({len(result.dictionary):,} features)",
+            "encoded_columns.csv",
             csv_text(
                 [
                     {
@@ -1740,8 +1740,8 @@ def _task_dataset(run: TaskRun) -> dict | None:
         [
             "Transformed view",
             esc(
-                "data/transformed.csv: the recipe fitted on the whole cohort (target "
-                "encoding cross-fitted); refit recipe.json inside each fold you evaluate in"
+                "data/dataset_encoded.csv: the recipe fitted on the whole cohort (target "
+                "encoding cross-fitted); refit encoding.json inside each fold you evaluate in"
             ),
         ]
     )

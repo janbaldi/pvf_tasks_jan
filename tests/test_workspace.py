@@ -151,14 +151,14 @@ def test_a_task_without_inputs_or_config_says_what_to_do(tmp_path):
 def test_the_command_line_checks_and_reports_errors_plainly(built, capsys):
     config = built["config"]["__path__"]
     task = str(built["directory"] / dummy_data.TASK_FILES[0])
-    assert cli.main(["--config", config, "check", "--task", task]) == 0
-    assert cli.main(["--config", config, "tasks", "--task", "no_such_task"]) == 2
+    assert cli.main(["--config", config, "validate", "--task", task]) == 0
+    assert cli.main(["--config", config, "task", "run", "--task", "no_such_task"]) == 2
     assert "does not exist" in capsys.readouterr().err
 
 
 def test_init_links_the_task_to_the_config_it_was_made_with(built, tmp_path):
     folder = tmp_path / "q3"
-    assert cli.main(["--config", str(built["config_path"]), "init", str(folder)]) == 0
+    assert cli.main(["--config", str(built["config_path"]), "task", "new", str(folder)]) == 0
     text = (folder / "task.yaml").read_text(encoding="utf-8")
     assert "\nconfig: " in text and "# config:" not in text
     assert taskconfig.load(folder).batch_table == Path(built["config"]["paths"]["batch_table"])
@@ -167,7 +167,7 @@ def test_init_links_the_task_to_the_config_it_was_made_with(built, tmp_path):
 def test_inside_a_workspace_no_task_needs_naming(built, monkeypatch, caplog):
     monkeypatch.delenv(workspace.CONFIG_ENV, raising=False)
     monkeypatch.chdir(built["directory"] / dummy_data.TASK_FILES[0])
-    assert cli.main(["check"]) == 0
+    assert cli.main(["validate"]) == 0
     assert "Task 'site_a_car_expression' is valid" in caplog.text
 
 
@@ -234,14 +234,14 @@ def test_a_task_says_when_the_catalog_changed_after_the_build(tmp_path):
 def test_a_catalog_category_can_be_left_out_by_name(built):
     catalog = pd.read_excel(built["config"]["paths"]["catalog"])
     late = set(catalog.loc[catalog["Available At"] == "Post-release", "Parameter"])
-    decisions = csv(built, EXPLORATORY, "decisions.csv")
+    decisions = csv(built, EXPLORATORY, "parameters.csv")
     excluded = decisions[decisions["Decision"] == "excluded"].set_index("Parameter")
     present = late & set(built["batch_table"].columns)
     assert present <= set(excluded.index), "every one is out, some already for another reason"
     left_out = decisions[decisions["Stage"] == "category exclusion"]
     assert len(left_out) and set(left_out["Parameter"]) <= present
     assert (left_out["Reason"] == "Catalog 'Available At' is 'Post-release'").all()
-    columns = csv(built, EXPLORATORY, "columns.csv")
+    columns = csv(built, EXPLORATORY, "dataset_columns.csv")
     assert not set(columns.loc[columns["Role"] == "predictor", "Source"]) & late
 
 
@@ -379,8 +379,8 @@ def test_floating_point_jitter_is_constant():
 
 def test_no_constant_column_reaches_an_exported_table(built):
     for task in (EXPLORATORY, PREDICTIVE):
-        table = csv(built, task, "transformed.csv")
-        recipe_ = json.loads(artifact(built, task, "recipe.json").read_text(encoding="utf-8"))
+        table = csv(built, task, "dataset_encoded.csv")
+        recipe_ = json.loads(artifact(built, task, "encoding.json").read_text(encoding="utf-8"))
         predictors = recipe_["output_columns"]
         constant = [c for c in predictors if encode.near_constant(table[c])]
         assert not constant, (task, constant[:5])
@@ -407,8 +407,8 @@ def test_a_small_cohort_is_not_target_encoded_or_hashed():
 # ---------------------------------------------------------------------------
 def test_a_recipe_applied_to_the_cohort_reproduces_the_package(built):
     run = artifact(built, PREDICTIVE, "manifest.json").parent
-    transformed = csv(built, PREDICTIVE, "transformed.csv")
-    state = json.loads(artifact(built, PREDICTIVE, "recipe.json").read_text(encoding="utf-8"))
+    transformed = csv(built, PREDICTIVE, "dataset_encoded.csv")
+    state = json.loads(artifact(built, PREDICTIVE, "encoding.json").read_text(encoding="utf-8"))
     # The package's target encoding is cross-fitted; the recipe applies the frozen means.
     crossfitted = {f["name"] for f in state["target_encoding"].get("columns", {}).values()}
     batch_table = built["batch_table"].set_index("Patient Lot/Batch #")

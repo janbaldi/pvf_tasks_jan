@@ -18,7 +18,7 @@ walked and excluded, with the chain that got them there.
 
 *What is learned is recorded.* Category vocabularies, target means, duplicate
 selection, clusters and residual regressions are fitted on the whole cohort and
-written to ``recipe.json``, so the tool that fits the models can refit them
+written to ``encoding.json``, so the tool that fits the models can refit them
 inside each of its own cross-validation folds. This module makes no split.
 """
 
@@ -559,7 +559,7 @@ def candidate_predictors(
             if parameter not in kept:
                 raise TaskRefused(
                     f"columns.include: '{parameter}' was asked for as a predictor but is "
-                    "excluded for another reason — see decisions.csv"
+                    "excluded for another reason — see parameters.csv"
                 )
 
     if not kept:
@@ -581,7 +581,7 @@ def candidate_predictors(
 # ---------------------------------------------------------------------------
 # The preprocessing recipe
 # ---------------------------------------------------------------------------
-#: Bumped whenever recipe.json changes shape; a recipe says which version wrote it.
+#: Bumped whenever encoding.json changes shape; a recipe says which version wrote it.
 RECIPE_VERSION = 2
 #: The suffix of a missing-value indicator column.
 MISSING_SUFFIX = "__missing"
@@ -593,7 +593,7 @@ class Preprocessor:
 
     Plain data throughout: dictionaries of category vocabularies, means, widths,
     retained parameters and regression coefficients. It is written next to the
-    dataset as ``recipe.json`` and read back with :meth:`from_state`, so applying
+    dataset as ``encoding.json`` and read back with :meth:`from_state`, so applying
     it to new batches needs this package — ``ml task encode`` — not this process.
     """
 
@@ -976,7 +976,7 @@ def fit_preprocessing(
     if not pre.encoded_columns:
         raise TaskRefused(
             "Every candidate predictor was dropped before the dataset was assembled. "
-            "decisions.csv says why each one went"
+            "parameters.csv says why each one went"
         )
     kept = fitted_frame[pre.encoded_columns]
 
@@ -1142,8 +1142,8 @@ def build(
         [metadata, transformed, target.rename(result.target_column)], axis=1
     )
     result.dataset_role = (
-        "raw modelling inputs, one row per batch; data/transformed.csv is the same rows "
-        f"through recipe.json, fitted on {result.fitted_on}"
+        "raw modelling inputs, one row per batch; data/dataset_encoded.csv is the same rows "
+        f"through encoding.json, fitted on {result.fitted_on}"
     )
 
     result.dictionary = list(pre.dictionary)
@@ -1258,7 +1258,7 @@ def _column_table(
             else:
                 feeds = [r for r in pre.dictionary if r["source"] == column]
                 role, source = PREDICTOR, column
-                transformation = "none — raw input, recipe.json says what it becomes"
+                transformation = "none — raw input, encoding.json says what it becomes"
                 meaning = (
                     "feeds " + ", ".join(f"{r['output']} ({r['strategy']})" for r in feeds[:4])
                     if feeds

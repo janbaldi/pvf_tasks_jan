@@ -34,12 +34,12 @@ from conftest import (
 REQUIRED = (
     "task.yaml",
     "dataset.csv",
-    "columns.csv",
-    "features.csv",
-    "decisions.csv",
-    "cohort.csv",
+    "dataset_columns.csv",
+    "encoded_columns.csv",
+    "parameters.csv",
+    "batches.csv",
     "clusters.csv",
-    "recipe.json",
+    "encoding.json",
     "report.html",
     "report_payload.json",
     "manifest.json",
@@ -58,7 +58,7 @@ def test_a_finished_task_folder_holds_everything_it_promises(built):
             assert artifact(built, task, name).exists(), f"{task}/{name}"
         assert manifest(built, task)["status"] == "complete"
         # dataset.csv is the raw predictors for every task; the transformed view is beside it.
-        assert artifact(built, task, "transformed.csv").exists()
+        assert artifact(built, task, "dataset_encoded.csv").exists()
         assert manifest(built, task)["dataset_role"].startswith("raw modelling inputs")
 
 
@@ -66,7 +66,7 @@ def test_the_manifest_hashes_every_artefact_but_itself(built):
     recorded = manifest(built, PREDICTIVE)["outputs"]
     names = {entry["path"] for entry in recorded}
     assert "manifest.json" not in names
-    assert {"data/dataset.csv", "report/report.html", "metadata/columns.csv"} <= names
+    assert {"data/dataset.csv", "report/report.html", "metadata/dataset_columns.csv"} <= names
     assert all(len(entry["sha256"]) == 64 for entry in recorded)
 
 
@@ -74,7 +74,7 @@ def test_the_counts_agree_wherever_they_are_written(built):
     for task in (PREDICTIVE, EXPLORATORY):
         counts = manifest(built, task)["counts"]
         dataset = csv(built, task, "dataset.csv")
-        columns = csv(built, task, "columns.csv")
+        columns = csv(built, task, "dataset_columns.csv")
         assert counts["dataset_rows"] == len(dataset)
         assert counts["dataset_columns"] == dataset.shape[1]
         assert list(columns["Column"]) == list(dataset.columns)
@@ -129,7 +129,7 @@ def test_batches_without_a_target_are_counted_and_named_separately(built):
     reasons = table_with(report, "Why a batch is not in the dataset")
     assert any("target" in str(row[0]) for row in reasons["rows"])
 
-    exclusions = csv(built, PREDICTIVE, "cohort.csv")
+    exclusions = csv(built, PREDICTIVE, "batches.csv")
     assert len(exclusions) == len(built["batch_table"])
     assert exclusions["Included"].sum() == len(csv(built, PREDICTIVE, "dataset.csv"))
     assert exclusions.loc[~exclusions["Included"], "Reason"].notna().all()
@@ -150,7 +150,7 @@ def test_a_balanced_binary_target_maps_both_classes(built):
 # ---------------------------------------------------------------------------
 def test_the_target_and_everything_computed_from_it_stay_out(built):
     dataset = csv(built, PREDICTIVE, "dataset.csv")
-    decisions = csv(built, PREDICTIVE, "decisions.csv")
+    decisions = csv(built, PREDICTIVE, "parameters.csv")
 
     for leaked in ("<f_vcn_per_cell>", "<f_flow_accuracy>", dummy_data.TARGET):
         assert leaked not in dataset.columns
@@ -161,7 +161,7 @@ def test_the_target_and_everything_computed_from_it_stay_out(built):
 
 def test_roles_are_metadata_and_are_not_encoded(built):
     dataset = csv(built, PREDICTIVE, "dataset.csv")
-    columns = csv(built, PREDICTIVE, "columns.csv")
+    columns = csv(built, PREDICTIVE, "dataset_columns.csv")
     assert list(dataset.columns)[0] == "Patient Lot/Batch #"
     assert list(dataset.columns)[-1] == "fp_flow_car"
     assert list(columns["Column"]).count("<vector_lot>") == 1
@@ -172,7 +172,7 @@ def test_roles_are_metadata_and_are_not_encoded(built):
 
 
 def test_parameters_in_an_excluded_catalog_category_are_left_out(built):
-    decisions = csv(built, PREDICTIVE, "decisions.csv")
+    decisions = csv(built, PREDICTIVE, "parameters.csv")
     late = decisions[decisions["Stage"] == "category exclusion"]
     assert {"Disposition", "<endotoxin>"} <= set(late["Parameter"])
     assert all(reason.startswith("Catalog 'Available At' is") for reason in late["Reason"])
@@ -182,7 +182,7 @@ def test_parameters_in_an_excluded_catalog_category_are_left_out(built):
 
 def test_every_exported_column_has_exactly_one_dictionary_entry(built):
     for task in (PREDICTIVE, EXPLORATORY):
-        dataset, columns = csv(built, task, "dataset.csv"), csv(built, task, "columns.csv")
+        dataset, columns = csv(built, task, "dataset.csv"), csv(built, task, "dataset_columns.csv")
         assert list(columns["Column"]) == list(dataset.columns)
         assert not columns["Column"].duplicated().any()
         assert columns["Role"].notna().all() and columns["Transformation"].notna().all()
@@ -191,7 +191,7 @@ def test_every_exported_column_has_exactly_one_dictionary_entry(built):
 def test_the_transformed_table_can_be_read_back_to_its_parameters(built):
     report = payload(built, EXPLORATORY)
     dictionary = {row[0]: row for row in table_with(report, "Meaning")["rows"]}
-    dataset = csv(built, EXPLORATORY, "transformed.csv")
+    dataset = csv(built, EXPLORATORY, "dataset_encoded.csv")
     metadata = {"Patient Lot/Batch #", "<vector_lot>", "disposition_is_released"}
     for column in dataset.columns:
         if column not in metadata:
@@ -221,9 +221,9 @@ def test_target_encoding_is_cross_fitted_and_says_which_folds(built):
     prose = str(section(payload(built, EXPLORATORY), "parameters")["blocks"])
     assert "fold's training rows alone" in prose
 
-    dataset = csv(built, EXPLORATORY, "transformed.csv")
+    dataset = csv(built, EXPLORATORY, "dataset_encoded.csv")
     raw = csv(built, EXPLORATORY, "dataset.csv")
-    recipe = json.loads(artifact(built, EXPLORATORY, "recipe.json").read_text(encoding="utf-8"))
+    recipe = json.loads(artifact(built, EXPLORATORY, "encoding.json").read_text(encoding="utf-8"))
     encoded = [c for c in dataset.columns if c.endswith("_target_enc")]
     assert encoded
 
@@ -239,7 +239,7 @@ def test_target_encoding_is_cross_fitted_and_says_which_folds(built):
 
 
 def test_an_ordinal_parameter_becomes_a_rank_and_strays_are_left_missing(built):
-    ranks = csv(built, EXPLORATORY, "transformed.csv")[dummy_data.ORDINAL_PARAMETER].dropna()
+    ranks = csv(built, EXPLORATORY, "dataset_encoded.csv")[dummy_data.ORDINAL_PARAMETER].dropna()
     assert set(ranks) <= set(range(1, len(dummy_data.ORDINAL_ORDER) + 1))
 
 
@@ -262,7 +262,7 @@ def test_linear_residuals_name_the_parameters_they_were_fitted_on(built):
     assert not residualised.empty
     assert residualised["Regressors"].notna().all()
 
-    recipe = json.loads(artifact(built, EXPLORATORY, "recipe.json").read_text(encoding="utf-8"))
+    recipe = json.loads(artifact(built, EXPLORATORY, "encoding.json").read_text(encoding="utf-8"))
     for cluster in recipe["clusters"]["clusters"]:
         assert cluster["representative"] in set(cluster["members"])
         for fit in cluster["fits"]:
@@ -284,8 +284,8 @@ def test_every_clustered_parameter_is_in_the_membership_export(built):
 
 
 def test_a_dropped_duplicate_points_at_a_parameter_that_survived(built):
-    decisions = csv(built, EXPLORATORY, "decisions.csv")
-    dataset = csv(built, EXPLORATORY, "transformed.csv")
+    decisions = csv(built, EXPLORATORY, "parameters.csv")
+    dataset = csv(built, EXPLORATORY, "dataset_encoded.csv")
     duplicates = decisions[decisions["Stage"] == "near-duplicate"]
     assert not duplicates.empty
     for reason in duplicates["Reason"]:
@@ -298,10 +298,10 @@ def test_a_dropped_duplicate_points_at_a_parameter_that_survived(built):
 # ---------------------------------------------------------------------------
 def test_the_report_offers_the_files_the_package_holds(built):
     offered = downloads(payload(built, PREDICTIVE))
-    assert {"cohort.csv", "columns.csv", "decisions.csv", "clusters.csv"} <= set(offered)
-    on_disk = artifact(built, PREDICTIVE, "decisions.csv").read_text(encoding="utf-8")
-    assert offered["decisions.csv"]["text"].splitlines()[0] == on_disk.splitlines()[0]
-    assert len(offered["decisions.csv"]["text"].splitlines()) == len(on_disk.splitlines())
+    assert {"batches.csv", "dataset_columns.csv", "parameters.csv", "clusters.csv"} <= set(offered)
+    on_disk = artifact(built, PREDICTIVE, "parameters.csv").read_text(encoding="utf-8")
+    assert offered["parameters.csv"]["text"].splitlines()[0] == on_disk.splitlines()[0]
+    assert len(offered["parameters.csv"]["text"].splitlines()) == len(on_disk.splitlines())
 
 
 def test_the_heavy_content_waits_to_be_asked_for(built):
@@ -326,7 +326,7 @@ def test_the_report_states_what_the_table_is_for(built):
     for task in (PREDICTIVE, EXPLORATORY):
         overview = facts(first_table(payload(built, task), "overview"))
         assert "raw modelling inputs" in overview["What the table is"]
-        assert "data/transformed.csv" in overview["What the table is"]
+        assert "data/dataset\\_encoded.csv" in overview["What the table is"]  # markdown
 
 
 def test_provenance_records_the_inputs_this_stage_actually_read(built):

@@ -1,6 +1,6 @@
 """Using what a task fitted: on new batches, and inside cross-validation.
 
-A task run writes its fitted preprocessing to ``metadata/recipe.json``. Two
+A task run writes its fitted preprocessing to ``metadata/encoding.json``. Two
 things can be done with it here:
 
 * :func:`apply` encodes new batches — a batch table built later, say — exactly as the
@@ -40,7 +40,7 @@ def find(run: str | Path) -> Path:
     """The recipe of a task run, given the run folder or the recipe itself."""
     path = Path(run)
     if path.is_dir():
-        path = path / "metadata" / "recipe.json"
+        path = path / "metadata" / "encoding.json"
     if not path.is_file():
         raise FileNotFoundError(f"No recipe at {path} — is this a task run folder?")
     return path

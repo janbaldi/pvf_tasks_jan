@@ -43,15 +43,6 @@ columns:
   exclude_categories: {}          # by a PTF column: {PTF column: [categories left out]}
   # e.g. exclude_categories: {Available At: [Release, Post-release]}
 
-# Only for a predictive task: what is known at the moment of prediction.
-# With an 'Available At' column in the PTF, everything from a later stage — or
-# with no stage — is left out. Stages: D0 D1 D3 D6 D8 D10 Harvest Wash
-# Formulation "Final product" Post-thaw Release Post-release.
-availability:
-  cutoff: __CUTOFF__
-  unavailable: []                 # extra exclusions: [{column: ..., reason: ...}]
-  available: []                   # parameters allowed whatever their stage
-
 clustering:
   action: report_only             # off | report_only | representative | linear
   method: spearman

@@ -35,11 +35,16 @@ columns:
   exclude:
   - column: <subject_weight>
     reason: dose per kilogram already carries it
-availability:
-  cutoff: Harvest
-  unavailable:
   - column: <washed_cells>
     reason: counted after the wash
+  exclude_categories:
+    Available At:
+    - Wash
+    - Formulation
+    - Final product
+    - Post-thaw
+    - Release
+    - Post-release
 encoding:
   onehot_max_categories: 5
   target_max_categories: 6

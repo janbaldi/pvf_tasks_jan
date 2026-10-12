@@ -48,7 +48,6 @@ def init(
         .replace("__PURPOSE__", purpose)
         .replace("__TARGET__", target or "<fp_car_pct>")
         .replace("__TARGET_TYPE__", "numeric")
-        .replace("__CUTOFF__", "Harvest" if purpose == "predictive" else '""')
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")

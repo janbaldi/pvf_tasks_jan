@@ -25,7 +25,7 @@ from typing import Any
 import pandas as pd
 import yaml
 
-from . import decorrelate, io, missingness, plots, stlite
+from . import decorrelate, missingness, plots, stlite
 from .blocks import (
     Block,
     bold,
@@ -1195,7 +1195,6 @@ def _task_parameters(run: TaskRun) -> dict | None:
             note="The feature dictionary: every column the recipe produces, and its parameter.",
         ),
     ]
-    blocks.append(_stage_summary(run))
     if result.proxies:
         blocks.append(
             table(
@@ -1366,40 +1365,6 @@ def _task_parameters(run: TaskRun) -> dict | None:
             )
         )
     return _section("parameters", "Parameters and encodings", blocks)
-
-
-def _stage_summary(run: TaskRun) -> Block | None:
-    """How the PTF's process stages decided availability, stage by stage."""
-    result, spec = run.result, run.spec
-    if not result.stages:
-        return None
-    candidates = set(result.candidates)
-    late = {d.parameter for d in result.decisions if d.stage == "availability"}
-    rows = []
-    for stage in [*spec.availability.stages, ""]:
-        names = [p for p, s in result.stages.items() if s == stage]
-        if not names:
-            continue
-        rows.append(
-            [
-                esc(stage or "no stage in the PTF"),
-                f"{len(names):,}",
-                f"{sum(n in candidates for n in names):,}",
-                f"{sum(n in late for n in names):,}",
-            ]
-        )
-    cutoff = spec.availability.cutoff or "none"
-    return table(
-        ["Available at", "Parameters", "Allowed as predictors", "Left out as too late"],
-        rows,
-        note=f"From the PTF's '{io.STAGE_COLUMN}' column; a derived column is as late as its "
-        f"latest input. Prediction point: {esc(cutoff)}."
-        + (
-            ""
-            if spec.predictive
-            else " This task is exploratory, so stages are described but nothing is left out."
-        ),
-    )
 
 
 def _task_missingness(run: TaskRun) -> dict | None:

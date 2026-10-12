@@ -2,8 +2,7 @@
 
 ``config.yaml`` names the one PTF and the one PVF and holds every SharePoint
 location; each task is a workspace whose runs carry the inputs they read; every
-manifest has one format; a predictive task's availability is checked against
-the PTF's stages; a task can leave out whole PTF categories; a column constant
+manifest has one format; a task can leave out whole PTF categories; a column constant
 to measurement precision never reaches a model; and a recipe can be read back
 and applied.
 """
@@ -330,38 +329,6 @@ def test_a_changed_output_is_caught(built, tmp_path):
     shutil.copytree(source, copy)
     (copy / "data" / "dataset.csv").write_text("tampered\n", encoding="utf-8")
     assert any("changed since" in p for p in manifest.verify(copy / "manifest.json"))
-
-
-# ---------------------------------------------------------------------------
-# Availability by process stage
-# ---------------------------------------------------------------------------
-def test_nothing_after_the_cutoff_reaches_a_predictive_dataset(built):
-    columns = csv(built, PREDICTIVE, "columns.csv")
-    predictors = columns[columns["Role"] == "predictor"]["Column"]
-    for late in ("Post Thaw", "Final Formulation", "<f_post_formulation_dose>", "Endotoxin"):
-        assert not predictors.str.contains(late, regex=False).any(), late
-    decisions = csv(built, PREDICTIVE, "decisions.csv")
-    reasons = decisions[decisions["Stage"] == "availability"]["Reason"]
-    assert reasons.str.contains("available at Post-thaw").any()
-    # A feature is as late as its latest input, even with no stage of its own.
-    assert "<f_post_formulation_dose>" in set(
-        decisions[decisions["Stage"] == "availability"]["Parameter"]
-    )
-    # A parameter the PTF gives no stage cannot be shown to be early enough.
-    assert reasons.str.contains("no 'Available At' stage").any()
-
-
-def test_a_cutoff_that_is_not_a_stage_is_refused_unless_reviewed(tmp_path):
-    task = {
-        "task": {"name": "t", "purpose": "predictive"},
-        "inputs": {"pvf": "PVF.xlsx", "ptf": "PTF.xlsx"},
-        "target": {"column": "y"},
-        "availability": {"cutoff": "after lunch"},
-    }
-    path = tmp_path / "t.yaml"
-    path.write_text(yaml.safe_dump(task), encoding="utf-8")
-    with pytest.raises(taskconfig.TaskConfigError, match="not one of the process stages"):
-        taskconfig.load(path)
 
 
 # ---------------------------------------------------------------------------

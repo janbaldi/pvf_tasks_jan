@@ -35,7 +35,6 @@ from . import decorrelate, encode, features
 from . import missingness as missing_analysis
 from .clean import CENSORED_SUFFIX
 from .encode import Record, TaskParams, sanitise
-from .io import STAGE_COLUMN
 from .logger import log
 from .taskconfig import STATUS_ALIASES, TaskSpec
 
@@ -108,8 +107,6 @@ class TaskResult:
     dropped_sparse: list[dict] = field(default_factory=list)
     dropped_constant: list[dict] = field(default_factory=list)
     clusters: decorrelate.ClusterReport = field(default_factory=decorrelate.ClusterReport)
-    #: Parameter → the process stage it exists from, where the PTF says.
-    stages: dict[str, str] = field(default_factory=dict)
     #: Predictors that track the target closely on the fitted rows.
     proxies: list[dict] = field(default_factory=list)
     missingness: Any = None
@@ -460,51 +457,6 @@ def target_descendants(
     return tainted
 
 
-def parameter_stages(
-    ptf: pd.DataFrame, spec: TaskSpec, names: list[str]
-) -> tuple[dict[str, int | None], list[str]]:
-    """The process stage from which each parameter exists, as a rank.
-
-    The PTF's ``Available At`` says it for a parameter a source records. A
-    derived column cannot exist before its latest input, so its stage is the
-    latest of its own and its inputs' — walked through the same lineage the
-    target check uses. Unknown stays unknown (``None``). Also returns the PTF
-    stage values that are not process stages, for the report.
-    """
-    if STAGE_COLUMN not in ptf.columns:
-        return {}, []
-    availability = spec.availability
-    declared: dict[str, int | None] = {}
-    unknown_values: set[str] = set()
-    for parameter, value in zip(ptf["Parameter"].astype(str), ptf[STAGE_COLUMN]):
-        rank = availability.rank(value)
-        if rank is None and pd.notna(value) and str(value).strip():
-            unknown_values.add(str(value).strip())
-        declared[parameter] = rank
-
-    table = lineage(names)
-    ranks = dict(declared)
-    changed = True
-    while changed:
-        changed = False
-        for name, requires in table.items():
-            inputs: list[int | None] = []
-            for requirement in requires:
-                known = [ranks.get(r) for r in requirement if ranks.get(r) is not None]
-                # Any one alternative will do, but which one was used is not
-                # recorded: take the latest, so a stage is never understated.
-                inputs.append(max(known) if known else None)
-            own = declared.get(name)
-            if inputs and all(rank is not None for rank in inputs):
-                derived = max(inputs) if own is None else max(own, *inputs)
-            else:
-                derived = own
-            if derived != ranks.get(name):
-                ranks[name] = derived
-                changed = True
-    return ranks, sorted(unknown_values)
-
-
 def _category_exclusions(ptf: pd.DataFrame, spec: TaskSpec) -> dict[str, str]:
     """Parameter → why, for every parameter the task's PTF category rules leave out."""
     out: dict[str, str] = {}
@@ -563,41 +515,6 @@ def candidate_predictors(
     roles.pop("", None)
     descendants = target_descendants(spec.target.column, names=list(cohort.columns))
     excluded_category = _category_exclusions(ptf, spec)
-    unavailable = dict(spec.availability.unavailable)
-    overrides = set(spec.availability.available)
-
-    # When the PTF says from which stage each parameter exists, a predictive
-    # task's cutoff is checked mechanically: later or unstaged is out.
-    ranks, odd_values = parameter_stages(ptf, spec, list(cohort.columns))
-    cutoff = spec.availability.rank(spec.availability.cutoff)
-    staged = bool(ranks) and spec.predictive and cutoff is not None
-    result.stages = {
-        name: (spec.availability.stages[rank] if rank is not None else "")
-        for name, rank in ranks.items()
-    }
-    if odd_values:
-        result.note(
-            f"The PTF's '{STAGE_COLUMN}' column holds values that are not process stages "
-            f"({', '.join(odd_values[:6])}); those parameters count as unstaged"
-        )
-    if spec.predictive and not spec.roles.include:
-        if ranks and cutoff is None:
-            result.note(
-                f"availability.cutoff '{spec.availability.cutoff}' is free text, so the PTF's "
-                f"'{STAGE_COLUMN}' stages were not used; availability rests on the declared list"
-            )
-        elif not ranks:
-            if not spec.availability.reviewed:
-                raise TaskRefused(
-                    f"availability.cutoff: the PTF has no '{STAGE_COLUMN}' column, so a cutoff "
-                    "cannot be checked against it. Add the column to the PTF, or list the late "
-                    "parameters under availability.unavailable and set availability.reviewed: true"
-                )
-            result.note(
-                f"The PTF has no '{STAGE_COLUMN}' column, so availability rests on the "
-                "hand-written availability.unavailable list alone"
-            )
-
     kept: list[str] = []
     for parameter in available:
         if parameter in roles:
@@ -608,32 +525,11 @@ def candidate_predictors(
             refuse(parameter, dict(spec.roles.exclude)[parameter], "task exclusion")
         elif parameter in excluded_category:
             refuse(parameter, excluded_category[parameter], "category exclusion")
-        elif parameter in descendants and parameter not in overrides:
+        elif parameter in descendants:
             refuse(
                 parameter, f"computed from the target: {descendants[parameter]}", "target lineage"
             )
-        elif parameter in unavailable and parameter not in overrides:
-            refuse(
-                parameter,
-                f"not available at the prediction point ({spec.availability.cutoff or 'declared'})"
-                f": {unavailable[parameter]}",
-                "availability",
-            )
-        elif staged and parameter not in overrides and ranks.get(parameter) is None:
-            refuse(
-                parameter,
-                f"the PTF gives it no '{STAGE_COLUMN}' stage, so it cannot be shown to exist "
-                f"by the prediction point ({spec.availability.cutoff})",
-                "availability",
-            )
-        elif staged and parameter not in overrides and ranks[parameter] > cutoff:
-            refuse(
-                parameter,
-                f"available at {spec.availability.stages[ranks[parameter]]}, after the "
-                f"prediction point ({spec.availability.cutoff})",
-                "availability",
-            )
-        elif spec.predictive and parameter in features.SITE_RELATIVE and parameter not in overrides:
+        elif spec.predictive and parameter in features.SITE_RELATIVE:
             refuse(
                 parameter,
                 "standardised within its own site's batches, so its value depends on which "
@@ -658,10 +554,6 @@ def candidate_predictors(
                     "excluded for another reason — see decisions.csv"
                 )
 
-    if spec.predictive:
-        late = [p for p in kept if p in unavailable]
-        if late:
-            result.note(f"{len(late)} declared-unavailable parameters survived selection")
     if not kept:
         raise TaskRefused(
             "No parameter is left to predict with once roles, target lineage and the task's "

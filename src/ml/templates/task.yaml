@@ -1,0 +1,53 @@
+# A task: one cohort, one target, one question asked of the batch table.
+# This folder is the task's workspace. Every run goes to runs/<run id>/ with the
+# batch table and catalog it read, so the folder holds everything needed to redo it.
+#
+# From inside this folder:   ml validate     validate it against the batch table
+#                             ml task run     run it
+#                             ml task rerun runs/<run id>   redo a run from its own folder
+#
+# Relative paths are relative to this file. Quote any column name that has a
+# '#', ':' or '%' in it — unquoted, `Patient Lot/Batch #` ends at the '#'.
+
+# The config.yaml that names the batch table and catalog (or name them: inputs: {batch_table: ..., catalog: ...}).
+__CONFIG__
+
+task:
+  name: __NAME__
+  question: "__QUESTION__"
+  seed: 20260917
+
+cohort:
+  sites: []                       # e.g. [SiteA]; empty means every site
+  filters: []                     # applied in order; operators: equals, not_equals, in,
+                                  # not_in, min, max, is_null, not_null. For example:
+  # - {column: Type, op: equals, value: Commercial, reason: manufactured commercially}
+  # - {column: <nonconformance>, op: not_in, value: [termination, withdrawal],
+  #    normalise: true, missing: include, reason: not terminated or withdrawn}
+
+target:
+  column: "__TARGET__"
+  type: __TARGET_TYPE__           # numeric | binary
+  # positive_class: Released      # required for a binary target
+  # negative_class: Discarded
+
+# Which batch table columns go into the dataset.
+columns:
+  id: 'Patient Lot/Batch #'       # identifies a batch; never a predictor
+  group: <vector_lot>               # grouping metadata, for grouped cross-validation later
+  # patient: <patient_id>
+  # include: []                   # an explicit predictor list, if you have one
+  exclude: []                     # single columns: [{column: ..., reason: ...}]
+  include_categories: {}          # by a catalog column: {catalog column: [the only categories kept]}
+  exclude_categories: {}          # by a catalog column: {catalog column: [categories left out]}
+  # e.g. exclude_categories: {Available At: [Release, Post-release]}
+
+clustering:
+  action: report_only             # off | report_only | representative | linear
+  method: spearman
+  threshold: 0.7
+  min_overlap: 10
+
+# encoding:  {missing_indicators: false, impute: none, target_min_rows_per_category: 5}
+# quality:   {min_non_missing: 20, duplicate_r2_threshold: 0.99, near_constant_tolerance: 0.0001}
+# missingness: {enabled: true}

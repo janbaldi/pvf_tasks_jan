@@ -1,34 +1,34 @@
-# pvf config: where the sources, the PTF and the PVF are, and the settings.
+# batch_table config: where the sources, the catalog and the batch table are, and the settings.
 #
 # Code, configuration and data are kept apart: this file is configuration, and
 # the data lives in a folder of your own — set its paths below. Relative paths
 # are relative to THIS file; ~ is your home folder.
 #
-#   pvf ptf      what the sources record that the PTF does not list
-#   pvf build    the PVF: every batch, every parameter, cleaned and derived
-#   pvf check    validate this config without running anything
-#   pvf new-task <folder>          a task workspace with an annotated task.yaml
-#   pvf tasks --task <folder>      run a task; its runs go into <folder>/runs/
+#   ml check-catalog      what the sources record that the catalog does not list
+#   ml build    the batch table: every batch, every parameter, cleaned and derived
+#   ml validate    validate this config without running anything
+#   ml task new <folder>          a task workspace with an annotated task.yaml
+#   ml task run --task <folder>      run a task; its runs go into <folder>/runs/
 #
 # Secrets (SharePoint credentials) go in a .env next to this file; see .env.example.
 
 seed: 20260917
 
-# The one PTF, the one PVF, and local copies of every source. With
+# The one catalog, the one batch table, and local copies of every source. With
 # sources.location: local these are read.
 paths:
-  ptf: ~/pvf_data/PTF.xlsx                # the feature metadata; `pvf ptf` checks it
-  pvf: ~/pvf_data/PVF.xlsx                # `pvf build` writes it; reports and manifests go beside it
-  phf_site_a: ~/pvf_data/raw/phf_site_a.xlsx
-  phf_site_b: ~/pvf_data/raw/phf_site_b.xlsx
-  param_mapping: ~/pvf_data/raw/parameter_requirements.xlsx
-  remfg: ~/pvf_data/raw/remfg.xlsx
-  lv_coa: ~/pvf_data/raw/lv_coa.xlsx
-  raw_materials: ~/pvf_data/raw/raw_materials.csv
-  investigations: ~/pvf_data/raw/investigations_power_query.xlsx
+  catalog: ~/ml_data/catalog.xlsx                # the feature metadata; `ml check-catalog` checks it
+  batch_table: ~/ml_data/batch_table.xlsx                # `ml build` writes it; reports and manifests go beside it
+  phf_site_a: ~/ml_data/raw/phf_site_a.xlsx
+  phf_site_b: ~/ml_data/raw/phf_site_b.xlsx
+  param_mapping: ~/ml_data/raw/parameter_requirements.xlsx
+  remfg: ~/ml_data/raw/remfg.xlsx
+  lv_coa: ~/ml_data/raw/lv_coa.xlsx
+  raw_materials: ~/ml_data/raw/raw_materials.csv
+  investigations: ~/ml_data/raw/investigations_power_query.xlsx
   site_maps:
-    - ~/pvf_data/raw/site_map_clinical_sites.xlsx
-  new_parameters: ~/pvf_data/new_parameters.csv
+    - ~/ml_data/raw/site_map_clinical_sites.xlsx
+  new_parameters: ~/ml_data/new_parameters.csv
 
 # Which worksheet each workbook's data is on, where it is not the default.
 # sheets:
@@ -42,8 +42,8 @@ sources:
 # Where each source lives on SharePoint. Only read when sources.location is
 # sharepoint; a source without an entry here is then still read locally.
 sharepoint:
-  ptf:            {path: "<team-site>//Reports/<analytics>/Data/PTF/PTF.xlsx", sheet: Catalogue, drive_id: DRIVE_ID_SITE_A}
-  pvf:            {path: "<team-site>//Reports/<analytics>/Data/PVF/PVF.xlsx", sheet: Sheet1, drive_id: DRIVE_ID_SITE_A}
+  catalog:            {path: "<team-site>//Reports/<analytics>/Data/catalog/catalog.xlsx", sheet: Catalogue, drive_id: DRIVE_ID_SITE_A}
+  batch_table:            {path: "<team-site>//Reports/<analytics>/Data/batch table/batch_table.xlsx", sheet: Sheet1, drive_id: DRIVE_ID_SITE_A}
   phf_site_a:      {path: "<site-a-folder>/phf.xlsm", sheet: <sheet:phf_site_a>, drive_id: DRIVE_ID_SITE_A}
   phf_site_b:    {path: "<site-b-folder>/batch_records.xlsx", sheet: <sheet:phf_site_a>, drive_id: DRIVE_ID_SITE_B}
   param_mapping:  {path: "<team-site>/<mapping-folder>/parameter_mapping.xlsx", sheet: Overall, drive_id: DRIVE_ID_SITE_A}
@@ -57,22 +57,22 @@ sharepoint:
     sheet: Sheet1
     drive_id: DRIVE_ID_SITE_A
 
-# Uploading the PVF is a separate decision from reading the share: it only
-# happens on a `pvf build --mode PRD` run with enabled: true.
+# Uploading the batch table is a separate decision from reading the share: it only
+# happens on a `ml build --mode PRD` run with enabled: true.
 upload:
   enabled: false
-  path: "<team-site>//Reports/<analytics>/Data/PVF/"   # or $DATA_LINK
+  path: "<team-site>//Reports/<analytics>/Data/batch table/"   # or $DATA_LINK
   drive_id: DRIVE_ID_SITE_A
-  file_name: PVF.xlsx
+  file_name: batch_table.xlsx
 
-ptf:
+catalog:
   write_new_parameters: true
 
 build:
-  write_parquet: true      # a PVF.parquet beside PVF.xlsx, which keeps column types
+  write_parquet: true      # a batch_table.parquet beside batch_table.xlsx, which keeps column types
 
 cleaning:
-  # corrections: ~/pvf_data/corrections.yaml   # known data corrections, as a table;
+  # corrections: ~/ml_data/corrections.yaml   # known data corrections, as a table;
   #                                            # default: the package's own table
   disable: []                     # names of corrections to switch off
   censored: limit                 # what '<0.5' becomes: limit | half | missing

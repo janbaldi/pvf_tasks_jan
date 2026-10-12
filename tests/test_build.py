@@ -1,29 +1,29 @@
-"""The PVF the build produced, and the report that explains it.
+"""The batch table the build produced, and the report that explains it.
 
 Every question here is about stage two: both sites under one set of names, values
 the cleaning had to correct, sources joined on, features computed or reported as
-blocked, and the PTF gap in both directions.
+blocked, and the catalog gap in both directions.
 """
 
 import pandas as pd
 
 import dummy_data
 from conftest import facts, figures, site_a, site_b, row_named, rows_naming, section, tables
-from pvf import stlite
+from ml import stlite
 
 
 # ---------------------------------------------------------------------------
 # Loading and name mapping
 # ---------------------------------------------------------------------------
-def test_both_sites_reach_the_pvf_under_one_set_of_names(built):
-    pvf = built["pvf"]
-    assert len(pvf) == dummy_data.SITE_A_BATCHES + dummy_data.SITE_B_BATCHES
-    assert set(pvf["Site Merged"]) == {"SiteA", "SiteB"}
+def test_both_sites_reach_the_batch_table_under_one_set_of_names(built):
+    batch_table = built["batch_table"]
+    assert len(batch_table) == dummy_data.SITE_A_BATCHES + dummy_data.SITE_B_BATCHES
+    assert set(batch_table["Site Merged"]) == {"SiteA", "SiteB"}
     # SiteB records these under its own names; the mapping file renames them.
     for renamed in dummy_data.SITE_B_NAMES:
-        assert site_b(pvf)[renamed].notna().all(), renamed
+        assert site_b(batch_table)[renamed].notna().all(), renamed
     for site_b_name in dummy_data.SITE_B_NAMES.values():
-        assert site_b_name not in pvf.columns
+        assert site_b_name not in batch_table.columns
 
 
 def test_two_columns_claiming_one_name_are_both_kept_with_their_own_values(built):
@@ -33,9 +33,9 @@ def test_two_columns_claiming_one_name_are_both_kept_with_their_own_values(built
     column's values under the suffixed name and the second column's under the
     plain one, which no test of column presence can see.
     """
-    pvf = built["pvf"]
-    assert "Country_1" in pvf.columns
-    rows = site_b(pvf)
+    batch_table = built["batch_table"]
+    assert "Country_1" in batch_table.columns
+    rows = site_b(batch_table)
     # 'Country' was SiteB's own column, harmonised to the SiteA spelling.
     assert set(rows["Country"].dropna()) <= {"<value:country_harmonised>", "Israel"}
     # '<site_b_country>' mapped onto the taken name and kept its own values.
@@ -43,44 +43,44 @@ def test_two_columns_claiming_one_name_are_both_kept_with_their_own_values(built
 
 
 def test_the_supplement_reaches_the_site_it_belongs_to(built):
-    pvf = built["pvf"]
-    assert site_b(pvf)["<prior_lines>"].notna().all()
-    assert site_a(pvf)["<prior_lines>"].isna().all()
+    batch_table = built["batch_table"]
+    assert site_b(batch_table)["<prior_lines>"].notna().all()
+    assert site_a(batch_table)["<prior_lines>"].isna().all()
 
 
 # ---------------------------------------------------------------------------
 # Cleaning
 # ---------------------------------------------------------------------------
 def test_cleaning_corrects_what_the_sources_got_wrong(built):
-    pvf = built["pvf"]
-    assert set(site_b(pvf)["Type"]) == {"Commercial"}
-    assert set(site_a(pvf)["Mycoplasma"]) == {"<value:mycoplasma_clean>"}
+    batch_table = built["batch_table"]
+    assert set(site_b(batch_table)["Type"]) == {"Commercial"}
+    assert set(site_a(batch_table)["Mycoplasma"]) == {"<value:mycoplasma_clean>"}
     # The correction is SiteB's; SiteA's own spelling is left alone.
-    assert "withdrawn" not in set(site_b(pvf)["<nonconformance>"].dropna())
-    assert "withdrawal" in set(site_b(pvf)["<nonconformance>"].dropna())
+    assert "withdrawn" not in set(site_b(batch_table)["<nonconformance>"].dropna())
+    assert "withdrawal" in set(site_b(batch_table)["<nonconformance>"].dropna())
     # A clump count that is really a mangled date.
-    assert "<value:mangled_count>" not in set(pvf["<clumps_mix_count>"].astype(str))
+    assert "<value:mangled_count>" not in set(batch_table["<clumps_mix_count>"].astype(str))
 
 
 def test_text_is_stripped_and_blanks_become_missing(built):
-    sites = set(built["pvf"]["<clinical_site>"].dropna())
+    sites = set(built["batch_table"]["<clinical_site>"].dropna())
     assert "UZ Leuven" in sites and "UZ Leuven\xa0" not in sites
     assert "AZ Sint-Jan" in sites and "<value:clinical_sites_a>" not in sites
     assert "" not in sites
 
 
-def test_values_are_coerced_to_the_type_the_ptf_declares(built):
-    pvf = built["pvf"]
+def test_values_are_coerced_to_the_type_the_catalog_declares(built):
+    batch_table = built["batch_table"]
     # "<0.5<value:endotoxin_unit>" survives as a number, not as text.
-    assert pd.api.types.is_numeric_dtype(pvf["<endotoxin>"])
-    assert pvf["<endotoxin>"].notna().any()
+    assert pd.api.types.is_numeric_dtype(batch_table["<endotoxin>"])
+    assert batch_table["<endotoxin>"].notna().any()
     # A duration written as HH:MM becomes minutes.
-    contact = pvf["<contact_time>"]
+    contact = batch_table["<contact_time>"]
     assert pd.api.types.is_numeric_dtype(contact) and contact.max() < 24 * 60
     # A ratio keeps the side that carries the number.
-    assert not pvf["<pt_cd4_cd8_ratio>"].astype(str).str.contains(":").any()
+    assert not batch_table["<pt_cd4_cd8_ratio>"].astype(str).str.contains(":").any()
     # Text in a numeric column is dropped rather than carried.
-    assert pvf["<recovery>"].isna().sum() == 1
+    assert batch_table["<recovery>"].isna().sum() == 1
 
 
 def test_the_report_names_every_value_it_could_not_parse(built):
@@ -92,60 +92,60 @@ def test_the_report_names_every_value_it_could_not_parse(built):
 
 
 def test_yes_no_blanks_are_filled_in_each_site_own_spelling(built):
-    pvf = built["pvf"]
-    assert site_a(pvf)["<pre_activation_clumps_yn>"].notna().all()
-    assert set(site_b(pvf)["<pre_activation_clumps_yn>"]) <= {"Y", "N"}
+    batch_table = built["batch_table"]
+    assert site_a(batch_table)["<pre_activation_clumps_yn>"].notna().all()
+    assert set(site_b(batch_table)["<pre_activation_clumps_yn>"]) <= {"Y", "N"}
 
 
 # ---------------------------------------------------------------------------
 # Joined sources
 # ---------------------------------------------------------------------------
 def test_vector_certificates_join_where_there_is_one(built):
-    pvf = built["pvf"]
-    no_certificate = pvf["<vector_lot>"] == dummy_data.LOT_WITHOUT_COA
+    batch_table = built["batch_table"]
+    no_certificate = batch_table["<vector_lot>"] == dummy_data.LOT_WITHOUT_COA
     assert no_certificate.any()
-    assert pvf.loc[no_certificate, "<coa_prefix><coa_site_format>"].isna().all()
-    assert pvf.loc[~no_certificate, "<coa_prefix><coa_site_format>"].notna().all()
+    assert batch_table.loc[no_certificate, "<coa_prefix><coa_site_format>"].isna().all()
+    assert batch_table.loc[~no_certificate, "<coa_prefix><coa_site_format>"].notna().all()
     # European-locale text became numbers, and a below-LOQ impurity was flagged.
-    assert pd.api.types.is_numeric_dtype(pvf["<coa_prefix><coa_titer>"])
-    assert "<coa_prefix>HCP below LOQ" in pvf.columns
-    assert "<coa_prefix>pH Abs Deviation" in pvf.columns
+    assert pd.api.types.is_numeric_dtype(batch_table["<coa_prefix><coa_titer>"])
+    assert "<coa_prefix>HCP below LOQ" in batch_table.columns
+    assert "<coa_prefix>pH Abs Deviation" in batch_table.columns
 
 
 def test_raw_materials_and_clinical_sites_are_resolved(built):
-    pvf = built["pvf"]
-    assert pvf["<media_lot>"].notna().any()
-    assert "<value:institutions_second>" in set(pvf["<clinical_site>"])
-    assert "<value:institutions_second>" in set(pvf["<clinical_site>"])
+    batch_table = built["batch_table"]
+    assert batch_table["<media_lot>"].notna().any()
+    assert "<value:institutions_second>" in set(batch_table["<clinical_site>"])
+    assert "<value:institutions_second>" in set(batch_table["<clinical_site>"])
     # An acronym no mapping file covers stays as it is, and is reported.
-    assert dummy_data.UNMAPPED_ACRONYM in set(pvf["<clinical_site>"])
+    assert dummy_data.UNMAPPED_ACRONYM in set(batch_table["<clinical_site>"])
     assert rows_naming(built["payloads"]["build"], dummy_data.UNMAPPED_ACRONYM)
-    assert site_a(pvf)["<clinical_site_id>"].notna().all()
+    assert site_a(batch_table)["<clinical_site_id>"].notna().all()
 
 
 def test_the_country_correction_survives_harmonisation(built):
-    pvf = built["pvf"]
-    assert "Israel" in set(site_b(pvf)["Country"])
-    assert set(site_b(pvf)["Country"]) <= {"Israel", "<value:country_harmonised>"}
-    assert set(site_a(pvf)["Country"]) == {"Belgium", "Netherlands"}
+    batch_table = built["batch_table"]
+    assert "Israel" in set(site_b(batch_table)["Country"])
+    assert set(site_b(batch_table)["Country"]) <= {"Israel", "<value:country_harmonised>"}
+    assert set(site_a(batch_table)["Country"]) == {"Belgium", "Netherlands"}
 
 
 # ---------------------------------------------------------------------------
 # Features
 # ---------------------------------------------------------------------------
 def test_features_are_computed_including_ones_built_on_other_features(built):
-    pvf = built["pvf"]
-    assert set(pvf["<f_growth_profile>"].dropna()) <= {"undergrowth", "normal", "overgrowth"}
-    assert pvf["<f_harvest_lactate_norm>"].notna().any()
+    batch_table = built["batch_table"]
+    assert set(batch_table["<f_growth_profile>"].dropna()) <= {"undergrowth", "normal", "overgrowth"}
+    assert batch_table["<f_harvest_lactate_norm>"].notna().any()
     # MOI needs the titer from the certificate, so this proves the join fed it.
-    assert pvf["<f_moi_pool>"].notna().any()
+    assert batch_table["<f_moi_pool>"].notna().any()
     # The slope has two of its three days at both sites, and is computed anyway.
-    assert pvf["<f_glucose_slope>"].notna().any()
+    assert batch_table["<f_glucose_slope>"].notna().any()
 
 
 def test_a_feature_missing_an_input_is_reported_and_not_invented(built):
-    pvf, payload = built["pvf"], built["payloads"]["build"]
-    assert "<f_log_pt_cd4_cd8>" not in pvf.columns
+    batch_table, payload = built["batch_table"], built["payloads"]["build"]
+    assert "<f_log_pt_cd4_cd8>" not in batch_table.columns
     blocked = rows_naming(payload, "<f_log_pt_cd4_cd8>")
     assert any(dummy_data.BLOCKED_INPUT in str(row) for row in blocked)
     # SiteB alone lacks harvest glucose, so the gap is reported for one site.
@@ -156,12 +156,12 @@ def test_a_feature_missing_an_input_is_reported_and_not_invented(built):
     ]
     assert per_site
     assert all(any("SiteB" in str(cell) for cell in row) for row in per_site)
-    assert pvf["<f_glucose_per_cell_3>"].notna().any()  # SiteA still has it
+    assert batch_table["<f_glucose_per_cell_3>"].notna().any()  # SiteA still has it
 
 
-def test_a_feature_the_ptf_does_not_list_is_reported_and_not_created(built):
+def test_a_feature_the_catalog_does_not_list_is_reported_and_not_created(built):
     for name in dummy_data.UNLISTED_FEATURES:
-        assert name not in built["pvf"].columns
+        assert name not in built["batch_table"].columns
         assert rows_naming(built["payloads"]["build"], name), name
 
 
@@ -177,10 +177,10 @@ def test_no_feature_raised(built):
 
 
 # ---------------------------------------------------------------------------
-# The PTF gap, and the report itself
+# The catalog gap, and the report itself
 # ---------------------------------------------------------------------------
-def test_the_report_lists_ptf_parameters_the_pvf_does_not_have(built):
-    coverage = section(built["payloads"]["build"], "ptf-coverage")
+def test_the_report_lists_catalog_parameters_the_batch_table_does_not_have(built):
+    coverage = section(built["payloads"]["build"], "catalog-coverage")
     missing = coverage["blocks"][0]
     names = {row[0] for row in missing["rows"]}
     for orphan in dummy_data.ORPHAN_PARAMETERS:
@@ -201,10 +201,10 @@ def test_the_inventory_says_where_every_parameter_came_from(built):
     assert origins["<media_lot>"] == "Raw materials and consumables"
     assert origins["Site Merged"] == "Merge"
     assert origins["<site_a_comment>"] == "SiteA PHF only"
-    assert len(origins) == built["pvf"].shape[1]
+    assert len(origins) == built["batch_table"].shape[1]
 
 
-def test_columns_the_ptf_does_not_list_are_reported_too(built):
+def test_columns_the_catalog_does_not_list_are_reported_too(built):
     names = [row[0] for row in rows_naming(built["payloads"]["build"], "<site_a_comment>")]
     assert "<site_a_comment>" in names
     assert rows_naming(built["payloads"]["build"], "<site_b_comment>")
@@ -220,12 +220,14 @@ def test_the_report_is_one_file_with_its_provenance_in_it(built):
     assert str(built["config_path"]) in recorded["Config"].replace("\\", "")
     # Every input the run read is hashed, and a file it could not read says so.
     sources = {row[0].replace("\\", ""): row for row in panel[1]["rows"]}
-    assert {"ptf", "phf_site_a", "phf_site_b", "lv_coa", "site_map_1"} <= set(sources)
+    assert {"catalog", "phf_site_a", "phf_site_b", "lv_coa", "site_map_1"} <= set(sources)
     assert all(row[1] == "local file" for row in sources.values())
     assert all(len(row[3]) == 64 for row in sources.values())
     titles = [s["title"] for s in built["payloads"]["build"]["sections"]]
     assert titles[0] == "Overview"
-    assert {"Cleaning", "Parameter inventory", "PTF coverage", "Derived features"} <= set(titles)
+    assert {"Cleaning", "Parameter inventory", "Catalog coverage", "Derived features"} <= set(
+        titles
+    )
 
 
 def test_a_legend_has_a_row_of_its_own_under_the_title(built):
@@ -242,16 +244,18 @@ def test_a_legend_has_a_row_of_its_own_under_the_title(built):
         assert layout["margin"]["t"] >= 72
 
 
-def test_the_build_writes_its_manifest_beside_the_pvf(built):
+def test_the_build_writes_its_manifest_beside_the_batch_table(built):
     import json
 
-    from pvf import cli
+    from ml import cli
 
     record = json.loads(
-        cli.manifest_path(built["config"]["paths"]["pvf"], "pvf").read_text(encoding="utf-8")
+        cli.manifest_path(built["config"]["paths"]["batch_table"], "batch_table").read_text(
+            encoding="utf-8"
+        )
     )
-    assert record["stage"] == "pvf" and record["status"] == "complete"
-    assert record["pvf"]["columns"] == built["pvf"].shape[1]
+    assert record["stage"] == "batch_table" and record["status"] == "complete"
+    assert record["batch_table"]["columns"] == built["batch_table"].shape[1]
     kinds = {source["label"]: source["kind"] for source in record["provenance"]["sources"]}
     assert "investigations" not in kinds, "the build does not read it, so it does not record it"
     assert kinds["raw_materials"] == "local file"

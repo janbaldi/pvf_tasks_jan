@@ -1,4 +1,4 @@
-# Known data corrections, applied by `pvf build` while cleaning the site files.
+# Known data corrections, applied by `ml build` while cleaning the site files.
 #
 # Each rule: site, column, ONE action, and optionally a condition and a reason.
 #   set: <value>            replace the value (null → missing)

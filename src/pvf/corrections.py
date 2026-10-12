@@ -3,8 +3,8 @@
 A correction is a business fact someone established against a source system — a
 clump count that is really a date Excel mangled, a clinical site recorded under
 the wrong country, a site that stores cell counts without the 1e6 divisor. Those
-facts change when the sources change, so they belong in the workspace, next to
-the data, in ``corrections.yaml``, where a data steward can add one without
+facts change when the sources change, so they belong with the data, named by
+config.yaml, in ``corrections.yaml``, where a data steward can add one without
 touching the code. Each rule names its site, its column, what it does and why:
 
 .. code-block:: yaml

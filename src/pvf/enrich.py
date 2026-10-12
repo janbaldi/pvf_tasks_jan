@@ -196,7 +196,7 @@ def enrich_clinical_sites(
     SiteA encodes the site in the patient identifier (``EU-<site>-…``); SiteB
     records an acronym that the mapping workbooks expand into an institution name.
     Where those workbooks are read from — local files or a SharePoint folder — is
-    the workspace config's business (``paths.site_maps`` / ``sharepoint.site_maps``).
+    config.yaml's business (``paths.site_maps`` / ``sharepoint.site_maps``).
 
     Returns the SiteB acronyms no mapping file covers, and the columns added.
     """

@@ -16,11 +16,11 @@ source supplies, a parameter for each encoder the dataset stage has, and a group
 of parameters correlated strongly enough to be de-correlated. What the reports
 show is therefore what the pipeline does.
 
-It writes a complete workspace — config, corrections, task files and sources —
-so the demo is also the example of how a workspace is laid out::
+It writes the config, corrections, sources and two task workspaces, so the demo
+is also the example of how they are laid out::
 
-    pvf init demo --demo
-    cd demo && pvf all
+    python -m pvf.demo demo
+    cd demo && pvf all --task tasks/site_a_car_expression --task tasks/site_b_release
 """
 
 from __future__ import annotations
@@ -827,11 +827,11 @@ def write_sources(directory: Path, seed: int = SEED) -> dict[str, object]:
 
 
 def write_config(directory: Path, seed: int = SEED) -> Path:
-    """Write a complete demo workspace into ``directory``. Returns its ``pvf.yaml``.
+    """Write the demo data, config and task workspaces into ``directory``; return the config.
 
-    Sources go to ``data/raw``, the PVF and its manifests to ``data/processed``,
-    reports and task runs to ``outputs``, task files to ``tasks``. Every path in
-    the config is relative to the config, which is what lets a workspace move.
+    Sources and the PTF go to ``data/raw``, the PVF with its reports and
+    manifests to ``data/processed``, and each task to its own workspace under
+    ``tasks/``. Every path in the config is relative to the config.
 
     The thresholds here are the ones that suit a cohort this small: with forty
     batches, a parameter with a dozen categories is already high-cardinality, and
@@ -840,8 +840,7 @@ def write_config(directory: Path, seed: int = SEED) -> Path:
     directory = Path(directory)
     raw = directory / "data" / "raw"
     sources = write_sources(raw, seed=seed)
-    for folder in ("data/processed", "outputs"):
-        (directory / folder).mkdir(parents=True, exist_ok=True)
+    (directory / "data" / "processed").mkdir(parents=True, exist_ok=True)
     paths = {
         key: [f"data/raw/{Path(p).name}" for p in value]
         if isinstance(value, list)
@@ -852,9 +851,6 @@ def write_config(directory: Path, seed: int = SEED) -> Path:
         {
             "pvf": "data/processed/PVF.xlsx",
             "new_parameters": "data/processed/new_parameters.csv",
-            "reports": "outputs/reports",
-            "tasks": "outputs/tasks",
-            "task_files": "tasks",
         }
     )
     shutil.copyfile(_template("corrections.yaml"), directory / "corrections.yaml")
@@ -895,10 +891,10 @@ def write_config(directory: Path, seed: int = SEED) -> Path:
         "lv_coa": {"ph_nominal": 7.2, "osmo_nominal": 300.0},
     }
 
-    config_path = directory / "pvf.yaml"
+    config_path = directory / "config.yaml"
     config_path.write_text(
-        "# A demo workspace written by `pvf init --demo`. Every source under data/raw is\n"
-        "# made up. Every path below is relative to this file.\n"
+        "# The demo config, written by `python -m pvf.demo`. Every source under data/raw\n"
+        "# is made up. Every path below is relative to this file.\n"
         + yaml.safe_dump(config, sort_keys=False, allow_unicode=True),
         encoding="utf-8",
     )
@@ -921,8 +917,7 @@ _SMALL_COHORT = {
         "target_encoding_folds": 5,
         "hashing_max_buckets": 16,
     },
-    # Fitted on the training rows, so the minimum has to be smaller than the
-    # training side of a split over a cohort this size.
+    # The minimum has to be smaller than a cohort this size.
     "quality": {"min_non_missing": 8, "duplicate_r2_threshold": 0.99, "duplicate_min_overlap": 8},
 }
 
@@ -932,21 +927,19 @@ DECLARED_UNAVAILABLE = [
     {"column": "<washed_cells>", "reason": "counted after the wash"},
 ]
 
-#: The demo's task files, relative to the workspace.
-TASK_FILES = ("tasks/task_car_expression.yaml", "tasks/task_release_outcome.yaml")
+#: The demo's task workspaces, relative to the config.
+TASK_FILES = ("tasks/site_a_car_expression", "tasks/site_b_release")
 
 
 def write_tasks(directory: Path) -> list[Path]:
-    """Two task files over the same PVF, differing only in what they say.
+    """Two task workspaces over the same PVF, differing only in what their YAML says.
 
     The point of the pair is that nothing else changes: same package, same
-    commands, same code. Cohort, target, roles, clustering action and destination
+    commands, same code. Cohort, target, roles, columns and clustering action
     all move in YAML.
     """
     directory = Path(directory)
     car_expression = {
-        # Inputs and output folder come from the workspace config one level up.
-        "workspace": "../pvf.yaml",
         "task": {
             "name": "site_a_car_expression",
             "question": "Which manufacturing parameters go with final product CAR+ "
@@ -1003,20 +996,16 @@ def write_tasks(directory: Path) -> list[Path]:
             "threshold": 0.7,
             "min_overlap": 8,
         },
-        "split": {"strategy": "grouped", "validation_fraction": 0.3, "folds": 3},
         "report": {"preview_rows": 15},
     }
 
     release_outcome = {
-        "workspace": "../pvf.yaml",
         "task": {
             "name": "site_b_release",
             "question": "What does a released SiteB batch look like, next to a discarded one?",
             "purpose": "exploratory",
             "seed": SEED,
         },
-        # A different destination, to show that one moves in YAML too.
-        "output": {"root": "../outputs/explorations"},
         "cohort": {
             "sites": ["SiteB"],
             "filters": [
@@ -1038,6 +1027,8 @@ def write_tasks(directory: Path) -> list[Path]:
             "id": "Patient Lot/Batch #",
             "group": "<vector_lot>",
             "exclude": [{"column": "<oos_type>", "reason": "it is the reason for the disposition"}],
+            # Whole categories of the PTF's metadata can be left out by name.
+            "exclude_categories": {"Available At": ["Post-release"]},
         },
         **_SMALL_COHORT,
         # The SiteB cohort is just big enough to show the other two encoders,
@@ -1059,10 +1050,10 @@ def write_tasks(directory: Path) -> list[Path]:
 
     written = []
     for name, task in zip(TASK_FILES, (car_expression, release_outcome)):
-        path = directory / name
+        path = directory / name / "task.yaml"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
-            "# A demo task written by `pvf init --demo`. Paths are relative to this file.\n"
+            "# A demo task workspace written by `python -m pvf.demo`. Its runs go to runs/.\n"
             + yaml.safe_dump(task, sort_keys=False, allow_unicode=True),
             encoding="utf-8",
         )
@@ -1073,4 +1064,7 @@ def write_tasks(directory: Path) -> list[Path]:
 if __name__ == "__main__":
     target = Path(sys.argv[1] if len(sys.argv) > 1 else "demo")
     written = write_config(target)
-    print(f"A demo workspace is in {target}/. Now run:  cd {target} && pvf all")
+    print(
+        f"The demo is in {target}/. Now run:  cd {target} && pvf all "
+        + " ".join(f"--task {name}" for name in TASK_FILES)
+    )

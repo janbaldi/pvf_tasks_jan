@@ -1,35 +1,36 @@
+warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
 
 ━━ PTF ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-15:08:17  STEP   io          Loading PTF
+14:26:51  STEP   io          Loading PTF
                              /home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx
-15:08:18  OK     io          PTF loaded — 204 parameters, with an 'Available At' column
+14:26:51  OK     io          PTF loaded — 204 parameters, with an 'Available At' column
                              numeric: 162  |  categorical: 26  |  datetime: 11  |  duration: 3  |
                              ratio: 1  |  [None, Low, Medium, High]: 1
-15:08:18  STEP   io          Loading SiteA PHF
+14:26:51  STEP   io          Loading SiteA PHF
                              /home/user/pvf_tasks_jan/demo/data/raw/phf_site_a.xlsx
-15:08:18  OK     io          SiteA PHF loaded — 40 rows × 93 columns
-15:08:18  STEP   io          Loading SiteB PHF
+14:26:51  OK     io          SiteA PHF loaded — 40 rows × 93 columns
+14:26:51  STEP   io          Loading SiteB PHF
                              /home/user/pvf_tasks_jan/demo/data/raw/phf_site_b.xlsx
-15:08:18  OK     io          SiteB PHF loaded — 30 rows × 93 columns
-15:08:18  STEP   io          Loading site parameter name mapping
+14:26:51  OK     io          SiteB PHF loaded — 30 rows × 93 columns
+14:26:51  STEP   io          Loading site parameter name mapping
                              /home/user/pvf_tasks_jan/demo/data/raw/parameter_requirements.xlsx
-15:08:18  INFO   io          1 mapping rows excluded by config
+14:26:51  INFO   io          1 mapping rows excluded by config
                              <excluded_mapping_row>
-15:08:18  WARN   io          1 mapping rows have no SiteA name and were dropped
+14:26:51  WARN   io          1 mapping rows have no SiteA name and were dropped
                              <site_b_site_code>
-15:08:18  OK     io          Site mapping loaded — 5 usable mappings
-15:08:18  STEP   io          Loading the investigations Power Query workbook
+14:26:51  OK     io          Site mapping loaded — 5 usable mappings
+14:26:51  STEP   io          Loading the investigations Power Query workbook
                              /home/user/pvf_tasks_jan/demo/data/raw/investigations_power_query.xlsx
-15:08:18  STEP   ptf         Comparing source parameters against the PTF
-15:08:18  WARN   ptf         SiteA PHF: 1 of 93 columns are not PTF parameters
+14:26:51  STEP   ptf         Comparing source parameters against the PTF
+14:26:51  WARN   ptf         SiteA PHF: 1 of 93 columns are not PTF parameters
                              <site_a_comment>
-15:08:18  WARN   ptf         SiteB batch data: 2 of 93 columns are not PTF parameters
+14:26:51  WARN   ptf         SiteB batch data: 2 of 93 columns are not PTF parameters
                              <site_b_site_code>, <site_b_comment>
-15:08:18  WARN   ptf         Investigations Power Query: 3 of 5 columns are not PTF parameters
+14:26:51  WARN   ptf         Investigations Power Query: 3 of 5 columns are not PTF parameters
                              Query[<investigation_id>], Query[<root_cause>], <days_to_close>
-15:08:18  OK     ptf         6 names across the sources are new to the PTF, 6 of them distinct
-15:08:18  OK     ptf         6 new parameter names written to /home/user/pvf_tasks_jan/demo/data/processed/new_parameters.csv
-15:08:18  OK     cli         Report written to /home/user/pvf_tasks_jan/demo/outputs/reports/ptf_report.html
+14:26:51  OK     ptf         6 names across the sources are new to the PTF, 6 of them distinct
+14:26:51  OK     ptf         6 new parameter names written to /home/user/pvf_tasks_jan/demo/data/processed/new_parameters.csv
+14:26:51  OK     cli         Report written to /home/user/pvf_tasks_jan/demo/data/processed/ptf_report.html
 
 SiteA PHF: columns the PTF does not list (1)
   - <site_a_comment>
@@ -44,7 +45,7 @@ Investigations Power Query: columns the PTF does not list (3)
   - <days_to_close>
 
 Written
-  Report          /home/user/pvf_tasks_jan/demo/outputs/reports/ptf_report.html
+  Report          /home/user/pvf_tasks_jan/demo/data/processed/ptf_report.html
   Manifest        /home/user/pvf_tasks_jan/demo/data/processed/ptf_manifest.json
   New parameters  /home/user/pvf_tasks_jan/demo/data/processed/new_parameters.csv
 
@@ -55,39 +56,39 @@ Written
   WARN   ptf         Investigations Power Query: 3 of 5 columns are not PTF parameters
 
 ━━ PVF build ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-15:08:18  INFO   cli         Mode: DEV
+14:26:51  INFO   cli         Mode: DEV
 
 ── 01 · Loading ────────────────────────────────────────────────────────────────────────────────────
-15:08:18  STEP   io          Loading PTF
+14:26:51  STEP   io          Loading PTF
                              /home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx
-15:08:18  OK     io          PTF loaded — 204 parameters, with an 'Available At' column
+14:26:51  OK     io          PTF loaded — 204 parameters, with an 'Available At' column
                              numeric: 162  |  categorical: 26  |  datetime: 11  |  duration: 3  |
                              ratio: 1  |  [None, Low, Medium, High]: 1
-15:08:18  STEP   io          Loading SiteA PHF
+14:26:51  STEP   io          Loading SiteA PHF
                              /home/user/pvf_tasks_jan/demo/data/raw/phf_site_a.xlsx
-15:08:18  OK     io          SiteA PHF loaded — 40 rows × 93 columns
-15:08:18  STEP   io          Loading SiteB PHF
+14:26:51  OK     io          SiteA PHF loaded — 40 rows × 93 columns
+14:26:51  STEP   io          Loading SiteB PHF
                              /home/user/pvf_tasks_jan/demo/data/raw/phf_site_b.xlsx
-15:08:18  OK     io          SiteB PHF loaded — 30 rows × 93 columns
-15:08:18  STEP   io          Loading site parameter name mapping
+14:26:51  OK     io          SiteB PHF loaded — 30 rows × 93 columns
+14:26:51  STEP   io          Loading site parameter name mapping
                              /home/user/pvf_tasks_jan/demo/data/raw/parameter_requirements.xlsx
-15:08:18  INFO   io          1 mapping rows excluded by config
+14:26:51  INFO   io          1 mapping rows excluded by config
                              <excluded_mapping_row>
-15:08:18  WARN   io          1 mapping rows have no SiteA name and were dropped
+14:26:51  WARN   io          1 mapping rows have no SiteA name and were dropped
                              <site_b_site_code>
-15:08:18  OK     io          Site mapping loaded — 5 usable mappings
-15:08:18  STEP   io          Applying column mapping to SiteB
-15:08:18  WARN   io          Two columns claim one name: '<site_b_country>' is kept as 'Country_1'
-15:08:18  OK     io          SiteB column mapping applied
+14:26:51  OK     io          Site mapping loaded — 5 usable mappings
+14:26:51  STEP   io          Applying column mapping to SiteB
+14:26:51  WARN   io          Two columns claim one name: '<site_b_country>' is kept as 'Country_1'
+14:26:51  OK     io          SiteB column mapping applied
                              1 columns renamed to avoid duplicates
-15:08:18  STEP   io          Loading re-manufacturing treatment-line supplement
+14:26:51  STEP   io          Loading re-manufacturing treatment-line supplement
                              /home/user/pvf_tasks_jan/demo/data/raw/remfg.xlsx
-15:08:18  OK     io          Re-MFG supplement loaded — 30 rows
-15:08:18  INFO   io          Supplement joined on Patient Lot/Batch # — <prior_lines>
-15:08:18  STEP   io          Loading vector certificates of analysis
+14:26:51  OK     io          Re-MFG supplement loaded — 30 rows
+14:26:51  INFO   io          Supplement joined on Patient Lot/Batch # — <prior_lines>
+14:26:51  STEP   io          Loading vector certificates of analysis
                              /home/user/pvf_tasks_jan/demo/data/raw/lv_coa.xlsx
-15:08:18  OK     io          LVV CoA data loaded — 4 rows × 22 columns
-15:08:18  INFO   io          Derived 17 <coa_prefix>columns from other certificate columns (not PTF parameters; their lineage is in features.coa_lineage())
+14:26:51  OK     io          LVV CoA data loaded — 4 rows × 22 columns
+14:26:51  INFO   io          Derived 17 <coa_prefix>columns from other certificate columns (not PTF parameters; their lineage is in features.coa_lineage())
                              <coa_prefix>HCP below LOQ ← <coa_prefix>HCP; <coa_prefix><coa_delivered_dose> ← LV
                              CoA <coa_titer_unadjusted>, <coa_prefix><coa_titer>, <coa_prefix>Volume; <coa_prefix>Titer
                              Adjustment Factor ← <coa_prefix><coa_titer>, <coa_prefix><coa_titer_unadjusted>; LV
@@ -98,148 +99,148 @@ Written
                              ← <coa_prefix><coa_donor:<coa_car_metric>-1>, <coa_prefix><coa_donor:<coa_car_metric>-2>; <coa_prefix><coa_car_metric> Donor MIN ←
                              <coa_prefix><coa_donor:<coa_car_metric>-1>, <coa_prefix><coa_donor:<coa_car_metric>-2>; <coa_prefix><coa_car_metric> Donor DIFF ←
                              <coa_prefix><coa_donor:<coa_car_metric>-1>, <coa_prefix><coa_donor:<coa_car_metric>-2>
-15:08:18  OK     io          <coa_prefix>loaded — 3 lots × 35 columns
-15:08:18  STEP   io          Loading raw materials & consumables
+14:26:51  OK     io          <coa_prefix>loaded — 3 lots × 35 columns
+14:26:51  STEP   io          Loading raw materials & consumables
                              /home/user/pvf_tasks_jan/demo/data/raw/raw_materials.csv
-15:08:18  OK     io          Raw materials loaded — 2 identifier columns
+14:26:51  OK     io          Raw materials loaded — 2 identifier columns
 
 ── 02 · Cleaning ───────────────────────────────────────────────────────────────────────────────────
-15:08:18  STEP   clean       Stripping whitespace and \xa0 characters
-15:08:18  OK     clean       String hygiene done — 181 cells modified
-15:08:18  STEP   clean       Applying integrity corrections
-15:08:18  INFO   clean       [SiteB] <clumps_mix_count>: set to missing where <clumps_mix_count> is '<value:mangled_count>' (1 rows)
-15:08:18  INFO   clean       [SiteB] Country: set to 'Israel' where <clinical_site> is '<value:clinical_sites_b>' (10 rows)
-15:08:18  INFO   clean       [SiteB] Type: set to 'Commercial' on every row (30 rows)
-15:08:18  INFO   clean       [SiteB] <oos_type>: 10 text replacements (23 rows)
-15:08:18  INFO   clean       [SiteA] <oos_type>: 1 text replacements (0 rows)
-15:08:18  INFO   clean       [SiteA] <pre_activation_clumps_yn>: set to 'No' where Patient Lot/Batch # is '<value:bad_lot>' (1 rows)
-15:08:18  INFO   clean       [SiteA] Mycoplasma: replaced '<value:mycoplasma_raw>' → '<value:mycoplasma_clean>' (40 rows)
-15:08:18  INFO   clean       [SiteB] <nonconformance>: replaced 'withdrawn' → 'withdrawal' (4 rows)
-15:08:18  OK     clean       8 integrity corrections applied
-15:08:18  STEP   clean       Coercing numeric columns (censored values → limit)
-15:08:18  WARN   clean       [SiteA] <endotoxin>: 10 censored values → the limit itself (0.5 for '<0.5')
+14:26:51  STEP   clean       Stripping whitespace and \xa0 characters
+14:26:51  OK     clean       String hygiene done — 181 cells modified
+14:26:51  STEP   clean       Applying integrity corrections
+14:26:51  INFO   clean       [SiteB] <clumps_mix_count>: set to missing where <clumps_mix_count> is '<value:mangled_count>' (1 rows)
+14:26:51  INFO   clean       [SiteB] Country: set to 'Israel' where <clinical_site> is '<value:clinical_sites_b>' (10 rows)
+14:26:51  INFO   clean       [SiteB] Type: set to 'Commercial' on every row (30 rows)
+14:26:51  INFO   clean       [SiteB] <oos_type>: 10 text replacements (23 rows)
+14:26:51  INFO   clean       [SiteA] <oos_type>: 1 text replacements (0 rows)
+14:26:51  INFO   clean       [SiteA] <pre_activation_clumps_yn>: set to 'No' where Patient Lot/Batch # is '<value:bad_lot>' (1 rows)
+14:26:51  INFO   clean       [SiteA] Mycoplasma: replaced '<value:mycoplasma_raw>' → '<value:mycoplasma_clean>' (40 rows)
+14:26:51  INFO   clean       [SiteB] <nonconformance>: replaced 'withdrawn' → 'withdrawal' (4 rows)
+14:26:51  OK     clean       8 integrity corrections applied
+14:26:51  STEP   clean       Coercing numeric columns (censored values → limit)
+14:26:51  WARN   clean       [SiteA] <endotoxin>: 10 censored values → the limit itself (0.5 for '<0.5')
                              <0.5
-15:08:18  WARN   clean       [SiteB] <endotoxin>: 8 censored values → the limit itself (0.5 for '<0.5')
+14:26:51  WARN   clean       [SiteB] <endotoxin>: 8 censored values → the limit itself (0.5 for '<0.5')
                              <0.5
-15:08:18  WARN   clean       [SiteA] <recovery>: 1 non-numeric values coerced → NaN
+14:26:51  WARN   clean       [SiteA] <recovery>: 1 non-numeric values coerced → NaN
                              ['not measured']
-15:08:18  OK     clean       Numeric coercion done — 3 column actions
-15:08:18  STEP   clean       Coercing datetime columns
-15:08:18  WARN   clean       [SiteA] <incubator_out_d8>: 1 values failed datetime parse
+14:26:51  OK     clean       Numeric coercion done — 3 column actions
+14:26:51  STEP   clean       Coercing datetime columns
+14:26:51  WARN   clean       [SiteA] <incubator_out_d8>: 1 values failed datetime parse
                              ['not recorded']
-15:08:18  OK     clean       Datetime coercion done — 1 columns had parse failures
-15:08:18  STEP   clean       Coercing duration columns (a bare number means minutes)
-15:08:18  WARN   clean       [SiteA] <contact_time_b>: 1 values failed duration parse
+14:26:51  OK     clean       Datetime coercion done — 1 columns had parse failures
+14:26:51  STEP   clean       Coercing duration columns (a bare number means minutes)
+14:26:51  WARN   clean       [SiteA] <contact_time_b>: 1 values failed duration parse
                              ['not started']
-15:08:18  OK     clean       Duration coercion done — 1 columns had parse failures
-15:08:18  STEP   clean       Extracting ratio values (right side of ':', which is normalised to 1)
-15:08:18  INFO   clean       [SiteA] <pt_cd4_cd8_ratio>: extracted right-side of ratio
-15:08:18  INFO   clean       [SiteB] <pt_cd4_cd8_ratio>: extracted right-side of ratio
-15:08:18  OK     clean       Ratio coercion done — 2 column-site pairs updated
-15:08:18  STEP   clean       Applying numeric scale corrections
-15:08:18  INFO   clean       [SiteB] <cells_per_bag>: divided by 1e+06 (30 rows)
-15:08:18  INFO   clean       [SiteB] <cells_for_recovery>: not in this run's data — correction 'SiteB/<cells_for_recovery>/divide_by' had nothing to do
-15:08:18  INFO   clean       [SiteB] <formulated_concentration_a>: not in this run's data — correction 'SiteB/<formulated_concentration_a>/divide_by' had nothing to do
-15:08:18  INFO   clean       [SiteB] <formulated_concentration_b>: not in this run's data — correction 'SiteB/<formulated_concentration_b>/divide_by' had nothing to do
-15:08:18  INFO   clean       [SiteA] <seeding_density_a>: divided by 1e+06 (40 rows)
-15:08:18  INFO   clean       [SiteA] <seeding_density_b>: not in this run's data — correction 'SiteA/<seeding_density_b>/divide_by' had nothing to do
-15:08:18  OK     clean       2 scale corrections applied
-15:08:18  STEP   clean       Validating percentage columns (0–100 range)
-15:08:18  WARN   clean       [SiteA] <recovery>: 1 values outside [0,100]
+14:26:51  OK     clean       Duration coercion done — 1 columns had parse failures
+14:26:51  STEP   clean       Extracting ratio values (right side of ':', which is normalised to 1)
+14:26:51  INFO   clean       [SiteA] <pt_cd4_cd8_ratio>: extracted right-side of ratio
+14:26:51  INFO   clean       [SiteB] <pt_cd4_cd8_ratio>: extracted right-side of ratio
+14:26:51  OK     clean       Ratio coercion done — 2 column-site pairs updated
+14:26:51  STEP   clean       Applying numeric scale corrections
+14:26:51  INFO   clean       [SiteB] <cells_per_bag>: divided by 1e+06 (30 rows)
+14:26:51  INFO   clean       [SiteB] <cells_for_recovery>: not in this run's data — correction 'SiteB/<cells_for_recovery>/divide_by' had nothing to do
+14:26:51  INFO   clean       [SiteB] <formulated_concentration_a>: not in this run's data — correction 'SiteB/<formulated_concentration_a>/divide_by' had nothing to do
+14:26:51  INFO   clean       [SiteB] <formulated_concentration_b>: not in this run's data — correction 'SiteB/<formulated_concentration_b>/divide_by' had nothing to do
+14:26:51  INFO   clean       [SiteA] <seeding_density_a>: divided by 1e+06 (40 rows)
+14:26:51  INFO   clean       [SiteA] <seeding_density_b>: not in this run's data — correction 'SiteA/<seeding_density_b>/divide_by' had nothing to do
+14:26:51  OK     clean       2 scale corrections applied
+14:26:51  STEP   clean       Validating percentage columns (0–100 range)
+14:26:51  WARN   clean       [SiteA] <recovery>: 1 values outside [0,100]
                              [105.0]
-15:08:18  STEP   clean       Filling 1 configured yes/no columns
-15:08:18  INFO   clean       [SiteA] <pre_activation_clumps_yn>: 10 blanks → 'No' (from config)
-15:08:18  INFO   clean       [SiteB] <pre_activation_clumps_yn>: 10 blanks → 'N' (from config)
-15:08:18  OK     clean       Yes/No filling done — 2 column-site pairs
-15:08:18  STEP   clean       Checking categorical column consistency (SiteA vs SiteB)
-15:08:18  WARN   clean       Categorical mismatch: 'Patient Lot/Batch #'
+14:26:51  STEP   clean       Filling 1 configured yes/no columns
+14:26:51  INFO   clean       [SiteA] <pre_activation_clumps_yn>: 10 blanks → 'No' (from config)
+14:26:51  INFO   clean       [SiteB] <pre_activation_clumps_yn>: 10 blanks → 'N' (from config)
+14:26:51  OK     clean       Yes/No filling done — 2 column-site pairs
+14:26:51  STEP   clean       Checking categorical column consistency (SiteA vs SiteB)
+14:26:51  WARN   clean       Categorical mismatch: 'Patient Lot/Batch #'
                              SiteA-only: ['GH001', 'GH002', 'GH003', 'GH004', 'GH005']  |
                              SiteB-only: ['RA000', 'RA001', 'RA002', 'RA003', 'RA004']
-15:08:18  WARN   clean       Categorical mismatch: '<vector_lot>'
+14:26:51  WARN   clean       Categorical mismatch: '<vector_lot>'
                              SiteA-only: ['LV-909']  |  SiteB-only: ['LV-103']
-15:08:18  WARN   clean       Categorical mismatch: 'Mycoplasma'
+14:26:51  WARN   clean       Categorical mismatch: 'Mycoplasma'
                              SiteA-only: ['<value:mycoplasma_clean>']  |  SiteB-only: ['mycoplasma not
                              detected']
-15:08:18  WARN   clean       Categorical mismatch: '<oos_type>'
+14:26:51  WARN   clean       Categorical mismatch: '<oos_type>'
                              SiteA-only: ['CAR', '<value:oos_raw>', 'VIability']  |  SiteB-only: ['<coa_car_metric>',
                              'Dose', 'Viability']
-15:08:18  WARN   clean       Categorical mismatch: '<nonconformance>'
+14:26:51  WARN   clean       Categorical mismatch: '<nonconformance>'
                              SiteA-only: ['withdrawn']  |  SiteB-only: ['withdrawal']
-15:08:18  WARN   clean       Categorical mismatch: '<clinical_site>'
+14:26:51  WARN   clean       Categorical mismatch: '<clinical_site>'
                              SiteA-only: ['AZ Sint-Jan', '<value:clinical_sites_a>', 'UZ Leuven']  |  SiteB-only:
                              ['<value:clinical_sites_b>', 'MSKCC', 'XYZ']
-15:08:18  WARN   clean       Categorical mismatch: 'Country'
+14:26:51  WARN   clean       Categorical mismatch: 'Country'
                              SiteA-only: ['Belgium', 'Netherlands']  |  SiteB-only: ['Israel',
                              '<value:country_to_harmonise>']
-15:08:18  WARN   clean       Categorical mismatch: 'Type'
+14:26:51  WARN   clean       Categorical mismatch: 'Type'
                              SiteA-only: ['Clinical']  |  SiteB-only: []
-15:08:18  WARN   clean       Categorical mismatch: 'Disposition'
+14:26:51  WARN   clean       Categorical mismatch: 'Disposition'
                              SiteA-only: ['Rejected']  |  SiteB-only: ['Discarded']
-15:08:18  WARN   clean       Categorical mismatch: '<pre_activation_clumps_yn>'
+14:26:51  WARN   clean       Categorical mismatch: '<pre_activation_clumps_yn>'
                              SiteA-only: ['No', 'Yes']  |  SiteB-only: ['N', 'Y']
-15:08:18  WARN   clean       10 categorical columns have different levels across sites
+14:26:51  WARN   clean       10 categorical columns have different levels across sites
 
 ── 03 · Joining sources ────────────────────────────────────────────────────────────────────────────
-15:08:18  INFO   enrich      sources.databricks is off — the Acridine Orange parameters are not in this run
-15:08:18  STEP   enrich      Merging <coa_prefix>data
-15:08:18  INFO   enrich      [SiteA] <coa_prefix>coverage: 27/40 batches (67.5%)
-15:08:18  INFO   enrich      [SiteB] <coa_prefix>coverage: 30/30 batches (100.0%)
-15:08:18  OK     enrich      <coa_prefix>merge complete
-15:08:18  STEP   enrich      Merging raw materials and consumables
-15:08:18  OK     enrich      Raw materials merged — 2 identifier columns added
-15:08:18  STEP   enrich      Enriching clinical site identifiers
-15:08:18  INFO   enrich      [SiteA] <clinical_site_id> extracted from <patient_id>
-15:08:18  WARN   enrich      [SiteB] 1 clinical site acronyms have no mapping
+14:26:51  INFO   enrich      sources.databricks is off — the Acridine Orange parameters are not in this run
+14:26:51  STEP   enrich      Merging <coa_prefix>data
+14:26:51  INFO   enrich      [SiteA] <coa_prefix>coverage: 27/40 batches (67.5%)
+14:26:51  INFO   enrich      [SiteB] <coa_prefix>coverage: 30/30 batches (100.0%)
+14:26:51  OK     enrich      <coa_prefix>merge complete
+14:26:51  STEP   enrich      Merging raw materials and consumables
+14:26:51  OK     enrich      Raw materials merged — 2 identifier columns added
+14:26:51  STEP   enrich      Enriching clinical site identifiers
+14:26:51  INFO   enrich      [SiteA] <clinical_site_id> extracted from <patient_id>
+14:26:51  WARN   enrich      [SiteB] 1 clinical site acronyms have no mapping
                              XYZ
-15:08:18  STEP   enrich      Harmonising country names
-15:08:18  OK     enrich      Country harmonisation complete
+14:26:51  STEP   enrich      Harmonising country names
+14:26:51  OK     enrich      Country harmonisation complete
 
 ── 04 · Derived features ───────────────────────────────────────────────────────────────────────────
-15:08:18  STEP   features    [SiteA] Computing derived features
-15:08:18  INFO   features    [SiteA] features — 85 created, 0 already present, 3 blocked, 2 not in PTF, 0 failed
-15:08:18  WARN   features    [SiteA] <f_log_pt_cd4_cd8> blocked
+14:26:51  STEP   features    [SiteA] Computing derived features
+14:26:51  INFO   features    [SiteA] features — 85 created, 0 already present, 3 blocked, 2 not in PTF, 0 failed
+14:26:51  WARN   features    [SiteA] <f_log_pt_cd4_cd8> blocked
                              missing: <pt_cd8_pct>
-15:08:18  WARN   features    [SiteA] <f_lactate_per_cell_2> blocked
+14:26:51  WARN   features    [SiteA] <f_lactate_per_cell_2> blocked
                              missing: <d8_lactate_b>
-15:08:18  WARN   features    [SiteA] <f_lactate_glucose_ratio:8> blocked
+14:26:51  WARN   features    [SiteA] <f_lactate_glucose_ratio:8> blocked
                              missing: <f_lactate_per_cell_2>
-15:08:18  WARN   features    [SiteA] 2 features are not PTF parameters and were not computed
+14:26:51  WARN   features    [SiteA] 2 features are not PTF parameters and were not computed
                              <f_moi_per_cd3>, Shift
-15:08:18  OK     features    [SiteA] Derived features complete
-15:08:18  STEP   features    [SiteB] Computing derived features
-15:08:18  INFO   features    [SiteB] features — 83 created, 0 already present, 5 blocked, 2 not in PTF, 0 failed
-15:08:18  WARN   features    [SiteB] <f_log_pt_cd4_cd8> blocked
+14:26:51  OK     features    [SiteA] Derived features complete
+14:26:51  STEP   features    [SiteB] Computing derived features
+14:26:52  INFO   features    [SiteB] features — 83 created, 0 already present, 5 blocked, 2 not in PTF, 0 failed
+14:26:52  WARN   features    [SiteB] <f_log_pt_cd4_cd8> blocked
                              missing: <pt_cd8_pct>
-15:08:18  WARN   features    [SiteB] <f_lactate_per_cell_2> blocked
+14:26:52  WARN   features    [SiteB] <f_lactate_per_cell_2> blocked
                              missing: <d8_lactate_b>
-15:08:18  WARN   features    [SiteB] <f_glucose_per_cell_3> blocked
+14:26:52  WARN   features    [SiteB] <f_glucose_per_cell_3> blocked
                              missing: <harvest_glucose>
-15:08:18  WARN   features    [SiteB] <f_lactate_glucose_ratio:8> blocked
+14:26:52  WARN   features    [SiteB] <f_lactate_glucose_ratio:8> blocked
                              missing: <f_lactate_per_cell_2>
-15:08:18  WARN   features    [SiteB] <f_lactate_glucose_ratio:10> blocked
+14:26:52  WARN   features    [SiteB] <f_lactate_glucose_ratio:10> blocked
                              missing: <f_glucose_per_cell_3>
-15:08:18  WARN   features    [SiteB] 2 features are not PTF parameters and were not computed
+14:26:52  WARN   features    [SiteB] 2 features are not PTF parameters and were not computed
                              <f_moi_per_cd3>, Shift
-15:08:18  OK     features    [SiteB] Derived features complete
+14:26:52  OK     features    [SiteB] Derived features complete
 
 ── 05 · Merge and checks ───────────────────────────────────────────────────────────────────────────
-15:08:18  STEP   merge       Merging SiteA and SiteB into PVF
-15:08:18  OK     merge       Merged — 70 rows × 221 columns  (40 SiteA + 30 SiteB)
-15:08:18  STEP   merge       Running sanity checks on merged PVF
-15:08:18  OK     merge       Every batch number appears once
-15:08:18  WARN   merge       5 PTF parameters absent from merged PVF
+14:26:52  STEP   merge       Merging SiteA and SiteB into PVF
+14:26:52  OK     merge       Merged — 70 rows × 221 columns  (40 SiteA + 30 SiteB)
+14:26:52  STEP   merge       Running sanity checks on merged PVF
+14:26:52  OK     merge       Every batch number appears once
+14:26:52  WARN   merge       5 PTF parameters absent from merged PVF
                              <f_log_pt_cd4_cd8>, <f_lactate_per_cell_2>,
                              <f_lactate_glucose_ratio:8>, Sterility, <mycoplasma_method>
-15:08:18  INFO   merge       1 SiteA-only columns (not in PTF mapping)
+14:26:52  INFO   merge       1 SiteA-only columns (not in PTF mapping)
                              <site_a_comment>
-15:08:18  INFO   merge       3 SiteB-only columns (not in PTF mapping)
+14:26:52  INFO   merge       3 SiteB-only columns (not in PTF mapping)
                              Country_1, <site_b_site_code>, <site_b_comment>
-15:08:18  OK     merge       Sanity checks complete
+14:26:52  OK     merge       Sanity checks complete
 
 ── 06 · Output ─────────────────────────────────────────────────────────────────────────────────────
-15:08:19  OK     cli         PVF written to /home/user/pvf_tasks_jan/demo/data/processed/PVF.xlsx
-15:08:19  OK     cli         PVF (Parquet) written to /home/user/pvf_tasks_jan/demo/data/processed/PVF.parquet
-15:08:19  OK     cli         Report written to /home/user/pvf_tasks_jan/demo/outputs/reports/build_report.html
+14:26:52  OK     cli         PVF written to /home/user/pvf_tasks_jan/demo/data/processed/PVF.xlsx
+14:26:52  OK     cli         PVF (Parquet) written to /home/user/pvf_tasks_jan/demo/data/processed/PVF.parquet
+14:26:52  OK     cli         Report written to /home/user/pvf_tasks_jan/demo/data/processed/build_report.html
 
 PTF parameters that are not in the PVF (5)
   - <f_log_pt_cd4_cd8>
@@ -251,7 +252,7 @@ PTF parameters that are not in the PVF (5)
 Written — 70 batches × 221 columns
   PVF            /home/user/pvf_tasks_jan/demo/data/processed/PVF.xlsx
   PVF (Parquet)  /home/user/pvf_tasks_jan/demo/data/processed/PVF.parquet
-  Report         /home/user/pvf_tasks_jan/demo/outputs/reports/build_report.html
+  Report         /home/user/pvf_tasks_jan/demo/data/processed/build_report.html
   Manifest       /home/user/pvf_tasks_jan/demo/data/processed/pvf_manifest.json
 
 ━━ Finished in 0:00:01 · 31 warnings · 0 errors ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -288,281 +289,279 @@ Written — 70 batches × 221 columns
   WARN   merge       5 PTF parameters absent from merged PVF
 
 ━━ Task 'site_a_car_expression' ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-15:08:19  INFO   package     Writing run 20261005-150819-bbdfdd into /home/user/pvf_tasks_jan/demo/outputs/tasks/site_a_car_expression/20261005-150819-bbdfdd.incomplete
-15:08:19  STEP   io          Loading PVF
+14:26:52  INFO   package     Writing run 20261012-142652-ae3fb4 into /home/user/pvf_tasks_jan/demo/tasks/site_a_car_expression/runs/20261012-142652-ae3fb4.incomplete
+14:26:52  STEP   io          Loading PVF
                              /home/user/pvf_tasks_jan/demo/data/processed/PVF.xlsx
-15:08:19  OK     io          PVF loaded — 70 batches × 221 parameters
-15:08:19  STEP   io          Loading PTF
+14:26:52  OK     io          PVF loaded — 70 batches × 221 parameters
+14:26:52  STEP   io          Loading PTF
                              /home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx
-15:08:19  OK     io          PTF loaded — 204 parameters, with an 'Available At' column
+14:26:52  OK     io          PTF loaded — 204 parameters, with an 'Available At' column
                              numeric: 162  |  categorical: 26  |  datetime: 11  |  duration: 3  |
                              ratio: 1  |  [None, Low, Medium, High]: 1
-15:08:19  STEP   dataset     Selecting the cohort for 'site_a_car_expression'
-15:08:19  INFO   dataset     manufactured at SiteA: 40 of 70 batches left
-15:08:19  INFO   dataset     manufactured commercially: 36 of 40 batches left
-15:08:19  INFO   dataset     manufacturing and testing finished: 36 of 36 batches left
-15:08:19  INFO   dataset     not terminated or withdrawn, however it is spelled: 22 of 36 batches left
-15:08:19  OK     dataset     Cohort: 22 of 70 batches
-15:08:19  WARN   dataset     1 batches have no usable target and are not in the dataset
-15:08:19  STEP   missingness Looking for parameters that go missing together over 21 batches
-15:08:20  OK     missingness 5 groups of parameters missing together, 5 of them with an explainer scoring ≥ 0.1
+14:26:52  STEP   dataset     Selecting the cohort for 'site_a_car_expression'
+14:26:52  INFO   dataset     manufactured at SiteA: 40 of 70 batches left
+14:26:52  INFO   dataset     manufactured commercially: 36 of 40 batches left
+14:26:52  INFO   dataset     manufacturing and testing finished: 36 of 36 batches left
+14:26:52  INFO   dataset     not terminated or withdrawn, however it is spelled: 22 of 36 batches left
+14:26:52  OK     dataset     Cohort: 22 of 70 batches
+14:26:52  WARN   dataset     1 batches have no usable target and are not in the dataset
+14:26:52  STEP   missingness Looking for parameters that go missing together over 21 batches
+14:26:53  OK     missingness 5 groups of parameters missing together, 5 of them with an explainer scoring ≥ 0.1
                              53 of 221 columns in range; 16 categorical parameters scored as
                              explainers
-15:08:20  STEP   dataset     Choosing the predictors
-15:08:20  OK     dataset     142 predictors from 199 PVF parameters (57 excluded, 5 not in the PVF)
-15:08:20  WARN   dataset     split.folds: 3 folds asked for, 2 groups allow 2
-15:08:20  INFO   dataset     Split (grouped): 14 training, 7 validation — whole groups of <vector_lot>, drawn with seed 20260917: LV-909; 2 folds over the training rows
-15:08:20  STEP   dataset     Encoding categorical parameters
-15:08:20  INFO   encode      <clump_bags_1>: 'Yes' → 1, 'No' → 0
-15:08:20  INFO   encode      <clump_bags_2>: 'Yes' → 1, 'No' → 0
-15:08:20  INFO   encode      <clump_bags_3>: 'Yes' → 1, 'No' → 0
-15:08:20  INFO   encode      Country: 'Netherlands' → 1, 'Belgium' → 0
-15:08:20  INFO   encode      <pre_activation_clumps_yn>: 'Yes' → 1, 'No' → 0
-15:08:20  INFO   encode      <clinical_site_id>: '1201' → 1, '1200' → 0
-15:08:20  INFO   encode      <cytokine_lot>: 'IL2-201' → 1, 'IL2-200' → 0
-15:08:20  INFO   encode      <coa_prefix><coa_site_format>: 'SiteB/500mL' → 1, 'SiteA/250mL' → 0
-15:08:20  STEP   dataset     Handling numeric parameters
-15:08:20  INFO   encode      <f_seeding_pct> duplicates <f_cells_per_bag> (R²=1.0000 over 14 batches) — dropped
-15:08:20  INFO   encode      <cells_seeded_a> duplicates <f_cells_per_bag> (R²=1.0000 over 14 batches) — dropped
-15:08:20  INFO   encode      <vessel_count> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
-15:08:20  INFO   encode      <f_glucose_auc> duplicates <f_glucose_per_cell_1> (R²=0.9923 over 14 batches) — dropped
-15:08:20  INFO   encode      <f_harvest_lactate_norm> duplicates <f_lactate_per_cell_3> (R²=1.0000 over 14 batches) — dropped
-15:08:20  INFO   encode      <coa_prefix><coa_donor:<coa_car_metric>-1> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
-15:08:20  INFO   encode      <coa_prefix><coa_donor:<coa_car_metric>-2> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
-15:08:20  INFO   encode      <coa_prefix><coa_dna_size> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
-15:08:20  INFO   encode      <coa_prefix><coa_impurities_4> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
-15:08:20  INFO   encode      <coa_prefix><coa_impurities_5> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
-15:08:20  INFO   encode      <coa_prefix>HCP duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
-15:08:20  INFO   encode      <coa_prefix><coa_donor:IFNg-1> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
-15:08:20  INFO   encode      <coa_prefix><coa_donor:IFNg-2> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
-15:08:20  INFO   encode      <coa_prefix><coa_titer> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
-15:08:20  INFO   encode      <coa_prefix>Osmolality duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
-15:08:20  INFO   encode      <coa_prefix><coa_pi_ratio> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
-15:08:20  INFO   encode      <coa_prefix><coa_p24> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
-15:08:20  INFO   encode      <coa_prefix>Volume duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
-15:08:20  INFO   encode      <coa_prefix>cDNA duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
-15:08:20  INFO   encode      <coa_prefix>pDNA duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
-15:08:20  INFO   encode      <coa_prefix>pH duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
-15:08:20  INFO   encode      <f_lactate_auc> duplicates <f_lactate_per_cell_3> (R²=0.9961 over 14 batches) — dropped
-15:08:21  INFO   encode      <f_seeded_spread:cv> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
-15:08:21  INFO   encode      <f_seeded_spread:max> duplicates <f_cells_per_bag> (R²=1.0000 over 14 batches) — dropped
-15:08:21  INFO   encode      <f_seeded_spread:mean> duplicates <f_cells_per_bag> (R²=0.9965 over 14 batches) — dropped
-15:08:21  INFO   encode      <vsvg_cells> duplicates <cells_available> (R²=1.0000 over 14 batches) — dropped
-15:08:21  INFO   encode      <f_vector_volume_spread:std> duplicates <f_vector_volume_spread:cv> (R²=0.9999 over 14 batches) — dropped
-15:08:21  INFO   encode      <f_viability_expansion> duplicates <f_viability_d3_d10_rel> (R²=1.0000 over 14 batches) — dropped
-15:08:21  INFO   encode      <f_log_moi_a> duplicates <f_moi_a> (R²=0.9960 over 14 batches) — dropped
-15:08:21  INFO   encode      <f_log_moi_pool> duplicates <f_moi_pool> (R²=0.9986 over 14 batches) — dropped
-15:08:22  STEP   decorrelate Looking for groups of parameters that move together
-15:08:22  INFO   decorrelate 12 parameters cannot take part in clustering
+14:26:53  STEP   dataset     Choosing the predictors
+14:26:53  OK     dataset     142 predictors from 199 PVF parameters (57 excluded, 5 not in the PVF)
+14:26:53  STEP   dataset     Encoding categorical parameters
+14:26:53  INFO   encode      <d3_clump_pattern>: 'Many small' → 1, 'Few small' → 0
+14:26:53  INFO   encode      <clump_bags_1>: 'Yes' → 1, 'No' → 0
+14:26:53  INFO   encode      <clump_bags_2>: 'Yes' → 1, 'No' → 0
+14:26:53  INFO   encode      <clump_bags_3>: 'Yes' → 1, 'No' → 0
+14:26:53  INFO   encode      Country: 'Netherlands' → 1, 'Belgium' → 0
+14:26:53  INFO   encode      <pre_activation_clumps_yn>: 'Yes' → 1, 'No' → 0
+14:26:53  INFO   encode      <coa_prefix><coa_site_format>: 'SiteB/500mL' → 1, 'SiteA/250mL' → 0
+14:26:53  STEP   dataset     Handling numeric parameters
+14:26:53  INFO   encode      <contact_time>: 1 values at or below zero → missing
+14:26:53  INFO   encode      <f_seeding_pct> duplicates <f_cells_per_bag> (R²=1.0000 over 21 batches) — dropped
+14:26:53  INFO   encode      <cells_seeded_a> duplicates <f_cells_per_bag> (R²=1.0000 over 21 batches) — dropped
+14:26:53  INFO   encode      <vessel_count> duplicates <culture_bags> (R²=1.0000 over 21 batches) — dropped
+14:26:53  INFO   encode      <f_glucose_auc> duplicates <f_glucose_per_cell_1> (R²=0.9901 over 21 batches) — dropped
+14:26:53  INFO   encode      <f_harvest_lactate_norm> duplicates <f_lactate_per_cell_3> (R²=1.0000 over 21 batches) — dropped
+14:26:54  INFO   encode      <f_lactate_auc> duplicates <f_lactate_per_cell_3> (R²=0.9936 over 21 batches) — dropped
+14:26:54  INFO   encode      <f_seeded_spread:cv> duplicates <culture_bags> (R²=1.0000 over 21 batches) — dropped
+14:26:54  INFO   encode      <f_seeded_spread:max> duplicates <f_cells_per_bag> (R²=1.0000 over 21 batches) — dropped
+14:26:54  INFO   encode      <f_seeded_spread:mean> duplicates <f_cells_per_bag> (R²=0.9969 over 21 batches) — dropped
+14:26:54  INFO   encode      <vsvg_cells> duplicates <cells_available> (R²=1.0000 over 21 batches) — dropped
+14:26:54  INFO   encode      <f_vector_volume_spread:std> duplicates <f_vector_volume_spread:cv> (R²=0.9996 over 21 batches) — dropped
+14:26:54  INFO   encode      <f_viability_expansion> duplicates <f_viability_d3_d10_rel> (R²=1.0000 over 21 batches) — dropped
+14:26:54  INFO   encode      <cells_seeded_b> duplicates <f_cells_per_bag> (R²=1.0000 over 14 batches) — dropped
+14:26:54  INFO   encode      <coa_prefix><coa_donor:<coa_car_metric>-1> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+14:26:54  INFO   encode      <coa_prefix><coa_donor:<coa_car_metric>-2> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+14:26:54  INFO   encode      <coa_prefix><coa_dna_size> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+14:26:54  INFO   encode      <coa_prefix><coa_impurities_4> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+14:26:54  INFO   encode      <coa_prefix><coa_impurities_5> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+14:26:54  INFO   encode      <coa_prefix>HCP duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+14:26:54  INFO   encode      <coa_prefix><coa_donor:IFNg-1> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+14:26:54  INFO   encode      <coa_prefix><coa_donor:IFNg-2> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+14:26:54  INFO   encode      <coa_prefix><coa_titer> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+14:26:54  INFO   encode      <coa_prefix>Osmolality duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+14:26:54  INFO   encode      <coa_prefix><coa_pi_ratio> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+14:26:54  INFO   encode      <coa_prefix><coa_p24> duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+14:26:54  INFO   encode      <coa_prefix>Volume duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+14:26:54  INFO   encode      <coa_prefix>cDNA duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+14:26:54  INFO   encode      <coa_prefix>pDNA duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+14:26:54  INFO   encode      <coa_prefix>pH duplicates <culture_bags> (R²=1.0000 over 14 batches) — dropped
+14:26:55  INFO   encode      <f_log_moi_a> duplicates <f_moi_a> (R²=0.9960 over 14 batches) — dropped
+14:26:55  INFO   encode      <f_log_moi_pool> duplicates <f_moi_pool> (R²=0.9986 over 14 batches) — dropped
+14:26:55  STEP   decorrelate Looking for groups of parameters that move together
+14:26:55  INFO   decorrelate 7 parameters cannot take part in clustering
                              <f_seeding_within> (constant), <f_incubation_d0_d1> (constant),
                              <f_incubation_d1_d3> (constant), <f_incubation_total> (constant),
-                             <f_d3_clumps> (constant), <cells_seeded_b>
-                             (fewer than 8 usable values), <d6_glucose_b> (fewer than 8
-                             usable values), <d6_lactate_b> (fewer than 8 usable
-                             values), <d8_glucose_b> (fewer than 8 usable values),
-                             <f_moi_b> (fewer than 8 usable values)
-15:08:24  INFO   decorrelate Cluster 01: 8 parameters, represented by '<f_cells_per_bag>' (report_only)
-15:08:24  INFO   decorrelate Cluster 02: 6 parameters, represented by '<f_lactate_glucose_ratio:10>' (report_only)
-15:08:24  INFO   decorrelate Cluster 03: 5 parameters, represented by '<d6_lactate_a>' (report_only)
-15:08:24  INFO   decorrelate Cluster 04: 4 parameters, represented by '<f_seeded_spread:std>' (report_only)
-15:08:24  INFO   decorrelate Cluster 05: 3 parameters, represented by '<contact_time>' (report_only)
-15:08:24  INFO   decorrelate Cluster 06: 3 parameters, represented by '<clumps_pre_count>' (report_only)
-15:08:24  INFO   decorrelate Cluster 07: 3 parameters, represented by '<f_lactate_per_cell_3>' (report_only)
-15:08:24  INFO   decorrelate Cluster 08: 3 parameters, represented by '<f_moi_a>' (report_only)
-15:08:24  INFO   decorrelate Cluster 09: 2 parameters, represented by '<f_clump_burden_post>' (report_only)
-15:08:24  INFO   decorrelate Cluster 10: 2 parameters, represented by '<f_clump_burden_mix>' (report_only)
-15:08:24  INFO   decorrelate Cluster 11: 2 parameters, represented by '<f_viability_d3_d10_rel>' (report_only)
-15:08:24  INFO   decorrelate Cluster 12: 2 parameters, represented by '<f_contact_deviation_1>' (report_only)
-15:08:24  INFO   decorrelate Cluster 13: 2 parameters, represented by '<f_contact_deviation_2>' (report_only)
-15:08:24  INFO   decorrelate Cluster 14: 2 parameters, represented by '<f_contact_deviation_3>' (report_only)
-15:08:24  INFO   decorrelate Cluster 15: 2 parameters, represented by '<il2_activity_d6>' (report_only)
-15:08:24  INFO   decorrelate Cluster 16: 2 parameters, represented by '<il2_activity_d8>' (report_only)
-15:08:24  INFO   decorrelate Cluster 17: 2 parameters, represented by '<f_vector_volume_spread:max>' (report_only)
-15:08:24  INFO   decorrelate Cluster 18: 2 parameters, represented by '<f_vector_volume_spread:min>' (report_only)
-15:08:24  OK     decorrelate 18 clusters covering 55 parameters (report_only)
-15:08:24  WARN   encode      <ordinal_parameter>: 'Severe' is not one of its PTF categories (1 batches) — left missing
-15:08:24  WARN   encode      <ordinal_parameter>: 'Severe' is not one of its PTF categories (1 batches) — left missing
-15:08:25  INFO   dataset     7 columns have too few values and were dropped
-15:08:25  INFO   dataset     9 columns are constant on the fitted rows and were dropped
-15:08:25  WARN   encode      <ordinal_parameter>: 'Severe' is not one of its PTF categories (1 batches) — left missing
-15:08:25  WARN   encode      <ordinal_parameter>: 'Severe' is not one of its PTF categories (1 batches) — left missing
-15:08:25  INFO   encode      <contact_time>: 1 values at or below zero → missing
-15:08:25  WARN   dataset     Only 3 distinct <vector_lot> values: any grouped validation rests on 3 groups, not on 21 batches
-15:08:25  WARN   dataset     95 predictor columns for 14 fitted batches (p/n = 6.8): a model needs strong regularisation, and its performance has to be estimated by cross-validation, not in-sample
-15:08:25  OK     dataset     Task 'site_a_car_expression': 21 batches × 83 columns, predicting 'fp_flow_car'
-15:08:25  OK     package     Task package written to /home/user/pvf_tasks_jan/demo/outputs/tasks/site_a_car_expression/20261005-150819-bbdfdd
+                             <f_d3_clumps> (constant), <f_moi_b> (fewer than 8 usable
+                             values), <f_log_moi_b> (fewer than 8 usable values)
+14:26:58  INFO   decorrelate 16 parameter pairs share fewer than 8 batches — their relationship is unknown and they were not merged
+14:26:58  INFO   decorrelate Cluster 01: 12 parameters, represented by '<f_lactate_glucose_ratio:6>' (report_only)
+14:26:58  INFO   decorrelate Cluster 02: 8 parameters, represented by '<f_cells_per_bag>' (report_only)
+14:26:58  INFO   decorrelate Cluster 03: 3 parameters, represented by '<contact_time_a>' (report_only)
+14:26:58  INFO   decorrelate Cluster 04: 3 parameters, represented by '<f_lactate_per_cell_3>' (report_only)
+14:26:58  INFO   decorrelate Cluster 05: 3 parameters, represented by '<f_moi_a>' (report_only)
+14:26:58  INFO   decorrelate Cluster 06: 3 parameters, represented by '<f_vector_volume_spread:max>' (report_only)
+14:26:58  INFO   decorrelate Cluster 07: 2 parameters, represented by '<culture_bags>' (report_only)
+14:26:58  INFO   decorrelate Cluster 08: 2 parameters, represented by '<f_car_yield>' (report_only)
+14:26:58  INFO   decorrelate Cluster 09: 2 parameters, represented by '<f_clump_burden_post>' (report_only)
+14:26:58  INFO   decorrelate Cluster 10: 2 parameters, represented by '<f_clump_burden_mix>' (report_only)
+14:26:58  INFO   decorrelate Cluster 11: 2 parameters, represented by '<f_viability_d3_d10_rel>' (report_only)
+14:26:58  INFO   decorrelate Cluster 12: 2 parameters, represented by '<f_contact_deviation_1>' (report_only)
+14:26:58  INFO   decorrelate Cluster 13: 2 parameters, represented by '<f_contact_deviation_2>' (report_only)
+14:26:58  INFO   decorrelate Cluster 14: 2 parameters, represented by '<f_contact_deviation_3>' (report_only)
+14:26:58  INFO   decorrelate Cluster 15: 2 parameters, represented by '<cells_available>' (report_only)
+14:26:58  INFO   decorrelate Cluster 16: 2 parameters, represented by '<il2_activity_d6>' (report_only)
+14:26:58  INFO   decorrelate Cluster 17: 2 parameters, represented by '<il2_activity_d8>' (report_only)
+14:26:58  INFO   decorrelate Cluster 18: 2 parameters, represented by '<f_incubation_d3_d6>' (report_only)
+14:26:58  INFO   decorrelate Cluster 19: 2 parameters, represented by '<f_mixing_x_clumps>' (report_only)
+14:26:58  INFO   decorrelate Cluster 20: 2 parameters, represented by '<f_vector_volume_spread:min>' (report_only)
+14:26:58  OK     decorrelate 20 clusters covering 60 parameters (report_only)
+14:26:58  WARN   encode      <ordinal_parameter>: 'Severe' is not one of its PTF categories (2 batches) — left missing
+14:26:58  WARN   encode      <ordinal_parameter>: 'Severe' is not one of its PTF categories (2 batches) — left missing
+14:26:58  INFO   encode      <contact_time>: 1 values at or below zero → missing
+14:26:58  INFO   dataset     2 columns have too few values and were dropped
+14:26:58  INFO   dataset     12 columns are constant on the fitted rows and were dropped
+14:26:59  WARN   encode      <ordinal_parameter>: 'Severe' is not one of its PTF categories (2 batches) — left missing
+14:26:59  INFO   encode      <contact_time>: 1 values at or below zero → missing
+14:26:59  WARN   dataset     Only 3 distinct <vector_lot> values: any grouped cross-validation rests on 3 groups, not on 21 batches
+14:26:59  WARN   dataset     113 predictor columns for 21 fitted batches (p/n = 5.4): a model needs strong regularisation, and its performance has to be estimated by cross-validation, not in-sample
+14:26:59  OK     dataset     Task 'site_a_car_expression': 21 batches × 89 columns, predicting 'fp_flow_car'
+14:26:59  OK     package     Task package written to /home/user/pvf_tasks_jan/demo/tasks/site_a_car_expression/runs/20261012-142652-ae3fb4
 
-Written — 21 batches × 88 columns
-  Task folder  /home/user/pvf_tasks_jan/demo/outputs/tasks/site_a_car_expression/20261005-150819-bbdfdd
-  Report       /home/user/pvf_tasks_jan/demo/outputs/tasks/site_a_car_expression/20261005-150819-bbdfdd/report/report.html
-  Dataset      /home/user/pvf_tasks_jan/demo/outputs/tasks/site_a_car_expression/20261005-150819-bbdfdd/data/dataset.csv
-  Manifest     /home/user/pvf_tasks_jan/demo/outputs/tasks/site_a_car_expression/20261005-150819-bbdfdd/manifest.json
+Written — 21 batches × 92 columns
+  Task folder  /home/user/pvf_tasks_jan/demo/tasks/site_a_car_expression/runs/20261012-142652-ae3fb4
+  Report       /home/user/pvf_tasks_jan/demo/tasks/site_a_car_expression/runs/20261012-142652-ae3fb4/report/report.html
+  Dataset      /home/user/pvf_tasks_jan/demo/tasks/site_a_car_expression/runs/20261012-142652-ae3fb4/data/dataset.csv
+  Manifest     /home/user/pvf_tasks_jan/demo/tasks/site_a_car_expression/runs/20261012-142652-ae3fb4/manifest.json
 
-━━ Finished in 0:00:06 · 8 warnings · 0 errors ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━ Finished in 0:00:07 · 6 warnings · 0 errors ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   WARN   dataset     1 batches have no usable target and are not in the dataset
-  WARN   dataset     split.folds: 3 folds asked for, 2 groups allow 2
-  WARN   encode      <ordinal_parameter>: 'Severe' is not one of its PTF categories (1 batches) — left missing  (×4)
-  WARN   dataset     Only 3 distinct <vector_lot> values: any grouped validation rests on 3 groups, not on 21 batches
-  WARN   dataset     95 predictor columns for 14 fitted batches (p/n = 6.8): a model needs strong regularisation, and its performance has to be estimated by cross-validation, not in-sample
+  WARN   encode      <ordinal_parameter>: 'Severe' is not one of its PTF categories (2 batches) — left missing  (×3)
+  WARN   dataset     Only 3 distinct <vector_lot> values: any grouped cross-validation rests on 3 groups, not on 21 batches
+  WARN   dataset     113 predictor columns for 21 fitted batches (p/n = 5.4): a model needs strong regularisation, and its performance has to be estimated by cross-validation, not in-sample
 
 ━━ Task 'site_b_release' ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-15:08:25  INFO   package     Writing run 20261005-150825-66da31 into /home/user/pvf_tasks_jan/demo/outputs/explorations/site_b_release/20261005-150825-66da31.incomplete
-15:08:25  STEP   io          Loading PVF
+14:26:59  INFO   package     Writing run 20261012-142659-d1b14c into /home/user/pvf_tasks_jan/demo/tasks/site_b_release/runs/20261012-142659-d1b14c.incomplete
+14:26:59  STEP   io          Loading PVF
                              /home/user/pvf_tasks_jan/demo/data/processed/PVF.xlsx
-15:08:25  OK     io          PVF loaded — 70 batches × 221 parameters
-15:08:25  STEP   io          Loading PTF
+14:26:59  OK     io          PVF loaded — 70 batches × 221 parameters
+14:26:59  STEP   io          Loading PTF
                              /home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx
-15:08:25  OK     io          PTF loaded — 204 parameters, with an 'Available At' column
+14:26:59  OK     io          PTF loaded — 204 parameters, with an 'Available At' column
                              numeric: 162  |  categorical: 26  |  datetime: 11  |  duration: 3  |
                              ratio: 1  |  [None, Low, Medium, High]: 1
-15:08:25  STEP   dataset     Selecting the cohort for 'site_b_release'
-15:08:25  INFO   dataset     manufactured at SiteB: 30 of 70 batches left
-15:08:25  INFO   dataset     manufacturing and testing finished: 27 of 30 batches left
-15:08:25  OK     dataset     Cohort: 27 of 70 batches
-15:08:25  INFO   dataset     Target 'Disposition': 'Released' → 1 (15 batches), 'Discarded' → 0 (12)
-15:08:25  STEP   missingness Looking for parameters that go missing together over 27 batches
-15:08:26  OK     missingness 2 groups of parameters missing together, 1 of them with an explainer scoring ≥ 0.1
+14:26:59  STEP   dataset     Selecting the cohort for 'site_b_release'
+14:26:59  INFO   dataset     manufactured at SiteB: 30 of 70 batches left
+14:26:59  INFO   dataset     manufacturing and testing finished: 27 of 30 batches left
+14:26:59  OK     dataset     Cohort: 27 of 70 batches
+14:26:59  INFO   dataset     Target 'Disposition': 'Released' → 1 (15 batches), 'Discarded' → 0 (12)
+14:26:59  STEP   missingness Looking for parameters that go missing together over 27 batches
+14:27:00  OK     missingness 2 groups of parameters missing together, 1 of them with an explainer scoring ≥ 0.1
                              12 of 221 columns in range; 17 categorical parameters scored as
                              explainers
-15:08:26  STEP   dataset     Choosing the predictors
-15:08:26  OK     dataset     195 predictors from 199 PVF parameters (4 excluded, 5 not in the PVF)
-15:08:26  STEP   dataset     Encoding categorical parameters
-15:08:26  INFO   encode      <d3_clump_pattern>: 'Many small' → 1, 'Few small' → 0
-15:08:26  INFO   encode      <clump_bags_1>: 'Yes' → 1, 'No' → 0
-15:08:26  INFO   encode      <clump_bags_2>: 'Yes' → 1, 'No' → 0
-15:08:26  INFO   encode      <clump_bags_3>: 'Yes' → 1, 'No' → 0
-15:08:26  INFO   encode      Country: '<value:country_harmonised>' → 1, 'Israel' → 0
-15:08:26  INFO   encode      <pre_activation_clumps_yn>: 'Y' → 1, 'N' → 0
-15:08:26  INFO   encode      <coa_prefix><coa_site_format>: 'SiteB/500mL' → 1, 'SiteA/250mL' → 0
-15:08:26  INFO   encode      <team> → shift_team_target_enc
-15:08:26  INFO   encode      <incubator_id>: 9 categories → 16 buckets
-15:08:26  STEP   dataset     Handling numeric parameters
-15:08:26  INFO   encode      <f_seeding_pct> duplicates <f_cells_per_bag> (R²=1.0000 over 27 batches) — dropped
-15:08:26  INFO   encode      <cells_seeded_a> duplicates <f_cells_per_bag> (R²=1.0000 over 27 batches) — dropped
-15:08:26  INFO   encode      <vessel_count> duplicates <culture_bags> (R²=1.0000 over 27 batches) — dropped
-15:08:26  INFO   encode      <dose_per_kg> duplicates <f_cells_per_bag> (R²=1.0000 over 27 batches) — dropped
-15:08:26  INFO   encode      <f_dose_all> duplicates <f_cells_per_bag> (R²=1.0000 over 27 batches) — dropped
-15:08:26  INFO   encode      <dose_cells> duplicates <f_cells_per_bag> (R²=1.0000 over 27 batches) — dropped
-15:08:26  INFO   encode      <f_glucose_auc> duplicates <f_glucose_per_cell_1> (R²=0.9975 over 27 batches) — dropped
-15:08:26  INFO   encode      <f_harvest_lactate_norm> duplicates <f_lactate_per_cell_3> (R²=1.0000 over 27 batches) — dropped
-15:08:27  INFO   encode      <coa_prefix><coa_impurities_4> duplicates <coa_prefix><coa_donor:<coa_car_metric>-1> (R²=1.0000 over 27 batches) — dropped
-15:08:27  INFO   encode      <coa_prefix><coa_impurities_5> duplicates <coa_prefix><coa_dna_size> (R²=1.0000 over 27 batches) — dropped
-15:08:27  INFO   encode      <coa_prefix><coa_donor:IFNg-1> duplicates <coa_prefix><coa_donor:<coa_car_metric>-1> (R²=0.9980 over 27 batches) — dropped
-15:08:27  INFO   encode      <coa_prefix><coa_donor:IFNg-2> duplicates <coa_prefix>HCP (R²=0.9993 over 27 batches) — dropped
-15:08:27  INFO   encode      <coa_prefix><coa_titer> duplicates <coa_prefix><coa_donor:<coa_car_metric>-2> (R²=1.0000 over 27 batches) — dropped
-15:08:27  INFO   encode      <coa_prefix>Osmolality duplicates <coa_prefix><coa_donor:<coa_car_metric>-1> (R²=1.0000 over 27 batches) — dropped
-15:08:27  INFO   encode      <coa_prefix><coa_pi_ratio> duplicates <coa_prefix><coa_dna_size> (R²=1.0000 over 27 batches) — dropped
-15:08:27  INFO   encode      <coa_prefix>Volume duplicates <coa_prefix><coa_dna_size> (R²=1.0000 over 27 batches) — dropped
-15:08:27  INFO   encode      <coa_prefix>cDNA duplicates <coa_prefix><coa_p24> (R²=1.0000 over 27 batches) — dropped
-15:08:27  INFO   encode      <coa_prefix>pDNA duplicates <coa_prefix>HCP (R²=0.9999 over 27 batches) — dropped
-15:08:28  INFO   encode      <pt_viable_cells> duplicates <f_cells_per_bag> (R²=1.0000 over 27 batches) — dropped
-15:08:28  INFO   encode      <f_seeded_spread:cv> duplicates <culture_bags> (R²=1.0000 over 27 batches) — dropped
-15:08:28  INFO   encode      <f_seeded_spread:max> duplicates <f_cells_per_bag> (R²=1.0000 over 27 batches) — dropped
-15:08:28  INFO   encode      <f_seeded_spread:mean> duplicates <f_cells_per_bag> (R²=0.9972 over 27 batches) — dropped
-15:08:29  INFO   encode      <vsvg_cells> duplicates <cells_available> (R²=1.0000 over 27 batches) — dropped
-15:08:29  INFO   encode      <f_vector_volume_spread:std> duplicates <f_vector_volume_spread:cv> (R²=0.9969 over 27 batches) — dropped
-15:08:29  INFO   encode      <f_viability_expansion> duplicates <f_viability_d3_d10_rel> (R²=1.0000 over 27 batches) — dropped
-15:08:29  INFO   encode      <f_viability_drop_pts> duplicates <f_viability_drop_rel> (R²=0.9990 over 27 batches) — dropped
-15:08:29  INFO   encode      <formulation_cell_volume> duplicates <formulation_medium_volume> (R²=1.0000 over 27 batches) — dropped
-15:08:30  INFO   encode      <f_log_moi_pool> duplicates <f_moi_pool> (R²=0.9951 over 27 batches) — dropped
-15:08:30  INFO   encode      <f_cells_into_formulation> duplicates <washed_cells> (R²=1.0000 over 27 batches) — dropped
-15:08:30  INFO   encode      <cells_seeded_b> duplicates <f_cells_per_bag> (R²=1.0000 over 18 batches) — dropped
-15:08:30  INFO   encode      <f_log_moi_b> duplicates <f_moi_b> (R²=0.9929 over 18 batches) — dropped
-15:08:30  STEP   decorrelate Looking for groups of parameters that move together
-15:08:30  INFO   decorrelate 4 parameters cannot take part in clustering
+14:27:00  STEP   dataset     Choosing the predictors
+14:27:00  OK     dataset     194 predictors from 199 PVF parameters (5 excluded, 5 not in the PVF)
+14:27:00  STEP   dataset     Encoding categorical parameters
+14:27:00  INFO   encode      <d3_clump_pattern>: 'Many small' → 1, 'Few small' → 0
+14:27:00  INFO   encode      <clump_bags_1>: 'Yes' → 1, 'No' → 0
+14:27:00  INFO   encode      <clump_bags_2>: 'Yes' → 1, 'No' → 0
+14:27:00  INFO   encode      <clump_bags_3>: 'Yes' → 1, 'No' → 0
+14:27:00  INFO   encode      Country: '<value:country_harmonised>' → 1, 'Israel' → 0
+14:27:00  INFO   encode      <pre_activation_clumps_yn>: 'Y' → 1, 'N' → 0
+14:27:00  INFO   encode      <coa_prefix><coa_site_format>: 'SiteB/500mL' → 1, 'SiteA/250mL' → 0
+14:27:00  INFO   encode      <team> → shift_team_target_enc
+14:27:00  INFO   encode      <incubator_id>: 9 categories → 16 buckets
+14:27:00  STEP   dataset     Handling numeric parameters
+14:27:00  INFO   encode      <f_seeding_pct> duplicates <f_cells_per_bag> (R²=1.0000 over 27 batches) — dropped
+14:27:00  INFO   encode      <cells_seeded_a> duplicates <f_cells_per_bag> (R²=1.0000 over 27 batches) — dropped
+14:27:00  INFO   encode      <vessel_count> duplicates <culture_bags> (R²=1.0000 over 27 batches) — dropped
+14:27:00  INFO   encode      <dose_per_kg> duplicates <f_cells_per_bag> (R²=1.0000 over 27 batches) — dropped
+14:27:00  INFO   encode      <f_dose_all> duplicates <f_cells_per_bag> (R²=1.0000 over 27 batches) — dropped
+14:27:00  INFO   encode      <dose_cells> duplicates <f_cells_per_bag> (R²=1.0000 over 27 batches) — dropped
+14:27:00  INFO   encode      <f_glucose_auc> duplicates <f_glucose_per_cell_1> (R²=0.9975 over 27 batches) — dropped
+14:27:00  INFO   encode      <f_harvest_lactate_norm> duplicates <f_lactate_per_cell_3> (R²=1.0000 over 27 batches) — dropped
+14:27:01  INFO   encode      <coa_prefix><coa_impurities_4> duplicates <coa_prefix><coa_donor:<coa_car_metric>-1> (R²=1.0000 over 27 batches) — dropped
+14:27:01  INFO   encode      <coa_prefix><coa_impurities_5> duplicates <coa_prefix><coa_dna_size> (R²=1.0000 over 27 batches) — dropped
+14:27:01  INFO   encode      <coa_prefix><coa_donor:IFNg-1> duplicates <coa_prefix><coa_donor:<coa_car_metric>-1> (R²=0.9980 over 27 batches) — dropped
+14:27:01  INFO   encode      <coa_prefix><coa_donor:IFNg-2> duplicates <coa_prefix>HCP (R²=0.9993 over 27 batches) — dropped
+14:27:01  INFO   encode      <coa_prefix><coa_titer> duplicates <coa_prefix><coa_donor:<coa_car_metric>-2> (R²=1.0000 over 27 batches) — dropped
+14:27:01  INFO   encode      <coa_prefix>Osmolality duplicates <coa_prefix><coa_donor:<coa_car_metric>-1> (R²=1.0000 over 27 batches) — dropped
+14:27:01  INFO   encode      <coa_prefix><coa_pi_ratio> duplicates <coa_prefix><coa_dna_size> (R²=1.0000 over 27 batches) — dropped
+14:27:02  INFO   encode      <coa_prefix>Volume duplicates <coa_prefix><coa_dna_size> (R²=1.0000 over 27 batches) — dropped
+14:27:02  INFO   encode      <coa_prefix>cDNA duplicates <coa_prefix><coa_p24> (R²=1.0000 over 27 batches) — dropped
+14:27:02  INFO   encode      <coa_prefix>pDNA duplicates <coa_prefix>HCP (R²=0.9999 over 27 batches) — dropped
+14:27:02  INFO   encode      <pt_viable_cells> duplicates <f_cells_per_bag> (R²=1.0000 over 27 batches) — dropped
+14:27:03  INFO   encode      <f_seeded_spread:cv> duplicates <culture_bags> (R²=1.0000 over 27 batches) — dropped
+14:27:03  INFO   encode      <f_seeded_spread:max> duplicates <f_cells_per_bag> (R²=1.0000 over 27 batches) — dropped
+14:27:03  INFO   encode      <f_seeded_spread:mean> duplicates <f_cells_per_bag> (R²=0.9972 over 27 batches) — dropped
+14:27:03  INFO   encode      <vsvg_cells> duplicates <cells_available> (R²=1.0000 over 27 batches) — dropped
+14:27:04  INFO   encode      <f_vector_volume_spread:std> duplicates <f_vector_volume_spread:cv> (R²=0.9969 over 27 batches) — dropped
+14:27:04  INFO   encode      <f_viability_expansion> duplicates <f_viability_d3_d10_rel> (R²=1.0000 over 27 batches) — dropped
+14:27:04  INFO   encode      <f_viability_drop_pts> duplicates <f_viability_drop_rel> (R²=0.9990 over 27 batches) — dropped
+14:27:04  INFO   encode      <formulation_cell_volume> duplicates <formulation_medium_volume> (R²=1.0000 over 27 batches) — dropped
+14:27:04  INFO   encode      <f_log_moi_pool> duplicates <f_moi_pool> (R²=0.9951 over 27 batches) — dropped
+14:27:04  INFO   encode      <f_cells_into_formulation> duplicates <washed_cells> (R²=1.0000 over 27 batches) — dropped
+14:27:05  INFO   encode      <cells_seeded_b> duplicates <f_cells_per_bag> (R²=1.0000 over 18 batches) — dropped
+14:27:05  INFO   encode      <f_log_moi_b> duplicates <f_moi_b> (R²=0.9929 over 18 batches) — dropped
+14:27:05  STEP   decorrelate Looking for groups of parameters that move together
+14:27:05  INFO   decorrelate 4 parameters cannot take part in clustering
                              <f_incubation_d0_d1> (constant), <f_incubation_d1_d3> (constant),
                              <f_incubation_total> (constant), <f_d3_clumps> (constant)
-15:08:38  INFO   decorrelate 5 parameter pairs share fewer than 8 batches — their relationship is unknown and they were not merged
-15:08:38  INFO   decorrelate <harvest_cells>: residualised on 1 parameters, adjusted R² 0.969
-15:08:38  INFO   decorrelate <f_cells_out_of_formulation>: residualised on 2 parameters, adjusted R² 0.966
-15:08:38  INFO   decorrelate <f_seeded_spread:min>: residualised on 3 parameters, adjusted R² 0.835
-15:08:38  INFO   decorrelate <f_cells_per_bag>: residualised on 4 parameters, adjusted R² 0.988
-15:08:38  INFO   decorrelate <f_glucose_slope>: residualised on 5 parameters, adjusted R² 0.868
-15:08:38  INFO   decorrelate Cluster 01: 6 parameters, represented by '<washed_cells>' (linear)
-15:08:38  INFO   decorrelate <d6_lactate_a>: residualised on 1 parameters, adjusted R² 0.948
-15:08:38  INFO   decorrelate <d8_glucose_a>: residualised on 2 parameters, adjusted R² 0.849
-15:08:38  INFO   decorrelate <d6_glucose_a>: residualised on 3 parameters, adjusted R² 0.891
-15:08:38  INFO   decorrelate <d8_glucose_b>: residualised on 4 parameters, adjusted R² 0.846
-15:08:38  INFO   decorrelate Cluster 02: 5 parameters, represented by '<f_lactate_glucose_ratio:6>' (linear)
-15:08:38  INFO   decorrelate <coa_prefix><coa_donor:<coa_car_metric>-2>: residualised on 1 parameters, adjusted R² 0.906
-15:08:38  INFO   decorrelate <coa_prefix><coa_dna_size>: residualised on 2 parameters, adjusted R² 0.961
-15:08:38  INFO   decorrelate <culture_bags>: residualised on 3 parameters, adjusted R² 0.879
-15:08:38  INFO   decorrelate Cluster 03: 4 parameters, represented by '<coa_prefix><coa_p24>' (linear)
-15:08:38  INFO   decorrelate <fp_car_pct>: residualised on 1 parameters, adjusted R² 0.959
-15:08:38  INFO   decorrelate <harvest_car_pct>: residualised on 2 parameters, adjusted R² 0.954
-15:08:38  INFO   decorrelate <vcn>: residualised on 3 parameters, adjusted R² 0.990
-15:08:38  INFO   decorrelate Cluster 04: 4 parameters, represented by '<f_vcn_per_cell>' (linear)
-15:08:38  INFO   decorrelate <f_lactate_per_cell_3>: residualised on 1 parameters, adjusted R² 0.969
-15:08:38  INFO   decorrelate <f_lactate_per_cell_1>: residualised on 2 parameters, adjusted R² 1.000
-15:08:38  INFO   decorrelate Cluster 05: 3 parameters, represented by '<f_lactate_auc>' (linear)
-15:08:38  INFO   decorrelate <f_glucose_per_cell_2>: residualised on 1 parameters, adjusted R² 0.986
-15:08:38  INFO   decorrelate <formulation_medium_volume>: residualised on 2 parameters, adjusted R² 0.847
-15:08:38  INFO   decorrelate Cluster 06: 3 parameters, represented by '<f_glucose_per_cell_1>' (linear)
-15:08:38  INFO   decorrelate <f_moi_quality>: residualised on 1 parameters, adjusted R² 0.980
-15:08:38  INFO   decorrelate <f_moi_b>: residualised on 2 parameters, adjusted R² 0.920
-15:08:38  INFO   decorrelate Cluster 07: 3 parameters, represented by '<f_moi_pool>' (linear)
-15:08:38  INFO   decorrelate <pt_cd4_pct>: residualised on 1 parameters, adjusted R² 0.848
-15:08:38  INFO   decorrelate <f_pt_cd4_cells>: residualised on 2 parameters, adjusted R² 0.813
-15:08:38  INFO   decorrelate Cluster 08: 3 parameters, represented by '<f_pt_cd4_share>' (linear)
-15:08:38  INFO   decorrelate <f_cells_lost_formulation>: residualised on 1 parameters, adjusted R² 0.986
-15:08:38  INFO   decorrelate Cluster 09: 2 parameters, represented by '<f_pct_lost_formulation>' (linear)
-15:08:38  INFO   decorrelate <clumps_mix_count>: residualised on 1 parameters, adjusted R² 0.831
-15:08:38  INFO   decorrelate Cluster 10: 2 parameters, represented by '<f_clump_burden_mix>' (linear)
-15:08:38  INFO   decorrelate <clumps_post_count>: residualised on 1 parameters, adjusted R² 0.459
-15:08:38  INFO   decorrelate Cluster 11: 2 parameters, represented by '<f_clump_count_reduction>' (linear)
-15:08:38  INFO   decorrelate <f_viability_d3_d10_pts>: residualised on 1 parameters, adjusted R² 0.546
-15:08:38  INFO   decorrelate Cluster 12: 2 parameters, represented by '<f_viability_wash>' (linear)
-15:08:38  INFO   decorrelate <f_contact_within_1>: residualised on 1 parameters, adjusted R² 0.779
-15:08:38  INFO   decorrelate Cluster 13: 2 parameters, represented by '<f_contact_deviation_1>' (linear)
-15:08:38  INFO   decorrelate <f_contact_within_2>: residualised on 1 parameters, adjusted R² 0.738
-15:08:39  INFO   decorrelate Cluster 14: 2 parameters, represented by '<f_contact_deviation_2>' (linear)
-15:08:39  INFO   decorrelate <f_contact_within_3>: residualised on 1 parameters, adjusted R² 0.783
-15:08:39  INFO   decorrelate Cluster 15: 2 parameters, represented by '<f_contact_deviation_3>' (linear)
-15:08:39  INFO   decorrelate <f_seeding_within>: residualised on 1 parameters, adjusted R² 0.573
-15:08:39  INFO   decorrelate Cluster 16: 2 parameters, represented by '<f_seeding_error>' (linear)
-15:08:39  INFO   decorrelate <f_viability_drop_rel>: residualised on 1 parameters, adjusted R² 0.741
-15:08:39  INFO   decorrelate Cluster 17: 2 parameters, represented by '<d3_viability>' (linear)
-15:08:39  INFO   decorrelate <f_seeded_spread:std>: residualised on 1 parameters, adjusted R² 0.923
-15:08:39  INFO   decorrelate Cluster 18: 2 parameters, represented by '<cells_available>' (linear)
-15:08:39  INFO   decorrelate <f_il2_d6>: residualised on 1 parameters, adjusted R² 0.781
-15:08:39  INFO   decorrelate Cluster 19: 2 parameters, represented by '<il2_activity_d6>' (linear)
-15:08:39  INFO   decorrelate <d6_lactate_b>: residualised on 1 parameters, adjusted R² 0.723
-15:08:39  INFO   decorrelate Cluster 20: 2 parameters, represented by '<d6_glucose_b>' (linear)
-15:08:39  INFO   decorrelate <f_il2_d8>: residualised on 1 parameters, adjusted R² 0.679
-15:08:39  INFO   decorrelate Cluster 21: 2 parameters, represented by '<il2_activity_d8>' (linear)
-15:08:39  INFO   decorrelate <harvest_lactate>: residualised on 1 parameters, adjusted R² 0.646
-15:08:39  INFO   decorrelate Cluster 22: 2 parameters, represented by '<d8_lactate_a>' (linear)
-15:08:39  INFO   decorrelate <washed_concentration>: residualised on 1 parameters, adjusted R² 0.875
-15:08:39  INFO   decorrelate Cluster 23: 2 parameters, represented by '<formulated_concentration>' (linear)
-15:08:39  INFO   decorrelate <prior_lines>: residualised on 1 parameters, adjusted R² 0.697
-15:08:39  INFO   decorrelate Cluster 24: 2 parameters, represented by '<f_incubation_d3_d6>' (linear)
-15:08:39  INFO   decorrelate <coa_prefix>pH: residualised on 1 parameters, adjusted R² 0.963
-15:08:39  INFO   decorrelate Cluster 25: 2 parameters, represented by '<coa_prefix><coa_donor:<coa_car_metric>-1>' (linear)
-15:08:39  INFO   decorrelate <f_coa_impurity_index>: residualised on 1 parameters, adjusted R² 0.939
-15:08:39  INFO   decorrelate Cluster 26: 2 parameters, represented by '<coa_prefix>HCP' (linear)
-15:08:39  INFO   decorrelate <f_log_moi_a>: residualised on 1 parameters, adjusted R² 0.984
-15:08:39  INFO   decorrelate Cluster 27: 2 parameters, represented by '<f_moi_a>' (linear)
-15:08:39  INFO   decorrelate <pw_cd4_pct>: residualised on 1 parameters, adjusted R² 0.960
-15:08:39  INFO   decorrelate Cluster 28: 2 parameters, represented by '<f_pw_cd4_share>' (linear)
-15:08:39  INFO   decorrelate <pw_cd8_pct>: residualised on 1 parameters, adjusted R² 0.954
-15:08:39  INFO   decorrelate Cluster 29: 2 parameters, represented by '<f_pw_cd8_share>' (linear)
-15:08:39  INFO   decorrelate <f_vector_volume_spread:min>: residualised on 1 parameters, adjusted R² 0.800
-15:08:39  INFO   decorrelate Cluster 30: 2 parameters, represented by '<f_vector_volume_spread:mean>' (linear)
-15:08:39  OK     decorrelate 30 clusters covering 75 parameters (linear)
-15:08:39  INFO   dataset     20 columns are constant on the fitted rows and were dropped
-15:08:40  WARN   dataset     Only 3 distinct <vector_lot> values: any grouped validation rests on 3 groups, not on 27 batches
-15:08:40  WARN   dataset     176 predictor columns for 27 fitted batches (p/n = 6.5): a model needs strong regularisation, and its performance has to be estimated by cross-validation, not in-sample
-15:08:40  WARN   dataset     12 batches in the smaller class for 176 predictor columns (0.07 events per variable, against the usual 10 or more)
-15:08:40  OK     dataset     Task 'site_b_release': 27 batches × 176 columns, predicting 'disposition_is_released'
-15:08:41  OK     package     Task package written to /home/user/pvf_tasks_jan/demo/outputs/explorations/site_b_release/20261005-150825-66da31
+14:27:14  INFO   decorrelate 5 parameter pairs share fewer than 8 batches — their relationship is unknown and they were not merged
+14:27:14  INFO   decorrelate <harvest_cells>: residualised on 1 parameters, adjusted R² 0.969
+14:27:14  INFO   decorrelate <f_cells_out_of_formulation>: residualised on 2 parameters, adjusted R² 0.966
+14:27:14  INFO   decorrelate <f_seeded_spread:min>: residualised on 3 parameters, adjusted R² 0.835
+14:27:14  INFO   decorrelate <f_cells_per_bag>: residualised on 4 parameters, adjusted R² 0.988
+14:27:14  INFO   decorrelate <f_glucose_slope>: residualised on 5 parameters, adjusted R² 0.868
+14:27:14  INFO   decorrelate Cluster 01: 6 parameters, represented by '<washed_cells>' (linear)
+14:27:14  INFO   decorrelate <d6_lactate_a>: residualised on 1 parameters, adjusted R² 0.948
+14:27:14  INFO   decorrelate <d8_glucose_a>: residualised on 2 parameters, adjusted R² 0.849
+14:27:14  INFO   decorrelate <d6_glucose_a>: residualised on 3 parameters, adjusted R² 0.891
+14:27:14  INFO   decorrelate <d8_glucose_b>: residualised on 4 parameters, adjusted R² 0.846
+14:27:14  INFO   decorrelate Cluster 02: 5 parameters, represented by '<f_lactate_glucose_ratio:6>' (linear)
+14:27:14  INFO   decorrelate <coa_prefix><coa_donor:<coa_car_metric>-2>: residualised on 1 parameters, adjusted R² 0.906
+14:27:14  INFO   decorrelate <coa_prefix><coa_dna_size>: residualised on 2 parameters, adjusted R² 0.961
+14:27:14  INFO   decorrelate <culture_bags>: residualised on 3 parameters, adjusted R² 0.879
+14:27:14  INFO   decorrelate Cluster 03: 4 parameters, represented by '<coa_prefix><coa_p24>' (linear)
+14:27:14  INFO   decorrelate <fp_car_pct>: residualised on 1 parameters, adjusted R² 0.959
+14:27:14  INFO   decorrelate <harvest_car_pct>: residualised on 2 parameters, adjusted R² 0.954
+14:27:14  INFO   decorrelate <vcn>: residualised on 3 parameters, adjusted R² 0.990
+14:27:14  INFO   decorrelate Cluster 04: 4 parameters, represented by '<f_vcn_per_cell>' (linear)
+14:27:14  INFO   decorrelate <f_lactate_per_cell_3>: residualised on 1 parameters, adjusted R² 0.969
+14:27:14  INFO   decorrelate <f_lactate_per_cell_1>: residualised on 2 parameters, adjusted R² 1.000
+14:27:14  INFO   decorrelate Cluster 05: 3 parameters, represented by '<f_lactate_auc>' (linear)
+14:27:14  INFO   decorrelate <f_glucose_per_cell_2>: residualised on 1 parameters, adjusted R² 0.986
+14:27:14  INFO   decorrelate <formulation_medium_volume>: residualised on 2 parameters, adjusted R² 0.847
+14:27:14  INFO   decorrelate Cluster 06: 3 parameters, represented by '<f_glucose_per_cell_1>' (linear)
+14:27:14  INFO   decorrelate <f_moi_quality>: residualised on 1 parameters, adjusted R² 0.980
+14:27:14  INFO   decorrelate <f_moi_b>: residualised on 2 parameters, adjusted R² 0.920
+14:27:14  INFO   decorrelate Cluster 07: 3 parameters, represented by '<f_moi_pool>' (linear)
+14:27:14  INFO   decorrelate <pt_cd4_pct>: residualised on 1 parameters, adjusted R² 0.848
+14:27:14  INFO   decorrelate <f_pt_cd4_cells>: residualised on 2 parameters, adjusted R² 0.813
+14:27:14  INFO   decorrelate Cluster 08: 3 parameters, represented by '<f_pt_cd4_share>' (linear)
+14:27:14  INFO   decorrelate <f_cells_lost_formulation>: residualised on 1 parameters, adjusted R² 0.986
+14:27:14  INFO   decorrelate Cluster 09: 2 parameters, represented by '<f_pct_lost_formulation>' (linear)
+14:27:14  INFO   decorrelate <clumps_mix_count>: residualised on 1 parameters, adjusted R² 0.831
+14:27:14  INFO   decorrelate Cluster 10: 2 parameters, represented by '<f_clump_burden_mix>' (linear)
+14:27:14  INFO   decorrelate <clumps_post_count>: residualised on 1 parameters, adjusted R² 0.459
+14:27:14  INFO   decorrelate Cluster 11: 2 parameters, represented by '<f_clump_count_reduction>' (linear)
+14:27:14  INFO   decorrelate <f_viability_d3_d10_pts>: residualised on 1 parameters, adjusted R² 0.546
+14:27:14  INFO   decorrelate Cluster 12: 2 parameters, represented by '<f_viability_wash>' (linear)
+14:27:14  INFO   decorrelate <f_contact_within_1>: residualised on 1 parameters, adjusted R² 0.779
+14:27:14  INFO   decorrelate Cluster 13: 2 parameters, represented by '<f_contact_deviation_1>' (linear)
+14:27:14  INFO   decorrelate <f_contact_within_2>: residualised on 1 parameters, adjusted R² 0.738
+14:27:14  INFO   decorrelate Cluster 14: 2 parameters, represented by '<f_contact_deviation_2>' (linear)
+14:27:14  INFO   decorrelate <f_contact_within_3>: residualised on 1 parameters, adjusted R² 0.783
+14:27:14  INFO   decorrelate Cluster 15: 2 parameters, represented by '<f_contact_deviation_3>' (linear)
+14:27:14  INFO   decorrelate <f_seeding_within>: residualised on 1 parameters, adjusted R² 0.573
+14:27:14  INFO   decorrelate Cluster 16: 2 parameters, represented by '<f_seeding_error>' (linear)
+14:27:14  INFO   decorrelate <f_viability_drop_rel>: residualised on 1 parameters, adjusted R² 0.741
+14:27:14  INFO   decorrelate Cluster 17: 2 parameters, represented by '<d3_viability>' (linear)
+14:27:14  INFO   decorrelate <f_seeded_spread:std>: residualised on 1 parameters, adjusted R² 0.923
+14:27:14  INFO   decorrelate Cluster 18: 2 parameters, represented by '<cells_available>' (linear)
+14:27:14  INFO   decorrelate <f_il2_d6>: residualised on 1 parameters, adjusted R² 0.781
+14:27:14  INFO   decorrelate Cluster 19: 2 parameters, represented by '<il2_activity_d6>' (linear)
+14:27:14  INFO   decorrelate <d6_lactate_b>: residualised on 1 parameters, adjusted R² 0.723
+14:27:14  INFO   decorrelate Cluster 20: 2 parameters, represented by '<d6_glucose_b>' (linear)
+14:27:14  INFO   decorrelate <f_il2_d8>: residualised on 1 parameters, adjusted R² 0.679
+14:27:15  INFO   decorrelate Cluster 21: 2 parameters, represented by '<il2_activity_d8>' (linear)
+14:27:15  INFO   decorrelate <harvest_lactate>: residualised on 1 parameters, adjusted R² 0.646
+14:27:15  INFO   decorrelate Cluster 22: 2 parameters, represented by '<d8_lactate_a>' (linear)
+14:27:15  INFO   decorrelate <washed_concentration>: residualised on 1 parameters, adjusted R² 0.875
+14:27:15  INFO   decorrelate Cluster 23: 2 parameters, represented by '<formulated_concentration>' (linear)
+14:27:15  INFO   decorrelate <prior_lines>: residualised on 1 parameters, adjusted R² 0.697
+14:27:15  INFO   decorrelate Cluster 24: 2 parameters, represented by '<f_incubation_d3_d6>' (linear)
+14:27:15  INFO   decorrelate <coa_prefix>pH: residualised on 1 parameters, adjusted R² 0.963
+14:27:15  INFO   decorrelate Cluster 25: 2 parameters, represented by '<coa_prefix><coa_donor:<coa_car_metric>-1>' (linear)
+14:27:15  INFO   decorrelate <f_coa_impurity_index>: residualised on 1 parameters, adjusted R² 0.939
+14:27:15  INFO   decorrelate Cluster 26: 2 parameters, represented by '<coa_prefix>HCP' (linear)
+14:27:15  INFO   decorrelate <f_log_moi_a>: residualised on 1 parameters, adjusted R² 0.984
+14:27:15  INFO   decorrelate Cluster 27: 2 parameters, represented by '<f_moi_a>' (linear)
+14:27:15  INFO   decorrelate <pw_cd4_pct>: residualised on 1 parameters, adjusted R² 0.960
+14:27:15  INFO   decorrelate Cluster 28: 2 parameters, represented by '<f_pw_cd4_share>' (linear)
+14:27:15  INFO   decorrelate <pw_cd8_pct>: residualised on 1 parameters, adjusted R² 0.954
+14:27:15  INFO   decorrelate Cluster 29: 2 parameters, represented by '<f_pw_cd8_share>' (linear)
+14:27:15  INFO   decorrelate <f_vector_volume_spread:min>: residualised on 1 parameters, adjusted R² 0.800
+14:27:15  INFO   decorrelate Cluster 30: 2 parameters, represented by '<f_vector_volume_spread:mean>' (linear)
+14:27:15  OK     decorrelate 30 clusters covering 75 parameters (linear)
+14:27:15  INFO   dataset     19 columns are constant on the fitted rows and were dropped
+14:27:15  WARN   dataset     Only 3 distinct <vector_lot> values: any grouped cross-validation rests on 3 groups, not on 27 batches
+14:27:15  WARN   dataset     168 predictor columns for 27 fitted batches (p/n = 6.2): a model needs strong regularisation, and its performance has to be estimated by cross-validation, not in-sample
+14:27:15  WARN   dataset     12 batches in the smaller class for 168 predictor columns (0.07 events per variable, against the usual 10 or more)
+14:27:15  OK     dataset     Task 'site_b_release': 27 batches × 168 columns, predicting 'disposition_is_released'
+14:27:17  OK     package     Task package written to /home/user/pvf_tasks_jan/demo/tasks/site_b_release/runs/20261012-142659-d1b14c
 
-Written — 27 batches × 179 columns
-  Task folder  /home/user/pvf_tasks_jan/demo/outputs/explorations/site_b_release/20261005-150825-66da31
-  Report       /home/user/pvf_tasks_jan/demo/outputs/explorations/site_b_release/20261005-150825-66da31/report/report.html
-  Dataset      /home/user/pvf_tasks_jan/demo/outputs/explorations/site_b_release/20261005-150825-66da31/data/dataset.csv
-  Manifest     /home/user/pvf_tasks_jan/demo/outputs/explorations/site_b_release/20261005-150825-66da31/manifest.json
+Written — 27 batches × 171 columns
+  Task folder  /home/user/pvf_tasks_jan/demo/tasks/site_b_release/runs/20261012-142659-d1b14c
+  Report       /home/user/pvf_tasks_jan/demo/tasks/site_b_release/runs/20261012-142659-d1b14c/report/report.html
+  Dataset      /home/user/pvf_tasks_jan/demo/tasks/site_b_release/runs/20261012-142659-d1b14c/data/dataset.csv
+  Manifest     /home/user/pvf_tasks_jan/demo/tasks/site_b_release/runs/20261012-142659-d1b14c/manifest.json
 
-━━ Finished in 0:00:15 · 3 warnings · 0 errors ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  WARN   dataset     Only 3 distinct <vector_lot> values: any grouped validation rests on 3 groups, not on 27 batches
-  WARN   dataset     176 predictor columns for 27 fitted batches (p/n = 6.5): a model needs strong regularisation, and its performance has to be estimated by cross-validation, not in-sample
-  WARN   dataset     12 batches in the smaller class for 176 predictor columns (0.07 events per variable, against the usual 10 or more)
+━━ Finished in 0:00:17 · 3 warnings · 0 errors ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  WARN   dataset     Only 3 distinct <vector_lot> values: any grouped cross-validation rests on 3 groups, not on 27 batches
+  WARN   dataset     168 predictor columns for 27 fitted batches (p/n = 6.2): a model needs strong regularisation, and its performance has to be estimated by cross-validation, not in-sample
+  WARN   dataset     12 batches in the smaller class for 168 predictor columns (0.07 events per variable, against the usual 10 or more)

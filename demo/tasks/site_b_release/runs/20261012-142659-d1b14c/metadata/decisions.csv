@@ -1,0 +1,228 @@
+Parameter,Decision,Reason,Stage
+Patient Lot/Batch #,excluded,"the identifier, kept as metadata rather than encoded",role
+<vector_lot>,excluded,"the grouping column, kept as metadata rather than encoded",role
+<oos_type>,excluded,it is the reason for the disposition,task exclusion
+<nonconformance>,excluded,PTF 'Available At' is 'Post-release',category exclusion
+Disposition,excluded,"the target, kept as metadata rather than encoded",role
+<patient_id>,excluded,"one category, or none",categorical routing
+<testing_done>,excluded,"one category, or none",categorical routing
+Mycoplasma,excluded,"one category, or none",categorical routing
+Type,excluded,"one category, or none",categorical routing
+<f_seeding_pct>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 27 shared batches),near-duplicate
+<cells_seeded_a>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 27 shared batches),near-duplicate
+<vessel_count>,excluded,duplicates '<culture_bags>' (R²=1.0 over 27 shared batches),near-duplicate
+<dose_per_kg>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 27 shared batches),near-duplicate
+<f_dose_all>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 27 shared batches),near-duplicate
+<dose_cells>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 27 shared batches),near-duplicate
+<f_glucose_auc>,excluded,duplicates '<f_glucose_per_cell_1>' (R²=0.9975 over 27 shared batches),near-duplicate
+<f_harvest_lactate_norm>,excluded,duplicates '<f_lactate_per_cell_3>' (R²=1.0 over 27 shared batches),near-duplicate
+<coa_prefix><coa_impurities_4>,excluded,duplicates '<coa_prefix><coa_donor:<coa_car_metric>-1>' (R²=1.0 over 27 shared batches),near-duplicate
+<coa_prefix><coa_impurities_5>,excluded,duplicates '<coa_prefix><coa_dna_size>' (R²=1.0 over 27 shared batches),near-duplicate
+<coa_prefix><coa_donor:IFNg-1>,excluded,duplicates '<coa_prefix><coa_donor:<coa_car_metric>-1>' (R²=0.998 over 27 shared batches),near-duplicate
+<coa_prefix><coa_donor:IFNg-2>,excluded,duplicates '<coa_prefix>HCP' (R²=0.9993 over 27 shared batches),near-duplicate
+<coa_prefix><coa_titer>,excluded,duplicates '<coa_prefix><coa_donor:<coa_car_metric>-2>' (R²=1.0 over 27 shared batches),near-duplicate
+<coa_prefix>Osmolality,excluded,duplicates '<coa_prefix><coa_donor:<coa_car_metric>-1>' (R²=1.0 over 27 shared batches),near-duplicate
+<coa_prefix><coa_pi_ratio>,excluded,duplicates '<coa_prefix><coa_dna_size>' (R²=1.0 over 27 shared batches),near-duplicate
+<coa_prefix>Volume,excluded,duplicates '<coa_prefix><coa_dna_size>' (R²=1.0 over 27 shared batches),near-duplicate
+<coa_prefix>cDNA,excluded,duplicates '<coa_prefix><coa_p24>' (R²=1.0 over 27 shared batches),near-duplicate
+<coa_prefix>pDNA,excluded,duplicates '<coa_prefix>HCP' (R²=0.9999 over 27 shared batches),near-duplicate
+<pt_viable_cells>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 27 shared batches),near-duplicate
+<f_seeded_spread:cv>,excluded,duplicates '<culture_bags>' (R²=1.0 over 27 shared batches),near-duplicate
+<f_seeded_spread:max>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 27 shared batches),near-duplicate
+<f_seeded_spread:mean>,excluded,duplicates '<f_cells_per_bag>' (R²=0.9972 over 27 shared batches),near-duplicate
+<vsvg_cells>,excluded,duplicates '<cells_available>' (R²=1.0 over 27 shared batches),near-duplicate
+<f_vector_volume_spread:std>,excluded,duplicates '<f_vector_volume_spread:cv>' (R²=0.9969 over 27 shared batches),near-duplicate
+<f_viability_expansion>,excluded,duplicates '<f_viability_d3_d10_rel>' (R²=1.0 over 27 shared batches),near-duplicate
+<f_viability_drop_pts>,excluded,duplicates '<f_viability_drop_rel>' (R²=0.999 over 27 shared batches),near-duplicate
+<formulation_cell_volume>,excluded,duplicates '<formulation_medium_volume>' (R²=1.0 over 27 shared batches),near-duplicate
+<f_log_moi_pool>,excluded,duplicates '<f_moi_pool>' (R²=0.9951 over 27 shared batches),near-duplicate
+<f_cells_into_formulation>,excluded,duplicates '<washed_cells>' (R²=1.0 over 27 shared batches),near-duplicate
+<cells_seeded_b>,excluded,duplicates '<f_cells_per_bag>' (R²=1.0 over 18 shared batches),near-duplicate
+<f_log_moi_b>,excluded,duplicates '<f_moi_b>' (R²=0.9929 over 18 shared batches),near-duplicate
+<clinical_site>,excluded,"'<clinical_site>_Other' is constant on the fitted rows, to measurement precision",near-constant
+<clinical_site_id>,excluded,"'<clinical_site_id>_Other' is constant on the fitted rows, to measurement precision",near-constant
+<media_lot>,excluded,"'<media_lot>_Other' is constant on the fitted rows, to measurement precision",near-constant
+<cytokine_lot>,excluded,"'<cytokine_lot>_Other' is constant on the fitted rows, to measurement precision",near-constant
+<f_growth_profile>,excluded,"'<f_growth_profile>_Other' is constant on the fitted rows, to measurement precision",near-constant
+<f_cd4_profile>,excluded,"'<f_cd4_profile>_Other' is constant on the fitted rows, to measurement precision",near-constant
+<incubator_id>,excluded,"'incubator_id_hash_00' is constant on the fitted rows, to measurement precision",near-constant
+<incubator_id>,excluded,"'incubator_id_hash_03' is constant on the fitted rows, to measurement precision",near-constant
+<incubator_id>,excluded,"'incubator_id_hash_06' is constant on the fitted rows, to measurement precision",near-constant
+<incubator_id>,excluded,"'incubator_id_hash_07' is constant on the fitted rows, to measurement precision",near-constant
+<incubator_id>,excluded,"'incubator_id_hash_09' is constant on the fitted rows, to measurement precision",near-constant
+<incubator_id>,excluded,"'incubator_id_hash_10' is constant on the fitted rows, to measurement precision",near-constant
+<incubator_id>,excluded,"'incubator_id_hash_11' is constant on the fitted rows, to measurement precision",near-constant
+<incubator_id>,excluded,"'incubator_id_hash_12' is constant on the fitted rows, to measurement precision",near-constant
+<f_lactate_per_cell_1>,excluded,"'<f_lactate_per_cell_1>_resid' is constant on the fitted rows, to measurement precision",near-constant
+<f_incubation_d0_d1>,excluded,"'<f_incubation_d0_d1>' is constant on the fitted rows, to measurement precision",near-constant
+<f_incubation_d1_d3>,excluded,"'<f_incubation_d1_d3>' is constant on the fitted rows, to measurement precision",near-constant
+<f_incubation_total>,excluded,"'<f_incubation_total>' is constant on the fitted rows, to measurement precision",near-constant
+<f_d3_clumps>,excluded,"'<f_d3_clumps>' is constant on the fitted rows, to measurement precision",near-constant
+<d3_clump_pattern>,included,binary,encoding
+<clump_bags_1>,included,binary,encoding
+<clump_bags_2>,included,binary,encoding
+<clump_bags_3>,included,binary,encoding
+Country,included,binary,encoding
+<pre_activation_clumps_yn>,included,binary,encoding
+<coa_prefix><coa_site_format>,included,binary,encoding
+<clinical_site>,included,one-hot,encoding
+<clinical_site>,included,one-hot,encoding
+<clinical_site>,included,one-hot,encoding
+<clinical_site_id>,included,one-hot,encoding
+<clinical_site_id>,included,one-hot,encoding
+<clinical_site_id>,included,one-hot,encoding
+<media_lot>,included,one-hot,encoding
+<media_lot>,included,one-hot,encoding
+<media_lot>,included,one-hot,encoding
+<media_lot>,included,one-hot,encoding
+<cytokine_lot>,included,one-hot,encoding
+<cytokine_lot>,included,one-hot,encoding
+<cytokine_lot>,included,one-hot,encoding
+<f_growth_profile>,included,one-hot,encoding
+<f_growth_profile>,included,one-hot,encoding
+<f_growth_profile>,included,one-hot,encoding
+<f_cd4_profile>,included,one-hot,encoding
+<f_cd4_profile>,included,one-hot,encoding
+<f_cd4_profile>,included,one-hot,encoding
+<team>,included,target encoding,encoding
+<incubator_id>,included,feature hashing,encoding
+<incubator_id>,included,feature hashing,encoding
+<incubator_id>,included,feature hashing,encoding
+<incubator_id>,included,feature hashing,encoding
+<incubator_id>,included,feature hashing,encoding
+<incubator_id>,included,feature hashing,encoding
+<incubator_id>,included,feature hashing,encoding
+<incubator_id>,included,feature hashing,encoding
+<ordinal_parameter>,included,ordinal,encoding
+<washed_cells>,included,cluster representative (linear),encoding
+<harvest_cells>,included,cluster residual (linear),encoding
+<f_cells_out_of_formulation>,included,cluster residual (linear),encoding
+<f_seeded_spread:min>,included,cluster residual (linear),encoding
+<f_cells_per_bag>,included,cluster residual (linear),encoding
+<f_glucose_slope>,included,cluster residual (linear),encoding
+<f_lactate_glucose_ratio:6>,included,cluster representative (linear),encoding
+<d6_lactate_a>,included,cluster residual (linear),encoding
+<d8_glucose_a>,included,cluster residual (linear),encoding
+<d6_glucose_a>,included,cluster residual (linear),encoding
+<d8_glucose_b>,included,cluster residual (linear),encoding
+<coa_prefix><coa_p24>,included,cluster representative (linear),encoding
+<coa_prefix><coa_donor:<coa_car_metric>-2>,included,cluster residual (linear),encoding
+<coa_prefix><coa_dna_size>,included,cluster residual (linear),encoding
+<culture_bags>,included,cluster residual (linear),encoding
+<f_vcn_per_cell>,included,cluster representative (linear),encoding
+<fp_car_pct>,included,cluster residual (linear),encoding
+<harvest_car_pct>,included,cluster residual (linear),encoding
+<vcn>,included,cluster residual (linear),encoding
+<f_lactate_auc>,included,cluster representative (linear),encoding
+<f_lactate_per_cell_3>,included,cluster residual (linear),encoding
+<f_glucose_per_cell_1>,included,cluster representative (linear),encoding
+<f_glucose_per_cell_2>,included,cluster residual (linear),encoding
+<formulation_medium_volume>,included,cluster residual (linear),encoding
+<f_moi_pool>,included,cluster representative (linear),encoding
+<f_moi_quality>,included,cluster residual (linear),encoding
+<f_moi_b>,included,cluster residual (linear),encoding
+<f_pt_cd4_share>,included,cluster representative (linear),encoding
+<pt_cd4_pct>,included,cluster residual (linear),encoding
+<f_pt_cd4_cells>,included,cluster residual (linear),encoding
+<f_pct_lost_formulation>,included,cluster representative (linear),encoding
+<f_cells_lost_formulation>,included,cluster residual (linear),encoding
+<f_clump_burden_mix>,included,cluster representative (linear),encoding
+<clumps_mix_count>,included,cluster residual (linear),encoding
+<f_clump_count_reduction>,included,cluster representative (linear),encoding
+<clumps_post_count>,included,cluster residual (linear),encoding
+<f_viability_wash>,included,cluster representative (linear),encoding
+<f_viability_d3_d10_pts>,included,cluster residual (linear),encoding
+<f_contact_deviation_1>,included,cluster representative (linear),encoding
+<f_contact_within_1>,included,cluster residual (linear),encoding
+<f_contact_deviation_2>,included,cluster representative (linear),encoding
+<f_contact_within_2>,included,cluster residual (linear),encoding
+<f_contact_deviation_3>,included,cluster representative (linear),encoding
+<f_contact_within_3>,included,cluster residual (linear),encoding
+<f_seeding_error>,included,cluster representative (linear),encoding
+<f_seeding_within>,included,cluster residual (linear),encoding
+<d3_viability>,included,cluster representative (linear),encoding
+<f_viability_drop_rel>,included,cluster residual (linear),encoding
+<cells_available>,included,cluster representative (linear),encoding
+<f_seeded_spread:std>,included,cluster residual (linear),encoding
+<il2_activity_d6>,included,cluster representative (linear),encoding
+<f_il2_d6>,included,cluster residual (linear),encoding
+<d6_glucose_b>,included,cluster representative (linear),encoding
+<d6_lactate_b>,included,cluster residual (linear),encoding
+<il2_activity_d8>,included,cluster representative (linear),encoding
+<f_il2_d8>,included,cluster residual (linear),encoding
+<d8_lactate_a>,included,cluster representative (linear),encoding
+<harvest_lactate>,included,cluster residual (linear),encoding
+<formulated_concentration>,included,cluster representative (linear),encoding
+<washed_concentration>,included,cluster residual (linear),encoding
+<f_incubation_d3_d6>,included,cluster representative (linear),encoding
+<prior_lines>,included,cluster residual (linear),encoding
+<coa_prefix><coa_donor:<coa_car_metric>-1>,included,cluster representative (linear),encoding
+<coa_prefix>pH,included,cluster residual (linear),encoding
+<coa_prefix>HCP,included,cluster representative (linear),encoding
+<f_coa_impurity_index>,included,cluster residual (linear),encoding
+<f_moi_a>,included,cluster representative (linear),encoding
+<f_log_moi_a>,included,cluster residual (linear),encoding
+<f_pw_cd4_share>,included,cluster representative (linear),encoding
+<pw_cd4_pct>,included,cluster residual (linear),encoding
+<f_pw_cd8_share>,included,cluster representative (linear),encoding
+<pw_cd8_pct>,included,cluster residual (linear),encoding
+<f_vector_volume_spread:mean>,included,cluster representative (linear),encoding
+<f_vector_volume_spread:min>,included,cluster residual (linear),encoding
+<contact_time_a>,included,duration,encoding
+<contact_time_b>,included,duration,encoding
+<f_car_yield>,included,numeric,encoding
+<f_clump_burden_post>,included,numeric,encoding
+<f_clump_burden_pre>,included,numeric,encoding
+<f_clump_size_reduction>,included,numeric,encoding
+<f_achievable_dose>,included,numeric,encoding
+<f_car_cells>,included,numeric,encoding
+<f_clump_bag_count>,included,numeric,encoding
+<f_viability_d3_d10_rel>,included,numeric,encoding
+<mixing_cycles>,included,numeric,encoding
+<contact_time>,included,duration,encoding
+Day 6 <co2_marker>,included,numeric,encoding
+Day 6 <co2_marker> dev_from_5.0pct,included,numeric,encoding
+<il2_content_d6>,included,numeric,encoding
+Day 6 <temperature_marker>,included,numeric,encoding
+Day 6 <temperature_marker> dev_from_37.0C,included,numeric,encoding
+<il2_content_d8>,included,numeric,encoding
+<endotoxin>,included,numeric,encoding
+<formulated_viability>,included,numeric,encoding
+<f_flow_accuracy>,included,numeric,encoding
+<washed_viability>,included,numeric,encoding
+<harvest_viability>,included,numeric,encoding
+<f_incubation_d6_d8>,included,numeric,encoding
+<f_incubation_d8_d10>,included,numeric,encoding
+<f_lactate_slope>,included,numeric,encoding
+<f_log_pw_cd4_cd8>,included,numeric,encoding
+<f_mixing_x_clumps>,included,numeric,encoding
+<f_pt_cd3_cells>,included,numeric,encoding
+<pt_cd4_cd8_ratio>,included,numeric,encoding
+<pt_cd3_pct>,included,numeric,encoding
+<pw_cd3_pct>,included,numeric,encoding
+<pw_viability>,included,numeric,encoding
+<f_post_formulation_dose>,included,numeric,encoding
+<clumps_post_size>,included,numeric,encoding
+<clumps_mix_size>,included,numeric,encoding
+<clumps_pre_count>,included,numeric,encoding
+<clumps_pre_size>,included,numeric,encoding
+<recovery>,included,numeric,encoding
+<subject_weight>,included,numeric,encoding
+<f_formulated_total_concentration>,included,numeric,encoding
+<cells_per_bag>,included,numeric,encoding
+<f_vector_volume_spread:cv>,included,numeric,encoding
+<f_vector_volume_spread:max>,included,numeric,encoding
+<vector_volume_a>,included,numeric,encoding
+<bag_volume>,included,numeric,encoding
+<cpdl>,included,numeric,encoding
+<f_cells_lost_wash>,included,numeric,encoding
+<vector_volume_b>,included,numeric,encoding
+<d3_clump_pattern>,included,missing indicator,encoding
+<ordinal_parameter>,included,missing indicator,encoding
+<d8_glucose_b>,included,missing indicator,encoding
+<f_moi_b>,included,missing indicator,encoding
+<f_clump_burden_mix>,included,missing indicator,encoding
+<clumps_mix_count>,included,missing indicator,encoding
+<d6_glucose_b>,included,missing indicator,encoding
+<d6_lactate_b>,included,missing indicator,encoding
+<vector_volume_b>,included,missing indicator,encoding

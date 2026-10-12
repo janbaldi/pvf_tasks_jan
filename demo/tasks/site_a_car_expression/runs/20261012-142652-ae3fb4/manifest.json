@@ -1,0 +1,208 @@
+{
+  "manifest_version": 2,
+  "stage": "task",
+  "status": "complete",
+  "run_id": "20261012-142652-ae3fb4",
+  "started": "2026-10-12T14:26:52",
+  "finished": "2026-10-12T14:26:59",
+  "config": {
+    "path": "/home/user/pvf_tasks_jan/demo/tasks/site_a_car_expression/task.yaml",
+    "digest": "e1f2cad24a9997c4a16e6aed7e712395eb56419a786514c0bfff52b2b61d6685"
+  },
+  "inputs": [
+    {
+      "label": "pvf",
+      "location": "/home/user/pvf_tasks_jan/demo/data/processed/PVF.xlsx",
+      "kind": "local file",
+      "digest": "2e357f5ecd8c3cf182b0a85f60cdbe4e558a2757832b0ca436abce1f5e05b4b5",
+      "digest_of": "file bytes",
+      "note": ""
+    },
+    {
+      "label": "ptf",
+      "location": "/home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx",
+      "kind": "local file",
+      "digest": "df9a235f36f42160fe8c0d9216243ed369b0cf79d37abc9305443879bf98ce0d",
+      "digest_of": "file bytes",
+      "note": ""
+    }
+  ],
+  "outputs": [
+    {
+      "what": "effective task settings",
+      "path": "config/task.yaml",
+      "bytes": 2553,
+      "sha256": "6eac171fbacd18fb4a8818d306d312393d4093a24320aaa6bfa594b79888ed35"
+    },
+    {
+      "what": "dataset",
+      "path": "data/dataset.csv",
+      "bytes": 16875,
+      "sha256": "8919c6a083e444ac1c714bd9bac4ccf6fad1dd5f96829ef8d29f096dc5ad47eb"
+    },
+    {
+      "what": "transformed predictors",
+      "path": "data/transformed.csv",
+      "bytes": 17164,
+      "sha256": "0cd2400b1bd7810b4d65991a14455c568c36de174d079b3e68c35305f9e8a0c6"
+    },
+    {
+      "what": "PTF",
+      "path": "inputs/PTF.xlsx",
+      "bytes": 9775,
+      "sha256": "df9a235f36f42160fe8c0d9216243ed369b0cf79d37abc9305443879bf98ce0d"
+    },
+    {
+      "what": "PVF",
+      "path": "inputs/PVF.xlsx",
+      "bytes": 116935,
+      "sha256": "2e357f5ecd8c3cf182b0a85f60cdbe4e558a2757832b0ca436abce1f5e05b4b5"
+    },
+    {
+      "what": "PTF stage manifest",
+      "path": "inputs/ptf_manifest.json",
+      "bytes": 5809,
+      "sha256": "174d24b9a22bdf13b7e0d721ecd677b6dfcaed6aa1b3476cdcb0b3627612120c"
+    },
+    {
+      "what": "build stage manifest",
+      "path": "inputs/pvf_manifest.json",
+      "bytes": 10787,
+      "sha256": "cdf065fc28d7c2b89d57c10da557f64176c3db61edea9e90c13fb006cdb9a5e7"
+    },
+    {
+      "what": "run log",
+      "path": "logs/run.log",
+      "bytes": 10855,
+      "sha256": "c06b97eb4bb1214943ccbef3cf264186a01fa921b8340af7cd0c27c179fa4018"
+    },
+    {
+      "what": "correlated groups",
+      "path": "metadata/clusters.csv",
+      "bytes": 11805,
+      "sha256": "7cd659b073aabdd1ff35f9700451c1b0d175615adc277911f221c38143f25617"
+    },
+    {
+      "what": "cohort membership",
+      "path": "metadata/cohort.csv",
+      "bytes": 2752,
+      "sha256": "fbcc089d9a1cb3356737eddcc13b83eab9cfb48da92b71af73ae3c8417650bd3"
+    },
+    {
+      "what": "column dictionary",
+      "path": "metadata/columns.csv",
+      "bytes": 11878,
+      "sha256": "8b9da0108f0a6123bd98aba4ac2970c5e090966a16957f2957f60ee591396dbb"
+    },
+    {
+      "what": "parameter decisions",
+      "path": "metadata/decisions.csv",
+      "bytes": 17847,
+      "sha256": "3211b54c0250729c834c0adcca6e3e966656a70e6d06dc9cc4daeb1c18055f95"
+    },
+    {
+      "what": "feature dictionary",
+      "path": "metadata/features.csv",
+      "bytes": 10768,
+      "sha256": "5cde8e5a109184d54da42d05ad500097ed4609ede8d92675b544c6eb82632eaa"
+    },
+    {
+      "what": "parameters missing together",
+      "path": "metadata/missingness.csv",
+      "bytes": 4416,
+      "sha256": "633356f7d2d35cffd5e20371eb897feced840586ef21383a86b1d63368894abd"
+    },
+    {
+      "what": "fitted preprocessing",
+      "path": "metadata/recipe.json",
+      "bytes": 44144,
+      "sha256": "3ecb4cb59359315c6d94b35f589d3707080fc7f2f0dff406a5bbc757d5357826"
+    },
+    {
+      "what": "report",
+      "path": "report/report.html",
+      "bytes": 314788,
+      "sha256": "6ada7bbdecc258e54e3e68d8b458b42ea1c14ff4f1a1f42cabab7a7449471e32"
+    },
+    {
+      "what": "report data",
+      "path": "report/report_payload.json",
+      "bytes": 632029,
+      "sha256": "38a73772ca78d23714a91cb72db92982b4eade1d14b95a9e1f61e132d8c464bf"
+    }
+  ],
+  "warnings": [
+    "Only 3 distinct <vector_lot> values: any grouped cross-validation rests on 3 groups, not on 21 batches",
+    "113 predictor columns for 21 fitted batches (p/n = 5.4): a model needs strong regularisation, and its performance has to be estimated by cross-validation, not in-sample",
+    "1 batches have no usable target and are not in the dataset",
+    "<ordinal_parameter>: 'Severe' is not one of its PTF categories (2 batches) \u2014 left missing"
+  ],
+  "errors": [],
+  "task": "site_a_car_expression",
+  "mode": "full package",
+  "question": "Which manufacturing parameters go with final product CAR+ expression at SiteA?",
+  "purpose": "predictive",
+  "workspace": "/home/user/pvf_tasks_jan/demo/tasks/site_a_car_expression",
+  "dataset_role": "raw modelling inputs; the transformed view is produced by recipe.json, fitted on all 21 batches in the cohort",
+  "upstream_manifests": {
+    "ptf": "inputs/ptf_manifest.json",
+    "pvf": "inputs/pvf_manifest.json"
+  },
+  "counts": {
+    "pvf_rows": 70,
+    "cohort_rows": 21,
+    "dataset_rows": 21,
+    "dataset_columns": 92,
+    "predictor_columns": 89,
+    "transformed_columns": 113,
+    "candidates": 142,
+    "clusters": 20,
+    "decisions": 217
+  },
+  "input_copies": {
+    "pvf": "inputs/PVF.xlsx",
+    "ptf": "inputs/PTF.xlsx"
+  },
+  "provenance": {
+    "run_date": "2026-10-12T14:26:52",
+    "git_commit": "ef467b90c5479c7a257aa530f50dd0be323da5dc-dirty",
+    "seed": 20260917,
+    "config": "/home/user/pvf_tasks_jan/demo/tasks/site_a_car_expression/task.yaml",
+    "config_digest": "e1f2cad24a9997c4a16e6aed7e712395eb56419a786514c0bfff52b2b61d6685",
+    "sources": [
+      {
+        "label": "pvf",
+        "location": "/home/user/pvf_tasks_jan/demo/data/processed/PVF.xlsx",
+        "kind": "local file",
+        "digest": "2e357f5ecd8c3cf182b0a85f60cdbe4e558a2757832b0ca436abce1f5e05b4b5",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "ptf",
+        "location": "/home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx",
+        "kind": "local file",
+        "digest": "df9a235f36f42160fe8c0d9216243ed369b0cf79d37abc9305443879bf98ce0d",
+        "digest_of": "file bytes",
+        "note": ""
+      }
+    ],
+    "inputs": {
+      "pvf": "2e357f5ecd8c3cf182b0a85f60cdbe4e558a2757832b0ca436abce1f5e05b4b5",
+      "ptf": "df9a235f36f42160fe8c0d9216243ed369b0cf79d37abc9305443879bf98ce0d"
+    },
+    "environment": {
+      "python": "3.12.3",
+      "platform": "Linux-6.18.44-fc-v114-x86_64-with-glibc2.39",
+      "pandas": "3.0.6",
+      "numpy": "2.5.3",
+      "scipy": "1.18.1",
+      "scikit-learn": "1.9.1",
+      "plotly": "7.1.0",
+      "openpyxl": "3.1.5",
+      "pyyaml": "6.0.3",
+      "python-dotenv": "1.2.4",
+      "stlite (report runtime)": "1.8.1"
+    }
+  }
+}

@@ -36,7 +36,6 @@ ARTEFACT_ROLES = {
     "dataset.csv": "dataset",
     "raw_features.csv": "untransformed predictors",
     "transformed.csv": "transformed predictors",
-    "splits.csv": "split assignments",
     "columns.csv": "column dictionary",
     "features.csv": "feature dictionary",
     "decisions.csv": "parameter decisions",
@@ -166,8 +165,8 @@ class TaskPackage:
 
 
 def open_package(root: str | Path, task: str, identifier: str | None = None) -> TaskPackage:
-    """Start a run folder under ``<root>/<task>/``, in its staging name."""
-    base = Path(root).expanduser() / task
+    """Start a run folder under ``<root>/`` (a task workspace's ``runs/``), in its staging name."""
+    base = Path(root).expanduser()
     identifier = identifier or run_id()
     staging = base / f"{identifier}{STAGING_SUFFIX}"
     destination = base / identifier

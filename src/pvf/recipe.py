@@ -14,7 +14,7 @@ things can be done with it here:
       from sklearn.pipeline import make_pipeline
       from pvf.recipe import TaskTransformer, task_data
 
-      X, y, groups, spec = task_data("tasks/site_a_car_expression.yaml")
+      X, y, groups, spec = task_data("tasks/site_a_car_expression")
       model = make_pipeline(TaskTransformer(spec), SimpleImputer(), StandardScaler(), Ridge())
       cross_val_score(model, X, y, groups=groups, cv=GroupKFold(5))
 """
@@ -92,7 +92,7 @@ class TaskTransformer(TransformerMixin, BaseEstimator):
             name
             for name in (self.spec.roles.id, self.spec.roles.group, self.spec.roles.patient)
             if name
-        } | {"__target__", "split", "fold"}
+        } | {"__target__"}
         self.preprocessor_ = fit_preprocessing(X, y, predictors, ptf, self.spec, result, reserved)
         self.feature_names_out_ = np.asarray(self.preprocessor_.output_columns, dtype=object)
         return y

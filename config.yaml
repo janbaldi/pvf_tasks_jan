@@ -1,0 +1,103 @@
+# pvf config: where the sources, the PTF and the PVF are, and the settings.
+#
+# Code, configuration and data are kept apart: this file is configuration, and
+# the data lives in a folder of your own — set its paths below. Relative paths
+# are relative to THIS file; ~ is your home folder.
+#
+#   pvf ptf      what the sources record that the PTF does not list
+#   pvf build    the PVF: every batch, every parameter, cleaned and derived
+#   pvf check    validate this config without running anything
+#   pvf new-task <folder>          a task workspace with an annotated task.yaml
+#   pvf tasks --task <folder>      run a task; its runs go into <folder>/runs/
+#
+# Secrets (SharePoint credentials) go in a .env next to this file; see .env.example.
+
+seed: 20260917
+
+# The one PTF, the one PVF, and local copies of every source. With
+# sources.location: local these are read.
+paths:
+  ptf: ~/pvf_data/PTF.xlsx                # the feature metadata; `pvf ptf` checks it
+  pvf: ~/pvf_data/PVF.xlsx                # `pvf build` writes it; reports and manifests go beside it
+  phf_site_a: ~/pvf_data/raw/phf_site_a.xlsx
+  phf_site_b: ~/pvf_data/raw/phf_site_b.xlsx
+  param_mapping: ~/pvf_data/raw/parameter_requirements.xlsx
+  remfg: ~/pvf_data/raw/remfg.xlsx
+  lv_coa: ~/pvf_data/raw/lv_coa.xlsx
+  raw_materials: ~/pvf_data/raw/raw_materials.csv
+  investigations: ~/pvf_data/raw/investigations_power_query.xlsx
+  site_maps:
+    - ~/pvf_data/raw/site_map_clinical_sites.xlsx
+  new_parameters: ~/pvf_data/new_parameters.csv
+
+# Which worksheet each workbook's data is on, where it is not the default.
+# sheets:
+#   phf_site_a: <sheet:phf_site_a>
+
+sources:
+  location: local          # local | sharepoint
+  fallback_to_local: false # with sharepoint: use the local copy if io_sharepoint is missing
+  databricks: false        # join the Acridine Orange readings from Databricks
+
+# Where each source lives on SharePoint. Only read when sources.location is
+# sharepoint; a source without an entry here is then still read locally.
+sharepoint:
+  ptf:            {path: "<team-site>//Reports/<analytics>/Data/PTF/PTF.xlsx", sheet: Catalogue, drive_id: DRIVE_ID_SITE_A}
+  pvf:            {path: "<team-site>//Reports/<analytics>/Data/PVF/PVF.xlsx", sheet: Sheet1, drive_id: DRIVE_ID_SITE_A}
+  phf_site_a:      {path: "<site-a-folder>/phf.xlsm", sheet: <sheet:phf_site_a>, drive_id: DRIVE_ID_SITE_A}
+  phf_site_b:    {path: "<site-b-folder>/batch_records.xlsx", sheet: <sheet:phf_site_a>, drive_id: DRIVE_ID_SITE_B}
+  param_mapping:  {path: "<team-site>/<mapping-folder>/parameter_mapping.xlsx", sheet: Overall, drive_id: DRIVE_ID_SITE_A}
+  remfg:          {path: "<site-b-folder>/remfg.xlsx", sheet: <sheet:remfg>, drive_id: DRIVE_ID_SITE_B}
+  lv_coa:         {path: "<team-site>//Reports/<analytics>/Data/lv_coa.xlsx", sheet: <sheet:lv_coa>, drive_id: DRIVE_ID_SITE_A}
+  raw_materials:  {path: "<team-site>//Reports/<analytics>/Data/raw_materials.xlsx", sheet: <sheet:raw_materials>, drive_id: DRIVE_ID_SITE_A}
+  investigations: {path: "<investigations>/power_query.xlsx", sheet: <sheet:investigations>, drive_id: DRIVE_ID_SITE_A}
+  site_maps:
+    folder: "<team-site>//Reports/<analytics>/Data/mappings/"
+    files: [clinical_sites.xlsx, cross_data_meeting.xlsx, from_Hannelore.xlsx]
+    sheet: Sheet1
+    drive_id: DRIVE_ID_SITE_A
+
+# Uploading the PVF is a separate decision from reading the share: it only
+# happens on a `pvf build --mode PRD` run with enabled: true.
+upload:
+  enabled: false
+  path: "<team-site>//Reports/<analytics>/Data/PVF/"   # or $DATA_LINK
+  drive_id: DRIVE_ID_SITE_A
+  file_name: PVF.xlsx
+
+ptf:
+  write_new_parameters: true
+
+build:
+  write_parquet: true      # a PVF.parquet beside PVF.xlsx, which keeps column types
+
+cleaning:
+  # corrections: ~/pvf_data/corrections.yaml   # known data corrections, as a table;
+  #                                            # default: the package's own table
+  disable: []                     # names of corrections to switch off
+  censored: limit                 # what '<0.5' becomes: limit | half | missing
+  censored_flags: false           # also add a '<column> censored' 0/1 column
+  duration_unit: minutes          # what a bare number in a duration cell means
+  yes_no_defaults:                # blanks filled only for these columns
+    '<pre_activation_clumps_yn>': 'No'
+
+mapping:
+  exclude:                        # SiteB → SiteA mapping rows known to be wrong
+    - <excluded_mapping_row>
+
+features:
+  co2_target: 5.0
+  temp_target: 37.0
+  contact_target: 120.0
+  contact_tolerance: 30.0
+  seeding_tolerance: 5.0
+  cpdl_low: 4.0
+  cpdl_high: 5.0
+  lactate_low: 12.5
+  lactate_high: 30.0
+  cd4_low: 40.0
+  cd4_high: 60.0
+
+lv_coa:
+  ph_nominal: 7.2       # release-spec midpoints, never a data mean
+  osmo_nominal: 300.0

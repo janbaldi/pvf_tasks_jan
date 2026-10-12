@@ -1,0 +1,1409 @@
+{
+  "recipe_version": 2,
+  "fitted_on": "all 21 batches in the cohort",
+  "rows_fitted": 21,
+  "settings": {
+    "one_hot": true,
+    "target_encoding": true,
+    "feature_hashing": true,
+    "one_hot_top_x": 10,
+    "onehot_max_categories": 5,
+    "target_max_categories": 6,
+    "max_cardinality_ratio": 0.5,
+    "target_encoding_smoothing": 5.0,
+    "target_encoding_folds": 5,
+    "target_encoding_fallback": "hashing",
+    "hashing_min_buckets": 8,
+    "hashing_max_buckets": 16,
+    "hashing_signed": true,
+    "missing_category": "missing",
+    "target_min_rows_per_category": 5.0,
+    "hashing_min_rows": 100,
+    "missing_indicators": false,
+    "impute": "none",
+    "cluster_corr_method": "spearman",
+    "cluster_corr_threshold": 0.7,
+    "cluster_min_size": 2,
+    "cluster_min_overlap": 8,
+    "min_non_missing": 8,
+    "duplicate_r2_threshold": 0.99,
+    "duplicate_min_overlap": 8,
+    "near_constant_tolerance": 0.0001,
+    "proxy_correlation": 0.95,
+    "seed": 20260917
+  },
+  "binary": {
+    "<d3_clump_pattern>": {
+      "name": "<d3_clump_pattern>_Many small",
+      "positive": "Many small",
+      "negative": "Few small"
+    },
+    "<clump_bags_1>": {
+      "name": "<clump_bags_1>_Yes",
+      "positive": "Yes",
+      "negative": "No"
+    },
+    "<clump_bags_2>": {
+      "name": "<clump_bags_2>_Yes",
+      "positive": "Yes",
+      "negative": "No"
+    },
+    "<clump_bags_3>": {
+      "name": "<clump_bags_3>_Yes",
+      "positive": "Yes",
+      "negative": "No"
+    },
+    "Country": {
+      "name": "Country_Netherlands",
+      "positive": "Netherlands",
+      "negative": "Belgium"
+    },
+    "<pre_activation_clumps_yn>": {
+      "name": "<pre_activation_clumps_yn>_Yes",
+      "positive": "Yes",
+      "negative": "No"
+    },
+    "<coa_prefix><coa_site_format>": {
+      "name": "<coa_prefix><coa_site_format>_SiteB/500mL",
+      "positive": "SiteB/500mL",
+      "negative": "SiteA/250mL"
+    }
+  },
+  "one_hot": {
+    "<team>": {
+      "categories": [
+        "F",
+        "C",
+        "D",
+        "B",
+        "A",
+        "E"
+      ],
+      "other": "Other",
+      "outputs": {
+        "F": "<team>_F",
+        "C": "<team>_C",
+        "D": "<team>_D",
+        "B": "<team>_B",
+        "A": "<team>_A",
+        "E": "<team>_E",
+        "Other": "<team>_Other"
+      }
+    },
+    "<incubator_id>": {
+      "categories": [
+        "INC-00",
+        "INC-01",
+        "INC-08",
+        "INC-02",
+        "INC-03",
+        "INC-04",
+        "INC-05",
+        "INC-06",
+        "INC-07"
+      ],
+      "other": "Other",
+      "outputs": {
+        "INC-00": "<incubator_id>_INC-00",
+        "INC-01": "<incubator_id>_INC-01",
+        "INC-08": "<incubator_id>_INC-08",
+        "INC-02": "<incubator_id>_INC-02",
+        "INC-03": "<incubator_id>_INC-03",
+        "INC-04": "<incubator_id>_INC-04",
+        "INC-05": "<incubator_id>_INC-05",
+        "INC-06": "<incubator_id>_INC-06",
+        "INC-07": "<incubator_id>_INC-07",
+        "Other": "<incubator_id>_Other"
+      }
+    },
+    "<clinical_site>": {
+      "categories": [
+        "<value:clinical_sites_a>",
+        "AZ Sint-Jan",
+        "UZ Leuven"
+      ],
+      "other": "Other",
+      "outputs": {
+        "<value:clinical_sites_a>": "<clinical_site>_<value:clinical_sites_a>",
+        "AZ Sint-Jan": "<clinical_site>_AZ Sint-Jan",
+        "UZ Leuven": "<clinical_site>_UZ Leuven",
+        "Other": "<clinical_site>_Other"
+      }
+    },
+    "<clinical_site_id>": {
+      "categories": [
+        "1200",
+        "1201",
+        "1202"
+      ],
+      "other": "Other",
+      "outputs": {
+        "1200": "<clinical_site_id>_1200",
+        "1201": "<clinical_site_id>_1201",
+        "1202": "<clinical_site_id>_1202",
+        "Other": "<clinical_site_id>_Other"
+      }
+    },
+    "<media_lot>": {
+      "categories": [
+        "MED-100",
+        "MED-102",
+        "MED-103",
+        "MED-101"
+      ],
+      "other": "Other",
+      "outputs": {
+        "MED-100": "<media_lot>_MED-100",
+        "MED-102": "<media_lot>_MED-102",
+        "MED-103": "<media_lot>_MED-103",
+        "MED-101": "<media_lot>_MED-101",
+        "Other": "<media_lot>_Other"
+      }
+    },
+    "<cytokine_lot>": {
+      "categories": [
+        "IL2-200",
+        "IL2-201",
+        "IL2-202"
+      ],
+      "other": "Other",
+      "outputs": {
+        "IL2-200": "<cytokine_lot>_IL2-200",
+        "IL2-201": "<cytokine_lot>_IL2-201",
+        "IL2-202": "<cytokine_lot>_IL2-202",
+        "Other": "<cytokine_lot>_Other"
+      }
+    },
+    "<f_growth_profile>": {
+      "categories": [
+        "normal",
+        "overgrowth",
+        "undergrowth"
+      ],
+      "other": "Other",
+      "outputs": {
+        "normal": "<f_growth_profile>_normal",
+        "overgrowth": "<f_growth_profile>_overgrowth",
+        "undergrowth": "<f_growth_profile>_undergrowth",
+        "Other": "<f_growth_profile>_Other"
+      }
+    }
+  },
+  "target_encoding": {},
+  "hashing": {},
+  "ordinal": {
+    "<ordinal_parameter>": {
+      "categories": [
+        "None",
+        "Low",
+        "Medium",
+        "High"
+      ],
+      "name": "<ordinal_parameter>"
+    }
+  },
+  "durations": [
+    "<contact_time>",
+    "<contact_time_a>",
+    "<contact_time_b>"
+  ],
+  "numeric": [
+    "<vessel_count>",
+    "<vsvg_cells>",
+    "<cells_available>",
+    "<cells_seeded_a>",
+    "<cells_seeded_b>",
+    "<culture_bags>",
+    "<vector_volume_a>",
+    "<vector_volume_b>",
+    "<d6_lactate_a>",
+    "<d6_lactate_b>",
+    "<d8_lactate_a>",
+    "<harvest_lactate>",
+    "<d6_glucose_a>",
+    "<d6_glucose_b>",
+    "<d8_glucose_a>",
+    "<d8_glucose_b>",
+    "<harvest_glucose>",
+    "<cpdl>",
+    "<d3_viability>",
+    "<harvest_viability>",
+    "<harvest_cells>",
+    "<harvest_car_pct>",
+    "<contact_time>",
+    "<contact_time_a>",
+    "<contact_time_b>",
+    "<clumps_pre_count>",
+    "<clumps_pre_size>",
+    "<clumps_post_count>",
+    "<clumps_post_size>",
+    "<clumps_mix_count>",
+    "<clumps_mix_size>",
+    "<mixing_cycles>",
+    "<il2_activity_d6>",
+    "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+    "<il2_activity_d8>",
+    "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+    "Day 6 <co2_marker>",
+    "<seeding_density_a>",
+    "<cells_per_bag>",
+    "<prior_lines>",
+    "<coa_prefix><coa_titer>",
+    "<coa_prefix><coa_p24>",
+    "<coa_prefix><coa_pi_ratio>",
+    "<coa_prefix><coa_donor:<coa_car_metric>-1>",
+    "<coa_prefix><coa_donor:<coa_car_metric>-2>",
+    "<coa_prefix><coa_donor:IFNg-1>",
+    "<coa_prefix><coa_donor:IFNg-2>",
+    "<coa_prefix>pH",
+    "<coa_prefix>Osmolality",
+    "<coa_prefix>Volume",
+    "<coa_prefix><coa_dna_size>",
+    "<coa_prefix>HCP",
+    "<coa_prefix>pDNA",
+    "<coa_prefix>cDNA",
+    "<coa_prefix><coa_impurities_4>",
+    "<coa_prefix><coa_impurities_5>",
+    "<f_harvest_lactate_norm>",
+    "<f_lactate_per_cell_1>",
+    "<f_lactate_per_cell_3>",
+    "<f_glucose_per_cell_1>",
+    "<f_glucose_per_cell_2>",
+    "<f_glucose_per_cell_3>",
+    "<f_lactate_slope>",
+    "<f_lactate_auc>",
+    "<f_glucose_slope>",
+    "<f_glucose_auc>",
+    "<f_lactate_glucose_ratio:6>",
+    "<f_lactate_glucose_ratio:10>",
+    "<f_viability_d3_d10_rel>",
+    "<f_viability_expansion>",
+    "<f_seeding_pct>",
+    "<f_seeding_error>",
+    "<f_seeding_within>",
+    "<f_cells_per_bag>",
+    "<f_seeded_spread:mean>",
+    "<f_seeded_spread:min>",
+    "<f_seeded_spread:max>",
+    "<f_seeded_spread:std>",
+    "<f_seeded_spread:cv>",
+    "<f_vector_volume_spread:mean>",
+    "<f_vector_volume_spread:min>",
+    "<f_vector_volume_spread:max>",
+    "<f_vector_volume_spread:std>",
+    "<f_vector_volume_spread:cv>",
+    "<f_moi_a>",
+    "<f_log_moi_a>",
+    "<f_moi_b>",
+    "<f_log_moi_b>",
+    "<f_moi_pool>",
+    "<f_log_moi_pool>",
+    "<f_moi_quality>",
+    "<f_contact_deviation_1>",
+    "<f_contact_within_1>",
+    "<f_contact_deviation_2>",
+    "<f_contact_within_2>",
+    "<f_contact_deviation_3>",
+    "<f_contact_within_3>",
+    "<f_incubation_d0_d1>",
+    "<f_incubation_d1_d3>",
+    "<f_incubation_d3_d6>",
+    "<f_incubation_d6_d8>",
+    "<f_incubation_d8_d10>",
+    "<f_incubation_total>",
+    "<f_clump_count_reduction>",
+    "<f_clump_size_reduction>",
+    "<f_clump_burden_pre>",
+    "<f_clump_burden_post>",
+    "<f_clump_burden_mix>",
+    "<f_mixing_x_clumps>",
+    "<f_d3_clumps>",
+    "<f_clump_bag_count>",
+    "<f_car_yield>",
+    "<f_il2_d6>",
+    "<f_il2_d8>"
+  ],
+  "retained_numeric": [
+    "<culture_bags>",
+    "<contact_time_a>",
+    "<contact_time_b>",
+    "<f_cells_per_bag>",
+    "<f_car_yield>",
+    "<f_clump_burden_post>",
+    "<f_clump_burden_mix>",
+    "<f_clump_burden_pre>",
+    "<f_clump_count_reduction>",
+    "<f_clump_size_reduction>",
+    "<f_glucose_per_cell_3>",
+    "<f_lactate_per_cell_3>",
+    "<f_clump_bag_count>",
+    "<f_viability_d3_d10_rel>",
+    "<f_contact_deviation_1>",
+    "<f_contact_deviation_2>",
+    "<f_contact_deviation_3>",
+    "<f_contact_within_1>",
+    "<f_contact_within_2>",
+    "<f_contact_within_3>",
+    "<f_seeding_error>",
+    "<f_seeding_within>",
+    "<f_glucose_per_cell_1>",
+    "<f_lactate_per_cell_1>",
+    "<f_glucose_per_cell_2>",
+    "<mixing_cycles>",
+    "<d3_viability>",
+    "<cells_available>",
+    "<il2_activity_d6>",
+    "Day 6 <co2_marker>",
+    "<d6_glucose_a>",
+    "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+    "<d6_lactate_a>",
+    "<il2_activity_d8>",
+    "<d8_glucose_a>",
+    "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+    "<d8_lactate_a>",
+    "<f_glucose_slope>",
+    "<harvest_glucose>",
+    "<harvest_lactate>",
+    "<harvest_viability>",
+    "<harvest_car_pct>",
+    "<harvest_cells>",
+    "<f_il2_d6>",
+    "<f_il2_d8>",
+    "<f_incubation_d0_d1>",
+    "<f_incubation_d1_d3>",
+    "<f_incubation_d3_d6>",
+    "<f_incubation_d8_d10>",
+    "<f_lactate_slope>",
+    "<f_lactate_glucose_ratio:10>",
+    "<f_lactate_glucose_ratio:6>",
+    "<f_mixing_x_clumps>",
+    "<clumps_post_count>",
+    "<clumps_post_size>",
+    "<clumps_mix_count>",
+    "<clumps_mix_size>",
+    "<clumps_pre_count>",
+    "<clumps_pre_size>",
+    "<f_seeded_spread:min>",
+    "<f_seeded_spread:std>",
+    "<seeding_density_a>",
+    "<f_vector_volume_spread:cv>",
+    "<f_vector_volume_spread:max>",
+    "<f_vector_volume_spread:mean>",
+    "<f_vector_volume_spread:min>",
+    "<vector_volume_a>",
+    "<cpdl>",
+    "<contact_time>",
+    "<f_incubation_d6_d8>",
+    "<f_incubation_total>",
+    "<f_d3_clumps>",
+    "<d6_glucose_b>",
+    "<d6_lactate_b>",
+    "<d8_glucose_b>",
+    "<f_moi_a>",
+    "<f_moi_pool>",
+    "<f_moi_quality>",
+    "<vector_volume_b>",
+    "<f_moi_b>",
+    "<f_log_moi_b>"
+  ],
+  "clusters": {},
+  "passthrough": [
+    "<culture_bags>",
+    "<contact_time_a>",
+    "<contact_time_b>",
+    "<f_cells_per_bag>",
+    "<f_car_yield>",
+    "<f_clump_burden_post>",
+    "<f_clump_burden_mix>",
+    "<f_clump_burden_pre>",
+    "<f_clump_count_reduction>",
+    "<f_clump_size_reduction>",
+    "<f_glucose_per_cell_3>",
+    "<f_lactate_per_cell_3>",
+    "<f_clump_bag_count>",
+    "<f_viability_d3_d10_rel>",
+    "<f_contact_deviation_1>",
+    "<f_contact_deviation_2>",
+    "<f_contact_deviation_3>",
+    "<f_contact_within_1>",
+    "<f_contact_within_2>",
+    "<f_contact_within_3>",
+    "<f_seeding_error>",
+    "<f_seeding_within>",
+    "<f_glucose_per_cell_1>",
+    "<f_lactate_per_cell_1>",
+    "<f_glucose_per_cell_2>",
+    "<mixing_cycles>",
+    "<d3_viability>",
+    "<cells_available>",
+    "<il2_activity_d6>",
+    "Day 6 <co2_marker>",
+    "<d6_glucose_a>",
+    "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+    "<d6_lactate_a>",
+    "<il2_activity_d8>",
+    "<d8_glucose_a>",
+    "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+    "<d8_lactate_a>",
+    "<f_glucose_slope>",
+    "<harvest_glucose>",
+    "<harvest_lactate>",
+    "<harvest_viability>",
+    "<harvest_car_pct>",
+    "<harvest_cells>",
+    "<f_il2_d6>",
+    "<f_il2_d8>",
+    "<f_incubation_d0_d1>",
+    "<f_incubation_d1_d3>",
+    "<f_incubation_d3_d6>",
+    "<f_incubation_d8_d10>",
+    "<f_lactate_slope>",
+    "<f_lactate_glucose_ratio:10>",
+    "<f_lactate_glucose_ratio:6>",
+    "<f_mixing_x_clumps>",
+    "<clumps_post_count>",
+    "<clumps_post_size>",
+    "<clumps_mix_count>",
+    "<clumps_mix_size>",
+    "<clumps_pre_count>",
+    "<clumps_pre_size>",
+    "<f_seeded_spread:min>",
+    "<f_seeded_spread:std>",
+    "<seeding_density_a>",
+    "<f_vector_volume_spread:cv>",
+    "<f_vector_volume_spread:max>",
+    "<f_vector_volume_spread:mean>",
+    "<f_vector_volume_spread:min>",
+    "<vector_volume_a>",
+    "<cpdl>",
+    "<contact_time>",
+    "<f_incubation_d6_d8>",
+    "<f_incubation_total>",
+    "<f_d3_clumps>",
+    "<d6_glucose_b>",
+    "<d6_lactate_b>",
+    "<d8_glucose_b>",
+    "<f_moi_a>",
+    "<f_moi_pool>",
+    "<f_moi_quality>",
+    "<vector_volume_b>",
+    "<f_moi_b>",
+    "<f_log_moi_b>"
+  ],
+  "dropped_for_sparsity": [
+    "<f_moi_b>",
+    "<f_log_moi_b>"
+  ],
+  "encoded_columns": [
+    "<d3_clump_pattern>_Many small",
+    "<clump_bags_1>_Yes",
+    "<clump_bags_2>_Yes",
+    "<clump_bags_3>_Yes",
+    "Country_Netherlands",
+    "<pre_activation_clumps_yn>_Yes",
+    "<coa_prefix><coa_site_format>_SiteB/500mL",
+    "<team>_F",
+    "<team>_C",
+    "<team>_D",
+    "<team>_B",
+    "<team>_A",
+    "<team>_E",
+    "<incubator_id>_INC-00",
+    "<incubator_id>_INC-01",
+    "<incubator_id>_INC-08",
+    "<incubator_id>_INC-02",
+    "<incubator_id>_INC-03",
+    "<incubator_id>_INC-04",
+    "<incubator_id>_INC-05",
+    "<incubator_id>_INC-06",
+    "<incubator_id>_INC-07",
+    "<clinical_site>_<value:clinical_sites_a>",
+    "<clinical_site>_AZ Sint-Jan",
+    "<clinical_site>_UZ Leuven",
+    "<clinical_site_id>_1200",
+    "<clinical_site_id>_1201",
+    "<clinical_site_id>_1202",
+    "<media_lot>_MED-100",
+    "<media_lot>_MED-102",
+    "<media_lot>_MED-103",
+    "<media_lot>_MED-101",
+    "<cytokine_lot>_IL2-200",
+    "<cytokine_lot>_IL2-201",
+    "<cytokine_lot>_IL2-202",
+    "<f_growth_profile>_normal",
+    "<f_growth_profile>_overgrowth",
+    "<f_growth_profile>_undergrowth",
+    "<ordinal_parameter>",
+    "<culture_bags>",
+    "<contact_time_a>",
+    "<contact_time_b>",
+    "<f_cells_per_bag>",
+    "<f_car_yield>",
+    "<f_clump_burden_post>",
+    "<f_clump_burden_mix>",
+    "<f_clump_burden_pre>",
+    "<f_clump_count_reduction>",
+    "<f_clump_size_reduction>",
+    "<f_glucose_per_cell_3>",
+    "<f_lactate_per_cell_3>",
+    "<f_clump_bag_count>",
+    "<f_viability_d3_d10_rel>",
+    "<f_contact_deviation_1>",
+    "<f_contact_deviation_2>",
+    "<f_contact_deviation_3>",
+    "<f_contact_within_1>",
+    "<f_contact_within_2>",
+    "<f_contact_within_3>",
+    "<f_seeding_error>",
+    "<f_glucose_per_cell_1>",
+    "<f_lactate_per_cell_1>",
+    "<f_glucose_per_cell_2>",
+    "<mixing_cycles>",
+    "<d3_viability>",
+    "<cells_available>",
+    "<il2_activity_d6>",
+    "Day 6 <co2_marker>",
+    "<d6_glucose_a>",
+    "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+    "<d6_lactate_a>",
+    "<il2_activity_d8>",
+    "<d8_glucose_a>",
+    "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+    "<d8_lactate_a>",
+    "<f_glucose_slope>",
+    "<harvest_glucose>",
+    "<harvest_lactate>",
+    "<harvest_viability>",
+    "<harvest_car_pct>",
+    "<harvest_cells>",
+    "<f_il2_d6>",
+    "<f_il2_d8>",
+    "<f_incubation_d3_d6>",
+    "<f_incubation_d8_d10>",
+    "<f_lactate_slope>",
+    "<f_lactate_glucose_ratio:10>",
+    "<f_lactate_glucose_ratio:6>",
+    "<f_mixing_x_clumps>",
+    "<clumps_post_count>",
+    "<clumps_post_size>",
+    "<clumps_mix_count>",
+    "<clumps_mix_size>",
+    "<clumps_pre_count>",
+    "<clumps_pre_size>",
+    "<f_seeded_spread:min>",
+    "<f_seeded_spread:std>",
+    "<seeding_density_a>",
+    "<f_vector_volume_spread:cv>",
+    "<f_vector_volume_spread:max>",
+    "<f_vector_volume_spread:mean>",
+    "<f_vector_volume_spread:min>",
+    "<vector_volume_a>",
+    "<cpdl>",
+    "<contact_time>",
+    "<f_incubation_d6_d8>",
+    "<d6_glucose_b>",
+    "<d6_lactate_b>",
+    "<d8_glucose_b>",
+    "<f_moi_a>",
+    "<f_moi_pool>",
+    "<f_moi_quality>",
+    "<vector_volume_b>"
+  ],
+  "indicators": [],
+  "medians": {},
+  "output_columns": [
+    "<d3_clump_pattern>_Many small",
+    "<clump_bags_1>_Yes",
+    "<clump_bags_2>_Yes",
+    "<clump_bags_3>_Yes",
+    "Country_Netherlands",
+    "<pre_activation_clumps_yn>_Yes",
+    "<coa_prefix><coa_site_format>_SiteB/500mL",
+    "<team>_F",
+    "<team>_C",
+    "<team>_D",
+    "<team>_B",
+    "<team>_A",
+    "<team>_E",
+    "<incubator_id>_INC-00",
+    "<incubator_id>_INC-01",
+    "<incubator_id>_INC-08",
+    "<incubator_id>_INC-02",
+    "<incubator_id>_INC-03",
+    "<incubator_id>_INC-04",
+    "<incubator_id>_INC-05",
+    "<incubator_id>_INC-06",
+    "<incubator_id>_INC-07",
+    "<clinical_site>_<value:clinical_sites_a>",
+    "<clinical_site>_AZ Sint-Jan",
+    "<clinical_site>_UZ Leuven",
+    "<clinical_site_id>_1200",
+    "<clinical_site_id>_1201",
+    "<clinical_site_id>_1202",
+    "<media_lot>_MED-100",
+    "<media_lot>_MED-102",
+    "<media_lot>_MED-103",
+    "<media_lot>_MED-101",
+    "<cytokine_lot>_IL2-200",
+    "<cytokine_lot>_IL2-201",
+    "<cytokine_lot>_IL2-202",
+    "<f_growth_profile>_normal",
+    "<f_growth_profile>_overgrowth",
+    "<f_growth_profile>_undergrowth",
+    "<ordinal_parameter>",
+    "<culture_bags>",
+    "<contact_time_a>",
+    "<contact_time_b>",
+    "<f_cells_per_bag>",
+    "<f_car_yield>",
+    "<f_clump_burden_post>",
+    "<f_clump_burden_mix>",
+    "<f_clump_burden_pre>",
+    "<f_clump_count_reduction>",
+    "<f_clump_size_reduction>",
+    "<f_glucose_per_cell_3>",
+    "<f_lactate_per_cell_3>",
+    "<f_clump_bag_count>",
+    "<f_viability_d3_d10_rel>",
+    "<f_contact_deviation_1>",
+    "<f_contact_deviation_2>",
+    "<f_contact_deviation_3>",
+    "<f_contact_within_1>",
+    "<f_contact_within_2>",
+    "<f_contact_within_3>",
+    "<f_seeding_error>",
+    "<f_glucose_per_cell_1>",
+    "<f_lactate_per_cell_1>",
+    "<f_glucose_per_cell_2>",
+    "<mixing_cycles>",
+    "<d3_viability>",
+    "<cells_available>",
+    "<il2_activity_d6>",
+    "Day 6 <co2_marker>",
+    "<d6_glucose_a>",
+    "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+    "<d6_lactate_a>",
+    "<il2_activity_d8>",
+    "<d8_glucose_a>",
+    "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+    "<d8_lactate_a>",
+    "<f_glucose_slope>",
+    "<harvest_glucose>",
+    "<harvest_lactate>",
+    "<harvest_viability>",
+    "<harvest_car_pct>",
+    "<harvest_cells>",
+    "<f_il2_d6>",
+    "<f_il2_d8>",
+    "<f_incubation_d3_d6>",
+    "<f_incubation_d8_d10>",
+    "<f_lactate_slope>",
+    "<f_lactate_glucose_ratio:10>",
+    "<f_lactate_glucose_ratio:6>",
+    "<f_mixing_x_clumps>",
+    "<clumps_post_count>",
+    "<clumps_post_size>",
+    "<clumps_mix_count>",
+    "<clumps_mix_size>",
+    "<clumps_pre_count>",
+    "<clumps_pre_size>",
+    "<f_seeded_spread:min>",
+    "<f_seeded_spread:std>",
+    "<seeding_density_a>",
+    "<f_vector_volume_spread:cv>",
+    "<f_vector_volume_spread:max>",
+    "<f_vector_volume_spread:mean>",
+    "<f_vector_volume_spread:min>",
+    "<vector_volume_a>",
+    "<cpdl>",
+    "<contact_time>",
+    "<f_incubation_d6_d8>",
+    "<d6_glucose_b>",
+    "<d6_lactate_b>",
+    "<d8_glucose_b>",
+    "<f_moi_a>",
+    "<f_moi_pool>",
+    "<f_moi_quality>",
+    "<vector_volume_b>"
+  ],
+  "dictionary": [
+    {
+      "output": "<d3_clump_pattern>_Many small",
+      "source": "<d3_clump_pattern>",
+      "strategy": "binary",
+      "detail": "1 where 'Many small', 0 where 'Few small'; any other value is left missing"
+    },
+    {
+      "output": "<clump_bags_1>_Yes",
+      "source": "<clump_bags_1>",
+      "strategy": "binary",
+      "detail": "1 where 'Yes', 0 where 'No'; any other value is left missing"
+    },
+    {
+      "output": "<clump_bags_2>_Yes",
+      "source": "<clump_bags_2>",
+      "strategy": "binary",
+      "detail": "1 where 'Yes', 0 where 'No'; any other value is left missing"
+    },
+    {
+      "output": "<clump_bags_3>_Yes",
+      "source": "<clump_bags_3>",
+      "strategy": "binary",
+      "detail": "1 where 'Yes', 0 where 'No'; any other value is left missing"
+    },
+    {
+      "output": "Country_Netherlands",
+      "source": "Country",
+      "strategy": "binary",
+      "detail": "1 where 'Netherlands', 0 where 'Belgium'; any other value is left missing"
+    },
+    {
+      "output": "<pre_activation_clumps_yn>_Yes",
+      "source": "<pre_activation_clumps_yn>",
+      "strategy": "binary",
+      "detail": "1 where 'Yes', 0 where 'No'; any other value is left missing"
+    },
+    {
+      "output": "<coa_prefix><coa_site_format>_SiteB/500mL",
+      "source": "<coa_prefix><coa_site_format>",
+      "strategy": "binary",
+      "detail": "1 where 'SiteB/500mL', 0 where 'SiteA/250mL'; any other value is left missing"
+    },
+    {
+      "output": "<team>_F",
+      "source": "<team>",
+      "strategy": "one-hot",
+      "detail": "1 where '<team>' is 'F'; missing where it is missing"
+    },
+    {
+      "output": "<team>_C",
+      "source": "<team>",
+      "strategy": "one-hot",
+      "detail": "1 where '<team>' is 'C'; missing where it is missing"
+    },
+    {
+      "output": "<team>_D",
+      "source": "<team>",
+      "strategy": "one-hot",
+      "detail": "1 where '<team>' is 'D'; missing where it is missing"
+    },
+    {
+      "output": "<team>_B",
+      "source": "<team>",
+      "strategy": "one-hot",
+      "detail": "1 where '<team>' is 'B'; missing where it is missing"
+    },
+    {
+      "output": "<team>_A",
+      "source": "<team>",
+      "strategy": "one-hot",
+      "detail": "1 where '<team>' is 'A'; missing where it is missing"
+    },
+    {
+      "output": "<team>_E",
+      "source": "<team>",
+      "strategy": "one-hot",
+      "detail": "1 where '<team>' is 'E'; missing where it is missing"
+    },
+    {
+      "output": "<incubator_id>_INC-00",
+      "source": "<incubator_id>",
+      "strategy": "one-hot",
+      "detail": "1 where '<incubator_id>' is 'INC-00'; missing where it is missing"
+    },
+    {
+      "output": "<incubator_id>_INC-01",
+      "source": "<incubator_id>",
+      "strategy": "one-hot",
+      "detail": "1 where '<incubator_id>' is 'INC-01'; missing where it is missing"
+    },
+    {
+      "output": "<incubator_id>_INC-08",
+      "source": "<incubator_id>",
+      "strategy": "one-hot",
+      "detail": "1 where '<incubator_id>' is 'INC-08'; missing where it is missing"
+    },
+    {
+      "output": "<incubator_id>_INC-02",
+      "source": "<incubator_id>",
+      "strategy": "one-hot",
+      "detail": "1 where '<incubator_id>' is 'INC-02'; missing where it is missing"
+    },
+    {
+      "output": "<incubator_id>_INC-03",
+      "source": "<incubator_id>",
+      "strategy": "one-hot",
+      "detail": "1 where '<incubator_id>' is 'INC-03'; missing where it is missing"
+    },
+    {
+      "output": "<incubator_id>_INC-04",
+      "source": "<incubator_id>",
+      "strategy": "one-hot",
+      "detail": "1 where '<incubator_id>' is 'INC-04'; missing where it is missing"
+    },
+    {
+      "output": "<incubator_id>_INC-05",
+      "source": "<incubator_id>",
+      "strategy": "one-hot",
+      "detail": "1 where '<incubator_id>' is 'INC-05'; missing where it is missing"
+    },
+    {
+      "output": "<incubator_id>_INC-06",
+      "source": "<incubator_id>",
+      "strategy": "one-hot",
+      "detail": "1 where '<incubator_id>' is 'INC-06'; missing where it is missing"
+    },
+    {
+      "output": "<incubator_id>_INC-07",
+      "source": "<incubator_id>",
+      "strategy": "one-hot",
+      "detail": "1 where '<incubator_id>' is 'INC-07'; missing where it is missing"
+    },
+    {
+      "output": "<clinical_site>_<value:clinical_sites_a>",
+      "source": "<clinical_site>",
+      "strategy": "one-hot",
+      "detail": "1 where '<clinical_site>' is '<value:clinical_sites_a>'; missing where it is missing"
+    },
+    {
+      "output": "<clinical_site>_AZ Sint-Jan",
+      "source": "<clinical_site>",
+      "strategy": "one-hot",
+      "detail": "1 where '<clinical_site>' is 'AZ Sint-Jan'; missing where it is missing"
+    },
+    {
+      "output": "<clinical_site>_UZ Leuven",
+      "source": "<clinical_site>",
+      "strategy": "one-hot",
+      "detail": "1 where '<clinical_site>' is 'UZ Leuven'; missing where it is missing"
+    },
+    {
+      "output": "<clinical_site_id>_1200",
+      "source": "<clinical_site_id>",
+      "strategy": "one-hot",
+      "detail": "1 where '<clinical_site_id>' is '1200'; missing where it is missing"
+    },
+    {
+      "output": "<clinical_site_id>_1201",
+      "source": "<clinical_site_id>",
+      "strategy": "one-hot",
+      "detail": "1 where '<clinical_site_id>' is '1201'; missing where it is missing"
+    },
+    {
+      "output": "<clinical_site_id>_1202",
+      "source": "<clinical_site_id>",
+      "strategy": "one-hot",
+      "detail": "1 where '<clinical_site_id>' is '1202'; missing where it is missing"
+    },
+    {
+      "output": "<media_lot>_MED-100",
+      "source": "<media_lot>",
+      "strategy": "one-hot",
+      "detail": "1 where '<media_lot>' is 'MED-100'; missing where it is missing"
+    },
+    {
+      "output": "<media_lot>_MED-102",
+      "source": "<media_lot>",
+      "strategy": "one-hot",
+      "detail": "1 where '<media_lot>' is 'MED-102'; missing where it is missing"
+    },
+    {
+      "output": "<media_lot>_MED-103",
+      "source": "<media_lot>",
+      "strategy": "one-hot",
+      "detail": "1 where '<media_lot>' is 'MED-103'; missing where it is missing"
+    },
+    {
+      "output": "<media_lot>_MED-101",
+      "source": "<media_lot>",
+      "strategy": "one-hot",
+      "detail": "1 where '<media_lot>' is 'MED-101'; missing where it is missing"
+    },
+    {
+      "output": "<cytokine_lot>_IL2-200",
+      "source": "<cytokine_lot>",
+      "strategy": "one-hot",
+      "detail": "1 where '<cytokine_lot>' is 'IL2-200'; missing where it is missing"
+    },
+    {
+      "output": "<cytokine_lot>_IL2-201",
+      "source": "<cytokine_lot>",
+      "strategy": "one-hot",
+      "detail": "1 where '<cytokine_lot>' is 'IL2-201'; missing where it is missing"
+    },
+    {
+      "output": "<cytokine_lot>_IL2-202",
+      "source": "<cytokine_lot>",
+      "strategy": "one-hot",
+      "detail": "1 where '<cytokine_lot>' is 'IL2-202'; missing where it is missing"
+    },
+    {
+      "output": "<f_growth_profile>_normal",
+      "source": "<f_growth_profile>",
+      "strategy": "one-hot",
+      "detail": "1 where '<f_growth_profile>' is 'normal'; missing where it is missing"
+    },
+    {
+      "output": "<f_growth_profile>_overgrowth",
+      "source": "<f_growth_profile>",
+      "strategy": "one-hot",
+      "detail": "1 where '<f_growth_profile>' is 'overgrowth'; missing where it is missing"
+    },
+    {
+      "output": "<f_growth_profile>_undergrowth",
+      "source": "<f_growth_profile>",
+      "strategy": "one-hot",
+      "detail": "1 where '<f_growth_profile>' is 'undergrowth'; missing where it is missing"
+    },
+    {
+      "output": "<ordinal_parameter>",
+      "source": "<ordinal_parameter>",
+      "strategy": "ordinal",
+      "detail": "rank 1..4 in the PTF's order: None, Low, Medium, High"
+    },
+    {
+      "output": "<culture_bags>",
+      "source": "<culture_bags>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<contact_time_a>",
+      "source": "<contact_time_a>",
+      "strategy": "duration",
+      "detail": "used as recorded, with anything at or below zero treated as missing"
+    },
+    {
+      "output": "<contact_time_b>",
+      "source": "<contact_time_b>",
+      "strategy": "duration",
+      "detail": "used as recorded, with anything at or below zero treated as missing"
+    },
+    {
+      "output": "<f_cells_per_bag>",
+      "source": "<f_cells_per_bag>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_car_yield>",
+      "source": "<f_car_yield>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_clump_burden_post>",
+      "source": "<f_clump_burden_post>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_clump_burden_mix>",
+      "source": "<f_clump_burden_mix>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_clump_burden_pre>",
+      "source": "<f_clump_burden_pre>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_clump_count_reduction>",
+      "source": "<f_clump_count_reduction>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_clump_size_reduction>",
+      "source": "<f_clump_size_reduction>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_glucose_per_cell_3>",
+      "source": "<f_glucose_per_cell_3>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_lactate_per_cell_3>",
+      "source": "<f_lactate_per_cell_3>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_clump_bag_count>",
+      "source": "<f_clump_bag_count>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_viability_d3_d10_rel>",
+      "source": "<f_viability_d3_d10_rel>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_contact_deviation_1>",
+      "source": "<f_contact_deviation_1>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_contact_deviation_2>",
+      "source": "<f_contact_deviation_2>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_contact_deviation_3>",
+      "source": "<f_contact_deviation_3>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_contact_within_1>",
+      "source": "<f_contact_within_1>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_contact_within_2>",
+      "source": "<f_contact_within_2>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_contact_within_3>",
+      "source": "<f_contact_within_3>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_seeding_error>",
+      "source": "<f_seeding_error>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_glucose_per_cell_1>",
+      "source": "<f_glucose_per_cell_1>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_lactate_per_cell_1>",
+      "source": "<f_lactate_per_cell_1>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_glucose_per_cell_2>",
+      "source": "<f_glucose_per_cell_2>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<mixing_cycles>",
+      "source": "<mixing_cycles>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<d3_viability>",
+      "source": "<d3_viability>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<cells_available>",
+      "source": "<cells_available>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<il2_activity_d6>",
+      "source": "<il2_activity_d6>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Day 6 <co2_marker>",
+      "source": "Day 6 <co2_marker>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<d6_glucose_a>",
+      "source": "<d6_glucose_a>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+      "source": "Day 6 IL-2 Protein Content (\u00b5g/vial)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<d6_lactate_a>",
+      "source": "<d6_lactate_a>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<il2_activity_d8>",
+      "source": "<il2_activity_d8>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<d8_glucose_a>",
+      "source": "<d8_glucose_a>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+      "source": "Day 8 IL-2 Protein Content (\u00b5g/vial)",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<d8_lactate_a>",
+      "source": "<d8_lactate_a>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_glucose_slope>",
+      "source": "<f_glucose_slope>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<harvest_glucose>",
+      "source": "<harvest_glucose>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<harvest_lactate>",
+      "source": "<harvest_lactate>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<harvest_viability>",
+      "source": "<harvest_viability>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<harvest_car_pct>",
+      "source": "<harvest_car_pct>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<harvest_cells>",
+      "source": "<harvest_cells>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_il2_d6>",
+      "source": "<f_il2_d6>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_il2_d8>",
+      "source": "<f_il2_d8>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_incubation_d3_d6>",
+      "source": "<f_incubation_d3_d6>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_incubation_d8_d10>",
+      "source": "<f_incubation_d8_d10>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_lactate_slope>",
+      "source": "<f_lactate_slope>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_lactate_glucose_ratio:10>",
+      "source": "<f_lactate_glucose_ratio:10>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_lactate_glucose_ratio:6>",
+      "source": "<f_lactate_glucose_ratio:6>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_mixing_x_clumps>",
+      "source": "<f_mixing_x_clumps>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<clumps_post_count>",
+      "source": "<clumps_post_count>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<clumps_post_size>",
+      "source": "<clumps_post_size>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<clumps_mix_count>",
+      "source": "<clumps_mix_count>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<clumps_mix_size>",
+      "source": "<clumps_mix_size>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<clumps_pre_count>",
+      "source": "<clumps_pre_count>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<clumps_pre_size>",
+      "source": "<clumps_pre_size>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_seeded_spread:min>",
+      "source": "<f_seeded_spread:min>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_seeded_spread:std>",
+      "source": "<f_seeded_spread:std>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<seeding_density_a>",
+      "source": "<seeding_density_a>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_vector_volume_spread:cv>",
+      "source": "<f_vector_volume_spread:cv>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_vector_volume_spread:max>",
+      "source": "<f_vector_volume_spread:max>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_vector_volume_spread:mean>",
+      "source": "<f_vector_volume_spread:mean>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_vector_volume_spread:min>",
+      "source": "<f_vector_volume_spread:min>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<vector_volume_a>",
+      "source": "<vector_volume_a>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<cpdl>",
+      "source": "<cpdl>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<contact_time>",
+      "source": "<contact_time>",
+      "strategy": "duration",
+      "detail": "used as recorded, with anything at or below zero treated as missing"
+    },
+    {
+      "output": "<f_incubation_d6_d8>",
+      "source": "<f_incubation_d6_d8>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<d6_glucose_b>",
+      "source": "<d6_glucose_b>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<d6_lactate_b>",
+      "source": "<d6_lactate_b>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<d8_glucose_b>",
+      "source": "<d8_glucose_b>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_moi_a>",
+      "source": "<f_moi_a>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_moi_pool>",
+      "source": "<f_moi_pool>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<f_moi_quality>",
+      "source": "<f_moi_quality>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    },
+    {
+      "output": "<vector_volume_b>",
+      "source": "<vector_volume_b>",
+      "strategy": "numeric",
+      "detail": "used as recorded"
+    }
+  ]
+}

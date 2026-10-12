@@ -1,0 +1,176 @@
+{
+  "manifest_version": 2,
+  "stage": "ptf",
+  "status": "complete",
+  "run_id": "20261012-142651-9068fe",
+  "started": "2026-10-12T14:26:51",
+  "finished": "2026-10-12T14:26:51",
+  "config": {
+    "path": "/home/user/pvf_tasks_jan/demo/config.yaml",
+    "digest": "66b2b6044b27cf2668c382baf2ac6d57a66dd79363c2583b74128ad9f62a7a28"
+  },
+  "inputs": [
+    {
+      "label": "ptf",
+      "location": "/home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx",
+      "kind": "local file",
+      "digest": "df9a235f36f42160fe8c0d9216243ed369b0cf79d37abc9305443879bf98ce0d",
+      "digest_of": "file bytes",
+      "note": ""
+    },
+    {
+      "label": "phf_site_a",
+      "location": "/home/user/pvf_tasks_jan/demo/data/raw/phf_site_a.xlsx",
+      "kind": "local file",
+      "digest": "4d2f99dd5bd134217b0257b9a4ed839d0a4f044bfaedd92867abcabe80e464c2",
+      "digest_of": "file bytes",
+      "note": ""
+    },
+    {
+      "label": "phf_site_b",
+      "location": "/home/user/pvf_tasks_jan/demo/data/raw/phf_site_b.xlsx",
+      "kind": "local file",
+      "digest": "95a10b51c20c083b22baa672877e0f0a29b70c919d6d40e234476ebd5dbece44",
+      "digest_of": "file bytes",
+      "note": ""
+    },
+    {
+      "label": "param_mapping",
+      "location": "/home/user/pvf_tasks_jan/demo/data/raw/parameter_requirements.xlsx",
+      "kind": "local file",
+      "digest": "4a12541697a94d4def6639c0e1743bc92e404c3da139dc343172b45ef267a848",
+      "digest_of": "file bytes",
+      "note": ""
+    },
+    {
+      "label": "investigations",
+      "location": "/home/user/pvf_tasks_jan/demo/data/raw/investigations_power_query.xlsx",
+      "kind": "local file",
+      "digest": "cc5806588cd1636cf6aeb555e65446cfc5a5bd0bbf68f45daffeb78b6b045945",
+      "digest_of": "file bytes",
+      "note": ""
+    }
+  ],
+  "outputs": [
+    {
+      "what": "report",
+      "path": "ptf_report.html",
+      "bytes": 21314,
+      "sha256": "26c39c2569330d264691c026ab6721c87c992740bdda5b5ad0d8568133cf1f67"
+    },
+    {
+      "what": "new parameters",
+      "path": "new_parameters.csv",
+      "bytes": 117,
+      "sha256": "8d4cf3113d91f93785c365662f20cc5b32000896bd657dd8debd6c899e8de7f7"
+    }
+  ],
+  "warnings": [
+    "1 mapping rows have no SiteA name and were dropped",
+    "SiteA PHF: 1 of 93 columns are not PTF parameters",
+    "SiteB batch data: 2 of 93 columns are not PTF parameters",
+    "Investigations Power Query: 3 of 5 columns are not PTF parameters"
+  ],
+  "errors": [],
+  "ptf": {
+    "location": "/home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx",
+    "parameters": 204
+  },
+  "sources_compared": {
+    "SiteA PHF": 93,
+    "SiteB batch data": 93,
+    "Investigations Power Query": 5
+  },
+  "sources_not_read": [],
+  "not_in_ptf": {
+    "SiteA PHF": [
+      "<site_a_comment>"
+    ],
+    "SiteB batch data": [
+      "<site_b_site_code>",
+      "<site_b_comment>"
+    ],
+    "Investigations Power Query": [
+      "Query[<investigation_id>]",
+      "Query[<root_cause>]",
+      "<days_to_close>"
+    ]
+  },
+  "new_parameters": [
+    "<site_a_comment>",
+    "<site_b_site_code>",
+    "<site_b_comment>",
+    "Query[<investigation_id>]",
+    "Query[<root_cause>]",
+    "<days_to_close>"
+  ],
+  "provenance": {
+    "run_date": "2026-10-12T14:26:51",
+    "git_commit": "ef467b90c5479c7a257aa530f50dd0be323da5dc-dirty",
+    "seed": 20260917,
+    "config": "/home/user/pvf_tasks_jan/demo/config.yaml",
+    "config_digest": "66b2b6044b27cf2668c382baf2ac6d57a66dd79363c2583b74128ad9f62a7a28",
+    "sources": [
+      {
+        "label": "ptf",
+        "location": "/home/user/pvf_tasks_jan/demo/data/raw/PTF.xlsx",
+        "kind": "local file",
+        "digest": "df9a235f36f42160fe8c0d9216243ed369b0cf79d37abc9305443879bf98ce0d",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "phf_site_a",
+        "location": "/home/user/pvf_tasks_jan/demo/data/raw/phf_site_a.xlsx",
+        "kind": "local file",
+        "digest": "4d2f99dd5bd134217b0257b9a4ed839d0a4f044bfaedd92867abcabe80e464c2",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "phf_site_b",
+        "location": "/home/user/pvf_tasks_jan/demo/data/raw/phf_site_b.xlsx",
+        "kind": "local file",
+        "digest": "95a10b51c20c083b22baa672877e0f0a29b70c919d6d40e234476ebd5dbece44",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "param_mapping",
+        "location": "/home/user/pvf_tasks_jan/demo/data/raw/parameter_requirements.xlsx",
+        "kind": "local file",
+        "digest": "4a12541697a94d4def6639c0e1743bc92e404c3da139dc343172b45ef267a848",
+        "digest_of": "file bytes",
+        "note": ""
+      },
+      {
+        "label": "investigations",
+        "location": "/home/user/pvf_tasks_jan/demo/data/raw/investigations_power_query.xlsx",
+        "kind": "local file",
+        "digest": "cc5806588cd1636cf6aeb555e65446cfc5a5bd0bbf68f45daffeb78b6b045945",
+        "digest_of": "file bytes",
+        "note": ""
+      }
+    ],
+    "inputs": {
+      "ptf": "df9a235f36f42160fe8c0d9216243ed369b0cf79d37abc9305443879bf98ce0d",
+      "phf_site_a": "4d2f99dd5bd134217b0257b9a4ed839d0a4f044bfaedd92867abcabe80e464c2",
+      "phf_site_b": "95a10b51c20c083b22baa672877e0f0a29b70c919d6d40e234476ebd5dbece44",
+      "param_mapping": "4a12541697a94d4def6639c0e1743bc92e404c3da139dc343172b45ef267a848",
+      "investigations": "cc5806588cd1636cf6aeb555e65446cfc5a5bd0bbf68f45daffeb78b6b045945"
+    },
+    "environment": {
+      "python": "3.12.3",
+      "platform": "Linux-6.18.44-fc-v114-x86_64-with-glibc2.39",
+      "pandas": "3.0.6",
+      "numpy": "2.5.3",
+      "scipy": "1.18.1",
+      "scikit-learn": "1.9.1",
+      "plotly": "7.1.0",
+      "openpyxl": "3.1.5",
+      "pyyaml": "6.0.3",
+      "python-dotenv": "1.2.4",
+      "stlite (report runtime)": "1.8.1"
+    }
+  }
+}

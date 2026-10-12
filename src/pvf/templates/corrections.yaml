@@ -7,7 +7,7 @@
 #   divide_by: <number>     rescale a numeric column (applied after type coercion)
 #   when: {equals: v}                  only rows where this column is v (as text)
 #   when: {column: other, equals: v}   only rows where another column is v
-# A named rule can be switched off with `cleaning.disable: [name]` in pvf.yaml.
+# A named rule can be switched off with `cleaning.disable: [name]` in config.yaml.
 
 corrections:
   - name: clump_count_date_serial

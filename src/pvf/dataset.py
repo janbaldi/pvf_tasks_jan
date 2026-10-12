@@ -16,12 +16,10 @@ because it happens to have many categories — it is one because the task says s
 each derived feature was computed from, so the descendants of the target can be
 walked and excluded, with the chain that got them there.
 
-*What is learned is learned on training rows.* Category vocabularies, target
-means, duplicate selection, clusters and residual regressions are fitted on one
-population and applied unchanged to any other. Where a task asks for no split,
-that population is the whole cohort and the transformed table is labelled
-exploratory, because a table preprocessed over every row is not a table you can
-honestly cross-validate on afterwards.
+*What is learned is recorded.* Category vocabularies, target means, duplicate
+selection, clusters and residual regressions are fitted on the whole cohort and
+written to ``recipe.json``, so the tool that fits the models can refit them
+inside each of its own cross-validation folds. This module makes no split.
 """
 
 from __future__ import annotations
@@ -34,7 +32,6 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import GroupKFold, KFold, StratifiedGroupKFold, StratifiedKFold
 
 from . import decorrelate, encode, features
 from . import missingness as missing_analysis
@@ -118,14 +115,11 @@ class TaskResult:
     #: Predictors that track the target closely on the fitted rows.
     proxies: list[dict] = field(default_factory=list)
     missingness: Any = None
-    #: Row index → cross-validation fold (1..k), for the rows that have one.
-    folds: dict = field(default_factory=dict)
     #: The transformed table, whatever the dataset is; exported beside it.
     transformed: pd.DataFrame | None = None
 
     dictionary: list[Record] = field(default_factory=list)
     columns: list[dict] = field(default_factory=list)
-    split: dict[str, Any] = field(default_factory=dict)
     recipe: dict[str, Any] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
 
@@ -513,6 +507,23 @@ def parameter_stages(
     return ranks, sorted(unknown_values)
 
 
+def _category_exclusions(ptf: pd.DataFrame, spec: TaskSpec) -> dict[str, str]:
+    """Parameter → why, for every parameter in a PTF category the task excludes."""
+    out: dict[str, str] = {}
+    for column, categories in spec.roles.exclude_categories:
+        if column not in ptf.columns:
+            # A typo must not quietly let every category through.
+            raise TaskRefused(
+                f"columns.exclude_categories: the PTF has no '{column}' column "
+                f"(it has {', '.join(map(str, ptf.columns))})"
+            )
+        values = ptf[column].fillna("").astype(str).str.strip()
+        for parameter, value in zip(ptf["Parameter"].astype(str), values):
+            if value in categories:
+                out.setdefault(parameter, f"PTF '{column}' is '{value}'")
+    return out
+
+
 def candidate_predictors(
     cohort: pd.DataFrame, ptf: pd.DataFrame, spec: TaskSpec, result: TaskResult
 ) -> list[str]:
@@ -548,6 +559,7 @@ def candidate_predictors(
     }
     roles.pop("", None)
     descendants = target_descendants(spec.target.column, names=list(cohort.columns))
+    excluded_category = _category_exclusions(ptf, spec)
     unavailable = dict(spec.availability.unavailable)
     overrides = set(spec.availability.available)
 
@@ -591,6 +603,8 @@ def candidate_predictors(
             refuse(parameter, "collides with the target's output name", "role")
         elif parameter in dict(spec.roles.exclude):
             refuse(parameter, dict(spec.roles.exclude)[parameter], "task exclusion")
+        elif parameter in excluded_category:
+            refuse(parameter, excluded_category[parameter], "category exclusion")
         elif parameter in descendants and parameter not in overrides:
             refuse(
                 parameter, f"computed from the target: {descendants[parameter]}", "target lineage"
@@ -851,7 +865,7 @@ def fit_preprocessing(
         raise TaskRefused(
             f"quality.min_non_missing is {params.min_non_missing} but only {len(train)} rows "
             "are being fitted on, so every column would be dropped. Lower it, or widen the "
-            "cohort, or ask for a smaller validation fraction"
+            "cohort"
         )
     pre = Preprocessor(params=params, rows_fitted=len(train))
     taken = set(reserved)
@@ -1110,15 +1124,15 @@ def fit_preprocessing(
 
 
 # ---------------------------------------------------------------------------
-# Splitting
+# Groups
 # ---------------------------------------------------------------------------
 def split_groups(cohort: pd.DataFrame, labelled: pd.Index, spec: TaskSpec) -> pd.Series | None:
-    """The units a split must keep whole: the grouping column, joined up by patient.
+    """The units the target encoding's folds keep whole: the group, joined up by patient.
 
     Two batches belong together when they share a group (a vector lot) or a
     patient — directly or through a chain of batches. A re-manufactured batch
     shares its patient's starting material with the first one, so it cannot be
-    allowed to sit on the other side of a split from it.
+    encoded with a mean its sibling's target is inside.
     """
     columns = [c for c in (spec.roles.group, spec.roles.patient) if c and c in cohort.columns]
     if not columns:
@@ -1153,165 +1167,6 @@ def split_groups(cohort: pd.DataFrame, labelled: pd.Index, spec: TaskSpec) -> pd
     return pd.Series([labels[root(i)] for i in range(len(rows))], index=labelled)
 
 
-def _splitter(n_splits: int, grouped: bool, stratified: bool, seed: int):
-    if grouped and stratified:
-        return StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=seed)
-    if grouped:
-        return GroupKFold(n_splits=n_splits, shuffle=True, random_state=seed)
-    if stratified:
-        return StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
-    return KFold(n_splits=n_splits, shuffle=True, random_state=seed)
-
-
-def _stratify(spec: TaskSpec, target: pd.Series | None, rows: pd.Index) -> pd.Series | None:
-    if target is None or spec.target.type != "binary" or not spec.split.stratify:
-        return None
-    labels = target.loc[rows]
-    return labels if labels.value_counts().min() >= 2 else None
-
-
-def assign_split(
-    cohort: pd.DataFrame,
-    labelled: pd.Index,
-    spec: TaskSpec,
-    result: TaskResult,
-    target: pd.Series | None = None,
-) -> tuple[pd.Index, pd.Index]:
-    """Training and validation rows, by the strategy the task declared.
-
-    No split is invented: a task that asks for none gets none, and its
-    transformed table is labelled exploratory instead. A grouped split shuffles
-    whole groups with the task's seed — keeping a binary target's classes
-    balanced where it can — rather than always holding out the same kind of
-    group. ``split.folds`` adds cross-validation folds over the training rows.
-    """
-    if not spec.split.requested and not spec.split.folds:
-        return labelled, pd.Index([])
-
-    fraction = spec.split.validation_fraction
-    groups = split_groups(cohort, labelled, spec)
-    detail = ""
-    validation = pd.Index([])
-    if spec.split.strategy == "grouped":
-        if groups is None:
-            raise TaskRefused("split.strategy: a grouped split needs columns.group")
-        distinct = groups.nunique()
-        if distinct < 2:
-            raise TaskRefused(
-                f"split.strategy: a grouped split needs at least two distinct values of "
-                f"'{spec.roles.group}'; this cohort has {distinct}"
-            )
-        n_splits = int(min(distinct, max(2, round(1 / fraction))))
-        strata = _stratify(spec, target, labelled)
-        splitter = _splitter(n_splits, True, strata is not None, spec.seed)
-        _, test = next(
-            splitter.split(np.zeros(len(labelled)), strata if strata is not None else None, groups)
-        )
-        validation = labelled[test]
-        held = sorted(set(groups.loc[validation]))
-        detail = (
-            f"whole groups of {spec.roles.group}"
-            + (f" (joined by {spec.roles.patient})" if spec.roles.patient else "")
-            + f", drawn with seed {spec.seed}"
-            + (", classes balanced" if strata is not None else "")
-            + f": {', '.join(held)}"
-        )
-    elif spec.split.strategy == "chronological":
-        order_column = spec.split.order_column
-        if order_column not in cohort.columns:
-            raise TaskRefused(f"split.order_column: '{order_column}' is not a column of the PVF")
-        stamps = pd.to_datetime(cohort.loc[labelled, order_column], errors="coerce")
-        if stamps.isna().all():
-            stamps = pd.to_numeric(cohort.loc[labelled, order_column], errors="coerce")
-        if stamps.isna().any():
-            raise TaskRefused(
-                f"split.order_column: '{order_column}' cannot be ordered for "
-                f"{int(stamps.isna().sum())} batches, so a chronological split would be a guess"
-            )
-        ordered = stamps.sort_values(kind="stable").index
-        cut = len(ordered) - max(1, int(round(fraction * len(ordered))))
-        validation = pd.Index(ordered[cut:])
-        detail = f"the last {len(validation)} batches by {order_column}"
-
-    training = labelled.difference(validation, sort=False)
-    if spec.split.requested and (not len(training) or not len(validation)):
-        raise TaskRefused(
-            "The requested split leaves one side empty; change split.validation_fraction"
-        )
-    if groups is not None and len(validation):
-        shared = set(groups.loc[training]) & set(groups.loc[validation])
-        if shared:  # cannot happen with whole groups; a chronological split can
-            result.note(
-                f"{len(shared)} group(s) of {spec.roles.group} have batches on both sides of "
-                "the split; a model can learn them from their siblings"
-            )
-
-    result.split = {
-        "strategy": spec.split.strategy or "none",
-        "detail": detail or "no validation rows; folds only",
-        "training": int(len(training)),
-        "validation": int(len(validation)),
-        "seed": spec.seed,
-    }
-    if spec.split.folds:
-        _assign_folds(cohort, training, spec, result, target, groups)
-    log.info(
-        MODULE,
-        f"Split ({result.split['strategy']}): {len(training)} training, "
-        f"{len(validation)} validation — {result.split['detail']}"
-        + (f"; {result.split['folds']} folds over the training rows" if spec.split.folds else ""),
-    )
-    return training, validation
-
-
-def _assign_folds(
-    cohort: pd.DataFrame,
-    training: pd.Index,
-    spec: TaskSpec,
-    result: TaskResult,
-    target: pd.Series | None,
-    groups: pd.Series | None,
-) -> None:
-    """Cross-validation folds over the training rows, written to splits.csv.
-
-    Grouped (and class-balanced) where the task has groups; in time order for a
-    chronological task, where fold k is the k-th block and is only ever to be
-    predicted from the blocks before it.
-    """
-    wanted = spec.split.folds
-    if spec.split.strategy == "chronological":
-        stamps = pd.to_datetime(cohort.loc[training, spec.split.order_column], errors="coerce")
-        ordered = stamps.sort_values(kind="stable").index
-        blocks = np.array_split(np.arange(len(ordered)), min(wanted, len(ordered)))
-        for number, block in enumerate(blocks, start=1):
-            for position in block:
-                result.folds[ordered[position]] = number
-        result.split.update({"folds": len(blocks), "fold_strategy": "chronological blocks"})
-        return
-    train_groups = groups.loc[training] if groups is not None else None
-    available = int(train_groups.nunique()) if train_groups is not None else len(training)
-    n_splits = min(wanted, available)
-    if n_splits < 2:
-        result.note(f"split.folds: only {n_splits} group(s) in the training rows, so no folds")
-        return
-    strata = _stratify(spec, target, training)
-    splitter = _splitter(n_splits, train_groups is not None, strata is not None, spec.seed)
-    for number, (_, test) in enumerate(
-        splitter.split(np.zeros(len(training)), strata, train_groups), start=1
-    ):
-        for position in test:
-            result.folds[training[position]] = number
-    result.split.update(
-        {
-            "folds": n_splits,
-            "fold_strategy": ("grouped" if train_groups is not None else "shuffled")
-            + (", class-balanced" if strata is not None else ""),
-        }
-    )
-    if n_splits < wanted:
-        result.note(f"split.folds: {wanted} folds asked for, {n_splits} groups allow {n_splits}")
-
-
 # ---------------------------------------------------------------------------
 # Building
 # ---------------------------------------------------------------------------
@@ -1323,8 +1178,8 @@ def build(
     Returns the table the task is for, the selected raw predictors beside their
     metadata, and everything that was decided. For an exploratory task the first
     is the transformed table; for a predictive one it is the raw modelling input,
-    and the transformed view — fitted on the training rows, applied to the rest —
-    is ``result.transformed``.
+    and the transformed view is ``result.transformed``. Every row is a training
+    row: cross-validation belongs to the tool that fits the models.
     """
     result = TaskResult(spec=spec)
     cohort = select_cohort(pvf, spec, result)
@@ -1342,48 +1197,21 @@ def build(
             value_types,
             spec.missingness,
             id_column=spec.roles.id,
-            order_column=spec.split.order_column or spec.cohort.date_column,
+            order_column=spec.cohort.date_column,
         )
 
     predictors = candidate_predictors(cohort, ptf, spec, result)
-    training, validation = assign_split(cohort, labelled, spec, result, target)
-
     reserved = {
         name
-        for name in (
-            spec.roles.id,
-            spec.roles.group,
-            spec.roles.patient,
-            result.target_column,
-            "split",
-            "fold",
-        )
+        for name in (spec.roles.id, spec.roles.group, spec.roles.patient, result.target_column)
         if name
     }
-    pre = fit_preprocessing(
-        cohort.loc[training], target.loc[training], predictors, ptf, spec, result, reserved
-    )
-    result.fitted_on = (
-        f"{len(training)} training batches ({result.split['detail']})"
-        if len(validation)
-        else f"all {len(training)} batches in the cohort"
-    )
+    pre = fit_preprocessing(cohort, target, predictors, ptf, spec, result, reserved)
+    result.fitted_on = f"all {len(cohort)} batches in the cohort"
     pre.fitted_on = result.fitted_on
 
-    chronological = spec.split.strategy == "chronological"
-    groups = None if chronological else split_groups(cohort, training, spec)
-    order = (
-        pd.to_datetime(cohort.loc[training, spec.split.order_column], errors="coerce")
-        if chronological
-        else None
-    )
-    transformed, crossfit = pre.crossfit_transform(
-        cohort.loc[training], target.loc[training], groups=groups, order=order
-    )
-    if len(validation):
-        transformed = pd.concat([transformed, pre.transform(cohort.loc[validation])]).loc[
-            cohort.index
-        ]
+    groups = split_groups(cohort, labelled, spec)
+    transformed, crossfit = pre.crossfit_transform(cohort, target, groups=groups)
 
     result.target_encoding = {
         "columns": {
@@ -1405,7 +1233,7 @@ def build(
     result.selected_raw = [column for column in pre.inputs if column in cohort.columns]
     result.transformed_columns = len(pre.output_columns)
     raw = cohort[result.selected_raw].copy()
-    metadata = _metadata(cohort, spec, result, training, validation)
+    metadata = _metadata(cohort, spec, result)
     raw_table = pd.concat([metadata, raw, target.rename(result.target_column)], axis=1)
     transformed_table = pd.concat(
         [metadata, transformed, target.rename(result.target_column)], axis=1
@@ -1436,7 +1264,7 @@ def build(
             result.decisions.append(
                 Decision(record["source"], "included", record["strategy"], "encoding")
             )
-    _sample_size_notes(cohort, target, training, spec, result)
+    _sample_size_notes(cohort, target, spec, result)
 
     log.success(
         MODULE,
@@ -1447,7 +1275,7 @@ def build(
 
 
 def _check_unique_ids(cohort: pd.DataFrame, spec: TaskSpec) -> None:
-    """A batch twice in one dataset is counted twice and can sit on both sides of a split."""
+    """A batch twice in one dataset is counted twice and can sit in two folds at once."""
     column = spec.roles.id
     if not column or column not in cohort.columns:
         return
@@ -1462,20 +1290,16 @@ def _check_unique_ids(cohort: pd.DataFrame, spec: TaskSpec) -> None:
 
 
 def _sample_size_notes(
-    cohort: pd.DataFrame,
-    target: pd.Series,
-    training: pd.Index,
-    spec: TaskSpec,
-    result: TaskResult,
+    cohort: pd.DataFrame, target: pd.Series, spec: TaskSpec, result: TaskResult
 ) -> None:
     """How much evidence the table really holds, said where a reader will see it."""
-    fitted = len(training)
+    fitted = len(cohort)
     columns = result.transformed_columns
     if spec.roles.group and spec.roles.group in cohort.columns:
         distinct = int(cohort[spec.roles.group].nunique())
         if distinct < 10:
             result.note(
-                f"Only {distinct} distinct {spec.roles.group} values: any grouped validation "
+                f"Only {distinct} distinct {spec.roles.group} values: any grouped cross-validation "
                 f"rests on {distinct} groups, not on {len(cohort)} batches"
             )
     if fitted and columns > fitted:
@@ -1485,7 +1309,7 @@ def _sample_size_notes(
             "performance has to be estimated by cross-validation, not in-sample"
         )
     if spec.target.type == "binary" and columns:
-        minority = int(target.loc[training].value_counts().min())
+        minority = int(target.value_counts().min())
         epv = minority / columns
         if epv < 10:
             result.note(
@@ -1494,24 +1318,14 @@ def _sample_size_notes(
             )
 
 
-def _metadata(
-    cohort: pd.DataFrame,
-    spec: TaskSpec,
-    result: TaskResult,
-    training: pd.Index,
-    validation: pd.Index,
-) -> pd.DataFrame:
-    """The identifier, the grouping columns, the split and the fold, each exactly once."""
+def _metadata(cohort: pd.DataFrame, spec: TaskSpec, result: TaskResult) -> pd.DataFrame:
+    """The identifier and the grouping columns, each exactly once."""
     frame = pd.DataFrame(index=cohort.index)
     for column in (spec.roles.id, spec.roles.group, spec.roles.patient):
         if column and column in cohort.columns:
             frame[column] = cohort[column]
         elif column:
             result.note(f"'{column}' is not in the PVF, so the dataset carries no such column")
-    if len(validation):
-        frame["split"] = np.where(frame.index.isin(validation), "validation", "training")
-    if result.folds:
-        frame["fold"] = pd.Series(result.folds, dtype="Int64").reindex(frame.index)
     return frame
 
 
@@ -1529,16 +1343,7 @@ def _column_table(
             meaning = "grouping metadata, for grouped cross-validation; not a predictor"
         elif column == spec.roles.patient:
             role, source, transformation = GROUP, column, "none"
-            meaning = "the patient; keeps a patient's batches on one side of a split"
-        elif column == "fold":
-            role, source, transformation = "split", "assigned by this run", "cross-validation"
-            meaning = (
-                "cross-validation fold over the training rows "
-                f"({result.split.get('fold_strategy')}); empty for validation rows"
-            )
-        elif column == "split":
-            role, source, transformation = "split", "assigned by this run", spec.split.strategy
-            meaning = result.split.get("detail", "")
+            meaning = "the patient; keeps a patient's batches in one cross-validation fold"
         elif column == result.target_column:
             role, source, transformation = TARGET, spec.target.column, result.target_kind
             meaning = (

@@ -218,11 +218,11 @@ def test_the_report_is_one_file_with_its_provenance_in_it(built):
     recorded = facts(panel[0])
     assert recorded["Run date"] and recorded["Seed"] == str(dummy_data.SEED)
     assert str(built["config_path"]) in recorded["Config"].replace("\\", "")
-    # Every input the run read is hashed, and a file it could not read says so.
+    # Every input was read from SharePoint, and every table it read is digested.
     sources = {row[0].replace("\\", ""): row for row in panel[1]["rows"]}
     assert {"catalog", "phf_ghent", "phf_raritan", "lv_coa", "site_map_1"} <= set(sources)
-    assert all(row[1] == "local file" for row in sources.values())
-    assert all(len(row[3]) == 64 for row in sources.values())
+    assert all(row[1] == "SharePoint" for row in sources.values())
+    assert all(len(row[3]) == 64 for name, row in sources.items() if "site_map" not in name)
     titles = [s["title"] for s in built["payloads"]["build"]["sections"]]
     assert titles[0] == "Overview"
     assert {"Cleaning", "Parameter inventory", "Catalog coverage", "Derived features"} <= set(
@@ -244,18 +244,27 @@ def test_a_legend_has_a_row_of_its_own_under_the_title(built):
         assert layout["margin"]["t"] >= 72
 
 
-def test_the_build_writes_its_manifest_beside_the_batch_table(built):
+def test_the_build_writes_everything_into_the_batch_table_folder_on_sharepoint(built):
     import json
 
-    from ml import cli
+    from conftest import shared
 
-    record = json.loads(
-        cli.manifest_path(built["config"]["paths"]["batch_table"], "batch_table").read_text(
-            encoding="utf-8"
-        )
-    )
+    folder = shared(built["directory"], built["config"], "batch_table").parent
+    assert {path.name for path in folder.iterdir()} == {
+        "batch_data.xlsx",
+        "batch_data.parquet",
+        "build_report.html",
+        "batch_table_manifest.json",
+    }
+    record = json.loads((folder / "batch_table_manifest.json").read_text(encoding="utf-8"))
     assert record["stage"] == "batch_table" and record["status"] == "complete"
     assert record["batch_table"]["columns"] == built["batch_table"].shape[1]
     kinds = {source["label"]: source["kind"] for source in record["provenance"]["sources"]}
     assert "investigations" not in kinds, "the build does not read it, so it does not record it"
-    assert kinds["raw_materials"] == "local file"
+    assert kinds["raw_materials"] == "SharePoint"
+    assert record["written_to"].endswith("Data/batch_data/")
+    assert {entry["path"] for entry in record["outputs"]} == {
+        "batch_data.xlsx",
+        "batch_data.parquet",
+        "build_report.html",
+    }

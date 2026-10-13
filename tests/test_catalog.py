@@ -55,5 +55,20 @@ def test_the_console_names_every_column_the_catalog_does_not_list(built, caplog)
     assert "Ghent PHF: columns the catalog does not list (1)" in out
     assert "  - Local Comment" in out
     assert "\x1b[" not in out, "no colour codes when stdout is not a terminal"
-    manifest = cli.manifest_path(built["config"]["paths"]["batch_table"], "catalog")
-    assert str(manifest) in out
+    # What it read and wrote is listed, file by file, with the SharePoint folder.
+    assert "Reading from SharePoint" in out and "Written to SharePoint" in out
+    for name in ("catalog_report.html", "catalog_manifest.json", "new_parameters.csv"):
+        assert name in out
+    assert "DEMO_DRIVE › Data/catalog/" in out
+
+
+def test_the_catalog_check_writes_into_the_catalog_folder_on_sharepoint(built):
+    from conftest import shared
+
+    folder = shared(built["directory"], built["config"], "catalog").parent
+    assert {path.name for path in folder.iterdir()} == {
+        "catalog.xlsx",
+        "catalog_report.html",
+        "catalog_manifest.json",
+        "new_parameters.csv",
+    }

@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 
+from . import config as workspace
 from . import dataset, io, taskconfig
 from .dataset import Preprocessor, TaskResult, fit_preprocessing
 from .logger import log
@@ -89,7 +90,7 @@ class TaskTransformer(TransformerMixin, BaseEstimator):
 
     def _fit(self, X: pd.DataFrame, y) -> pd.Series:
         y = pd.Series(np.asarray(y, dtype="float64"), index=X.index)
-        catalog = self.catalog if self.catalog is not None else io.read_catalog(self.spec.catalog)
+        catalog = self.catalog if self.catalog is not None else task_catalog(self.spec)
         result = TaskResult(spec=self.spec)
         result.target_column = "__target__"
         predictors = list(self.predictors) or dataset.candidate_predictors(
@@ -127,6 +128,24 @@ class TaskTransformer(TransformerMixin, BaseEstimator):
         return self.feature_names_out_
 
 
+_catalogs: dict[str, pd.DataFrame] = {}
+
+
+def _task_config(task: str | Path) -> dict:
+    """The config.yaml a task names, or else the nearest one."""
+    return workspace.load(workspace.find(taskconfig.config_file(task), start=task))
+
+
+def task_catalog(spec: taskconfig.TaskSpec, config: dict | None = None) -> pd.DataFrame:
+    """The catalog a task reads, from SharePoint — read once, not once per fold."""
+    key = str(spec.catalog or spec.source)
+    if key not in _catalogs:
+        if spec.catalog is None:
+            config = config or _task_config(spec.source)
+        _catalogs[key] = io.read_catalog(workspace.table_source(config, "catalog", spec.catalog))
+    return _catalogs[key]
+
+
 def task_data(
     task: str | Path, config: dict | None = None
 ) -> tuple[pd.DataFrame, pd.Series, pd.Series | None, taskconfig.TaskSpec]:
@@ -135,8 +154,12 @@ def task_data(
     The cohort filters and the target are applied exactly as ``ml task run`` does;
     nothing is encoded.
     """
-    spec = taskconfig.load(task, config)
-    batch_table = io.load_batch_table(spec.batch_table)
+    spec = taskconfig.load(task)
+    if config is None and spec.batch_table is None:
+        config = _task_config(task)
+    batch_table = io.load_batch_table(
+        workspace.table_source(config, "batch_table", spec.batch_table)
+    )
     result = TaskResult(spec=spec)
     cohort = dataset.select_cohort(batch_table, spec, result)
     target, labelled = dataset.prepare_target(cohort, spec, result)

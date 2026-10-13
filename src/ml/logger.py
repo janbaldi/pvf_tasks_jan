@@ -11,7 +11,7 @@ No icons: the structure is carried by the rules, the columns and the colour.
 While a step is computing and nothing has been printed for a moment, a small
 progress bar animates under the last line; it only runs on a real terminal, so a
 log file or a pipe never sees it. The stage rules, section rules and result blocks
-(``stage``, ``section``, ``facts``, ``names``, ``summary``) are printed only.
+(``stage``, ``section``, ``facts``, ``files``, ``names``, ``summary``) are printed only.
 They repeat what the events and the report already hold, so they are not stored
 as events.
 """
@@ -289,6 +289,16 @@ class PipelineLogger:
         width = max((len(label) for label, _ in rows), default=0)
         for label, value in rows:
             self._print(f"  {self._paint(f'{label:<{width}}', 'dim')}  {value}")
+
+    def files(self, title: str, rows: list[tuple[str, str, str]]):
+        """A titled block of files: a label, the file name in bold, and where it is under it."""
+        self._print()
+        self._print(self._paint(title, "blue", "bold"))
+        width = max((len(label) for label, _, _ in rows), default=0)
+        for label, name, where in rows:
+            self._print(f"  {self._paint(f'{label:<{width}}', 'dim')}  {self._paint(name, 'bold')}")
+            if where:
+                self._print(f"  {' ' * width}  {self._paint(where, 'dim')}")
 
     def names(self, title: str, names: list[str], level: str = "WARN"):
         """A heading with its count, then one name per line under it."""

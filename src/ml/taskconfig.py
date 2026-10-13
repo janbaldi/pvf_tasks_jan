@@ -11,9 +11,10 @@ run is better refused at the boundary than half written to disk.
 
 Each task is a workspace: a folder holding its ``task.yaml``, with every run
 written into ``runs/`` beside it. Relative paths resolve against that folder.
-The batch table and catalog come from ``config.yaml`` — the one the task names under
-``config:``, or ``--config``, ``$ML_CONFIG`` or the nearest ``config.yaml`` —
-unless the task names its own under ``inputs``.
+The batch table and catalog are read from SharePoint, where ``config.yaml`` — the
+one the task names under ``config:``, or ``--config``, ``$ML_CONFIG`` or the
+nearest ``config.yaml`` — locates them. Only a run's own ``task.yaml`` names
+``inputs``: the copies that run kept, which ``ml task rerun`` reads.
 """
 
 from __future__ import annotations
@@ -25,8 +26,6 @@ from typing import Any
 
 import yaml
 
-from .config import ConfigError
-from .config import load as load_config
 from .encode import TaskParams
 
 #: Filter operators a cohort may use. No expressions, no eval: a fixed set.
@@ -176,8 +175,9 @@ class TaskSpec:
     name: str = "task"
     question: str = ""
     seed: int = 0
-    batch_table: Path = Path("batch_table.xlsx")
-    catalog: Path = Path("catalog.xlsx")
+    #: A run's own copies (``ml task rerun``); None means SharePoint, via config.yaml.
+    batch_table: Path | None = None
+    catalog: Path | None = None
     output_root: Path = Path("runs")
     cohort: Cohort = field(default_factory=Cohort)
     target: Target = field(default_factory=Target)
@@ -211,9 +211,14 @@ class TaskSpec:
         predictors["exclude"] = [{"column": c, "reason": r} for c, r in predictors["exclude"]]
         for key in ("include_by_catalog", "exclude_by_catalog"):
             predictors[key] = dict(predictors[key])
+        inputs = (
+            {"batch_table": str(self.batch_table), "catalog": str(self.catalog)}
+            if self.batch_table is not None
+            else "SharePoint, as config.yaml locates them"
+        )
         return {
             "task": {key: d[key] for key in ("name", "question", "seed")},
-            "inputs": {"batch_table": str(self.batch_table), "catalog": str(self.catalog)},
+            "inputs": inputs,
             "cohort": d["cohort"],
             "target": d["target"],
             "roles": d["roles"],
@@ -502,15 +507,14 @@ def parse(
     raw: dict[str, Any],
     base: Path,
     source: str = "",
-    defaults: dict[str, str] | None = None,
+    frozen: bool = False,
 ) -> TaskSpec:
     """Validate a task mapping and resolve its paths. Raises on any problem.
 
-    ``defaults`` holds the ``batch_table`` and ``catalog`` paths from ``config.yaml``, used
-    for whatever the task file itself leaves out.
+    ``frozen`` is a finished run's own ``task.yaml``, whose ``inputs`` name the
+    copies that run kept; every other task reads from SharePoint and names none.
     """
     errors: list[str] = []
-    defaults = defaults or {}
     _known(
         raw,
         (
@@ -658,30 +662,19 @@ def parse(
         if column in dict(predictors.exclude):
             errors.append(f"predictors.include: '{column}' is in predictors.exclude as well")
 
-    def located(section: dict, key: str, where: str, fallback: str, what: str) -> Path:
-        text = _text(section, key, where, errors).strip()
-        if text:
-            return _resolve(text, base)
-        if fallback:
-            return Path(fallback)
+    batch_table = catalog = None
+    if frozen:
+        for key in ("batch_table", "catalog"):
+            if not _text(inputs, key, "inputs", errors).strip():
+                errors.append(f"inputs.{key}: a run's task.yaml names the copy it read")
+        if not errors:
+            batch_table = _resolve(str(inputs["batch_table"]), base)
+            catalog = _resolve(str(inputs["catalog"]), base)
+    elif raw.get("inputs") is not None:
         errors.append(
-            f"{where}.{key}: {what} — set paths.{key} in config.yaml (found by --config, "
-            "$ML_CONFIG or the nearest config.yaml), or name it here"
+            "inputs: a task reads the batch table and catalog from SharePoint, where "
+            "config.yaml locates them; remove inputs:"
         )
-        return Path(f"<{key}>")
-
-    batch_table = located(
-        inputs,
-        "batch_table",
-        "inputs",
-        defaults.get("batch_table", ""),
-        "the batch table this task reads",
-    )
-    catalog = located(
-        inputs, "catalog", "inputs", defaults.get("catalog", ""), "the catalog this task reads"
-    )
-    if batch_table == catalog:
-        errors.append("inputs: the batch table and the catalog cannot be the same file")
     if not name.strip():
         errors.append("task.name: a task needs a name")
 
@@ -711,20 +704,13 @@ def parse(
     )
 
 
-def load(path: str | Path, config: dict[str, Any] | None = None) -> TaskSpec:
+def load(path: str | Path, frozen: bool = False) -> TaskSpec:
     """Read a task workspace's ``task.yaml`` (or a task file) and validate it.
 
-    ``config`` is the ``config.yaml`` the run was started with, or else the one
-    the task names under ``config:``; it supplies the batch table and catalog a task leaves out.
+    ``frozen`` reads a finished run's own ``task.yaml``, with the inputs it kept.
     """
     path, raw = _read(path)
-    named = _config_path(path, raw)
-    if config is None and named:
-        try:
-            config = load_config(named)
-        except ConfigError as exc:
-            raise TaskConfigError(f"{path}: config: {exc}") from exc
-    return parse(raw, path.parent, source=str(path), defaults=config_defaults(config))
+    return parse(raw, path.parent, source=str(path), frozen=frozen)
 
 
 def config_file(task: str | Path | None) -> Path | None:
@@ -754,14 +740,3 @@ def _config_path(path: Path, raw: dict[str, Any]) -> Path | None:
     if not isinstance(value, str):
         raise TaskConfigError(f"{path}: config: expected the path to a config.yaml")
     return _resolve(value, path.parent)
-
-
-def config_defaults(config: dict[str, Any] | None) -> dict[str, str]:
-    """The paths a task inherits from ``config.yaml``."""
-    if not config:
-        return {}
-    paths = config.get("paths") or {}
-    return {
-        "batch_table": str(paths.get("batch_table") or ""),
-        "catalog": str(paths.get("catalog") or ""),
-    }

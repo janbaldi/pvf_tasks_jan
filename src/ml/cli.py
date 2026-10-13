@@ -1024,6 +1024,12 @@ def _parser() -> argparse.ArgumentParser:
         "--config", help="the config (default: $ML_CONFIG, or the nearest config.yaml)"
     )
     parser.add_argument("--debug", action="store_true", help="show tracebacks for every error")
+    parser.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="print only warnings, errors and what was read and written; for log files",
+    )
     commands = parser.add_subparsers(dest="command", required=True, metavar="command")
 
     validate = commands.add_parser("validate", help="validate the config and tasks; run nothing")
@@ -1057,6 +1063,7 @@ def _parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    log.set_quiet(args.quiet)
     args.command = " ".join(filter(None, (args.command, getattr(args, "action", None))))
     try:
         return _run(args)

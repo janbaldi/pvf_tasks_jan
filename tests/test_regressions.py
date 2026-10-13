@@ -721,6 +721,27 @@ def test_a_sharepoint_read_is_recorded_by_location_and_content(tmp_path, monkeyp
 # ---------------------------------------------------------------------------
 # The console
 # ---------------------------------------------------------------------------
+def test_quiet_prints_only_warnings_and_blocks_but_records_everything(caplog):
+    from ml.logger import log
+
+    mark = log.mark()
+    caplog.clear()
+    log.set_quiet(True)
+    try:
+        log.section("Loading")
+        log.step("io", "Loading a workbook", "phf.xlsx")
+        log.success("io", "Loaded")
+        log.warn("io", "A warning worth reading")
+        log.files("Written to SharePoint", [("report", "build_report.html", "DRIVE › Data/")])
+    finally:
+        log.set_quiet(False)
+    printed = "\n".join(record.getMessage() for record in caplog.records)
+    assert "A warning worth reading" in printed and "build_report.html" in printed
+    assert "Loading a workbook" not in printed and "Loaded" not in printed
+    assert "── Loading" not in printed
+    assert [e.level for e in log.since(mark)] == ["STEP", "SUCCESS", "WARN"], "all recorded"
+
+
 def test_the_scanner_bounces_end_to_end_and_stays_off_a_pipe():
     from ml.logger import _Scanner, log
 

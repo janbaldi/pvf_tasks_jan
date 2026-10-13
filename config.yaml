@@ -62,7 +62,7 @@ sharepoint:
 # happens on a `ml build --mode PRD` run with enabled: true.
 upload:
   enabled: true
-  path: "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/PVF/"   # or $DATA_LINK
+  path: "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/batch_data/"   # or $DATA_LINK
   drive_id: DRIVE_ID_GHENT
   file_name: PVF.xlsx          # the name it has on SharePoint
 

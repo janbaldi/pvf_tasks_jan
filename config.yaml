@@ -18,33 +18,33 @@ seed: 20260917
 # The one catalog, the one batch table, and local copies of every source. With
 # sources.location: local these are read.
 paths:
-  catalog: ~/ml_data/catalog.xlsx           # the parameter catalog; `ml check-catalog` checks it
-  batch_table: ~/ml_data/batch_table.xlsx   # `ml build` writes it; reports and manifests go beside it
-  phf_ghent: ~/ml_data/raw/phf_ghent.xlsx
-  phf_raritan: ~/ml_data/raw/phf_raritan.xlsx
-  param_mapping: ~/ml_data/raw/parameter_requirements.xlsx
-  remfg: ~/ml_data/raw/remfg.xlsx
-  lv_coa: ~/ml_data/raw/lv_coa.xlsx
-  raw_materials: ~/ml_data/raw/raw_materials.csv
-  investigations: ~/ml_data/raw/investigations_power_query.xlsx
+  catalog: /Work/ml_data/catalog/catalog.xlsx           # the parameter catalog; `ml check-catalog` checks it
+  batch_table: /Work/ml_data/batch_table.xlsx   # `ml build` writes it; reports and manifests go beside it
+  phf_ghent: /Work/ml_data/raw/phf_ghent.xlsx
+  phf_raritan: /Work/ml_data/raw/phf_raritan.xlsx
+  param_mapping: /Work/ml_data/raw/parameter_requirements.xlsx
+  remfg: /Work/ml_data/raw/remfg.xlsx
+  lv_coa: /Work/ml_data/raw/lv_coa.xlsx
+  raw_materials: /Work/ml_data/raw/raw_materials.csv
+  investigations: /Work/ml_data/raw/investigations_power_query.xlsx
   site_maps:
-    - ~/ml_data/raw/site_map_clinical_sites.xlsx
-  new_parameters: ~/ml_data/new_parameters.csv
+    - /Work/ml_data/raw/site_map_clinical_sites.xlsx
+  new_parameters: /Work/ml_data/catalog/new_parameters.csv
 
 # Which worksheet each workbook's data is on, where it is not the default.
-# sheets:
-#   phf_ghent: BR Data
+sheets:
+  phf_ghent: BR Data
 
 sources:
-  location: local          # local | sharepoint
+  location: sharepoint          # local | sharepoint
   fallback_to_local: false # with sharepoint: use the local copy if io_sharepoint is missing
-  databricks: false        # join the Acridine Orange readings from Databricks
+  databricks: true        # join the Acridine Orange readings from Databricks
 
 # Where each source lives on SharePoint. Only read when sources.location is
 # sharepoint; a source without an entry here is then still read locally.
 sharepoint:
-  catalog:        {path: "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/PTF/PTF.xlsx", sheet: Catalogue, drive_id: DRIVE_ID_GHENT}
-  batch_table:    {path: "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/PVF/PVF.xlsx", sheet: Sheet1, drive_id: DRIVE_ID_GHENT}
+  catalog:        {path: "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/catalog/catalog.xlsx", sheet: Catalogue, drive_id: DRIVE_ID_GHENT}
+  batch_table:    {path: "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/batch_data/batch_data.xlsx", sheet: Sheet1, drive_id: DRIVE_ID_GHENT}
   phf_ghent:      {path: "Batch data/PHF.xlsm", sheet: BR Data, drive_id: DRIVE_ID_GHENT}
   phf_raritan:    {path: "General/Batch Data/Commercial Manufacturing Data.xlsx", sheet: BR Data, drive_id: DRIVE_ID_TIGER}
   param_mapping:  {path: "MS%26T%20MSAT%20Data%20Team/GxP%20container/ParameterRequirements.xlsx", sheet: Overall, drive_id: DRIVE_ID_GHENT}
@@ -61,7 +61,7 @@ sharepoint:
 # Uploading the batch table is a separate decision from reading the share: it only
 # happens on a `ml build --mode PRD` run with enabled: true.
 upload:
-  enabled: false
+  enabled: true
   path: "MS%26T%20MSAT%20Data%20Team//Reports/Adv%20Analystics%20%26%20AI/Data/PVF/"   # or $DATA_LINK
   drive_id: DRIVE_ID_GHENT
   file_name: PVF.xlsx          # the name it has on SharePoint

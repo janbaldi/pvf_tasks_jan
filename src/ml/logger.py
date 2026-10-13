@@ -10,7 +10,9 @@ Set ``NO_COLOR`` to turn colour off, or ``FORCE_COLOR`` to keep it when piping.
 No icons: the structure is carried by the rules, the columns and the colour.
 While a step is computing and nothing has been printed for a moment, a small
 progress bar animates under the last line; it only runs on a real terminal, so a
-log file or a pipe never sees it. The stage rules, section rules and result blocks
+log file or a pipe never sees it. ``quiet`` (``ml --quiet``) prints only warnings,
+errors, the stage rules and the result blocks — every event is still kept, so
+reports and run logs are unchanged. The stage rules, section rules and result blocks
 (``stage``, ``section``, ``facts``, ``files``, ``names``, ``summary``) are printed only.
 They repeat what the events and the report already hold, so they are not stored
 as events.
@@ -190,6 +192,8 @@ class PipelineLogger:
         self._logger.propagate = False
         self.colour = _colour_enabled(sys.stdout)
         self.animate = hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
+        #: Print only warnings, errors and the blocks; see :meth:`set_quiet`.
+        self.quiet = False
         # Decided once, from the stream itself, so it holds however the run was
         # started: the batch_table command, python -m batch_table, a notebook or a script.
         self._encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
@@ -233,11 +237,16 @@ class PipelineLogger:
     def _rule(self, head: str, char: str, *styles: str) -> None:
         self._print()
         self._print(self._paint(head + char * max(3, _width() - len(head)), *styles))
+        if self.animate:
+            # The work a rule opens starts at once; the scanner shows it is running.
+            self._scanner.start()
 
     def _emit(self, level: str, module: str, message: str, detail: str | None):
         event = PipelineEvent(level, module, message, detail)
         self.events.append(event)
 
+        if self.quiet and level not in ("WARN", "ERROR"):
+            return
         label, label_colour, message_colour = _LEVELS[level]
         prefix = (
             f"{self._paint(event.ts.strftime('%H:%M:%S'), 'dim')}  "
@@ -277,8 +286,22 @@ class PipelineLogger:
         heavy = self.glyph["heavy"]
         self._rule(f"{heavy * 2} {title} ", heavy, "blue", "bold")
 
+    def set_quiet(self, quiet: bool = True) -> None:
+        """Print only warnings, errors, stage rules and result blocks; no progress bar.
+
+        For logs that are files: steps and OK lines are left out of the console,
+        but every event is still recorded, so the reports and a task's
+        ``run.log`` hold the full run either way.
+        """
+        self.quiet = quiet
+        if quiet:
+            self._scanner.stop()
+            self.animate = False
+
     def section(self, title: str):
         """A light rule between the steps of a stage."""
+        if self.quiet:
+            return
         light = self.glyph["light"]
         self._rule(f"{light * 2} {title} ", light, "blue")
 

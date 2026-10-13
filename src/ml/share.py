@@ -184,7 +184,19 @@ def upload(files: dict[str, Path], folder: Location) -> list[tuple[str, Location
     share = backend()
     done: list[tuple[str, Location]] = []
     for what, local in files.items():
-        log.step(MODULE, f"Uploading {what}", f"{Path(local).name}  →  {folder.where}")
+        name = Path(local).name
+        log.step(MODULE, f"Uploading {what}", f"{name}  →  {folder.where}")
         share.upload(Path(local), folder)
-        done.append((what, folder.file(Path(local).name)))
+        log.success(MODULE, f"Uploaded {name} ({size(Path(local))})", folder.where)
+        done.append((what, folder.file(name)))
     return done
+
+
+def size(path: Path) -> str:
+    """A file's size as a person reads it: 812 KB, 3.4 MB."""
+    count = float(path.stat().st_size) if path.is_file() else 0.0
+    for unit in ("B", "KB", "MB", "GB"):
+        if count < 1024 or unit == "GB":
+            return f"{count:.0f} {unit}" if unit in ("B", "KB") else f"{count:.1f} {unit}"
+        count /= 1024
+    return f"{count:.1f} GB"

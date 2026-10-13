@@ -17,7 +17,9 @@ of parameters correlated strongly enough to be de-correlated. What the reports
 show is therefore what the pipeline does.
 
 It writes the config, corrections, sources and two task workspaces, so the demo
-is also the example of how they are laid out::
+is also the example of how they are laid out. There is no SharePoint here, so the
+sources go into ``sharepoint/``, a folder laid out the way the share is, and the
+demo's ``.env`` points ``$ML_SHAREPOINT_STANDIN`` at it::
 
     python -m ml.demo demo
     cd demo && ml update --task tasks/ghent_car_expression --task tasks/raritan_release
@@ -800,7 +802,7 @@ def write_sources(directory: Path, seed: int = SEED) -> dict[str, object]:
         "param_mapping": directory / "parameter_requirements.xlsx",
         "remfg": directory / "remfg.xlsx",
         "lv_coa": directory / "lv_coa.xlsx",
-        "raw_materials": directory / "raw_materials.csv",
+        "raw_materials": directory / "raw_materials.xlsx",
         "investigations": directory / "investigations_power_query.xlsx",
         "site_maps": [directory / "site_map_hannelore.xlsx", directory / "site_map_meeting.xlsx"],
     }
@@ -812,7 +814,7 @@ def write_sources(directory: Path, seed: int = SEED) -> dict[str, object]:
     remanufacturing().to_excel(paths["remfg"], sheet_name="Treatment Line Data", index=False)
     # Two rows of workbook furniture above the header, as the real file has.
     lv_coa().to_excel(paths["lv_coa"], sheet_name="CoA extracts", index=False, startrow=2)
-    raw_materials().to_csv(paths["raw_materials"], index=False)
+    raw_materials().to_excel(paths["raw_materials"], index=False)
     investigations().to_excel(
         paths["investigations"], sheet_name="Master Query ALL COM", index=False
     )
@@ -825,42 +827,74 @@ def write_sources(directory: Path, seed: int = SEED) -> dict[str, object]:
     }
 
 
+#: The drive the demo's stand-in share holds everything on.
+DRIVE = "DEMO_DRIVE"
+#: Where each demo file is on that drive, as config.yaml writes a SharePoint path.
+FOLDERS = {"raw": "Data/raw/", "catalog": "Data/catalog/", "batch_data": "Data/batch_data/"}
+
+
+def standin(directory: Path) -> Path:
+    """The folder that plays SharePoint for the demo written into ``directory``."""
+    return Path(directory).resolve() / "sharepoint"
+
+
 def write_config(directory: Path, seed: int = SEED) -> Path:
     """Write the demo data, config and task workspaces into ``directory``; return the config.
 
-    Sources and the catalog go to ``data/raw``, the batch table with its reports and
-    manifests to ``data/processed``, and each task to its own workspace under
-    ``tasks/``. Every path in the config is relative to the config.
+    The sources go onto the stand-in share (``sharepoint/DEMO_DRIVE/Data/raw``),
+    the catalog into ``Data/catalog`` and ``ml build`` writes into
+    ``Data/batch_data`` — the layout the real share has. Each task goes to its own
+    workspace under ``tasks/``.
 
     The thresholds here are the ones that suit a cohort this small: with forty
     batches, a parameter with a dozen categories is already high-cardinality, and
     a feature needs fewer values before it is worth keeping.
     """
     directory = Path(directory)
-    raw = directory / "data" / "raw"
-    sources = write_sources(raw, seed=seed)
-    (directory / "data" / "processed").mkdir(parents=True, exist_ok=True)
-    paths = {
-        key: [f"data/raw/{Path(p).name}" for p in value]
-        if isinstance(value, list)
-        else f"data/raw/{Path(value).name}"
-        for key, value in sources.items()
+    drive = standin(directory) / DRIVE
+    sources = write_sources(drive / FOLDERS["raw"], seed=seed)
+    (drive / FOLDERS["catalog"]).mkdir(parents=True, exist_ok=True)
+    shutil.move(sources["catalog"], drive / FOLDERS["catalog"] / "catalog.xlsx")
+
+    def at(folder: str, name: str, sheet: str | int | None = None) -> dict[str, object]:
+        entry: dict[str, object] = {"path": f"{FOLDERS[folder]}{name}", "drive_id": DRIVE}
+        if sheet is not None:
+            entry["sheet"] = sheet
+        return entry
+
+    sharepoint = {
+        "catalog": at("catalog", "catalog.xlsx", 0),
+        "batch_table": at("batch_data", "batch_data.xlsx", "Sheet1"),
+        **{
+            label: at("raw", Path(sources[label]).name)
+            for label in (
+                "phf_ghent",
+                "phf_raritan",
+                "param_mapping",
+                "remfg",
+                "lv_coa",
+                "raw_materials",
+                "investigations",
+            )
+        },
+        "site_maps": {
+            "folder": FOLDERS["raw"],
+            "files": [Path(p).name for p in sources["site_maps"]],
+            "sheet": 0,
+            "drive_id": DRIVE,
+        },
     }
-    paths.update(
-        {
-            "batch_table": "data/processed/batch_table.xlsx",
-            "new_parameters": "data/processed/new_parameters.csv",
-        }
-    )
     shutil.copyfile(_template("corrections.yaml"), directory / "corrections.yaml")
+    (directory / ".env").write_text(
+        "# The demo has no SharePoint: this folder stands in for it.\n"
+        f"ML_SHAREPOINT_STANDIN={standin(directory)}\n",
+        encoding="utf-8",
+    )
 
     config = {
         "seed": seed,
-        "paths": paths,
-        # Which sources a run reads is a setting, not a consequence of what
-        # happens to be installed. Everything here is local and nothing uploads.
-        "sources": {"location": "local", "databricks": False, "fallback_to_local": False},
-        "upload": {"enabled": False},
+        "sources": {"databricks": False},
+        "sharepoint": sharepoint,
         "catalog": {"write_new_parameters": True},
         "build": {"write_parquet": True},
         "cleaning": {
@@ -892,8 +926,8 @@ def write_config(directory: Path, seed: int = SEED) -> Path:
 
     config_path = directory / "config.yaml"
     config_path.write_text(
-        "# The demo config, written by `python -m ml.demo`. Every source under data/raw\n"
-        "# is made up. Every path below is relative to this file.\n"
+        "# The demo config, written by `python -m ml.demo`. Every source is made up, and\n"
+        "# the SharePoint drive is the folder sharepoint/ (see .env).\n"
         + yaml.safe_dump(config, sort_keys=False, allow_unicode=True),
         encoding="utf-8",
     )

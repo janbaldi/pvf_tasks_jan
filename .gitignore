@@ -21,7 +21,7 @@ dist/
 *.incomplete/
 *.failed/
 
-# The demo's generated data and runs; `python -m pvf.demo demo` writes them.
-/demo/data/
+# The demo's generated data and runs; `python -m ml.demo demo` writes them.
+/demo/sharepoint/
 /demo/tasks/*/runs/
 /demo/run.log

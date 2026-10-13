@@ -19,7 +19,7 @@ import pytest
 import yaml
 
 import dummy_data
-from conftest import EXPLORATORY, PREDICTIVE, ROOT, artifact, csv
+from conftest import EXPLORATORY, PREDICTIVE, ROOT, artifact, csv, shared
 from ml import cli, corrections, dataset, encode, manifest, recipe, scaffold, taskconfig
 from ml import config as workspace
 
@@ -38,32 +38,75 @@ def test_the_package_holds_no_sharepoint_address():
 
 def test_the_shipped_config_is_a_valid_config():
     config = workspace.load(ROOT / "config.yaml")
-    assert config["paths"]["batch_table"] == str(Path("~/ml_data/batch_table.xlsx").expanduser())
+    assert workspace.location(config, "batch_table").name == "batch_data.xlsx"
+    assert workspace.catalog_folder(config).path.endswith("/Data/catalog/")
+    assert workspace.batch_table_folder(config).path.endswith("/Data/batch_data/")
     assert len(corrections.load((config.get("cleaning") or {}).get("corrections"))) > 5
 
 
-def test_sharepoint_locations_come_from_the_config(tmp_path):
-    path = tmp_path / "config.yaml"
-    path.write_text(CONFIG_TEXT.replace("location: local", "location: sharepoint"))
-    config = workspace.load(path)
-    calls = []
-    source = workspace.source(config, "phf_raritan", lambda **kw: calls.append(kw))
-    source.read()
+def _fake_io_sharepoint(monkeypatch) -> list:
+    """io_sharepoint as a module that records what it is asked, and the real share in use."""
+    import sys
+    import types
+
+    from ml import share
+
+    calls: list = []
+    module = types.ModuleType("io_sharepoint")
+    module.load_excel_from_sharepoint = lambda **kw: calls.append(("read", kw)) or pd.DataFrame()
+    module.upload_file_to_sharepoint = lambda **kw: calls.append(("upload", kw))
+    monkeypatch.setitem(sys.modules, "io_sharepoint", module)
+    monkeypatch.delenv(share.STANDIN_ENV, raising=False)
+    return calls
+
+
+def test_sharepoint_locations_come_from_the_config(tmp_path, monkeypatch):
+    calls = _fake_io_sharepoint(monkeypatch)
+    config = workspace.load(ROOT / "config.yaml")
+    workspace.source(config, "phf_raritan").read()
     assert calls == [
-        {
-            "sharepoint_path": "General/Batch Data/Commercial Manufacturing Data.xlsx",
-            "sheet_name": "BR Data",
-            "drive_id": "DRIVE_ID_TIGER",
-        }
+        (
+            "read",
+            {
+                "sharepoint_path": "General/Batch Data/Commercial Manufacturing Data.xlsx",
+                "sheet_name": "BR Data",
+                "drive_id": "DRIVE_ID_TIGER",
+            },
+        )
     ]
-    maps = workspace.site_map_sources(config, lambda **kw: None)
-    assert [m.remote["sharepoint_path"].rsplit("/", 1)[1] for m in maps] == [
+    maps = workspace.site_map_sources(config)
+    assert [m.location.name for m in maps] == [
         "clinical_sites.xlsx",
         "cross_data_meeting.xlsx",
         "from_Hannelore.xlsx",
     ]
     # The certificate workbook keeps its two rows of furniture above the header.
-    assert workspace.source(config, "lv_coa", lambda **kw: None).header == 2
+    assert workspace.source(config, "lv_coa").header == 2
+
+
+def test_outputs_are_uploaded_into_the_folder_of_their_stage(tmp_path, monkeypatch):
+    from ml import share
+
+    calls = _fake_io_sharepoint(monkeypatch)
+    config = workspace.load(ROOT / "config.yaml")
+    report = tmp_path / "build_report.html"
+    report.write_text("<html></html>")
+    [(what, where)] = share.upload({"report": report}, workspace.batch_table_folder(config))
+    assert what == "report" and where.name == "build_report.html"
+    assert calls[0][1]["sharepoint_target_path"].endswith("/Data/batch_data/")
+    assert calls[0][1]["drive_id"] == "DRIVE_ID_GHENT"
+    assert "MS&T MSAT Data Team/Reports" in where.where, "shown decoded, as a person reads it"
+
+
+def test_without_io_sharepoint_a_run_stops_and_says_why(monkeypatch):
+    import sys
+
+    from ml import share
+
+    monkeypatch.delenv(share.STANDIN_ENV, raising=False)
+    monkeypatch.setitem(sys.modules, "io_sharepoint", None)
+    with pytest.raises(share.ShareError, match="io_sharepoint is not installed"):
+        share.backend()
 
 
 def test_the_env_file_beside_the_config_is_loaded_with_it(tmp_path, monkeypatch):
@@ -82,22 +125,12 @@ def test_the_env_file_beside_the_config_is_loaded_with_it(tmp_path, monkeypatch)
     monkeypatch.delenv("ML_TEST_SECRET")
 
 
-def test_the_upload_target_comes_from_the_config_or_the_environment(monkeypatch):
-    config = {
-        "paths": {"batch_table": "/x/batch_table.xlsx"},
-        "upload": {"enabled": True, "drive_id": "D"},
-    }
-    with pytest.raises(workspace.ConfigError, match="upload.path"):
-        workspace.upload_target(config)
-    monkeypatch.setenv("DATA_LINK", "Reports/batch table/")
-    target = workspace.upload_target(config)
-    assert target["location"] == "SharePoint D: Reports/batch table/batch_table.xlsx"
-
-
 @pytest.mark.parametrize(
     ("change", "field"),
     [
-        ({"sources": {"location": "cloud"}}, "sources.location"),
+        ({"sources": {"location": "local"}}, "sources.location: no longer a setting"),
+        ({"paths": {"catalog": "x.xlsx"}}, "paths: no longer a setting"),
+        ({"upload": {"enabled": True}}, "upload: no longer a setting"),
         ({"sharepoint": {"catalog": {"sheet": "x"}}}, "sharepoint.catalog.path"),
         ({"cleaning": {"censord": "half"}}, "cleaning.censord"),
         ({"features": {"co2": 5}}, "features.co2"),
@@ -133,19 +166,18 @@ def test_a_new_task_is_a_workspace_that_reads_the_configured_batch_table(built, 
     folder = tmp_path / "analyses" / "my_question"
     path = scaffold.init(folder, "FP Flow CAR+ (%)", config=built["config_path"])
     assert path == folder.resolve() / "task.yaml"
-    spec = taskconfig.load(folder)  # no config passed: the task names its own
+    spec = taskconfig.load(folder)
     assert spec.name == "my_question"
-    assert spec.batch_table == Path(built["config"]["paths"]["batch_table"])
+    assert spec.batch_table is None, "read from SharePoint, where its config says"
+    assert taskconfig.config_file(folder) == built["config_path"]
     assert spec.output_root == folder.resolve() / "runs"
 
 
-def test_a_task_without_inputs_or_config_says_what_to_do(tmp_path):
-    path = tmp_path / "task.yaml"
-    path.write_text(
-        yaml.safe_dump({"task": {"name": "t"}, "target": {"column": "x"}}), encoding="utf-8"
-    )
-    with pytest.raises(taskconfig.TaskConfigError, match="inputs.batch_table.*config.yaml"):
-        taskconfig.load(tmp_path)
+def test_a_task_without_a_config_says_what_to_do(tmp_path):
+    from ml import config as workspace
+
+    with pytest.raises(workspace.ConfigError, match="no config.yaml says where"):
+        workspace.table_source(None, "batch_table", None)
 
 
 def test_the_command_line_checks_and_reports_errors_plainly(built, capsys):
@@ -161,7 +193,7 @@ def test_init_links_the_task_to_the_config_it_was_made_with(built, tmp_path):
     assert cli.main(["--config", str(built["config_path"]), "task", "new", str(folder)]) == 0
     text = (folder / "task.yaml").read_text(encoding="utf-8")
     assert "\nconfig: " in text and "# config:" not in text
-    assert taskconfig.load(folder).batch_table == Path(built["config"]["paths"]["batch_table"])
+    assert taskconfig.config_file(folder) == built["config_path"]
 
 
 def test_inside_a_workspace_no_task_needs_naming(built, monkeypatch, caplog):
@@ -173,11 +205,9 @@ def test_inside_a_workspace_no_task_needs_naming(built, monkeypatch, caplog):
 
 def test_a_run_carries_its_inputs_and_can_be_redone_from_its_folder_alone(built):
     run = built["packages"][PREDICTIVE]
-    batch_table = Path(built["config"]["paths"]["batch_table"])
-    assert (run / "inputs" / "batch_table.xlsx").read_bytes() == batch_table.read_bytes()
-    assert (run / "inputs" / "catalog.xlsx").read_bytes() == Path(
-        built["config"]["paths"]["catalog"]
-    ).read_bytes()
+    copied = pd.read_excel(run / "inputs" / "batch_table.xlsx")
+    assert copied.shape == built["batch_table"].shape
+    assert (run / "inputs" / "catalog.xlsx").is_file()
     settings = yaml.safe_load((run / "config" / "task.yaml").read_text(encoding="utf-8"))
     assert settings["inputs"] == {
         "batch_table": "../inputs/batch_table.xlsx",
@@ -199,7 +229,7 @@ def test_a_run_carries_its_inputs_and_can_be_redone_from_its_folder_alone(built)
 # ---------------------------------------------------------------------------
 def test_a_build_says_when_the_catalog_check_found_new_parameters(built):
     record = manifest.read(
-        Path(built["config"]["paths"]["batch_table"]).parent / "batch_table_manifest.json"
+        shared(built["directory"], built["config"], "batch_table", "batch_table_manifest.json")
     )
     assert any("`ml check-catalog` found" in warning for warning in record["warnings"])
 
@@ -207,24 +237,19 @@ def test_a_build_says_when_the_catalog_check_found_new_parameters(built):
 def test_a_task_says_when_the_catalog_changed_after_the_build(tmp_path):
     from ml import package, provenance
 
-    batch_table, catalog = tmp_path / "batch_table.xlsx", tmp_path / "catalog.xlsx"
-    batch_table.write_bytes(b"batch_table")
-    catalog.write_bytes(b"a newer catalog")
+    batch_table = pd.DataFrame({"x": [1]})
+    catalog = pd.DataFrame({"Parameter": ["x"], "Value Type": ["a newer catalog"]})
     built_with = {"label": "catalog", "digest": "the catalog the build read"}
-    (tmp_path / "batch_table_manifest.json").write_text(
-        json.dumps({"batch_table": {}, "inputs": [built_with]})
-    )
-    spec = taskconfig.parse(
-        {
-            "task": {"name": "t"},
-            "inputs": {"batch_table": str(batch_table), "catalog": str(catalog)},
-            "target": {"column": "y"},
-        },
-        tmp_path,
-    )
+    upstream = {
+        "catalog": (None, "nowhere"),
+        "batch_table": (json.dumps({"batch_table": {}, "inputs": [built_with]}), "somewhere"),
+    }
     pkg = package.open_package(tmp_path / "runs", "t")
-    sources = [provenance.local("batch_table", batch_table), provenance.local("catalog", catalog)]
-    cli._carry_upstream(pkg, spec, sources, None)
+    sources = [
+        provenance.remote("batch_table", "SharePoint D: b.xlsx", batch_table),
+        provenance.remote("catalog", "SharePoint D: c.xlsx", catalog),
+    ]
+    cli._carry_upstream(pkg, upstream, sources, None)
     assert any("catalog changed after the batch table was built" in w for w in pkg.warnings)
 
 
@@ -232,7 +257,7 @@ def test_a_task_says_when_the_catalog_changed_after_the_build(tmp_path):
 # Columns left out by their catalog category
 # ---------------------------------------------------------------------------
 def test_a_catalog_category_can_be_left_out_by_name(built):
-    catalog = pd.read_excel(built["config"]["paths"]["catalog"])
+    catalog = pd.read_excel(shared(built["directory"], built["config"], "catalog"))
     late = set(catalog.loc[catalog["Available At"] == "Post-release", "Parameter"])
     decisions = csv(built, EXPLORATORY, "parameters.csv")
     excluded = decisions[decisions["Decision"] == "excluded"].set_index("Parameter")
@@ -249,7 +274,6 @@ def test_include_by_catalog_keeps_only_those_categories():
     spec = taskconfig.parse(
         {
             "task": {"name": "t"},
-            "inputs": {"batch_table": "a.xlsx", "catalog": "b.xlsx"},
             "target": {"column": "y"},
             "predictors": {"include_by_catalog": {"Category": ["Process"]}},
         },
@@ -272,7 +296,6 @@ def test_a_category_column_the_catalog_does_not_have_is_refused():
     spec = taskconfig.parse(
         {
             "task": {"name": "t"},
-            "inputs": {"batch_table": "a.xlsx", "catalog": "b.xlsx"},
             "target": {"column": "y"},
             "predictors": {"exclude_by_catalog": {"Categroy": ["QC"]}},
         },
@@ -312,10 +335,9 @@ def test_a_broken_corrections_table_names_the_rule(tmp_path):
 # One manifest format
 # ---------------------------------------------------------------------------
 def test_every_manifest_follows_the_one_format(built):
-    processed = Path(built["config"]["paths"]["batch_table"]).parent
     paths = [
-        processed / "catalog_manifest.json",
-        processed / "batch_table_manifest.json",
+        shared(built["directory"], built["config"], "catalog", "catalog_manifest.json"),
+        shared(built["directory"], built["config"], "batch_table", "batch_table_manifest.json"),
         *(artifact(built, task, "manifest.json") for task in (PREDICTIVE, EXPLORATORY)),
     ]
     stages = []
@@ -329,12 +351,12 @@ def test_every_manifest_follows_the_one_format(built):
 
 def test_a_manifest_names_the_files_it_describes_relative_to_itself(built):
     record = manifest.read(
-        Path(built["config"]["paths"]["batch_table"]).parent / "batch_table_manifest.json"
+        shared(built["directory"], built["config"], "batch_table", "batch_table_manifest.json")
     )
     written = {entry["what"]: entry["path"] for entry in record["outputs"]}
     assert (
-        written["Batch table"] == "batch_table.xlsx"
-        and written["Batch table (Parquet)"] == "batch_table.parquet"
+        written["batch table"] == "batch_data.xlsx"
+        and written["batch table (Parquet)"] == "batch_data.parquet"
     )
     assert record["batch_table"]["content_sha256"]
     assert {entry["label"] for entry in record["inputs"]} >= {"catalog", "phf_ghent", "site_map_1"}
@@ -358,7 +380,6 @@ def test_a_batch_twice_in_a_cohort_is_refused():
     spec = taskconfig.parse(
         {
             "task": {"name": "s"},
-            "inputs": {"batch_table": "a.xlsx", "catalog": "b.xlsx"},
             "target": {"column": "outcome"},
             "roles": {"id": "Patient Lot/Batch #"},
         },

@@ -90,7 +90,7 @@ def test_the_counts_agree_wherever_they_are_written(built):
 def test_two_runs_of_one_task_do_not_overwrite_each_other(built):
     from ml import cli, taskconfig
 
-    spec = taskconfig.load(built["directory"] / dummy_data.TASK_FILES[0], built["config"])
+    spec = taskconfig.load(built["directory"] / dummy_data.TASK_FILES[0])
     again = cli.run_task(built["config"], spec)
     first = built["packages"][PREDICTIVE]
     assert again != first
@@ -376,7 +376,6 @@ def test_a_task_names_itself_in_its_report(built):
 # The upstream manifests, and the new report sections
 # ---------------------------------------------------------------------------
 def test_the_task_carries_the_catalog_and_batch_table_manifests_of_its_input(built):
-    from ml import provenance
 
     record = manifest(built, PREDICTIVE)
     assert record["upstream_manifests"] == {
@@ -389,10 +388,9 @@ def test_the_task_carries_the_catalog_and_batch_table_manifests_of_its_input(bui
     catalog = json.loads(
         artifact(built, PREDICTIVE, "catalog_manifest.json").read_text(encoding="utf-8")
     )
-    # The batch table manifest is about the very file this task read.
-    assert batch_table["batch_table"]["sha256"] == provenance.file_sha256(
-        built["config"]["paths"]["batch_table"]
-    )
+    # The batch table manifest is about the very table this task read.
+    read = {i["label"]: i["digest"] for i in record["inputs"]}
+    assert batch_table["batch_table"]["content_sha256"] == read["batch_table"]
     assert batch_table["batch_table"]["rows"] == len(built["batch_table"])
     missing = set(batch_table["catalog_parameters_not_in_batch_table"])
     assert missing and not missing & set(built["batch_table"].columns)

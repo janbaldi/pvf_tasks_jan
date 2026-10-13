@@ -195,8 +195,8 @@ def enrich_clinical_sites(
 
     Ghent encodes the site in the patient identifier (``EU-<site>-…``); Raritan
     records an acronym that the mapping workbooks expand into an institution name.
-    Where those workbooks are read from — local files or a SharePoint folder — is
-    config.yaml's business (``paths.site_maps`` / ``sharepoint.site_maps``).
+    Which workbooks, in which SharePoint folder, is config.yaml's business
+    (``sharepoint.site_maps``).
 
     Returns the Raritan acronyms no mapping file covers, and the columns added.
     """
@@ -220,7 +220,7 @@ def enrich_clinical_sites(
             mapping["Acronym"] = mapping["Acronym"].astype(str)
             frames.append(mapping)
         except Exception as exc:  # one unreadable mapping file is reported, not fatal
-            log.warn(MODULE, f"Could not load mapping file: {source.location} — {exc}")
+            log.warn(MODULE, f"Could not load mapping file: {source.where} — {exc}")
 
     if not frames:
         log.warn(MODULE, "No Raritan site mapping files loaded — acronyms unchanged")

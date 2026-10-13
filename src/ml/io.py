@@ -3,8 +3,8 @@
 The catalog specification, both sites' PHF files, the parameter-name mapping between
 them, the re-manufacturing treatment-line supplement, the lentiviral vector
 certificates of analysis, and the raw-material identifiers. Each loader takes a
-:class:`Source`: a local file, or — when config.yaml says so — a
-SharePoint location configured in ``config.yaml``. Nothing here knows an address.
+:class:`Source`, read from the SharePoint location ``config.yaml`` gives it.
+Nothing here knows an address.
 
 Everything returned here is an *original* parameter. Nothing in this module
 calculates anything from another column.
@@ -13,15 +13,13 @@ calculates anything from another column.
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from . import features
+from . import features, share
 from . import provenance as prov
 from .logger import log
 
@@ -49,7 +47,7 @@ DEFAULT_HEADERS = {"lv_coa": 2}
 
 
 def read_table(path: str | Path, sheet: str | int = 0, header: int = 0) -> pd.DataFrame:
-    """A local table, read the way its extension says: CSV, Parquet or Excel."""
+    """A file this package wrote itself — a run's copy of its inputs — read by its extension."""
     suffix = Path(path).suffix.lower()
     if suffix in (".csv", ".txt"):
         return pd.read_csv(path, header=header)
@@ -62,67 +60,60 @@ def read_table(path: str | Path, sheet: str | int = 0, header: int = 0) -> pd.Da
 class Source:
     """One input, and where it is read from.
 
-    ``remote`` holds the keyword arguments the SharePoint reader takes; when it is
-    set the source is read from there, otherwise from ``path``. Built by
-    :func:`ml.config.source` from config.yaml.
+    ``location`` is where it is on SharePoint; built by :func:`ml.config.source`
+    from config.yaml. Only a task rerun has a ``path`` instead: the copy of its
+    input the original run kept in its own folder.
     """
 
     label: str
-    path: str = ""
-    sheet: str | int = 0
+    location: share.Location | None = None
     header: int = 0
-    remote: dict[str, Any] | None = None
-    loader: Callable[..., pd.DataFrame] | None = None
+    path: str = ""
 
     @property
     def is_remote(self) -> bool:
-        return self.remote is not None
+        return self.location is not None
 
     @property
-    def location(self) -> str:
-        if self.remote is not None:
-            return (
-                f"SharePoint {self.remote['drive_id']}: {self.remote['sharepoint_path']} "
-                f"[{self.remote['sheet_name']}]"
-            )
-        return self.path
+    def where(self) -> str:
+        return str(self.location) if self.location is not None else self.path
 
     def read(self) -> pd.DataFrame:
-        if self.remote is not None:
-            kwargs = dict(self.remote)
-            if self.header:
-                kwargs["header"] = self.header
-            return self.loader(**kwargs)
+        if self.location is not None:
+            return share.read_excel(self.location, self.header)
         if not self.path:
-            raise FileNotFoundError(
-                f"No path is configured for '{self.label}' (paths.{self.label})"
-            )
-        return read_table(self.path, self.sheet, self.header)
+            raise FileNotFoundError(f"No SharePoint location is configured for '{self.label}'")
+        return read_table(self.path, 0, self.header)
 
     def record(self, frame: pd.DataFrame | None) -> prov.Source:
         """What provenance says about this input, as it was actually read.
 
         A SharePoint read has no local bytes, so it is recorded by its location
-        and a digest of the table that came back. Hashing the local path instead
-        would record a copy the run never used.
+        and a digest of the table that came back.
         """
         if frame is None:
             why = "could not be read; the stage went on without it"
-            return prov.missing(self.label, self.location, why)
+            return prov.missing(self.label, self.where, why)
         if self.is_remote:
-            return prov.remote(self.label, self.location, frame)
-        return prov.local(self.label, self.path)
+            return prov.remote(self.label, self.where, frame)
+        return prov.run_copy(self.label, self.path, frame)
 
 
 def as_source(value: str | Path | Source, label: str) -> Source:
-    """A plain path is a local source with the default sheet for its label."""
+    """A plain path is a run's own copy of an input."""
     if isinstance(value, Source):
         return value
-    return Source(label, str(value), DEFAULT_SHEETS.get(label, 0), DEFAULT_HEADERS.get(label, 0))
+    return Source(label, header=DEFAULT_HEADERS.get(label, 0), path=str(value))
 
 
 def _read(source: Source, what: str) -> pd.DataFrame:
-    log.step(MODULE, f"Loading {what}", source.location)
+    if source.location is not None:
+        detail = f"{source.location.name}  ·  {source.location.where}"
+        if source.location.sheet not in (0, "", None):
+            detail += f"  ·  sheet {source.location.sheet}"
+    else:
+        detail = source.path
+    log.step(MODULE, f"Loading {what}", detail)
     return source.read()
 
 
@@ -130,7 +121,7 @@ def _read(source: Source, what: str) -> pd.DataFrame:
 
 
 def read_catalog(catalog: str | Path | Source) -> pd.DataFrame:
-    """The Parameter Transfer File as it stands: one row per parameter.
+    """The parameter catalog as it stands: one row per parameter.
 
     Every stage starts here. ``Parameter`` names what the batch table may hold and
     ``Value Type`` says what it holds — including, for an ordinal parameter, its
@@ -142,7 +133,7 @@ def read_catalog(catalog: str | Path | Source) -> pd.DataFrame:
 
     missing = [c for c in ("Parameter", "Value Type") if c not in frame.columns]
     if missing:
-        raise ValueError(f"The catalog at {source.location} has no {' or '.join(missing)} column")
+        raise ValueError(f"The catalog at {source.where} has no {' or '.join(missing)} column")
 
     blank = frame["Parameter"].isna() | (frame["Parameter"].astype(str).str.strip() == "")
     if blank.any():
@@ -192,7 +183,7 @@ def load_batch_table(batch_table: str | Path | Source) -> pd.DataFrame:
     source = as_source(batch_table, "batch_table")
     frame = _read(source, "Batch table")
     if "Site Merged" not in frame.columns:
-        raise ValueError(f"{source.location} has no 'Site Merged' column — is it a batch table?")
+        raise ValueError(f"{source.where} has no 'Site Merged' column — is it a batch table?")
     log.success(
         MODULE, f"Batch table loaded — {len(frame):,} batches × {frame.shape[1]:,} parameters"
     )

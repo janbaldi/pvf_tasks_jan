@@ -5,8 +5,8 @@ that produced it: which commit of the code, which bytes of data, which seed,
 which versions of the libraries that can move a number.
 
 Two rules this module exists to keep. A stage records the sources it *actually*
-read — not the ones config happens to name — so a run that fell back to a local
-copy cannot be read as one that used the share. And nothing here raises: a run
+read — not the ones config happens to name — so a digest always
+describes what the run really used. And nothing here raises: a run
 must not die because the code sits outside a git checkout, so anything that
 cannot be determined is recorded as unknown rather than quietly omitted.
 """
@@ -64,10 +64,25 @@ def remote(label: str, location: str, frame: Any = None, note: str = "") -> Sour
     return Source(
         label=label,
         location=location,
-        kind="remote",
+        kind="SharePoint",
         digest=frame_digest(frame) if frame is not None else None,
         digest_of="the table as it was consumed" if frame is not None else "",
         note=note,
+    )
+
+
+def run_copy(label: str, path: str | Path, frame: Any) -> Source:
+    """A run's own copy of an input, as ``ml task rerun`` reads it.
+
+    Digested like the SharePoint table it is a copy of — by its content — so the
+    manifests the original run carried can still be checked against it.
+    """
+    return Source(
+        label=label,
+        location=str(path),
+        kind="run copy",
+        digest=frame_digest(frame),
+        digest_of="the table as it was consumed",
     )
 
 

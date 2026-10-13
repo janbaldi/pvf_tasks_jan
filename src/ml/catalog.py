@@ -139,5 +139,5 @@ def write_new_parameters(report: CatalogReport, path: str | Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame({"Parameter": report.new_parameters}).to_csv(path, index=False)
     report.written_to = str(path)
-    log.success(MODULE, f"{len(report.new_parameters)} new parameter names written to {path}")
+    log.success(MODULE, f"{len(report.new_parameters)} new parameter names listed in {path.name}")
     return path

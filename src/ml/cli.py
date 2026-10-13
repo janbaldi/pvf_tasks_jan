@@ -13,20 +13,23 @@ The stages are in that order because each depends on the one before it. The
 catalog is the schema, so it comes first; the build fills it in; a task narrows
 what the build produced to one question.
 
-Code, configuration and data are kept apart. There is one catalog and one batch
-table, in a data folder of your own; ``config.yaml`` names them (found by
+Code, configuration and data are kept apart, and the data lives on SharePoint.
+Every input is read from the location ``config.yaml`` gives it (found by
 ``--config``, the one a task names, ``$ML_CONFIG``, or the nearest
-``config.yaml`` above the working directory). Each task is a workspace folder of
-its own, holding its ``task.yaml`` and every run of it, inputs included.
+``config.yaml`` above the working directory), and every stage output is written
+there: ``ml check-catalog`` into the catalog's folder, ``ml build`` into the batch
+table's folder. Each command lists what it reads and writes, file by file. Each
+task is a workspace folder of its own, holding its ``task.yaml`` and every run of
+it, inputs included.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import shutil
 import sys
+import tempfile
 import traceback
 from dataclasses import replace
 from datetime import datetime
@@ -54,6 +57,7 @@ from . import (
     recipe,
     report,
     scaffold,
+    share,
     taskconfig,
 )
 from . import config as workspace
@@ -73,6 +77,7 @@ TASK_LAYOUT = {Path(path).name: path for path in package.ARTEFACTS}
 #: Errors that are the user's to fix, shown as a message rather than a traceback.
 USER_ERRORS = (
     ConfigError,
+    share.ShareError,
     TaskConfigError,
     dataset.TaskRefused,
     corrections.CorrectionsError,
@@ -86,15 +91,16 @@ def load_config(path: str | Path) -> dict[str, Any]:
     return workspace.load(path)
 
 
-def manifest_path(batch_table: str | Path, stage: str) -> Path:
-    """Where a stage's manifest lives: beside the batch table, which is where a task looks."""
-    return Path(batch_table).parent / f"{stage}_manifest.json"
-
-
-def _report_path(config: dict[str, Any], stage: str) -> Path:
-    directory = Path(config["paths"].get("reports") or Path(config["paths"]["batch_table"]).parent)
-    directory.mkdir(parents=True, exist_ok=True)
-    return directory / f"{stage}_report.html"
+#: What each stage writes, by the name it has in its SharePoint folder.
+CATALOG_OUTPUTS = {
+    "report": "catalog_report.html",
+    "manifest": "catalog_manifest.json",
+    "new parameters": "new_parameters.csv",
+}
+BUILD_OUTPUTS = {
+    "report": "build_report.html",
+    "manifest": "batch_table_manifest.json",
+}
 
 
 def _provenance(config: dict[str, Any], sources: list[provenance.Source]) -> dict:
@@ -119,39 +125,90 @@ def _mapping_table(mapping: dict[str, str]) -> pd.DataFrame:
     return pd.DataFrame(list(mapping.items()), columns=["SiteB", "SiteA"])
 
 
+def _show_reads(sources: list[io.Source], title: str = "Reading from SharePoint") -> None:
+    """Every file a stage is about to read: its name, then its drive, folder and sheet."""
+    if any(source.is_remote for source in sources):
+        share.backend()  # unreachable SharePoint stops the stage before it starts
+    rows = []
+    for source in sources:
+        where = source.location
+        if where is None:
+            rows.append((source.label, Path(source.path).name, str(Path(source.path).parent)))
+            continue
+        sheet = f"  ·  sheet {where.sheet}" if where.sheet not in (0, "", None) else ""
+        rows.append((source.label, where.name, f"{where.where}{sheet}"))
+    log.files(title, rows)
+
+
+def _show_writes(folder: share.Location, names: dict[str, str]) -> None:
+    """Every file a stage is about to write, and the one SharePoint folder they go to."""
+    log.files(
+        "Writing to SharePoint",
+        [("folder", folder.where, "")] + [(what, name, "") for what, name in names.items()],
+    )
+
+
+def _show_written(title: str, uploaded: list[tuple[str, share.Location]]) -> None:
+    log.files(title, [(what, where.name, where.where) for what, where in uploaded])
+
+
+def _manifest_on_share(folder: share.Location, stage: str) -> dict | None:
+    """A stage's manifest, read back from the SharePoint folder it was written to."""
+    text = share.read_text(folder.file(f"{stage}_manifest.json"))
+    return json.loads(text) if text else None
+
+
 # ---------------------------------------------------------------------------
 # Stage 1: the catalog
 # ---------------------------------------------------------------------------
-def run_catalog(config: dict[str, Any], config_path: str | Path | None = None) -> Path:
-    """Compare what the sources record against what the catalog lists."""
+def run_catalog(config: dict[str, Any], config_path: str | Path | None = None) -> share.Location:
+    """Compare what the sources record against what the catalog lists.
+
+    Reads the catalog and the sources from SharePoint, and writes the report, the
+    manifest and the new-parameters list into the catalog's SharePoint folder.
+    Returns where the report went.
+    """
     run_start = datetime.now()
     mark = log.mark()
-    workspace.require_paths(
-        config, ("catalog", "phf_site_a", "phf_site_b", "param_mapping", "batch_table")
-    )
-    paths = config["paths"]
+    workspace.require(config, ("catalog", "phf_site_a", "phf_site_b", "param_mapping"))
     log.stage("Catalog")
 
-    reader = workspace.remote_reader(config)
-    src = {
-        label: workspace.source(config, label, reader)
-        for label in ("catalog", "phf_site_a", "phf_site_b", "param_mapping", "investigations")
+    labels = ["catalog", "phf_site_a", "phf_site_b", "param_mapping"]
+    if workspace.has(config, "investigations"):
+        labels.append("investigations")
+    src = {label: workspace.source(config, label) for label in labels}
+    folder = workspace.catalog_folder(config)
+    write_new = bool((config.get("catalog") or {}).get("write_new_parameters"))
+    outputs = {
+        what: name
+        for what, name in CATALOG_OUTPUTS.items()
+        if write_new or what != "new parameters"
     }
+    _show_reads(list(src.values()))
+    _show_writes(folder, outputs)
+
+    log.section("Loading")
     catalog_frame = io.read_catalog(src["catalog"])
     catalog_cols = list(catalog_frame["Parameter"])
     site_a = io.load_phf_site_a(src["phf_site_a"])
     site_b = io.load_phf_site_b(src["phf_site_b"])
     mapping = io.load_site_mapping(src["param_mapping"], exclude=_mapping_exclude(config))
-    reachable = src["investigations"].path or src["investigations"].is_remote
-    investigations = io.load_investigations(src["investigations"]) if reachable else None
+    investigations = (
+        io.load_investigations(src["investigations"]) if "investigations" in src else None
+    )
     sources = [
         src["catalog"].record(catalog_frame),
         src["phf_site_a"].record(site_a),
         src["phf_site_b"].record(site_b),
         src["param_mapping"].record(_mapping_table(mapping)),
-        src["investigations"].record(investigations),
+        src["investigations"].record(investigations)
+        if "investigations" in src
+        else provenance.missing(
+            "investigations", "sharepoint.investigations is not set", "not configured"
+        ),
     ]
 
+    log.section("Comparing")
     found = catalog.find_new_parameters(
         catalog_cols,
         {
@@ -161,43 +218,49 @@ def run_catalog(config: dict[str, Any], config_path: str | Path | None = None) -
         },
         site_b_mapping=mapping,
     )
-    if (config.get("catalog") or {}).get("write_new_parameters") and found.new_parameters:
-        catalog.write_new_parameters(found, paths["new_parameters"])
 
-    prov = _provenance(config, sources)
-    path = report.write(
-        report.build_catalog_payload(
-            report.CatalogRun(
-                catalog=found, events=log.since(mark), provenance=prov, run_start=run_start
+    log.section("Writing")
+    with tempfile.TemporaryDirectory(prefix="ml-catalog-") as staging:
+        staged = Path(staging)
+        files: dict[str, Path] = {}
+        if write_new:
+            files["new parameters"] = catalog.write_new_parameters(
+                found, staged / CATALOG_OUTPUTS["new parameters"]
             )
-        ),
-        _report_path(config, "catalog"),
-    )
-    log.success(MODULE, f"Report written to {path}")
-
-    target = manifest_path(paths["batch_table"], "catalog")
-    warnings, errors = _events(mark)
-    manifest.write(
-        target,
-        manifest.envelope(
-            "catalog",
-            run_id=package.run_id(run_start),
-            started=run_start,
-            config_path=str(config.get("__path__") or config_path or ""),
-            prov=prov,
-            sources=sources,
-            written=manifest.outputs(
-                target.parent, {"report": path, "new parameters": found.written_to}
+            found.written_to = str(folder.file(CATALOG_OUTPUTS["new parameters"]))
+        prov = _provenance(config, sources)
+        files["report"] = report.write(
+            report.build_catalog_payload(
+                report.CatalogRun(
+                    catalog=found, events=log.since(mark), provenance=prov, run_start=run_start
+                )
             ),
-            warnings=warnings,
-            errors=errors,
-            catalog={"location": src["catalog"].location, "parameters": found.catalog_parameters},
-            sources_compared=found.sources_read,
-            sources_not_read=found.sources_absent,
-            not_in_catalog=found.by_source,
-            new_parameters=found.new_parameters,
-        ),
-    )
+            staged / CATALOG_OUTPUTS["report"],
+        )
+        warnings, errors = _events(mark)
+        files["manifest"] = manifest.write(
+            staged / CATALOG_OUTPUTS["manifest"],
+            manifest.envelope(
+                "catalog",
+                run_id=package.run_id(run_start),
+                started=run_start,
+                config_path=str(config.get("__path__") or config_path or ""),
+                prov=prov,
+                sources=sources,
+                written=manifest.outputs(
+                    staged, {what: path for what, path in files.items() if what != "manifest"}
+                ),
+                warnings=warnings,
+                errors=errors,
+                written_to=str(folder),
+                catalog={"location": src["catalog"].where, "parameters": found.catalog_parameters},
+                sources_compared=found.sources_read,
+                sources_not_read=found.sources_absent,
+                not_in_catalog=found.by_source,
+                new_parameters=found.new_parameters,
+            ),
+        )
+        uploaded = share.upload(files, folder)
 
     for label, names in found.by_source.items():
         if names:
@@ -206,19 +269,11 @@ def run_catalog(config: dict[str, Any], config_path: str | Path | None = None) -
             log.names(f"{label}: every column is in the catalog", [], level="SUCCESS")
     for label in found.sources_absent:
         log.names(f"{label}: not read, so not compared", [], level="ERROR")
-    log.facts(
-        "Written",
-        [
-            ("Report", str(path)),
-            ("Manifest", str(target)),
-            (
-                "New parameters",
-                found.written_to or "not written (catalog.write_new_parameters is off)",
-            ),
-        ],
-    )
+    _show_written("Written to SharePoint", uploaded)
+    if not write_new:
+        log.info(MODULE, "New parameters not written (catalog.write_new_parameters is off)")
     log.summary(mark)
-    return path
+    return dict(uploaded)["report"]
 
 
 def _mapping_exclude(config: dict[str, Any]) -> list[str]:
@@ -228,47 +283,43 @@ def _mapping_exclude(config: dict[str, Any]) -> list[str]:
 # ---------------------------------------------------------------------------
 # Stage 2: the batch table
 # ---------------------------------------------------------------------------
-def run_build(
-    config: dict[str, Any],
-    mode: str = "dev",
-    config_path: str | Path | None = None,
-) -> Path:
-    """Build the batch table from both sites and write its report."""
+BUILD_INPUTS = (
+    "catalog",
+    "phf_site_a",
+    "phf_site_b",
+    "param_mapping",
+    "remfg",
+    "lv_coa",
+    "raw_materials",
+)
+
+
+def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> share.Location:
+    """Build the batch table from both sites, and write it with its report.
+
+    Reads every source from SharePoint, and writes the batch table, its Parquet
+    copy, the report and the manifest into the batch table's SharePoint folder.
+    Returns where the report went.
+    """
     run_start = datetime.now()
     mark = log.mark()
-    workspace.require_paths(
-        config,
-        (
-            "catalog",
-            "phf_site_a",
-            "phf_site_b",
-            "param_mapping",
-            "remfg",
-            "lv_coa",
-            "raw_materials",
-            "batch_table",
-        ),
-    )
-    paths = config["paths"]
+    workspace.require(config, (*BUILD_INPUTS, "batch_table"))
     params = features.Params(**(config.get("features") or {}))
     log.stage("Batch table build")
-    log.info(MODULE, f"Mode: {mode.upper()}")
-    _check_catalog_is_current(Path(paths["batch_table"]))
 
-    reader = workspace.remote_reader(config)
-    src = {
-        label: workspace.source(config, label, reader)
-        for label in (
-            "catalog",
-            "phf_site_a",
-            "phf_site_b",
-            "param_mapping",
-            "remfg",
-            "lv_coa",
-            "raw_materials",
-        )
-    }
-    site_maps = workspace.site_map_sources(config, reader)
+    src = {label: workspace.source(config, label) for label in BUILD_INPUTS}
+    site_maps = workspace.site_map_sources(config)
+    target_table = workspace.location(config, "batch_table")
+    folder = target_table.folder
+    write_parquet = (config.get("build") or {}).get("write_parquet", True)
+    parquet_name = f"{Path(target_table.name).stem}.parquet"
+    outputs = {"batch table": target_table.name}
+    if write_parquet:
+        outputs["batch table (Parquet)"] = parquet_name
+    outputs.update(BUILD_OUTPUTS)
+    _show_reads([*src.values(), *site_maps])
+    _show_writes(folder, outputs)
+    _check_catalog_is_current(config)
 
     # ── Load ───────────────────────────────────────────────────────────────
     log.section("01 · Loading")
@@ -365,103 +416,102 @@ def run_build(
 
     # ── Write ──────────────────────────────────────────────────────────────
     log.section("06 · Output")
-    out_path = Path(paths["batch_table"])
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    result.to_excel(out_path, index=False)
-    log.success(MODULE, f"Batch table written to {out_path}")
-    # The digest of the table as a task will read it back, which is what a
-    # task compares against when it reads the batch table from SharePoint.
-    content_digest = provenance.frame_digest(io.read_table(out_path))
-    parquet_path = None
-    if (config.get("build") or {}).get("write_parquet", True):
-        parquet_path = _write_parquet(result, out_path.with_suffix(".parquet"))
-    uploaded = _upload(config, mode, out_path)
+    with tempfile.TemporaryDirectory(prefix="ml-build-") as staging:
+        staged = Path(staging)
+        files: dict[str, Path] = {"batch table": staged / target_table.name}
+        result.to_excel(files["batch table"], index=False)
+        log.success(MODULE, f"Batch table prepared — {target_table.name}")
+        # The digest of the table as a task will read it back from SharePoint,
+        # which is what a task compares against.
+        content_digest = provenance.frame_digest(io.read_table(files["batch table"]))
+        if write_parquet:
+            parquet = _write_parquet(result, staged / parquet_name)
+            if parquet:
+                files["batch table (Parquet)"] = parquet
 
-    prov = _provenance(config, sources)
-    path = report.write(
-        report.build_batch_table_payload(
-            report.BuildRun(
-                result=result,
-                phf=phf,
-                site_shapes=site_shapes,
-                catalog_cols=catalog_cols,
-                catalog_mapping=catalog_mapping,
-                cleaning=cleaning_report,
-                features=feature_reports,
-                merge=merge_report,
-                events=log.since(mark),
-                params=params,
-                provenance=prov,
-                origins=origins,
-                lv_coa_coverage=lv_coa_coverage,
-                raw_material_columns=origins["Raw materials and consumables"],
-                unmapped_sites=unmapped_sites,
-                source_rows=source_rows,
-                run_start=run_start,
-            )
-        ),
-        _report_path(config, "build"),
-    )
-    log.success(MODULE, f"Report written to {path}")
-
-    written = [("Batch table", str(out_path)), ("Report", str(path))]
-    if parquet_path:
-        written.insert(1, ("Batch table (Parquet)", str(parquet_path)))
-    target = manifest_path(out_path, "batch_table")
-    warnings, errors = _events(mark)
-    manifest.write(
-        target,
-        manifest.envelope(
-            "batch_table",
-            run_id=package.run_id(run_start),
-            started=run_start,
-            config_path=str(config.get("__path__") or config_path or ""),
-            prov=prov,
-            sources=sources,
-            written=manifest.outputs(
-                target.parent,
-                {"Batch table": out_path, "Batch table (Parquet)": parquet_path, "report": path},
+        prov = _provenance(config, sources)
+        files["report"] = report.write(
+            report.build_batch_table_payload(
+                report.BuildRun(
+                    result=result,
+                    phf=phf,
+                    site_shapes=site_shapes,
+                    catalog_cols=catalog_cols,
+                    catalog_mapping=catalog_mapping,
+                    cleaning=cleaning_report,
+                    features=feature_reports,
+                    merge=merge_report,
+                    events=log.since(mark),
+                    params=params,
+                    provenance=prov,
+                    origins=origins,
+                    lv_coa_coverage=lv_coa_coverage,
+                    raw_material_columns=origins["Raw materials and consumables"],
+                    unmapped_sites=unmapped_sites,
+                    source_rows=source_rows,
+                    run_start=run_start,
+                )
             ),
-            warnings=warnings,
-            errors=errors,
-            mode=mode.upper(),
-            batch_table={
-                "path": out_path.name,
-                "sha256": provenance.file_sha256(str(out_path)),
-                "content_sha256": content_digest,
-                "parquet": parquet_path.name if parquet_path else None,
-                "rows": int(result.shape[0]),
-                "columns": int(result.shape[1]),
-                "site_rows": merge_report.site_rows,
-            },
-            catalog={"location": src["catalog"].location, "parameters": len(catalog_cols)},
-            catalog_parameters_not_in_batch_table=merge_report.catalog_missing,
-            batch_table_parameters_not_in_catalog=[
-                str(c) for c in result.columns if c not in set(catalog_cols)
-            ],
-            duplicate_batches=merge_report.duplicate_batches,
-            uploaded_to=uploaded,
-        ),
-    )
-    written.append(("Manifest", str(target)))
-    if uploaded:
-        written.append(("Uploaded to", uploaded))
+            staged / BUILD_OUTPUTS["report"],
+        )
+        warnings, errors = _events(mark)
+        files["manifest"] = manifest.write(
+            staged / BUILD_OUTPUTS["manifest"],
+            manifest.envelope(
+                "batch_table",
+                run_id=package.run_id(run_start),
+                started=run_start,
+                config_path=str(config.get("__path__") or config_path or ""),
+                prov=prov,
+                sources=sources,
+                written=manifest.outputs(
+                    staged, {what: path for what, path in files.items() if what != "manifest"}
+                ),
+                warnings=warnings,
+                errors=errors,
+                written_to=str(folder),
+                batch_table={
+                    "path": target_table.name,
+                    "location": str(target_table),
+                    "sha256": provenance.file_sha256(str(files["batch table"])),
+                    "content_sha256": content_digest,
+                    "parquet": parquet_name if "batch table (Parquet)" in files else None,
+                    "rows": int(result.shape[0]),
+                    "columns": int(result.shape[1]),
+                    "site_rows": merge_report.site_rows,
+                },
+                catalog={"location": src["catalog"].where, "parameters": len(catalog_cols)},
+                catalog_parameters_not_in_batch_table=merge_report.catalog_missing,
+                batch_table_parameters_not_in_catalog=[
+                    str(c) for c in result.columns if c not in set(catalog_cols)
+                ],
+                duplicate_batches=merge_report.duplicate_batches,
+            ),
+        )
+        uploaded = share.upload(files, folder)
 
     log.names("Catalog parameters that are not in the batch table", merge_report.catalog_missing)
-    log.facts(f"Written — {result.shape[0]:,} batches × {result.shape[1]:,} columns", written)
+    _show_written(
+        f"Written to SharePoint — {result.shape[0]:,} batches × {result.shape[1]:,} columns",
+        uploaded,
+    )
     log.summary(mark)
-    return path
+    return dict(uploaded)["report"]
 
 
-def _check_catalog_is_current(batch_table: Path) -> None:
+def _check_catalog_is_current(config: dict[str, Any]) -> None:
     """Warn when ``ml check-catalog`` was not run, or found what the catalog does not list."""
-    path = manifest_path(batch_table, "catalog")
-    if not path.is_file():
+    folder = workspace.catalog_folder(config)
+    record = _manifest_on_share(folder, "catalog")
+    if record is None:
         log.warn(
-            MODULE, "`ml check-catalog` has not been run, so the catalog is unchecked", str(path)
+            MODULE,
+            "No catalog manifest could be read from SharePoint, so the catalog is unchecked "
+            "— run `ml check-catalog`",
+            str(folder.file(CATALOG_OUTPUTS["manifest"])),
         )
         return
-    new = manifest.read(path).get("new_parameters") or []
+    new = record.get("new_parameters") or []
     if new:
         log.warn(
             MODULE,
@@ -474,11 +524,7 @@ def _check_catalog_is_current(batch_table: Path) -> None:
 
 def _site_map_record(site_map: io.Source) -> provenance.Source:
     """A clinical-site workbook as provenance records it, without reading it twice."""
-    if site_map.is_remote:
-        return provenance.remote(site_map.label, site_map.location)
-    if Path(site_map.path).is_file():
-        return provenance.local(site_map.label, site_map.path)
-    return provenance.missing(site_map.label, site_map.path, "could not be read")
+    return provenance.remote(site_map.label, site_map.where)
 
 
 def _write_parquet(frame: pd.DataFrame, path: Path) -> Path | None:
@@ -500,45 +546,8 @@ def _write_parquet(frame: pd.DataFrame, path: Path) -> Path | None:
     ) as exc:  # the Excel batch table is the record; the Parquet copy is a convenience
         log.warn(MODULE, f"The Parquet copy of the batch table was not written: {exc}")
         return None
-    log.success(MODULE, f"Batch table (Parquet) written to {path}")
+    log.success(MODULE, f"Batch table (Parquet) prepared — {path.name}")
     return path
-
-
-def _upload(config: dict[str, Any], mode: str, written: Path) -> str | None:
-    """Put the batch table on the share, when a run is explicitly asked to.
-
-    Two switches, both deliberate: the upload has to be enabled in config and the
-    run has to be a PRD one. Reading from the share does not imply writing to it,
-    and a test or a local run cannot upload by accident. Where it goes is
-    ``upload.path``/``upload.drive_id`` in the config (or ``$DATA_LINK``), and that
-    is what the manifest records.
-    """
-    upload_config = config.get("upload") or {}
-    if not upload_config.get("enabled"):
-        return None
-    if mode.upper() != "PRD":
-        log.info(MODULE, f"Upload is enabled but this is a {mode.upper()} run — nothing uploaded")
-        return None
-    target = workspace.upload_target(config)
-    try:
-        import io_sharepoint
-    except ImportError:
-        log.error(MODULE, "upload.enabled is set but io_sharepoint is not installed")
-        return None
-
-    staged = written
-    if written.name != target["file_name"]:
-        staged = written.with_name(target["file_name"])
-        staged.write_bytes(written.read_bytes())
-    io_sharepoint.upload_file_to_sharepoint(
-        local_path=staged,
-        sharepoint_target_path=target["folder"],
-        drive_id=target["drive_id"],
-    )
-    if staged != written:
-        staged.unlink()
-    log.success(MODULE, f"Batch table uploaded to {target['location']}")
-    return target["location"]
 
 
 # ---------------------------------------------------------------------------
@@ -573,60 +582,70 @@ def _check(result: dataset.TaskResult, final: pd.DataFrame) -> None:
         raise ValueError("The task package is inconsistent: " + "; ".join(problems))
 
 
+def _upstream_manifests(config: dict[str, Any] | None, spec: TaskSpec) -> dict[str, tuple]:
+    """The catalog and build manifests that say how this task's inputs were made.
+
+    Read from the SharePoint folders ``ml check-catalog`` and ``ml build`` wrote
+    them to; a rerun reads the copies its original run kept beside its inputs.
+    Each is ``(text or None, where it was looked for)``.
+    """
+    found: dict[str, tuple] = {}
+    for stage, label in (("catalog", "catalog"), ("batch_table", "batch_table")):
+        copy = spec.batch_table if label == "batch_table" else spec.catalog
+        if copy is not None:
+            where = Path(copy).parent / f"{stage}_manifest.json"
+            found[stage] = (where.read_text(encoding="utf-8") if where.is_file() else None, where)
+        else:
+            where = workspace.location(config, label).file(f"{stage}_manifest.json")
+            found[stage] = (share.read_text(where), where)
+    return found
+
+
 def _carry_upstream(
     pkg: package.TaskPackage,
-    spec: TaskSpec,
+    upstream_manifests: dict[str, tuple],
     sources: list[provenance.Source],
     content: str | None,
 ) -> dict:
     """Copy the catalog and build manifests into the run; check they fit its inputs.
 
-    They are what says how the batch table this task read was made. A batch table manifest that
-    describes a different file — by its bytes when the batch table was a local file, by
-    its content when it came from SharePoint — belongs to some other build, and
-    is said to. So is a catalog that changed after the build: the batch table is then older
-    than the schema the task reads it with.
+    They are what says how the batch table this task read was made. A batch table
+    manifest that describes a different table — by its content as it was read —
+    belongs to some other build, and is said to. So is a catalog that changed
+    after the build: the batch table is then older than the schema the task reads
+    it with.
     """
-    read, catalog_read = sources
+    _, catalog_read = sources
     upstream: dict[str, str] = {}
-    batch_table_path = Path(spec.batch_table)
-    if batch_table_path.suffix == ".parquet":
-        batch_table_path = batch_table_path.with_suffix(".xlsx")
     for stage in ("catalog", "batch_table"):
-        source = manifest_path(batch_table_path, stage)
+        text, where = upstream_manifests[stage]
         target = TASK_LAYOUT[f"{stage}_manifest.json"]
-        if not source.exists():
+        if text is None:
             message = (
-                f"No {stage} manifest beside the batch table, so the task folder cannot say "
+                f"No {stage} manifest could be read, so the task folder cannot say "
                 "how its input was made — rerun "
                 f"`ml {'check-catalog' if stage == 'catalog' else 'build'}`"
             )
-            log.warn(MODULE, message, str(source))
+            log.warn(MODULE, message, str(where))
             pkg.warnings.append(message)
-            upstream[stage] = f"not found at {source}"
+            upstream[stage] = f"not found at {where}"
             continue
-        text = source.read_text(encoding="utf-8")
         pkg.write_text(target, text)
         upstream[stage] = target
         if stage == "batch_table":
-            recorded = json.loads(text).get("batch_table") or {}
-            if read.kind == "local file" and Path(spec.batch_table).suffix != ".parquet":
-                same = recorded.get("sha256") in (None, read.digest)
-                mine, theirs = read.digest, recorded.get("sha256")
-            else:
-                same = recorded.get("content_sha256") in (None, content)
-                mine, theirs = content, recorded.get("content_sha256")
-            if not same:
+            record = json.loads(text)
+            theirs = (record.get("batch_table") or {}).get("content_sha256")
+            if theirs not in (None, content):
                 message = (
-                    "The batch table manifest describes a different file than the batch table "
+                    "The batch table manifest describes a different table than the batch table "
                     "this task read: "
                     "the batch table changed after that build, or the manifest is stale"
                 )
                 log.warn(
-                    MODULE, message, f"manifest {str(theirs)[:12]}, batch table {str(mine)[:12]}"
+                    MODULE, message, f"manifest {str(theirs)[:12]}, batch table {content[:12]}"
                 )
                 pkg.warnings.append(message)
-            inputs = {i["label"]: i.get("digest") for i in json.loads(text).get("inputs") or []}
+            inputs = {i["label"]: i.get("digest") for i in record.get("inputs") or []}
             built_with = inputs.get("catalog")
             if built_with and catalog_read.digest and built_with != catalog_read.digest:
                 message = "The catalog changed after the batch table was built — rerun `ml build`"
@@ -635,30 +654,19 @@ def _carry_upstream(
     return upstream
 
 
-def _task_source(config: dict[str, Any] | None, label: str, path: Path, reader) -> io.Source:
-    """The task's batch table or catalog: the SharePoint copy when it is the configured file."""
-    if config and reader is not None:
-        configured = (config.get("paths") or {}).get(label)
-        if configured and Path(configured).resolve() == Path(path).resolve():
-            return workspace.source(config, label, reader)
-    return io.as_source(path, label)
-
-
 def _input_name(source: io.Source, label: str) -> str:
     """Where a run keeps its copy of an input: ``inputs/batch_table.xlsx`` or ``catalog.xlsx``."""
-    suffix = ".xlsx" if source.is_remote else Path(source.path).suffix
-    return f"inputs/{label}{suffix}"
+    return f"inputs/{label}.xlsx"
 
 
 def _copy_input(pkg: package.TaskPackage, source: io.Source, frame: pd.DataFrame, name: str):
     """The input as this run read it, so the run folder alone can redo the run.
 
-    shortcut: a local workbook is copied as is but read back from its first sheet,
-    so a batch table or catalog on another sheet (``sheets:`` in config.yaml) needs that sheet
-    moved first; write the frame instead if that ever matters.
+    A SharePoint read is written out as the table that came back; a rerun's own
+    copy is copied as is.
     """
     target = pkg.path_for(name)
-    if source.is_remote:
+    if source.is_remote or Path(source.path).suffix.lower() != ".xlsx":
         frame.to_excel(target, index=False)
     else:
         shutil.copyfile(source.path, target)
@@ -667,9 +675,11 @@ def _copy_input(pkg: package.TaskPackage, source: io.Source, frame: pd.DataFrame
 def run_task(config: dict[str, Any] | None, spec: TaskSpec) -> Path:
     """Run one task and leave a complete folder behind, or a failed one.
 
-    The run folder is under the task's workspace, ``runs/<run id>``, and holds
-    the batch table and catalog it read with their manifests (``inputs/``) and a ``task.yaml``
-    that points at those copies — everything needed to redo the analysis.
+    The batch table and catalog are read from SharePoint (a rerun reads the
+    copies its original run kept). The run folder is under the task's workspace,
+    ``runs/<run id>``, and holds the batch table and catalog it read with their
+    manifests (``inputs/``) and a ``task.yaml`` that points at those copies —
+    everything needed to redo the analysis.
     """
     run_start = datetime.now()
     mark = log.mark()
@@ -683,9 +693,13 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec) -> Path:
     }
 
     try:
-        reader = workspace.remote_reader(config) if config else None
-        batch_table_source = _task_source(config, "batch_table", spec.batch_table, reader)
-        catalog_source = _task_source(config, "catalog", spec.catalog, reader)
+        batch_table_source = workspace.table_source(config, "batch_table", spec.batch_table)
+        catalog_source = workspace.table_source(config, "catalog", spec.catalog)
+        _show_reads(
+            [batch_table_source, catalog_source],
+            "Reading from SharePoint" if spec.batch_table is None else "Reading the run's copies",
+        )
+        log.files("Writing the run folder", [("folder", str(pkg.destination), "")])
         inputs = {
             "batch_table": _input_name(batch_table_source, "batch_table"),
             "catalog": _input_name(catalog_source, "catalog"),
@@ -710,7 +724,12 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec) -> Path:
 
         final, result = dataset.build(batch_table, catalog_frame, spec)
         _check(result, final)
-        upstream = _carry_upstream(pkg, spec, sources, provenance.frame_digest(batch_table))
+        upstream = _carry_upstream(
+            pkg,
+            _upstream_manifests(config, spec),
+            sources,
+            provenance.frame_digest(batch_table),
+        )
         _write_package(pkg, result, final)
 
         payload = report.build_task_payload(
@@ -781,7 +800,9 @@ def rerun(run: str | Path) -> Path:
     if not settings.is_file():
         raise FileNotFoundError(f"{settings} does not exist — is {run} a run folder?")
     spec = replace(
-        taskconfig.load(settings), output_root=run.parent, workspace=str(run.parent.parent)
+        taskconfig.load(settings, frozen=True),
+        output_root=run.parent,
+        workspace=str(run.parent.parent),
     )
     again = run_task(None, spec)
     name = TASK_LAYOUT["dataset.csv"]
@@ -860,7 +881,7 @@ def load_tasks(args, config: dict[str, Any] | None) -> list[TaskSpec]:
             "No task to run: run inside a task workspace or pass --task <folder>. "
             "Create one with `ml task new <folder>`"
         )
-    return [taskconfig.load(path, config) for path in files]
+    return [taskconfig.load(path) for path in files]
 
 
 def _config(args, start: str | Path | None = None, required: bool = True) -> dict | None:
@@ -878,7 +899,7 @@ def _config(args, start: str | Path | None = None, required: bool = True) -> dic
 # The helper commands
 # ---------------------------------------------------------------------------
 def validate(config: dict[str, Any] | None, specs: list[TaskSpec]) -> list[str]:
-    """Everything that would stop a run, found without running anything."""
+    """Everything that would stop a run, found without running a stage."""
     problems: list[str] = []
     if config:
         try:
@@ -886,28 +907,30 @@ def validate(config: dict[str, Any] | None, specs: list[TaskSpec]) -> list[str]:
             log.success(MODULE, f"Corrections table: {len(rules)} rules")
         except corrections.CorrectionsError as exc:
             problems.append(str(exc))
-        location = str((config.get("sources") or {}).get("location", "local"))
-        if location == "local":
-            for label in workspace.SHAREPOINT_SOURCES:
-                value = (config.get("paths") or {}).get(label)
-                for path in value if isinstance(value, list) else [value] if value else []:
-                    if label != "batch_table" and not Path(path).exists():
-                        problems.append(f"paths.{label}: {path} does not exist")
+        try:
+            share.backend()
+        except share.ShareError as exc:
+            problems.append(str(exc))
+            return problems
+        missing = [
+            label for label in (*BUILD_INPUTS, "batch_table") if not workspace.has(config, label)
+        ]
+        problems += [f"sharepoint.{label}: not set; `ml build` needs it" for label in missing]
     for spec in specs:
-        problems += [f"{spec.name}: {p}" for p in _check_task(spec)]
+        problems += [f"{spec.name}: {p}" for p in _check_task(config, spec)]
     return problems
 
 
-def _check_task(spec: TaskSpec) -> list[str]:
+def _check_task(config: dict[str, Any] | None, spec: TaskSpec) -> list[str]:
     """A task's columns against the batch table and catalog it would read, where they exist."""
     problems: list[str] = []
-    if not Path(spec.batch_table).exists():
-        return [f"inputs.batch_table: {spec.batch_table} does not exist yet — run `ml build` first"]
-    columns = set(
-        pd.read_parquet(spec.batch_table).columns
-        if spec.batch_table.suffix == ".parquet"
-        else pd.read_excel(spec.batch_table, nrows=0).columns
-    )
+    try:
+        batch_table = workspace.table_source(config, "batch_table", spec.batch_table).read()
+    except ConfigError as exc:
+        return [str(exc)]
+    except Exception as exc:  # not built yet, or not reachable: either way, say so
+        return [f"the batch table could not be read ({exc}) — run `ml build` first"]
+    columns = set(batch_table.columns)
     named = {
         "target.column": [spec.target.column],
         "roles.id": [spec.roles.id],
@@ -925,9 +948,11 @@ def _check_task(spec: TaskSpec) -> list[str]:
         problems.append(
             f"cohort.site_column: '{spec.cohort.site_column}' is not in the batch table"
         )
-    if not Path(spec.catalog).exists():
+    try:
+        frame = workspace.table_source(config, "catalog", spec.catalog).read()
+    except Exception as exc:  # the catalog check is a bonus; the run reports it properly
+        problems.append(f"the catalog could not be read ({exc})")
         return problems
-    frame = io.read_table(spec.catalog)
     for key in ("include_by_catalog", "exclude_by_catalog"):
         for column, _ in getattr(spec.predictors, key):
             if column not in frame.columns:
@@ -957,7 +982,8 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ml",
         description="CAR-T manufacturing data: the catalog, the batch table, and datasets from it",
-        epilog="Set the paths in config.yaml, run `ml check-catalog` and `ml build`, then "
+        epilog="Set the SharePoint locations in config.yaml, run `ml check-catalog` and "
+        "`ml build`, then "
         "`ml task new <folder>` for a task.",
     )
     parser.add_argument(
@@ -969,10 +995,8 @@ def _parser() -> argparse.ArgumentParser:
     validate = commands.add_parser("validate", help="validate the config and tasks; run nothing")
     validate.add_argument("--task", action="append", help="a task workspace (repeatable)")
     commands.add_parser("check-catalog", help="what the sources record that the catalog lacks")
-    build = commands.add_parser("build", help="build the batch table from both sites")
-    build.add_argument("--mode", default=None, help="PRD or DEV (default: $MODE, else DEV)")
+    commands.add_parser("build", help="build the batch table from both sites")
     update = commands.add_parser("update", help="check-catalog, build, then the given tasks")
-    update.add_argument("--mode", default=None, help="PRD or DEV (default: $MODE, else DEV)")
     update.add_argument("--task", action="append", help="a task workspace (repeatable)")
 
     task = commands.add_parser("task", help="create, run, rerun and encode with tasks")
@@ -993,9 +1017,6 @@ def _parser() -> argparse.ArgumentParser:
     redo.add_argument("run", help="the run folder, <task workspace>/runs/<run id>")
     encode = actions.add_parser("encode", help="encode batches with a run's fitted encoding")
     encode.add_argument("--run", required=True, help="the task run folder")
-    encode.add_argument(
-        "--batch-table", help="the batches to encode (default: the configured batch table)"
-    )
     encode.add_argument("--out", help="the CSV to write (default: in the working directory)")
     return parser
 
@@ -1020,7 +1041,6 @@ def main(argv: list[str] | None = None) -> int:
 
 def _run(args) -> int:
     command = args.command
-    mode = getattr(args, "mode", None) or os.getenv("MODE", "dev")
     if command in ("validate", "task run") and not args.task and Path(TASK_FILE).is_file():
         args.task = ["."]
     first_task = (getattr(args, "task", None) or [None])[0]
@@ -1049,8 +1069,8 @@ def _run(args) -> int:
         return 0
 
     if command == "task encode":
-        config = _config(args, required=not args.batch_table)
-        rows = io.load_batch_table(args.batch_table or config["paths"]["batch_table"])
+        config = _config(args)
+        rows = io.load_batch_table(workspace.source(config, "batch_table"))
         encode_batches(args.run, rows, Path(args.out) if args.out else None)
         return 0
 
@@ -1067,7 +1087,7 @@ def _run(args) -> int:
         return 0
 
     if command == "task run":
-        config = _config(args, start=first_task, required=False)
+        config = _config(args, start=first_task)
         for spec in load_tasks(args, config):
             run_task(config, spec)
         return 0
@@ -1076,7 +1096,7 @@ def _run(args) -> int:
     if command in ("check-catalog", "update"):
         run_catalog(config)
     if command in ("build", "update"):
-        run_build(config, mode=mode)
+        run_build(config)
     if command == "update" and args.task:
         for spec in load_tasks(args, config):
             run_task(config, spec)

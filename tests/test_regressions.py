@@ -47,7 +47,6 @@ def params(**overrides) -> TaskParams:
 def minimal_task(**overrides) -> dict:
     task = {
         "task": {"name": "probe", "seed": 1},
-        "inputs": {"batch_table": "batch_table.xlsx", "catalog": "catalog.xlsx"},
         "cohort": {"sites": ["SiteA"]},
         "target": {"column": "<fp_car_pct>"},
         "roles": {"id": "Patient Lot/Batch #", "group": "<vector_lot>"},
@@ -74,13 +73,20 @@ def test_paths_resolve_against_the_task_file_wherever_it_is_run_from(tmp_path, m
     path = write_task(tmp_path, minimal_task())
     monkeypatch.chdir(tmp_path.parent)
     spec = taskconfig.load(path)
-    assert spec.batch_table == tmp_path / "batch_table.xlsx"
+    assert spec.batch_table is None, "read from SharePoint, where config.yaml says"
     assert spec.output_root == tmp_path / "runs", "runs live in the task's own workspace"
 
-    absolute = minimal_task()
-    absolute["inputs"]["batch_table"] = str(tmp_path / "elsewhere" / "batch_table.xlsx")
-    spec = taskconfig.load(write_task(tmp_path, absolute, "absolute.yaml"))
-    assert spec.batch_table == tmp_path / "elsewhere" / "batch_table.xlsx"
+    # Only a run's own task.yaml names inputs: the copies it kept, beside it.
+    frozen = minimal_task(inputs={"batch_table": "../inputs/batch_table.xlsx"})
+    frozen["inputs"]["catalog"] = "../inputs/catalog.xlsx"
+    spec = taskconfig.load(write_task(tmp_path, frozen, "frozen.yaml"), frozen=True)
+    assert spec.batch_table == tmp_path.parent / "inputs" / "batch_table.xlsx"
+
+
+def test_a_task_cannot_read_a_local_batch_table(tmp_path):
+    task = minimal_task(inputs={"batch_table": "batch_table.xlsx", "catalog": "catalog.xlsx"})
+    with pytest.raises(taskconfig.TaskConfigError, match="inputs: a task reads the batch table"):
+        taskconfig.load(write_task(tmp_path, task))
 
 
 @pytest.mark.parametrize(
@@ -651,13 +657,14 @@ def test_a_failed_run_keeps_its_folder_and_says_it_failed(tmp_path):
 
 
 def test_a_report_that_fails_cannot_leave_a_finished_package(tmp_path, monkeypatch):
-    from ml import report
+    from ml import report, share
 
     directory = tmp_path / "demo"
     config_path = dummy_data.write_config(directory)
+    monkeypatch.setenv(share.STANDIN_ENV, str(dummy_data.standin(directory)))
     config = cli.load_config(config_path)
-    cli.run_build(config, mode="dev")
-    spec = taskconfig.load(directory / dummy_data.TASK_FILES[0], config)
+    cli.run_build(config)
+    spec = taskconfig.load(directory / dummy_data.TASK_FILES[0])
 
     def explode(*args, **kwargs):
         raise RuntimeError("the report broke")
@@ -677,35 +684,38 @@ def test_a_report_that_fails_cannot_leave_a_finished_package(tmp_path, monkeypat
 # ---------------------------------------------------------------------------
 # Provenance records what was read, from where
 # ---------------------------------------------------------------------------
-def test_a_sharepoint_read_is_recorded_by_location_not_by_a_local_hash(tmp_path):
-    """The bug this covers: with sources.location: sharepoint, provenance hashed
-    the local copies named in config, which did not exist, and warned per file."""
+def test_a_sharepoint_read_is_recorded_by_location_and_content(tmp_path, monkeypatch):
+    """A SharePoint read has no local bytes: it is recorded by where it was read
+    from and a digest of the table that came back, without a warning per file."""
+    import sys
+    import types
+
     from ml import config as workspace
+    from ml import share
 
     config = {
-        "paths": {"phf_site_a": str(tmp_path / "absent" / "PHF.xlsm")},
-        "sources": {"location": "sharepoint"},
         "sharepoint": {"phf_site_a": {"path": "<site-a-folder>/phf.xlsm", "drive_id": "DRIVE_X"}},
     }
     frame = pd.DataFrame({"Patient Lot/Batch #": ["A", "B"], "Value": [1.0, 2.0]})
-    reader = lambda **kwargs: frame  # noqa: E731 — stands in for io_sharepoint
+    module = types.ModuleType("io_sharepoint")
+    module.load_excel_from_sharepoint = lambda **kwargs: frame
+    monkeypatch.setitem(sys.modules, "io_sharepoint", module)
+    monkeypatch.delenv(share.STANDIN_ENV, raising=False)
     mark = cli.log.mark()
 
-    source = workspace.source(config, "phf_site_a", reader)
+    source = workspace.source(config, "phf_site_a")
     assert source.read() is frame
     record = source.record(frame)
 
-    assert record.kind == "remote"
-    assert record.location.startswith("SharePoint DRIVE_X: <site-a-folder>/phf.xlsm [<sheet:phf_site_a>]")
+    assert record.kind == "SharePoint"
+    assert record.location == "SharePoint DRIVE_X: <site-a-folder>/phf.xlsm [<sheet:phf_site_a>]"
     assert record.digest == provenance.frame_digest(frame)
     assert record.digest_of == "the table as it was consumed"
     assert not [e for e in cli.log.since(mark) if e.level == "WARN"]
-    # A source with no SharePoint entry is still read, and hashed, where it is.
-    local = tmp_path / "raw.csv"
-    local.write_text("a\n1\n", encoding="utf-8")
-    config["paths"]["raw_materials"] = str(local)
-    assert workspace.source(config, "raw_materials", reader).record(frame).kind == "local file"
-    assert workspace.source(config, "phf_site_a", reader).record(None).kind == "not read"
+    assert source.record(None).kind == "not read"
+    # A source the config does not locate is refused rather than looked for locally.
+    with pytest.raises(workspace.ConfigError, match="sharepoint.raw_materials is not set"):
+        workspace.source(config, "raw_materials")
 
 
 # ---------------------------------------------------------------------------

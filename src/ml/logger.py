@@ -233,6 +233,9 @@ class PipelineLogger:
     def _rule(self, head: str, char: str, *styles: str) -> None:
         self._print()
         self._print(self._paint(head + char * max(3, _width() - len(head)), *styles))
+        if self.animate:
+            # The work a rule opens starts at once; the scanner shows it is running.
+            self._scanner.start()
 
     def _emit(self, level: str, module: str, message: str, detail: str | None):
         event = PipelineEvent(level, module, message, detail)

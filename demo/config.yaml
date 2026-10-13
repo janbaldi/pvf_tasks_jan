@@ -1,26 +1,45 @@
-# The demo config, written by `python -m ml.demo`. Every source under data/raw
-# is made up. Every path below is relative to this file.
+# The demo config, written by `python -m ml.demo`. Every source is made up, and
+# the SharePoint drive is the folder sharepoint/ (see .env).
 seed: 20260917
-paths:
-  catalog: data/raw/catalog.xlsx
-  phf_site_a: data/raw/phf_site_a.xlsx
-  phf_site_b: data/raw/phf_site_b.xlsx
-  param_mapping: data/raw/parameter_requirements.xlsx
-  remfg: data/raw/remfg.xlsx
-  lv_coa: data/raw/lv_coa.xlsx
-  raw_materials: data/raw/raw_materials.csv
-  investigations: data/raw/investigations_power_query.xlsx
-  site_maps:
-  - data/raw/site_map_hannelore.xlsx
-  - data/raw/site_map_meeting.xlsx
-  batch_table: data/processed/batch_table.xlsx
-  new_parameters: data/processed/new_parameters.csv
 sources:
-  location: local
   databricks: false
-  fallback_to_local: false
-upload:
-  enabled: false
+sharepoint:
+  catalog:
+    path: Data/catalog/catalog.xlsx
+    drive_id: DEMO_DRIVE
+    sheet: 0
+  batch_table:
+    path: Data/batch_data/batch_data.xlsx
+    drive_id: DEMO_DRIVE
+    sheet: Sheet1
+  phf_site_a:
+    path: Data/raw/phf_site_a.xlsx
+    drive_id: DEMO_DRIVE
+  phf_site_b:
+    path: Data/raw/phf_site_b.xlsx
+    drive_id: DEMO_DRIVE
+  param_mapping:
+    path: Data/raw/parameter_requirements.xlsx
+    drive_id: DEMO_DRIVE
+  remfg:
+    path: Data/raw/remfg.xlsx
+    drive_id: DEMO_DRIVE
+  lv_coa:
+    path: Data/raw/lv_coa.xlsx
+    drive_id: DEMO_DRIVE
+  raw_materials:
+    path: Data/raw/raw_materials.xlsx
+    drive_id: DEMO_DRIVE
+  investigations:
+    path: Data/raw/investigations_power_query.xlsx
+    drive_id: DEMO_DRIVE
+  site_maps:
+    folder: Data/raw/
+    files:
+    - site_map_hannelore.xlsx
+    - site_map_meeting.xlsx
+    sheet: 0
+    drive_id: DEMO_DRIVE
 catalog:
   write_new_parameters: true
 build:

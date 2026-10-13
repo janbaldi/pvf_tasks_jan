@@ -25,8 +25,8 @@ and the means to refit the preprocessing inside every fold.
 
 | Word | What it is |
 |---|---|
-| **catalog** | `catalog.xlsx` (formerly the PTF): every parameter the batch table may hold, with metadata columns such as value type and process stage |
-| **batch table** | `batch_table.xlsx` (formerly the PVF): one row per batch, both sites, cleaned, with derived features |
+| **catalog** | `catalog.xlsx` on SharePoint, in `Data/catalog/` (formerly the PTF): every parameter the batch table may hold, with metadata columns such as value type and process stage |
+| **batch table** | `batch_data.xlsx` on SharePoint, in `Data/batch_data/` (formerly the PVF): one row per batch, both sites, cleaned, with derived features |
 | **task** | one question asked of the batch table, written as a `task.yaml` in a folder of its own |
 | **run** | one execution of a task: a folder under the task's `runs/` holding the dataset and everything about it |
 
@@ -46,10 +46,9 @@ uv run ml --help
 ```
 
 Run every command as `uv run ml …` from inside the repository or any folder
-below it, such as a task folder. Reading from SharePoint needs the internal
-`io_sharepoint` package, and joining Acridine Orange readings needs
-`databricks_query_tool`; both are optional, and without them everything runs
-from local files.
+below it, such as a task folder. All data is read from and written to
+SharePoint, through the internal `io_sharepoint` package; there is no local data
+option. Joining Acridine Orange readings needs `databricks_query_tool`.
 
 ## Tutorial: from source files to an explained model
 
@@ -72,13 +71,17 @@ cd demo
 ```
 
 ```
-config.yaml       paths to the sources, the catalog and the batch table
+config.yaml       where on SharePoint the sources, the catalog and the batch table are
+.env              points ML_SHAREPOINT_STANDIN at sharepoint/
 corrections.yaml  known errors in the sources, as rules
-data/raw/         the made-up sources and catalog.xlsx
+sharepoint/       a folder standing in for SharePoint: DEMO_DRIVE/Data/raw/ holds
+                  the made-up sources, DEMO_DRIVE/Data/catalog/ the catalog
 tasks/            two finished example tasks
 ```
 
-Every command from now on is run inside `demo/`, where `config.yaml` is.
+The demo has no SharePoint, so `sharepoint/` plays its part; every run says so
+with a warning. Every command from now on is run inside `demo/`, where
+`config.yaml` is.
 
 ### 2. Check the catalog and build the batch table
 
@@ -99,6 +102,25 @@ Then compare every source with the catalog:
 uv run ml check-catalog
 ```
 
+Every command first lists what it will read and write:
+
+```
+Reading from SharePoint
+  catalog         catalog.xlsx
+                  DEMO_DRIVE › Data/catalog/
+  phf_site_a       phf_site_a.xlsx
+                  DEMO_DRIVE › Data/raw/  ·  sheet <sheet:phf_site_a>
+  …
+
+Writing to SharePoint
+  folder          DEMO_DRIVE › Data/catalog/
+  report          catalog_report.html
+  manifest        catalog_manifest.json
+  new parameters  new_parameters.csv
+```
+
+and ends with what it found and where each file went:
+
 ```
 SiteA PHF: columns the catalog does not list (1)
   - <site_a_comment>
@@ -109,11 +131,19 @@ Investigations Power Query: columns the catalog does not list (3)
   - Query[<investigation_id>]
   - Query[<root_cause>]
   - <days_to_close>
+
+Written to SharePoint
+  new parameters  new_parameters.csv
+                  DEMO_DRIVE › Data/catalog/
+  report          catalog_report.html
+                  DEMO_DRIVE › Data/catalog/
+  manifest        catalog_manifest.json
+                  DEMO_DRIVE › Data/catalog/
 ```
 
 These are columns the sources record that the batch table will not carry. On
 real data this is your to-do list: add the ones you want to `catalog.xlsx`, then
-build. The list is also in `data/processed/new_parameters.csv`, and
+build. The list is also in `new_parameters.csv` in the catalog's folder, and
 `catalog_report.html` shows it with every source side by side.
 
 ```bash
@@ -122,11 +152,15 @@ uv run ml build
 
 ```
 WARN  cli  The last `ml check-catalog` found 6 parameters the sources record and the catalog does not list; …
-Written — 70 batches × 221 columns
-  Batch table            …/demo/data/processed/batch_table.xlsx
-  Batch table (Parquet)  …/demo/data/processed/batch_table.parquet
-  Report                 …/demo/data/processed/build_report.html
-  Manifest               …/demo/data/processed/batch_table_manifest.json
+Written to SharePoint — 70 batches × 221 columns
+  batch table            batch_data.xlsx
+                         DEMO_DRIVE › Data/batch_data/
+  batch table (Parquet)  batch_data.parquet
+                         DEMO_DRIVE › Data/batch_data/
+  report                 build_report.html
+                         DEMO_DRIVE › Data/batch_data/
+  manifest               batch_table_manifest.json
+                         DEMO_DRIVE › Data/batch_data/
 ```
 
 The warning is the catalog check from a moment ago. `build_report.html` shows
@@ -458,8 +492,7 @@ redo it years later, however the batch table has changed since.
 To encode batches exactly as a run encoded its cohort, with nothing refitted:
 
 ```bash
-uv run ml task encode --run runs/20261012-170843-61f466 \
-    --batch-table ../../data/processed/batch_table.xlsx --out new_batches_encoded.csv
+uv run ml task encode --run runs/20261012-170843-61f466 --out new_batches_encoded.csv
 ```
 
 ```
@@ -499,50 +532,27 @@ again: every question gets its own folder and its own history of runs.
 You do this once. Afterwards you only rerun `ml check-catalog` and `ml build`
 when the sources or the catalog change.
 
-**1. Make a data folder** anywhere outside the repository, for example:
-
-```
-~/ml_data/
-  catalog.xlsx             the parameter catalog
-  raw/                     local copies of the sources
-    phf_site_a.xlsx
-    phf_site_b.xlsx
-    parameter_requirements.xlsx
-    remfg.xlsx
-    lv_coa.xlsx
-    raw_materials.csv
-    investigations_power_query.xlsx
-    site_map_clinical_sites.xlsx
-```
-
-`ml build` writes the batch table into this folder, with the reports and
-manifests next to it.
-
-**2. Point `config.yaml` at it.** `config.yaml` in the repository root is
-annotated. These are the paths to set:
+**1. Point `config.yaml` at SharePoint.** `config.yaml` in the repository root
+is annotated. Every input has a location under `sharepoint:` — a path, the
+worksheet and the drive:
 
 ```yaml
-paths:
-  catalog: ~/ml_data/catalog.xlsx           # read by ml check-catalog, ml build and every task
-  batch_table: ~/ml_data/batch_table.xlsx   # written by ml build
-  phf_site_a: ~/ml_data/raw/phf_site_a.xlsx
-  phf_site_b: ~/ml_data/raw/phf_site_b.xlsx
-  param_mapping: ~/ml_data/raw/parameter_requirements.xlsx
-  remfg: ~/ml_data/raw/remfg.xlsx
-  lv_coa: ~/ml_data/raw/lv_coa.xlsx
-  raw_materials: ~/ml_data/raw/raw_materials.csv
-  investigations: ~/ml_data/raw/investigations_power_query.xlsx
-  site_maps:
-    - ~/ml_data/raw/site_map_clinical_sites.xlsx
-  new_parameters: ~/ml_data/new_parameters.csv
+sharepoint:
+  catalog:     {path: ".../Data/catalog/catalog.xlsx", sheet: Catalogue, drive_id: DRIVE_ID_SITE_A}
+  batch_table: {path: ".../Data/batch_data/batch_data.xlsx", sheet: Sheet1, drive_id: DRIVE_ID_SITE_A}
+  phf_site_a:   {path: "<site-a-folder>/phf.xlsm", sheet: <sheet:phf_site_a>, drive_id: DRIVE_ID_SITE_A}
+  …
+  site_maps:   {folder: ".../Data/mappings/", files: [clinical_sites.xlsx, …], sheet: Sheet1, drive_id: …}
 ```
 
-Relative paths are relative to `config.yaml`, and `~` is your home folder. To
-read the sources from SharePoint instead, see
-[Sources and SharePoint](#sources-and-sharepoint).
+The catalog and batch table locations also say where the stages write:
+`ml check-catalog` writes into the catalog's folder (`Data/catalog/`) and
+`ml build` writes into the batch table's (`Data/batch_data/`).
 
-**3. Put secrets in `.env`.** If you use SharePoint, copy `.env.example` to
-`.env` next to `config.yaml` and fill in the credentials. `.env` is git-ignored.
+**2. Install `io_sharepoint`** in the same environment (`uv pip install …`).
+
+**3. Put secrets in `.env`.** Copy `.env.example` to `.env` next to
+`config.yaml` and fill in the credentials and drive ids. `.env` is git-ignored.
 
 **4. Run steps 2–8 of the tutorial** with your own data: `ml validate`,
 `ml check-catalog`, `ml build`, then `ml task new` for each question. A task
@@ -558,13 +568,13 @@ Global options come before the command: `uv run ml [--config FILE] [--debug] COM
 | Command | What it does |
 |---|---|
 | `ml validate [--task T]` | Validate `config.yaml`, the corrections table and the tasks against the batch table and catalog. Runs nothing. Inside a task workspace, also validates that task. |
-| `ml check-catalog` | Compare every source's columns with the catalog. Writes `catalog_report.html`, `catalog_manifest.json` and `new_parameters.csv` beside the batch table. |
-| `ml build [--mode PRD\|DEV]` | Build the batch table. Writes `batch_table.xlsx`, `batch_table.parquet`, `build_report.html` and `batch_table_manifest.json`. `--mode PRD` also uploads when `upload.enabled` is set. |
+| `ml check-catalog` | Compare every source's columns with the catalog. Writes `catalog_report.html`, `catalog_manifest.json` and `new_parameters.csv` into the catalog's SharePoint folder. |
+| `ml build` | Build the batch table. Writes `batch_data.xlsx`, `batch_data.parquet`, `build_report.html` and `batch_table_manifest.json` into the batch table's SharePoint folder. |
 | `ml task new FOLDER [--target COL] [--question TEXT] [--force]` | Create a task workspace with an annotated `task.yaml` linked to the current `config.yaml`. |
 | `ml task run [--task T]` | Run tasks. Without `--task`, runs the task in the current folder. |
 | `ml task rerun RUN_FOLDER` | Redo a finished run from its own folder and report whether `dataset.csv` is identical. |
-| `ml update [--mode M] [--task T]` | `check-catalog`, then `build`, then the given tasks. |
-| `ml task encode --run RUN_FOLDER [--batch-table FILE] [--out FILE]` | Encode batches (default: the configured batch table) with a run's fitted encoding. |
+| `ml update [--task T]` | `check-catalog`, then `build`, then the given tasks. |
+| `ml task encode --run RUN_FOLDER [--out FILE]` | Encode the batch table's batches with a run's fitted encoding. |
 
 `--task` accepts a task workspace folder, a `task.yaml`, or a folder that
 contains several workspaces, and can be repeated. `--debug` shows Python
@@ -583,7 +593,6 @@ refused, and each error names its field. Quote any column name that contains
 | Key | Default | Meaning |
 |---|---|---|
 | `config` | — | Path to the `config.yaml` that supplies the batch table and catalog. `ml task new` fills it in. |
-| `inputs.batch_table`, `inputs.catalog` | from config | Read this batch table / catalog instead. |
 | `task.name` | `task` | The task's name, shown in the report and manifest. |
 | `task.question` | — | The question, in words; heads the report. |
 | `task.seed` | `0` | Seed for the target-encoding folds, so a run is repeatable. |
@@ -627,11 +636,9 @@ batch table doesn't have stops the run instead of quietly keeping every batch.
 
 ```yaml
 seed: 20260917
-paths:      {catalog: …, batch_table: …, phf_site_a: …, …, reports: (default: beside the batch table)}
-sheets:     {phf_site_a: <sheet:phf_site_a>}           # worksheet per workbook, where not the default
-sources:    {location: local, fallback_to_local: false, databricks: false}
-sharepoint: {catalog: {path: …, sheet: …, drive_id: …}, …, site_maps: {folder: …, files: […], …}}
-upload:     {enabled: false, path: …, drive_id: …, file_name: PVF.xlsx}
+sources:    {databricks: false}
+sharepoint: {catalog: {path: …, sheet: …, drive_id: …}, batch_table: {…}, phf_site_a: {…}, …,
+             site_maps: {folder: …, files: […], sheet: …, drive_id: …}}
 catalog:    {write_new_parameters: true}
 build:      {write_parquet: true}
 cleaning:   {corrections: …, disable: [], censored: limit, censored_flags: false,
@@ -642,21 +649,31 @@ lv_coa:     {ph_nominal: 7.2, osmo_nominal: 300.0}
 ```
 
 Unknown keys, wrong types and incomplete SharePoint entries are refused before
-anything runs.
+anything runs. So are the old local settings (`paths:`, `sheets:`, `upload:`,
+`sources.location`, `sources.fallback_to_local`), each with what replaced it.
 
 #### Sources and SharePoint
 
-With `sources.location: local`, every input is read from its path under
-`paths:`. With `sources.location: sharepoint`, every input that has an entry
-under `sharepoint:` is read from SharePoint instead, and the rest stay local.
-Without `io_sharepoint` installed the run stops, unless
-`sources.fallback_to_local: true`. All SharePoint addresses live in
+Every input is read from its entry under `sharepoint:`, and every stage output is
+written there; there is no local data option. Without `io_sharepoint`
+installed a run stops before it reads anything. All SharePoint addresses live in
 `config.yaml`; none are in the code.
 
-Uploading the batch table is a separate switch. It only happens on
-`ml build --mode PRD` with `upload.enabled: true`, to `upload.path` (or
-`$DATA_LINK`). `MODE`, `DATA_LINK` and credentials can all live in `.env`;
-variables already set in the shell win.
+| Stage | Reads | Writes, into |
+|---|---|---|
+| `ml check-catalog` | catalog, both PHFs, the parameter mapping, investigations | `catalog_report.html`, `catalog_manifest.json`, `new_parameters.csv` → the catalog's folder |
+| `ml build` | catalog, every source, the site maps, `catalog_manifest.json` | `batch_data.xlsx`, `batch_data.parquet`, `build_report.html`, `batch_table_manifest.json` → the batch table's folder |
+| `ml task run` | batch table, catalog, both manifests | the run folder in the task's workspace |
+
+Each command prints these lists — file name, drive, folder and sheet — before it
+starts, and again with where each file went when it is done.
+
+Reading a manifest back (the build checks the catalog's, a task copies both)
+uses `io_sharepoint.download_file_from_sharepoint` where the package has it;
+without it the manifest is reported as not read, and the run carries on.
+Credentials and drive ids live in `.env`; variables already set in the shell win.
+`ML_SHAREPOINT_STANDIN` makes a local folder stand in for SharePoint; it is for
+the demo and the tests only.
 
 #### Corrections
 

@@ -9,8 +9,7 @@
 # Relative paths are relative to this file. Quote any column name that has a
 # '#', ':' or '%' in it — unquoted, `Patient Lot/Batch #` ends at the '#'.
 
-# The config.yaml that names the batch table and catalog.
-# (Or name them yourself: inputs: {batch_table: ..., catalog: ...}.)
+# The config.yaml that says where on SharePoint the batch table and catalog are.
 __CONFIG__
 
 task:

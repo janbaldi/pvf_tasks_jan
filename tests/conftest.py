@@ -1,8 +1,10 @@
 """One run of every stage, over made-up sources, shared by every test.
 
 The real inputs are on a corporate share, so this is the only place the pipeline
-runs end to end. It runs once per session: the stages are written to be run in
-this order, and running them separately would not test that.
+runs end to end. The demo's folder stands in for SharePoint
+(``$ML_SHAREPOINT_STANDIN``); every read and write goes through it. It runs once
+per session: the stages are written to be run in this order, and running them
+separately would not test that.
 
 Two task files are run against the one batch table, because the claim worth testing is
 that a different question needs a different YAML and nothing else.
@@ -16,6 +18,7 @@ Streamlit's business and changes with its version.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -27,7 +30,8 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import dummy_data  # noqa: E402
-from ml import cli, stlite, taskconfig  # noqa: E402
+from ml import cli, share, stlite, taskconfig  # noqa: E402
+from ml import config as workspace  # noqa: E402
 
 #: The two example tasks, by the name each of them carries.
 PREDICTIVE = "site_a_car_expression"
@@ -39,23 +43,27 @@ def built(tmp_path_factory) -> dict:
     """Everything the stages produced, for the tests to pick over."""
     directory = tmp_path_factory.mktemp("demo")
     config_path = dummy_data.write_config(directory)
+    os.environ[share.STANDIN_ENV] = str(dummy_data.standin(directory))
     config = cli.load_config(config_path)
 
     reports = {
-        "catalog": cli.run_catalog(config),
-        "build": cli.run_build(config, mode="dev"),
+        "catalog": on_share(directory, cli.run_catalog(config)),
+        "build": on_share(directory, cli.run_build(config)),
     }
     packages = {}
     for name in dummy_data.TASK_FILES:
-        spec = taskconfig.load(directory / name, config)
+        spec = taskconfig.load(directory / name)
         packages[spec.name] = cli.run_task(config, spec)
 
+    catalog_folder = workspace.catalog_folder(config)
     return {
         "directory": directory,
         "config": config,
         "config_path": Path(config["__path__"]),
-        "batch_table": pd.read_excel(config["paths"]["batch_table"]),
-        "new_parameters": pd.read_csv(config["paths"]["new_parameters"]),
+        "batch_table": pd.read_excel(shared(directory, config, "batch_table")),
+        "new_parameters": pd.read_csv(
+            on_share(directory, catalog_folder.file("new_parameters.csv"))
+        ),
         "reports": reports,
         "packages": packages,
         "payloads": {
@@ -63,6 +71,21 @@ def built(tmp_path_factory) -> dict:
             for stage, path in reports.items()
         },
     }
+
+
+def on_share(directory: Path, location: share.Location) -> Path:
+    """Where a SharePoint location is in the demo's stand-in folder."""
+    return (
+        dummy_data.standin(directory)
+        / location.drive_id
+        / share.readable(location.path).lstrip("/")
+    )
+
+
+def shared(directory: Path, config: dict, label: str, name: str | None = None) -> Path:
+    """A configured file on the stand-in share — or ``name``, a file in its folder."""
+    location = workspace.location(config, label)
+    return on_share(directory, location.file(name) if name else location)
 
 
 # ---------------------------------------------------------------------------

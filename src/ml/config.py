@@ -1,14 +1,11 @@
 """``config.yaml``: where the sources, the catalog and the batch table are, and the settings.
 
-Code, configuration and data live apart. There is one catalog and one batch table; they and
-the local copies of the sources sit in a data folder of your own, and
-``config.yaml`` names them under ``paths:``. The catalog and build reports and
-manifests are written beside the batch table. Every relative path in the config is
-relative to the config file.
-
-Where a source is read from is a setting too. With ``sources.location: local``
-every input is the local file under ``paths``. With ``sharepoint``, every input
-that has an entry under ``sharepoint:`` is read from that location instead — no
+Code, configuration and data live apart, and the data lives on SharePoint. Every
+input — the sources, the catalog, the batch table — is read from the location
+``config.yaml`` gives it under ``sharepoint:``, and every output is written there
+too: ``ml check-catalog`` writes its report, manifest and new-parameters list into
+the catalog's folder, ``ml build`` writes the batch table, its Parquet copy, report
+and manifest into the batch table's folder. There is no local option; no
 SharePoint address is written into the code.
 """
 
@@ -21,7 +18,7 @@ from typing import Any
 
 import yaml
 
-from . import io
+from . import io, share
 from .features import Params
 from .logger import log
 
@@ -32,21 +29,6 @@ CONFIG_NAMES = ("config.yaml", "config.yml")
 #: The environment variable that names a config, for runs started anywhere.
 CONFIG_ENV = "ML_CONFIG"
 
-#: Config keys under ``paths:`` that name a file, a folder or a list of files.
-PATH_KEYS = (
-    "catalog",
-    "phf_site_a",
-    "phf_site_b",
-    "param_mapping",
-    "remfg",
-    "lv_coa",
-    "raw_materials",
-    "investigations",
-    "site_maps",
-    "batch_table",
-    "new_parameters",
-    "reports",
-)
 #: Inputs that may be read from SharePoint, by the label they have everywhere else.
 SHAREPOINT_SOURCES = (
     "catalog",
@@ -62,11 +44,8 @@ SHAREPOINT_SOURCES = (
 )
 TOP_KEYS = (
     "seed",
-    "paths",
-    "sheets",
     "sources",
     "sharepoint",
-    "upload",
     "catalog",
     "build",
     "cleaning",
@@ -74,6 +53,14 @@ TOP_KEYS = (
     "lv_coa",
     "mapping",
 )
+#: Settings that no longer exist, and what replaced them.
+REMOVED = {
+    "paths": "every input is read from SharePoint; give its location under sharepoint:",
+    "sheets": "the worksheet is the sheet: of each sharepoint: entry",
+    "upload": "ml build always writes the batch table to sharepoint.batch_table",
+    "sources.location": "every input is read from SharePoint; there is no local option",
+    "sources.fallback_to_local": "every input is read from SharePoint; there is no local option",
+}
 CLEANING_KEYS = (
     "censored",
     "censored_flags",
@@ -121,7 +108,7 @@ def find(explicit: str | Path | None = None, start: str | Path | None = None) ->
 
 
 def load(path: str | Path) -> dict[str, Any]:
-    """Read a config, validate it, and resolve its paths against its own folder."""
+    """Read a config, validate it, and resolve its file paths against its own folder."""
     path = Path(path).expanduser().resolve()
     if not path.is_file():
         raise ConfigError(f"{path} does not exist")
@@ -132,14 +119,6 @@ def load(path: str | Path) -> dict[str, Any]:
 
     validate(config, str(path))
     base = path.parent
-    paths = config.setdefault("paths", {}) or {}
-    config["paths"] = paths
-    for key in PATH_KEYS:
-        value = paths.get(key)
-        if isinstance(value, str) and value:
-            paths[key] = str(_resolve(value, base))
-        elif isinstance(value, list):
-            paths[key] = [str(_resolve(str(item), base)) for item in value]
     cleaning = config.get("cleaning") or {}
     if isinstance(cleaning.get("corrections"), str) and cleaning["corrections"]:
         cleaning["corrections"] = str(_resolve(cleaning["corrections"], base))
@@ -195,30 +174,18 @@ def _mapping(value: Any, where: str, allowed: tuple[str, ...] | None, errors: li
 def validate(config: dict[str, Any], source: str = "config") -> None:
     """Refuse a config with anything wrong in it, naming every problem at once."""
     errors: list[str] = []
-    _mapping(config, "(root)", TOP_KEYS, errors)
+    _mapping(config, "(root)", TOP_KEYS + ("paths", "sheets", "upload"), errors)
 
-    paths = _mapping(config.get("paths"), "paths", None, errors)
-    for key, value in paths.items():
-        if key == "site_maps":
-            if not (value is None or isinstance(value, list)):
-                errors.append("paths.site_maps: expected a list of files")
-        elif not (value is None or isinstance(value, str)):
-            errors.append(f"paths.{key}: expected a path, found {type(value).__name__}")
+    for key, why in REMOVED.items():
+        section, _, name = key.partition(".")
+        holder = config if not name else config.get(section)
+        if isinstance(holder, dict) and (name or section) in holder:
+            errors.append(f"{key}: no longer a setting — {why}")
 
-    sheets = _mapping(config.get("sheets"), "sheets", SHAREPOINT_SOURCES, errors)
-    for key, value in sheets.items():
-        if not isinstance(value, (str, int)):
-            errors.append(f"sheets.{key}: expected a sheet name or number")
-
-    sources = _mapping(
-        config.get("sources"), "sources", ("location", "databricks", "fallback_to_local"), errors
-    )
-    location = str(sources.get("location", "local")).lower()
-    if location not in ("local", "sharepoint"):
-        errors.append(f"sources.location: '{location}' is not one of local, sharepoint")
-    for flag in ("databricks", "fallback_to_local"):
-        if flag in sources and not isinstance(sources[flag], bool):
-            errors.append(f"sources.{flag}: expected true or false")
+    allowed = ("databricks", "location", "fallback_to_local")
+    _mapping(config.get("sources"), "sources", allowed, errors)
+    if not isinstance((config.get("sources") or {}).get("databricks", False), bool):
+        errors.append("sources.databricks: expected true or false")
 
     sharepoint = _mapping(config.get("sharepoint"), "sharepoint", SHAREPOINT_SOURCES, errors)
     for label, entry in sharepoint.items():
@@ -233,21 +200,11 @@ def validate(config: dict[str, Any], source: str = "config") -> None:
             required = ("path", "drive_id")
         for key in required:
             if entry and not str(entry.get(key) or "").strip():
-                errors.append(f"{where}.{key}: required for a SharePoint source")
-    if location == "sharepoint" and not sharepoint:
-        errors.append(
-            "sharepoint: sources.location is 'sharepoint' but no SharePoint locations are "
-            "configured; add a sharepoint: block"
-        )
-
-    upload = _mapping(
-        config.get("upload"),
-        "upload",
-        ("enabled", "path", "drive_id", "file_name"),
-        errors,
-    )
-    if "enabled" in upload and not isinstance(upload["enabled"], bool):
-        errors.append("upload.enabled: expected true or false")
+                errors.append(f"{where}.{key}: required for a SharePoint location")
+        if entry and "sheet" in entry and not isinstance(entry["sheet"], (str, int)):
+            errors.append(f"{where}.sheet: expected a sheet name or number")
+    if not sharepoint:
+        errors.append("sharepoint: every input is read from SharePoint; add a sharepoint: block")
 
     _mapping(config.get("catalog"), "catalog", ("write_new_parameters",), errors)
     _mapping(config.get("build"), "build", ("write_parquet",), errors)
@@ -265,113 +222,72 @@ def validate(config: dict[str, Any], source: str = "config") -> None:
 
 
 # ---------------------------------------------------------------------------
-# Where each input is read from
+# Where each input is read from, and each output written to
 # ---------------------------------------------------------------------------
-def remote_reader(config: dict[str, Any]):
-    """The SharePoint reader, but only where the config asked for SharePoint.
-
-    Installing the internal package does not change what a run reads. A config
-    that says ``location: sharepoint`` and cannot reach SharePoint stops, unless
-    it also allows a fallback — in which case the fallback is logged, and every
-    input is then recorded as the local file it really was.
-    """
-    sources = config.get("sources") or {}
-    if str(sources.get("location", "local")).lower() != "sharepoint":
-        return None
-    try:
-        import io_sharepoint
-    except ImportError as exc:
-        if sources.get("fallback_to_local"):
-            log.warn(
-                MODULE,
-                "io_sharepoint is not installed — every input falls back to its local copy, "
-                "as sources.fallback_to_local allows",
-            )
-            return None
-        raise ConfigError(
-            "sources.location is 'sharepoint' but io_sharepoint is not installed. "
-            "Set sources.location: local, or sources.fallback_to_local: true"
-        ) from exc
-    return io_sharepoint.load_excel_from_sharepoint
-
-
-def source(config: dict[str, Any], label: str, reader=None) -> io.Source:
-    """One input: its local path, and its SharePoint location when it is read from there."""
-    local = str((config.get("paths") or {}).get(label) or "")
-    sheet = (config.get("sheets") or {}).get(label, io.DEFAULT_SHEETS.get(label, 0))
-    header = io.DEFAULT_HEADERS.get(label, 0)
+def location(config: dict[str, Any], label: str) -> share.Location:
+    """Where ``label`` is on SharePoint, with the sheet its data is on."""
     entry = (config.get("sharepoint") or {}).get(label)
-    if reader is not None and entry:
-        remote = {
-            "sharepoint_path": entry["path"],
-            "sheet_name": entry.get("sheet", sheet),
-            "drive_id": entry["drive_id"],
-        }
-        return io.Source(label, local, sheet, header, remote=remote, loader=reader)
-    return io.Source(label, local, sheet, header)
+    if not entry or label == "site_maps":
+        raise ConfigError(
+            f"{config.get('__path__', 'config')}: sharepoint.{label} is not set — "
+            "every input is read from SharePoint"
+        )
+    sheet = entry.get("sheet", io.DEFAULT_SHEETS.get(label, 0))
+    return share.Location(str(entry["drive_id"]), str(entry["path"]), sheet)
 
 
-def site_map_sources(config: dict[str, Any], reader=None) -> list[io.Source]:
-    """The clinical-site mapping workbooks, one source each."""
+def source(config: dict[str, Any], label: str) -> io.Source:
+    """One input, read from its SharePoint location."""
+    return io.Source(label, location(config, label), header=io.DEFAULT_HEADERS.get(label, 0))
+
+
+def has(config: dict[str, Any], label: str) -> bool:
+    return bool((config.get("sharepoint") or {}).get(label))
+
+
+def site_map_sources(config: dict[str, Any]) -> list[io.Source]:
+    """The clinical-site mapping workbooks in their SharePoint folder, one source each."""
     entry = (config.get("sharepoint") or {}).get("site_maps")
-    sheet = (config.get("sheets") or {}).get("site_maps", 0)
-    if reader is not None and entry:
-        folder = str(entry["folder"])
-        joiner = "" if folder.endswith("/") else "/"
-        return [
-            io.Source(
-                f"site_map_{number}",
-                "",
-                sheet,
-                remote={
-                    "sharepoint_path": f"{folder}{joiner}{name}",
-                    "sheet_name": entry.get("sheet", "Sheet1"),
-                    "drive_id": entry["drive_id"],
-                },
-                loader=reader,
-            )
-            for number, name in enumerate(entry.get("files") or [], start=1)
-        ]
+    if not entry:
+        return []
+    folder = str(entry["folder"])
+    folder = folder if folder.endswith("/") else folder + "/"
+    sheet = entry.get("sheet", io.DEFAULT_SHEETS["site_maps"])
     return [
-        io.Source(f"site_map_{number}", str(path), sheet)
-        for number, path in enumerate((config.get("paths") or {}).get("site_maps") or [], start=1)
+        io.Source(
+            f"site_map_{number}", share.Location(str(entry["drive_id"]), f"{folder}{name}", sheet)
+        )
+        for number, name in enumerate(entry.get("files") or [], start=1)
     ]
 
 
-def upload_target(config: dict[str, Any]) -> dict[str, str]:
-    """Where the batch table goes when a PRD run uploads it, from config or ``$DATA_LINK``."""
-    upload = config.get("upload") or {}
-    path = str(upload.get("path") or os.getenv("DATA_LINK") or "")
-    drive_id = str(upload.get("drive_id") or "")
-    if not path or not drive_id:
-        raise ConfigError(
-            "upload.enabled is set but upload.path and upload.drive_id are not both given "
-            "(upload.path may also come from $DATA_LINK)"
-        )
-    file_name = str(
-        upload.get("file_name")
-        or Path((config.get("paths") or {}).get("batch_table") or "batch_table.xlsx").name
-    )
-    joiner = "" if path.endswith("/") else "/"
-    return {
-        "folder": path,
-        "drive_id": drive_id,
-        "file_name": file_name,
-        "location": (f"SharePoint {drive_id}: {path}{joiner}{file_name}"),
-    }
+def catalog_folder(config: dict[str, Any]) -> share.Location:
+    """Where ``ml check-catalog`` writes: the catalog's own folder."""
+    return location(config, "catalog").folder
 
 
-def require_paths(config: dict[str, Any], labels: tuple[str, ...]) -> None:
-    """Refuse a stage whose inputs the config does not name."""
-    paths = config.get("paths") or {}
-    reader_labels = set((config.get("sharepoint") or {})) if _is_remote(config) else set()
-    missing = [label for label in labels if not paths.get(label) and label not in reader_labels]
+def batch_table_folder(config: dict[str, Any]) -> share.Location:
+    """Where ``ml build`` writes: the batch table's own folder."""
+    return location(config, "batch_table").folder
+
+
+def require(config: dict[str, Any], labels: tuple[str, ...]) -> None:
+    """Refuse a stage whose inputs the config does not locate."""
+    missing = [label for label in labels if not has(config, label)]
     if missing:
         raise ConfigError(
-            f"{config.get('__path__', 'config')}: paths.{', paths.'.join(missing)} "
+            f"{config.get('__path__', 'config')}: sharepoint.{', sharepoint.'.join(missing)} "
             "must be set for this stage"
         )
 
 
-def _is_remote(config: dict[str, Any]) -> bool:
-    return str((config.get("sources") or {}).get("location", "local")).lower() == "sharepoint"
+def table_source(config: dict[str, Any] | None, label: str, copy: Path | None) -> io.Source:
+    """A task's batch table or catalog: the run's own copy when it has one, else SharePoint."""
+    if copy is not None:
+        return io.as_source(copy, label)
+    if not config:
+        raise ConfigError(
+            f"The {label.replace('_', ' ')} is read from SharePoint, and no config.yaml says "
+            "where: pass --config, or name it under config: in task.yaml"
+        )
+    return source(config, label)

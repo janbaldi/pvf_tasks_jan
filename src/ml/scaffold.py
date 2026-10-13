@@ -3,8 +3,8 @@
 ``ml task new <folder>`` makes a folder with a commented ``task.yaml`` in it.
 The folder is the task's workspace: every run of the task is written to its
 ``runs/`` folder, with the batch table and catalog it read, so the folder holds everything
-needed to redo the analysis. The batch table and catalog themselves come from the
-``config.yaml`` the task names.
+needed to redo the analysis. The batch table and catalog themselves are read from
+SharePoint, where the ``config.yaml`` the task names locates them.
 """
 
 from __future__ import annotations

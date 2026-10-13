@@ -31,6 +31,8 @@ import shutil
 import sys
 import tempfile
 import traceback
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
@@ -152,6 +154,21 @@ def _show_written(title: str, uploaded: list[tuple[str, share.Location]]) -> Non
     log.files(title, [(what, where.name, where.where) for what, where in uploaded])
 
 
+@contextmanager
+def _preparing(what: str, path: Path, folder: share.Location) -> Iterator[None]:
+    """Say which file is being written and where it will go, then show the work running.
+
+    Every output is written in full to a temporary folder first and uploaded
+    once all of them are ready, so a failed run leaves nothing half-written on
+    SharePoint. The step line names the file and its SharePoint folder; the
+    progress bar runs under it until the file is ready.
+    """
+    log.step(MODULE, f"Preparing {what}", f"{path.name}  →  {folder.where}")
+    yield
+    if path.is_file():
+        log.success(MODULE, f"Prepared {path.name} ({share.size(path)})")
+
+
 def _manifest_on_share(folder: share.Location, stage: str) -> dict | None:
     """A stage's manifest, read back from the SharePoint folder it was written to."""
     text = share.read_text(folder.file(f"{stage}_manifest.json"))
@@ -224,20 +241,24 @@ def run_catalog(config: dict[str, Any], config_path: str | Path | None = None) -
         staged = Path(staging)
         files: dict[str, Path] = {}
         if write_new:
-            files["new parameters"] = catalog.write_new_parameters(
-                found, staged / CATALOG_OUTPUTS["new parameters"]
-            )
+            target = staged / CATALOG_OUTPUTS["new parameters"]
+            with _preparing("the new-parameters list", target, folder):
+                files["new parameters"] = catalog.write_new_parameters(found, target)
             found.written_to = str(folder.file(CATALOG_OUTPUTS["new parameters"]))
         prov = _provenance(config, sources)
-        files["report"] = report.write(
-            report.build_catalog_payload(
-                report.CatalogRun(
-                    catalog=found, events=log.since(mark), provenance=prov, run_start=run_start
-                )
-            ),
-            staged / CATALOG_OUTPUTS["report"],
-        )
+        with _preparing("the catalog report", staged / CATALOG_OUTPUTS["report"], folder):
+            files["report"] = report.write(
+                report.build_catalog_payload(
+                    report.CatalogRun(
+                        catalog=found, events=log.since(mark), provenance=prov, run_start=run_start
+                    )
+                ),
+                staged / CATALOG_OUTPUTS["report"],
+            )
         warnings, errors = _events(mark)
+        log.step(
+            MODULE, "Preparing the manifest", f"{CATALOG_OUTPUTS['manifest']}  →  {folder.where}"
+        )
         files["manifest"] = manifest.write(
             staged / CATALOG_OUTPUTS["manifest"],
             manifest.envelope(
@@ -419,42 +440,56 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
     with tempfile.TemporaryDirectory(prefix="ml-build-") as staging:
         staged = Path(staging)
         files: dict[str, Path] = {"batch table": staged / target_table.name}
-        result.to_excel(files["batch table"], index=False)
-        log.success(MODULE, f"Batch table prepared — {target_table.name}")
+        with _preparing(
+            f"the batch table ({result.shape[0]:,} × {result.shape[1]:,}, Excel)",
+            files["batch table"],
+            folder,
+        ):
+            result.to_excel(files["batch table"], index=False)
         # The digest of the table as a task will read it back from SharePoint,
         # which is what a task compares against.
+        log.step(
+            MODULE,
+            "Reading the batch table back for its content digest",
+            f"{target_table.name}, as a task will read it",
+        )
         content_digest = provenance.frame_digest(io.read_table(files["batch table"]))
         if write_parquet:
-            parquet = _write_parquet(result, staged / parquet_name)
+            with _preparing("the batch table (Parquet)", staged / parquet_name, folder):
+                parquet = _write_parquet(result, staged / parquet_name)
             if parquet:
                 files["batch table (Parquet)"] = parquet
 
         prov = _provenance(config, sources)
-        files["report"] = report.write(
-            report.build_batch_table_payload(
-                report.BuildRun(
-                    result=result,
-                    phf=phf,
-                    site_shapes=site_shapes,
-                    catalog_cols=catalog_cols,
-                    catalog_mapping=catalog_mapping,
-                    cleaning=cleaning_report,
-                    features=feature_reports,
-                    merge=merge_report,
-                    events=log.since(mark),
-                    params=params,
-                    provenance=prov,
-                    origins=origins,
-                    lv_coa_coverage=lv_coa_coverage,
-                    raw_material_columns=origins["Raw materials and consumables"],
-                    unmapped_sites=unmapped_sites,
-                    source_rows=source_rows,
-                    run_start=run_start,
-                )
-            ),
-            staged / BUILD_OUTPUTS["report"],
-        )
+        with _preparing("the build report", staged / BUILD_OUTPUTS["report"], folder):
+            files["report"] = report.write(
+                report.build_batch_table_payload(
+                    report.BuildRun(
+                        result=result,
+                        phf=phf,
+                        site_shapes=site_shapes,
+                        catalog_cols=catalog_cols,
+                        catalog_mapping=catalog_mapping,
+                        cleaning=cleaning_report,
+                        features=feature_reports,
+                        merge=merge_report,
+                        events=log.since(mark),
+                        params=params,
+                        provenance=prov,
+                        origins=origins,
+                        lv_coa_coverage=lv_coa_coverage,
+                        raw_material_columns=origins["Raw materials and consumables"],
+                        unmapped_sites=unmapped_sites,
+                        source_rows=source_rows,
+                        run_start=run_start,
+                    )
+                ),
+                staged / BUILD_OUTPUTS["report"],
+            )
         warnings, errors = _events(mark)
+        log.step(
+            MODULE, "Preparing the manifest", f"{BUILD_OUTPUTS['manifest']}  →  {folder.where}"
+        )
         files["manifest"] = manifest.write(
             staged / BUILD_OUTPUTS["manifest"],
             manifest.envelope(
@@ -546,7 +581,6 @@ def _write_parquet(frame: pd.DataFrame, path: Path) -> Path | None:
     ) as exc:  # the Excel batch table is the record; the Parquet copy is a convenience
         log.warn(MODULE, f"The Parquet copy of the batch table was not written: {exc}")
         return None
-    log.success(MODULE, f"Batch table (Parquet) prepared — {path.name}")
     return path
 
 

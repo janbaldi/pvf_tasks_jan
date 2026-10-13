@@ -563,7 +563,7 @@ folder can live anywhere — next to the analysis it belongs to, say — because
 
 ### Commands
 
-Global options come before the command: `uv run ml [--config FILE] [--debug] COMMAND …`.
+Global options come before the command: `uv run ml [--config FILE] [--debug] [--quiet] COMMAND …`.
 
 | Command | What it does |
 |---|---|
@@ -579,6 +579,13 @@ Global options come before the command: `uv run ml [--config FILE] [--debug] COM
 `--task` accepts a task workspace folder, a `task.yaml`, or a folder that
 contains several workspaces, and can be repeated. `--debug` shows Python
 tracebacks instead of one-line error messages.
+
+Output redirected to a file (`ml build > build.log`) never has colour codes or
+progress-bar frames in it; both are switched off when stdout is not a terminal.
+`--quiet` (`-q`) also leaves out the step, info and OK lines and the section
+rules, and keeps the warnings, errors, the lists of what was read and written,
+and the summary: `uv run ml --quiet update > update.log`. The reports and each
+task's `logs/run.log` still hold the full log.
 
 The config is found in this order: `--config`, the `config:` line of the task,
 `$ML_CONFIG`, then the nearest `config.yaml` in the current folder or above it.

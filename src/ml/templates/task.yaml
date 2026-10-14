@@ -27,9 +27,14 @@ cohort:
 
 target:
   column: "__TARGET__"
-  type: __TARGET_TYPE__           # numeric | binary
+  type: __TARGET_TYPE__           # numeric | binary | periods
   # positive_class: <value>       # required for a binary target
   # negative_class: <value>
+  # To compare two groups of batches by date instead, name a date column above,
+  # set type: periods, and list the two periods (the second is 1, the first 0):
+  # periods:
+  #   - {name: before, start: YYYY-MM-DD, stop: YYYY-MM-DD}
+  #   - {name: after,  start: YYYY-MM-DD, stop: YYYY-MM-DD}
 
 # What some columns are. They are kept as metadata, never used as predictors.
 roles:

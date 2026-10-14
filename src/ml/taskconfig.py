@@ -19,6 +19,7 @@ nearest ``config.yaml`` — locates them. Only a run's own ``task.yaml`` names
 
 from __future__ import annotations
 
+import datetime as dt
 import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -39,7 +40,7 @@ OPERATORS = (
     "is_null",
     "not_null",
 )
-TARGET_TYPES = ("numeric", "binary")
+TARGET_TYPES = ("numeric", "binary", "periods")
 MISSING_POLICIES = ("exclude", "include")
 #: What may be done about a group of parameters that move together.
 CLUSTER_ACTIONS = ("off", "describe", "keep_one", "residualise", "summarise")
@@ -94,12 +95,23 @@ class Cohort:
 
 
 @dataclass(frozen=True)
+class Period:
+    """A named window of dates; both ends belong to it, the stop date all day."""
+
+    name: str
+    start: str
+    stop: str
+
+
+@dataclass(frozen=True)
 class Target:
     column: str = ""
     type: str = "numeric"
     positive_class: str = ""
     negative_class: str = ""
     missing: str = "drop"
+    #: A ``periods`` target: two windows of ``column``'s dates, the first 0, the second 1.
+    periods: tuple[Period, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -348,6 +360,65 @@ def _categories(
     return tuple(out)
 
 
+def _date(value: Any, where: str, errors: list[str]) -> dt.date | None:
+    """A calendar date, written 2025-01-31 (YAML may already have read it as one)."""
+    if isinstance(value, dt.datetime):
+        return value.date()
+    if isinstance(value, dt.date):
+        return value
+    try:
+        return dt.date.fromisoformat(str(value).strip())
+    except ValueError:
+        errors.append(f"{where}: '{value}' is not a date — write it as YYYY-MM-DD")
+        return None
+
+
+def _periods(target: dict, errors: list[str]) -> tuple[Period, ...]:
+    """Two named, non-overlapping date windows: ``[{name, start, stop}, {...}]``."""
+    if target.get("type") != "periods":
+        return ()
+    raw = target.get("periods")
+    if not isinstance(raw, list) or len(raw) != 2:
+        errors.append(
+            "target.periods: a periods target compares exactly two periods — "
+            "[{name: ..., start: YYYY-MM-DD, stop: YYYY-MM-DD}, {...}]"
+        )
+        return ()
+    out: list[tuple[Period, dt.date, dt.date]] = []
+    for index, item in enumerate(raw):
+        spot = f"target.periods[{index}]"
+        if not isinstance(item, dict):
+            errors.append(f"{spot}: expected {{name: ..., start: ..., stop: ...}}")
+            continue
+        _known(item, ("name", "start", "stop"), spot, errors)
+        name = _text(item, "name", spot, errors).strip()
+        if not name:
+            errors.append(f"{spot}.name: each period needs a name")
+        missing = [key for key in ("start", "stop") if item.get(key) is None]
+        for key in missing:
+            errors.append(f"{spot}.{key}: each period needs a start and a stop date")
+        if missing:
+            continue
+        start = _date(item["start"], f"{spot}.start", errors)
+        stop = _date(item["stop"], f"{spot}.stop", errors)
+        if start is None or stop is None:
+            continue
+        if stop < start:
+            errors.append(f"{spot}: stops ({stop}) before it starts ({start})")
+            continue
+        out.append((Period(name, start.isoformat(), stop.isoformat()), start, stop))
+    if len(out) == 2:
+        (first, start_a, stop_a), (second, start_b, stop_b) = out
+        if first.name == second.name:
+            errors.append(f"target.periods: both periods are called '{first.name}'")
+        if start_a <= stop_b and start_b <= stop_a:
+            errors.append(
+                f"target.periods: '{first.name}' and '{second.name}' overlap — "
+                "a batch can be in one period only"
+            )
+    return tuple(period for period, _, _ in out)
+
+
 def _filters(data: dict, where: str, errors: list[str]) -> tuple[Filter, ...]:
     raw = data.get("filters") or []
     if not isinstance(raw, list):
@@ -552,7 +623,7 @@ def parse(
 
     target_raw = _known(
         raw.get("target"),
-        ("column", "type", "positive_class", "negative_class", "missing"),
+        ("column", "type", "positive_class", "negative_class", "missing", "periods"),
         "target",
         errors,
     )
@@ -562,6 +633,7 @@ def parse(
         positive_class=_text(target_raw, "positive_class", "target", errors),
         negative_class=_text(target_raw, "negative_class", "target", errors),
         missing=_choice(target_raw, "missing", ("drop",), "target", errors, "drop"),
+        periods=_periods(target_raw, errors),
     )
     if not target.column:
         errors.append("target.column: a task has to name the column it predicts")
@@ -572,6 +644,14 @@ def parse(
         )
     if target.type == "numeric" and target.positive_class:
         errors.append("target.positive_class: only a binary target has one")
+    if target.type == "periods":
+        if target.positive_class or target.negative_class:
+            errors.append(
+                "target.positive_class: a periods target has none — the second period "
+                "is 1 and the first is 0, so list them in that order"
+            )
+    elif target_raw.get("periods"):
+        errors.append("target.periods: only a target of type periods has them")
 
     roles_raw = _known(raw.get("roles"), ("id", "group", "patient"), "roles", errors)
     predictors_raw = _known(

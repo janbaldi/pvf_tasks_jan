@@ -329,6 +329,8 @@ def prepare_target(
     values = cohort[column]
     name = sanitise(column)
 
+    if spec.target.type == "periods":
+        return _period_target(cohort, spec, result)
     if spec.target.type == "numeric":
         numbers = pd.to_numeric(values, errors="coerce")
         unreadable = int((values.notna() & numbers.isna()).sum())
@@ -411,6 +413,80 @@ def prepare_target(
             "to predict and no dataset was written"
         )
     return target, labelled
+
+
+def _period_target(
+    cohort: pd.DataFrame, spec: TaskSpec, result: TaskResult
+) -> tuple[pd.Series, pd.Index]:
+    """Which of two date windows a batch falls in: the first is 0, the second 1.
+
+    A batch with no readable date, or one outside both windows, is not in the
+    dataset — each is a step of the funnel, so the report says how many went.
+    """
+    column = spec.target.column
+    first, second = spec.target.periods
+    stamps = pd.to_datetime(cohort[column], errors="coerce", format="mixed")
+    if getattr(stamps.dt, "tz", None) is not None:
+        stamps = stamps.dt.tz_localize(None)
+
+    def inside(period) -> pd.Series:
+        start = pd.Timestamp(period.start)
+        after_stop = pd.Timestamp(period.stop) + pd.Timedelta(days=1)
+        return (stamps >= start) & (stamps < after_stop)
+
+    in_first, in_second = inside(first), inside(second)
+    name = f"period_is_{sanitise(second.name)}"
+    target = pd.Series(pd.NA, index=cohort.index, dtype="Int64", name=name)
+    target[in_first] = 0
+    target[in_second] = 1
+
+    identifier = spec.roles.id if spec.roles.id in cohort.columns else ""
+    left = len(cohort)
+    for reason, label, dropped in (
+        (f"{column} is not a date", "no date", stamps.isna()),
+        (
+            f"{column} is outside both periods",
+            "outside both periods",
+            stamps.notna() & ~in_first & ~in_second,
+        ),
+    ):
+        count = int(dropped.sum())
+        if not count:
+            continue
+        result.cohort.rejected[label] = count
+        result.cohort.examples[label] = (
+            cohort.loc[dropped, identifier].astype(str).tolist()[:50] if identifier else []
+        )
+        result.cohort.funnel.append(
+            {
+                "Step": "target",
+                "Filter": reason,
+                "Batches before": left,
+                "Removed": count,
+                "Batches left": left - count,
+            }
+        )
+        left -= count
+        for index in cohort.index[dropped]:
+            result.cohort.excluded_by.setdefault(index, (reason, "target"))
+
+    for period, count in ((first, int(in_first.sum())), (second, int(in_second.sum()))):
+        if not count:
+            raise TaskRefused(
+                f"target.periods: no batch in the cohort has a {column} between "
+                f"{period.start} and {period.stop} ('{period.name}'), so there is nothing "
+                "to compare it with"
+            )
+    result.target_column = name
+    result.target_kind = "binary"
+    result.target_classes = {"0": first.name, "1": second.name}
+    log.info(
+        MODULE,
+        f"Target: '{second.name}' ({second.start} – {second.stop}) → 1 "
+        f"({int(in_second.sum())} batches), '{first.name}' ({first.start} – {first.stop}) "
+        f"→ 0 ({int(in_first.sum())})",
+    )
+    return target, cohort.index[target.notna()]
 
 
 # ---------------------------------------------------------------------------
@@ -1270,7 +1346,7 @@ def _sample_size_notes(
             f"{columns / fitted:.1f}): a model needs strong regularisation, and its "
             "performance has to be estimated by cross-validation, not in-sample"
         )
-    if spec.target.type == "binary" and columns:
+    if result.target_kind == "binary" and columns:
         minority = int(target.value_counts().min())
         epv = minority / columns
         if epv < 10:

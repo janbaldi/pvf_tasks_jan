@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 
 import pandas as pd
+import yaml
 
 import dummy_data
 from conftest import (
@@ -429,3 +430,35 @@ def test_the_report_shows_every_cluster_not_only_the_first(built):
     picker = next(b for b in clusters["blocks"] if b["kind"] == "chooser")
     assert len(picker["options"]) == count
     assert all(option["blocks"][0]["kind"] == "md" for option in picker["options"])
+
+
+# ---------------------------------------------------------------------------
+# Two periods compared
+# ---------------------------------------------------------------------------
+def test_a_task_can_compare_two_periods_of_batches(built, tmp_path):
+    """Batches from one date window against another: the second is 1, the first 0."""
+    from ml import cli, taskconfig
+
+    made = c("incubator_in_d0")  # the demo's batches start between 1 January and 20 February
+    before, after = ("2026-01-01", "2026-01-10"), ("2026-02-10", "2026-02-20")
+
+    task = yaml.safe_load((built["directory"] / dummy_data.TASK_FILES[0] / "task.yaml").read_text())
+    task["config"] = str(built["config_path"])
+    task["task"]["name"] = "periods"
+    task["target"] = {
+        "column": made,
+        "type": "periods",
+        "periods": [
+            {"name": "before", "start": before[0], "stop": before[1]},
+            {"name": "after", "start": after[0], "stop": after[1]},
+        ],
+    }
+    (tmp_path / "task.yaml").write_text(yaml.safe_dump(task, sort_keys=False), encoding="utf-8")
+    folder = cli.run_task(built["config"], taskconfig.load(tmp_path))
+
+    table = pd.read_csv(folder / cli.TASK_LAYOUT.get("dataset.csv", "dataset.csv"))
+    assert set(table["period_is_after"]) == {0, 1}
+    assert made not in table.columns, "the date that defines the periods is not a predictor"
+    batches = pd.read_csv(folder / cli.TASK_LAYOUT.get("batches.csv", "batches.csv"))
+    reasons = set(batches.loc[~batches["Included"], "Reason"])
+    assert f"{made} is outside both periods" in reasons

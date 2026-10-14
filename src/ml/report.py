@@ -939,7 +939,7 @@ def _task_overview(run: TaskRun) -> dict | None:
         ["Question", esc(spec.question or "not stated in the task file")],
         [
             "Target",
-            esc(f"{spec.target.column}{f' ({unit})' if unit else ''} — {result.target_kind}"),
+            esc(_target_text(spec, result, unit)),
         ],
         ["Cohort", esc(", ".join(spec.cohort.sites) or "every site")],
         ["Batches in the dataset", f"{result.rows:,}"],
@@ -973,6 +973,17 @@ def _task_overview(run: TaskRun) -> dict | None:
     else:
         blocks.append(md("Nothing in this run needed a warning."))
     return _section("overview", "Overview", blocks)
+
+
+def _target_text(spec, result, unit: str) -> str:
+    """The target in a line: its column and kind, or the two periods it compares."""
+    if spec.target.type == "periods":
+        first, second = spec.target.periods
+        return (
+            f"{spec.target.column}: {second.name} ({second.start} – {second.stop}) = 1, "
+            f"{first.name} ({first.start} – {first.stop}) = 0"
+        )
+    return f"{spec.target.column}{f' ({unit})' if unit else ''} — {result.target_kind}"
 
 
 def _unit_of(name: str) -> str:

@@ -802,3 +802,83 @@ def test_a_cp1252_console_gets_ascii_and_never_an_encoding_error(monkeypatch):
     console.flush()
     drawn = console.buffer.getvalue().decode("cp1252")
     assert "[" in drawn and "working" in drawn
+
+
+# ---------------------------------------------------------------------------
+# A target that compares two periods
+# ---------------------------------------------------------------------------
+def periods_target(*periods: dict, **extra) -> dict:
+    return {"column": "made", "type": "periods", "periods": list(periods), **extra}
+
+
+BEFORE = {"name": "before", "start": "2025-01-01", "stop": "2025-01-31"}
+AFTER = {"name": "after", "start": "2025-03-01", "stop": "2025-03-31"}
+
+
+def test_a_periods_target_reads_its_two_windows():
+    spec = probe_spec(target=periods_target(BEFORE, AFTER))
+    assert [p.name for p in spec.target.periods] == ["before", "after"]
+    assert spec.target.periods[1].stop == "2025-03-31"
+    assert spec.as_dict()["target"]["periods"][0] == BEFORE
+
+
+@pytest.mark.parametrize(
+    ("target", "expected"),
+    [
+        (periods_target(BEFORE), "exactly two periods"),
+        (periods_target(BEFORE, {**AFTER, "start": "2025-01-15"}), "overlap"),
+        (periods_target(BEFORE, {**AFTER, "name": "before"}), "both periods are called"),
+        (periods_target(BEFORE, {**AFTER, "stop": "2025-02-01"}), "stops (2025-02-01) before"),
+        (periods_target(BEFORE, {**AFTER, "stop": "March"}), "not a date"),
+        (periods_target(BEFORE, {"name": "after", "start": "2025-03-01"}), "stop date"),
+        (periods_target(BEFORE, AFTER, positive_class="after"), "has none"),
+        (
+            {"column": "made", "type": "binary", "positive_class": "x", "periods": [BEFORE]},
+            "only a",
+        ),
+    ],
+)
+def test_a_periods_target_that_cannot_be_run_is_refused(tmp_path, target, expected):
+    with pytest.raises(taskconfig.TaskConfigError) as raised:
+        taskconfig.load(write_task(tmp_path, minimal_task(target=target)))
+    assert expected in str(raised.value)
+
+
+def test_yaml_dates_are_read_as_dates(tmp_path):
+    path = tmp_path / "task.yaml"
+    text = yaml.safe_dump(minimal_task(target=periods_target(BEFORE, AFTER)), sort_keys=False)
+    path.write_text(text.replace("'2025-01-01'", "2025-01-01"), encoding="utf-8")
+    assert taskconfig.load(path).target.periods[0].start == "2025-01-01"
+
+
+def test_batches_are_labelled_by_the_period_they_fall_in():
+    spec = probe_spec(target=periods_target(BEFORE, AFTER))
+    frame = pd.DataFrame(
+        {
+            "Patient Lot/Batch #": [f"B{i}" for i in range(6)],
+            "made": [
+                "2025-01-01",  # the first day of 'before'
+                "2025-01-31 18:30",  # the stop date counts all day
+                "2025-02-10",  # between the periods
+                "2025-03-15",
+                None,  # no date
+                "2025-03-31 23:59",
+            ],
+        }
+    )
+    result = dataset.TaskResult(spec=spec)
+    target, labelled = dataset.prepare_target(frame, spec, result)
+    assert result.target_column == "period_is_after"
+    assert result.target_classes == {"0": "before", "1": "after"}
+    assert list(frame.loc[labelled, "Patient Lot/Batch #"]) == ["B0", "B1", "B3", "B5"]
+    assert list(target.loc[labelled]) == [0, 0, 1, 1]
+    assert result.cohort.rejected == {"no date": 1, "outside both periods": 1}
+    assert result.cohort.examples["outside both periods"] == ["B2"]
+    assert [step["Removed"] for step in result.cohort.funnel] == [1, 1]
+
+
+def test_a_period_no_batch_falls_in_is_refused():
+    spec = probe_spec(target=periods_target(BEFORE, AFTER))
+    frame = pd.DataFrame({"made": ["2025-01-10", "2025-01-20"]})
+    with pytest.raises(dataset.TaskRefused, match="'after'"):
+        dataset.prepare_target(frame, spec, dataset.TaskResult(spec=spec))

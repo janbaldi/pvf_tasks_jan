@@ -544,6 +544,82 @@ The target column in `dataset.csv` is `outcome_is_accepted` (15 accepted,
 12 scrapped). That task also uses `clustering.action: summarise` with
 `name_by: Available At`.
 
+### 11. Compare two periods
+
+Sometimes the question is not "what predicts this value" but "what changed
+between these batches and those". Did something shift after a process change,
+a new supplier or a new site setup? A `periods` target answers that. Name a
+date column, give two date windows, and the run builds a dataset whose target
+says which window each batch falls in: the second window is 1, the first is 0.
+The model then finds what tells the two groups apart.
+
+From `demo/`, make a task and point it at the date each batch started:
+
+```bash
+uv run ml task new tasks/before_after --target "Day 0 incubator in"
+cd tasks/before_after
+```
+
+In `task.yaml`, keep one site, set the grouping column, and replace the target
+with the two periods:
+
+```yaml
+cohort:
+  sites: [Northfield]
+
+target:
+  column: "Day 0 incubator in"    # the date that puts a batch in a period
+  type: periods
+  periods:
+    - {name: before, start: 2026-01-01, stop: 2026-01-10}   # becomes 0
+    - {name: after,  start: 2026-02-10, stop: 2026-02-20}   # becomes 1
+
+roles:
+  id: 'Patient Lot/Batch #'
+  group: Vector lot
+```
+
+```bash
+uv run ml validate
+uv run ml task run
+```
+
+```
+OK     dataset     Cohort: 40 of 70 batches
+INFO   dataset     Target: 'after' (2026-02-10 – 2026-02-20) → 1 (12 batches), 'before' (2026-01-01 – 2026-01-10) → 0 (10)
+WARN   dataset     'Nation' correlates r=1.0 with the target over 22 fitted batches — check it is not the target measured another way, which would be a leak
+WARN   dataset     'Outcome' correlates r=1.0 with the target over 22 fitted batches — check it is not the target measured another way, which would be a leak
+…
+Written — 22 batches × 129 columns
+```
+
+What happened:
+
+- **The target column** in `dataset.csv` is `period_is_after`: 1 for the 12
+  batches that started between 10 and 20 February, 0 for the 10 that started
+  between 1 and 10 January.
+- **Batches outside both periods are left out.** The 18 Northfield batches that
+  started between the windows are in `batches.csv` with the reason
+  `Day 0 incubator in is outside both periods`. A batch with no readable date
+  is left out the same way (`… is not a date`). Both appear as steps of the
+  cohort funnel in the report.
+- **Both ends of a period count**, and the stop date counts for the whole day:
+  a batch that started on 20 February at 18:30 is in `after`.
+- **The date column is not a predictor**, and neither is anything computed
+  from it. Raw timestamps never are; durations between them can be.
+- **Read the leak warnings differently here.** In a numeric or binary task, a
+  predictor that matches the target perfectly is usually a leak. When comparing
+  periods, it may simply be what changed between them, such as a column that
+  changed value from one month to the next. That can be the answer to your
+  question. If it isn't interesting (for example, something that only changed
+  because time passed), leave it out with `predictors.exclude` and run again.
+
+The periods must not overlap, and each must contain at least one batch of the
+cohort, or the run stops and says which one is empty. Use the cohort filters
+as usual to narrow which batches are compared: for example, one site, or only
+routine batches. Then fit and explain a model on `dataset.csv` exactly as in
+step 7. A period target is a binary target, so use a classifier.
+
 **You now know the whole loop.** To ask a second question, run `ml task new`
 again: every question gets its own folder and its own history of runs.
 
@@ -662,8 +738,9 @@ refused, and each error names its field. Quote any column name that contains
 | `cohort.site_column` | `Site Merged` | The column that says which site a batch is from. |
 | `cohort.filters` | — | Rules applied in order: `{column, op, value, missing, normalise, reason}`. |
 | `cohort.date_column`, `date_from`, `date_to` | — | Keep batches whose date lies in this range (inclusive). |
-| `target.column` | required | The column to predict. |
-| `target.type` | `numeric` | `numeric` or `binary`. |
+| `target.column` | required | The column to predict; for `periods`, the date column that places a batch in a period. |
+| `target.type` | `numeric` | `numeric`, `binary` or `periods` (two date windows compared; see [step 11](#11-compare-two-periods)). |
+| `target.periods` | — | Required for `periods`: exactly two `{name, start, stop}` entries, dates as `YYYY-MM-DD`, both ends inclusive, not overlapping. The second period is 1, the first 0; batches outside both are left out. |
 | `target.positive_class` | — | Required for `binary`: the value that becomes 1. |
 | `target.negative_class` | the other value | The value that becomes 0. Any third value stops the run. |
 | `roles.id` | — | Identifies a batch. Must be unique in the cohort. |

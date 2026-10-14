@@ -44,7 +44,7 @@ def init(
         .replace("__CONFIG__", link)
         .replace("__NAME__", slug)
         .replace("__QUESTION__", question or f"What goes with {target or 'the target'}?")
-        .replace("__TARGET__", target or "<fp_car_pct>")
+        .replace("__TARGET__", target or "<the column to predict>")
         .replace("__TARGET_TYPE__", "numeric")
     )
     path.parent.mkdir(parents=True, exist_ok=True)

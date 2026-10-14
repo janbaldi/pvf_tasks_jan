@@ -4,22 +4,23 @@ seed: 20260917
 sources:
   databricks: false
 sharepoint:
+  vocabulary:
+    path: Data/raw/vocabulary.xlsx
+    drive_id: DEMO_DRIVE
   catalog:
     path: Data/catalog/catalog.xlsx
     drive_id: DEMO_DRIVE
-    sheet: 0
   batch_table:
     path: Data/batch_data/batch_data.xlsx
     drive_id: DEMO_DRIVE
-    sheet: Sheet1
   phf_site_a:
-    path: Data/raw/phf_site_a.xlsx
+    path: Data/raw/site_a_batch_records.xlsx
     drive_id: DEMO_DRIVE
   phf_site_b:
-    path: Data/raw/phf_site_b.xlsx
+    path: Data/raw/site_b_batch_records.xlsx
     drive_id: DEMO_DRIVE
   param_mapping:
-    path: Data/raw/parameter_requirements.xlsx
+    path: Data/raw/parameter_mapping.xlsx
     drive_id: DEMO_DRIVE
   remfg:
     path: Data/raw/remfg.xlsx
@@ -36,25 +37,22 @@ sharepoint:
   site_maps:
     folder: Data/raw/
     files:
-    - site_map_hannelore.xlsx
-    - site_map_meeting.xlsx
-    sheet: 0
+    - site_map_first.xlsx
+    - site_map_second.xlsx
     drive_id: DEMO_DRIVE
 catalog:
   write_new_parameters: true
 build:
   write_parquet: true
 cleaning:
-  corrections: corrections.yaml
   censored: limit
   censored_flags: false
   duration_unit: minutes
-  site_b_type_commercial: true
   yes_no_defaults:
-    '<pre_activation_clumps_yn>': 'No'
+    pre_activation_clumps_yn: 'No'
 mapping:
   exclude:
-  - <excluded_mapping_row>
+  - excluded_mapping_row
 features:
   co2_target: 5.0
   temp_target: 37.0

@@ -25,6 +25,9 @@ import pandas as pd
 
 from . import corrections
 from .logger import log
+from .names import col as name_of
+from .names import site as site_name
+from .names import value
 
 MODULE = "clean"
 
@@ -104,30 +107,19 @@ def apply_integrity_corrections(
     """The known data-quality fixes, each with how many rows it touched.
 
     These are business corrections someone established against the source
-    systems, not general truths, so they are a table named in config.yaml
-    (``cleaning.corrections``), not code. ``site_b_type_commercial: false`` and
-    ``cleaning.disable`` switch named rules off.
+    systems, not general truths, so they are a table — the Corrections sheet of
+    the vocabulary workbook — not code. ``cleaning.disable`` switches named rules
+    off.
     """
     settings = settings or {}
     log.step(MODULE, "Applying integrity corrections")
-    rules = corrections.load(settings.get("corrections")) if rules is None else rules
-    changes = corrections.apply(
-        phf, rules, corrections.INTEGRITY, _disabled(settings), _reasons(settings)
-    )
+    changes = corrections.apply(phf, rules or [], corrections.INTEGRITY, _disabled(settings))
     log.success(MODULE, f"{len(changes)} integrity corrections applied")
     return changes
 
 
 def _disabled(settings: dict) -> set[str]:
-    disabled = {str(name) for name in settings.get("disable") or []}
-    if not settings.get("site_b_type_commercial", True):
-        disabled.add("site_b_type_commercial")
-    return disabled
-
-
-def _reasons(settings: dict) -> dict[str, str]:
-    reason = settings.get("site_b_type_commercial_reason")
-    return {"site_b_type_commercial": str(reason)} if reason else {}
+    return {str(name) for name in settings.get("disable") or []}
 
 
 # ── 2b. Numeric coercion ──────────────────────────────────────────────────────
@@ -165,11 +157,11 @@ def coerce_numeric(
     censoring = re.compile(r"^\s*(?P<operator>[<>])\s*(?P<value>-?\d+(?:[.,]\d+)?)\s*$")
 
     # Endotoxin is recorded with its unit in the cell.
-    col_endo = "<endotoxin>"
-    for site, df in phf.items():
+    col_endo, unit = name_of("endotoxin"), value("endotoxin_unit")
+    for df in phf.values():
         if col_endo in df.columns:
             df[col_endo] = df[col_endo].apply(
-                lambda x: str(x).replace("<value:endotoxin_unit>", "") if pd.notna(x) else x
+                lambda x: str(x).replace(unit, "") if pd.notna(x) else x
             )
 
     for col in catalog_cols:
@@ -417,12 +409,11 @@ def apply_scale_corrections(
 ) -> list[dict]:
     """Site-specific numeric scale fixes from the corrections table.
 
-    For example, SiteB stores certain cell counts without the 1e6 divisor.
+    For example, a site that stores certain cell counts without the 1e6 divisor.
     """
     settings = settings or {}
     log.step(MODULE, "Applying numeric scale corrections")
-    rules = corrections.load(settings.get("corrections")) if rules is None else rules
-    changes = corrections.apply(phf, rules, corrections.SCALE, _disabled(settings))
+    changes = corrections.apply(phf, rules or [], corrections.SCALE, _disabled(settings))
     log.success(MODULE, f"{len(changes)} scale corrections applied")
     return changes
 
@@ -474,9 +465,10 @@ def fill_yes_no(phf: dict[str, pd.DataFrame], defaults: dict | None = None) -> l
     A blank is unknown. Reading every blank as "No" invents observations — for a
     column recording whether something was seen, it turns "nobody looked" into
     "nothing there". So this fills only the columns ``cleaning.yes_no_defaults``
-    names, in each site's own spelling, and records the count.
+    names — by their vocabulary keys — in each site's own spelling, and records
+    the count.
     """
-    defaults = defaults or {}
+    defaults = {name_of(key): meaning for key, meaning in (defaults or {}).items()}
     if not defaults:
         log.info(MODULE, "No yes/no defaults configured — blanks are left as unknown")
         return []
@@ -519,19 +511,20 @@ def check_categorical_consistency(
     catalog_mapping: dict[str, str],
 ) -> list[dict]:
     """Report categorical columns that have different levels across sites."""
-    log.step(MODULE, "Checking categorical column consistency (SiteA vs SiteB)")
+    a, b = site_name("a"), site_name("b")
+    log.step(MODULE, f"Checking categorical column consistency ({a} vs {b})")
     diffs: list[dict] = []
 
     for col in catalog_cols:
         if catalog_mapping.get(col) != "categorical":
             continue
-        if col not in phf.get("SiteA", pd.DataFrame()).columns:
+        if col not in phf.get(a, pd.DataFrame()).columns:
             continue
-        if col not in phf.get("SiteB", pd.DataFrame()).columns:
+        if col not in phf.get(b, pd.DataFrame()).columns:
             continue
 
-        s1 = set(phf["SiteA"][col].dropna().unique())
-        s2 = set(phf["SiteB"][col].dropna().unique())
+        s1 = set(phf[a][col].dropna().unique())
+        s2 = set(phf[b][col].dropna().unique())
         if s1 != s2:
             diffs.append(
                 {
@@ -543,7 +536,7 @@ def check_categorical_consistency(
             log.warn(
                 MODULE,
                 f"Categorical mismatch: '{col}'",
-                f"SiteA-only: {sorted(s1 - s2)[:5]}  |  SiteB-only: {sorted(s2 - s1)[:5]}",
+                f"{a}-only: {sorted(s1 - s2)[:5]}  |  {b}-only: {sorted(s2 - s1)[:5]}",
             )
 
     if not diffs:
@@ -561,18 +554,19 @@ def run_all(
     catalog_cols: list[str],
     catalog_mapping: dict[str, str],
     settings: dict | None = None,
+    rules: list[corrections.Rule] | None = None,
+    corrections_source: str = "",
 ) -> CleaningReport:
     """Run every cleaning pass in order and return a composite report."""
     settings = settings or {}
-    rules = corrections.load(settings.get("corrections"))
+    rules = rules or []
     report = strip_strings(phf, catalog_cols)
     report.settings = {
         "censored": settings.get("censored", "limit"),
         "censored_flags": bool(settings.get("censored_flags", False)),
         "duration_unit": settings.get("duration_unit", "minutes"),
         "yes_no_defaults": settings.get("yes_no_defaults") or {},
-        "site_b_type_commercial": settings.get("site_b_type_commercial", True),
-        "corrections": str(settings.get("corrections") or corrections.default_path()),
+        "corrections": corrections_source,
         "corrections_rules": len(rules),
         "disabled_corrections": sorted(_disabled(settings)),
     }

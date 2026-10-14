@@ -1,29 +1,29 @@
 # A demo task workspace written by `python -m ml.demo`. Its runs go to runs/.
 config: ../../config.yaml
 task:
-  name: site_b_release
-  question: What does a released SiteB batch look like, next to a discarded one?
+  name: release
+  question: What does an accepted Southbank batch look like, next to a scrapped one?
   seed: 20260917
 cohort:
   sites:
-  - SiteB
+  - Southbank
   filters:
-  - column: <testing_done>
+  - column: Testing complete (Y/N)
     op: equals
     value: Y
     reason: manufacturing and testing finished
 target:
-  column: Disposition
+  column: Outcome
   type: binary
-  positive_class: Released
-  negative_class: Discarded
+  positive_class: Accepted
+  negative_class: Scrapped
 roles:
   id: 'Patient Lot/Batch #'
-  group: <vector_lot>
+  group: Vector lot
 predictors:
   exclude:
-  - column: <oos_type>
-    reason: it is the reason for the disposition
+  - column: Out-of-spec class
+    reason: it is the reason for the outcome
   exclude_by_catalog:
     Available At:
     - Post-release

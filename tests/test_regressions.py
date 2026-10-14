@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import dummy_data  # noqa: E402
+from dummy_data import c, v, vs  # noqa: E402
 from ml import (  # noqa: E402
     cli,
     dataset,
@@ -28,6 +29,7 @@ from ml import (  # noqa: E402
     encode,
     enrich,
     io,
+    names,  # noqa: E402
     package,
     provenance,
     taskconfig,
@@ -47,9 +49,9 @@ def params(**overrides) -> TaskParams:
 def minimal_task(**overrides) -> dict:
     task = {
         "task": {"name": "probe", "seed": 1},
-        "cohort": {"sites": ["SiteA"]},
-        "target": {"column": "<fp_car_pct>"},
-        "roles": {"id": "Patient Lot/Batch #", "group": "<vector_lot>"},
+        "cohort": {"sites": [names.site("a")]},
+        "target": {"column": c("fp_car_pct")},
+        "roles": {"id": "Patient Lot/Batch #", "group": c("vector_lot")},
     }
     for section, values in overrides.items():
         task.setdefault(section, {}).update(values)
@@ -99,8 +101,11 @@ def test_a_task_cannot_read_a_local_batch_table(tmp_path):
         ({"clustering": {"threshold": float("inf")}}, "clustering.threshold"),
         ({"quality": {"min_non_missing": 0}}, "quality.min_non_missing"),
         ({"encoding": {"target_encoding_folds": 1}}, "encoding.target_encoding_folds"),
-        ({"cohort": {"filters": [{"column": "Type", "op": "matches", "value": "x"}]}}, "op"),
-        ({"predictors": {"include": ["<vector_lot>"]}}, "predictors.include"),
+        (
+            {"cohort": {"filters": [{"column": c("batch_type"), "op": "matches", "value": "x"}]}},
+            "op",
+        ),
+        ({"predictors": {"include": [c("vector_lot")]}}, "predictors.include"),
         ({"split": {"folds": 5}}, "(root).split: unknown setting"),
         ({"availability": {"cutoff": "Harvest"}}, "(root).availability: unknown setting"),
         ({"predictors": {"exclude_by_catalog": ["Release"]}}, "predictors.exclude_by_catalog"),
@@ -133,40 +138,42 @@ def probe_spec(**overrides) -> taskconfig.TaskSpec:
 def probe_frame() -> pd.DataFrame:
     return pd.DataFrame(
         {
-            "Site Merged": ["SiteA"] * 6,
+            "Site Merged": [names.site("a")] * 6,
             "Patient Lot/Batch #": [f"B{i}" for i in range(6)],
-            "<vector_lot>": ["LV-1", "LV-2"] * 3,
-            "Type": ["Commercial"] * 6,
-            "<nonconformance>": [
-                "withdrawn",
-                "Withdrawal",
+            c("vector_lot"): ["LV-1", "LV-2"] * 3,
+            c("batch_type"): [v("type_commercial")] * 6,
+            c("nonconformance"): [
+                vs("status_fix")[0],
+                vs("nonconformance_raw")[5],
                 None,
-                "deviation",
-                " WITHDRAWN ",
+                vs("nonconformance_raw")[3],
+                " RECALLED ",
                 None,
             ],
-            "<fp_car_pct>": [30.0, 31.0, 32.0, 33.0, 34.0, 35.0],
+            c("fp_car_pct"): [30.0, 31.0, 32.0, 33.0, 34.0, 35.0],
         }
     )
 
 
 def test_a_filter_whose_column_is_absent_stops_the_task(tmp_path):
     spec = probe_spec(
-        cohort={"filters": [{"column": "Disposition", "op": "equals", "value": "Released"}]}
+        cohort={"filters": [{"column": c("disposition"), "op": "equals", "value": v("released")}]}
     )
-    with pytest.raises(dataset.TaskRefused, match="Disposition"):
+    with pytest.raises(dataset.TaskRefused, match=c("disposition")):
         dataset.select_cohort(probe_frame(), spec, dataset.TaskResult(spec=spec))
 
 
-@pytest.mark.parametrize("spelling", ["withdrawn", "Withdrawal", " WITHDRAWN "])
+@pytest.mark.parametrize(
+    "spelling", [vs("status_fix")[0], vs("nonconformance_raw")[5], " RECALLED "]
+)
 def test_every_spelling_of_a_withdrawal_is_excluded_once_normalised(spelling):
     spec = probe_spec(
         cohort={
             "filters": [
                 {
-                    "column": "<nonconformance>",
+                    "column": c("nonconformance"),
                     "op": "not_in",
-                    "value": ["withdrawal"],
+                    "value": [vs("status_fix")[1]],
                     "normalise": True,
                     "missing": "include",
                 }
@@ -175,7 +182,7 @@ def test_every_spelling_of_a_withdrawal_is_excluded_once_normalised(spelling):
     )
     result = dataset.TaskResult(spec=spec)
     cohort = dataset.select_cohort(probe_frame(), spec, result)
-    assert spelling not in set(cohort["<nonconformance>"].dropna())
+    assert spelling not in set(cohort[c("nonconformance")].dropna())
     assert len(cohort) == 3  # two blanks kept by the missing policy, one deviation
 
 
@@ -185,9 +192,9 @@ def test_a_missing_value_follows_the_declared_policy():
             cohort={
                 "filters": [
                     {
-                        "column": "<nonconformance>",
+                        "column": c("nonconformance"),
                         "op": "not_in",
-                        "value": ["withdrawal"],
+                        "value": [vs("status_fix")[1]],
                         "normalise": True,
                         "missing": policy,
                     }
@@ -216,7 +223,7 @@ def test_a_binary_target_maps_both_classes_whatever_the_balance(values):
 
 def test_a_target_nobody_measured_cannot_become_a_dataset():
     spec = probe_spec()
-    frame = pd.DataFrame({"<fp_car_pct>": [None, None, "not measured"]})
+    frame = pd.DataFrame({c("fp_car_pct"): [None, None, "not measured"]})
     with pytest.raises(dataset.TaskRefused, match="no batch|No batch"):
         dataset.prepare_target(frame, spec, dataset.TaskResult(spec=spec))
 
@@ -316,16 +323,16 @@ def test_a_chronological_fold_never_looks_forward():
 # ---------------------------------------------------------------------------
 def test_the_first_column_of_a_pair_keeps_the_name_and_its_own_values():
     frame = pd.DataFrame({"a": [1], "b": [2]})
-    mapped = io.apply_column_mapping(frame, {"a": "Country", "b": "Country"})
-    assert mapped["Country"].tolist() == [1], "the first source column keeps the plain name"
-    assert mapped["Country_1"].tolist() == [2]
+    mapped = io.apply_column_mapping(frame, {"a": c("country"), "b": c("country")})
+    assert mapped[c("country")].tolist() == [1], "the first source column keeps the plain name"
+    assert mapped[c("country") + "_1"].tolist() == [2]
 
 
 def test_a_suffix_that_is_already_taken_is_not_reused():
-    frame = pd.DataFrame({"a": [1], "b": [2], "Country_1": [3]})
-    mapped = io.apply_column_mapping(frame, {"a": "Country", "b": "Country"})
-    assert list(mapped.columns) == ["Country", "Country_2", "Country_1"]
-    assert mapped["Country_1"].tolist() == [3]
+    frame = pd.DataFrame({"a": [1], "b": [2], c("country") + "_1": [3]})
+    mapped = io.apply_column_mapping(frame, {"a": c("country"), "b": c("country")})
+    assert list(mapped.columns) == [c("country"), c("country") + "_2", c("country") + "_1"]
+    assert mapped[c("country") + "_1"].tolist() == [3]
     assert len(set(mapped.columns)) == mapped.shape[1]
 
 
@@ -333,42 +340,42 @@ def test_a_mapping_that_contradicts_itself_is_refused(tmp_path):
     path = tmp_path / "mapping.xlsx"
     pd.DataFrame(
         {
-            "<map_site_b_name>": ["Weight", "Weight"],
-            "<map_site_a_name>": ["<subject_weight>", "Patient Weight"],
+            c("map_site_b_name"): ["Weight", "Weight"],
+            c("map_site_a_name"): [c("subject_weight"), "Patient Weight"],
         }
     ).to_excel(path, sheet_name="Overall", index=False)
-    with pytest.raises(ValueError, match="two different SiteA names"):
+    with pytest.raises(ValueError, match=f"two different {names.site('a')} names"):
         io.load_site_mapping(str(path))
 
 
 def test_a_lookup_with_two_answers_for_one_batch_is_refused():
     batches = pd.DataFrame({"Patient Lot/Batch #": ["B1", "B2"], "x": [1, 2]})
-    lookup = pd.DataFrame({"Patient Lot/Batch #": ["B1", "B1"], "<media_lot>": ["M1", "M2"]})
+    lookup = pd.DataFrame({"Patient Lot/Batch #": ["B1", "B1"], c("media_lot"): ["M1", "M2"]})
     with pytest.raises(ValueError, match="different records under the same key"):
         enrich._lookup_merge(batches, lookup, "Patient Lot/Batch #", "probe")
 
 
 def test_an_identical_duplicate_lookup_row_does_not_multiply_batches():
     batches = pd.DataFrame({"Patient Lot/Batch #": ["B1", "B2"], "x": [1, 2]})
-    lookup = pd.DataFrame({"Patient Lot/Batch #": ["B1", "B1"], "<media_lot>": ["M1", "M1"]})
+    lookup = pd.DataFrame({"Patient Lot/Batch #": ["B1", "B1"], c("media_lot"): ["M1", "M1"]})
     joined = enrich._lookup_merge(batches, lookup, "Patient Lot/Batch #", "probe")
     assert len(joined) == 2
-    assert joined.loc[joined["Patient Lot/Batch #"] == "B1", "<media_lot>"].tolist() == ["M1"]
+    assert joined.loc[joined["Patient Lot/Batch #"] == "B1", c("media_lot")].tolist() == ["M1"]
 
 
 def test_an_empty_key_matches_nothing():
     batches = pd.DataFrame({"Patient Lot/Batch #": ["B1", None], "x": [1, 2]})
-    lookup = pd.DataFrame({"Patient Lot/Batch #": [None, "B1"], "<media_lot>": ["ghost", "M1"]})
+    lookup = pd.DataFrame({"Patient Lot/Batch #": [None, "B1"], c("media_lot"): ["ghost", "M1"]})
     joined = enrich._lookup_merge(batches, lookup, "Patient Lot/Batch #", "probe")
     assert len(joined) == 2
-    assert "ghost" not in set(joined["<media_lot>"].dropna())
+    assert "ghost" not in set(joined[c("media_lot")].dropna())
 
 
 def test_a_join_key_is_found_by_name_not_by_position():
-    frame = pd.DataFrame({"something else": [1], "<coa_lot>": ["LV-1"]})
-    assert io.join_key(frame, ("<coa_lot>",), "probe") == "<coa_lot>"
+    frame = pd.DataFrame({"something else": [1], c("coa_lot"): ["LV-1"]})
+    assert io.join_key(frame, (c("coa_lot"),), "probe") == c("coa_lot")
     with pytest.raises(ValueError, match="no join key"):
-        io.join_key(frame, ("<vector_lot>",), "probe")
+        io.join_key(frame, (c("vector_lot"),), "probe")
 
 
 # ---------------------------------------------------------------------------
@@ -541,8 +548,8 @@ def test_two_sites_at_different_levels_do_not_make_a_group():
     only because one site runs both of them higher."""
     rng = np.random.default_rng(3)
     n = 40
-    site = pd.Series(["SiteA"] * (n // 2) + ["SiteB"] * (n // 2))
-    offset = np.where(site == "SiteB", 10.0, 0.0)
+    site = pd.Series([names.site("a")] * (n // 2) + [names.site("b")] * (n // 2))
+    offset = np.where(site == names.site("b"), 10.0, 0.0)
     frame = pd.DataFrame({"a": rng.normal(size=n) + offset, "b": rng.normal(size=n) + offset})
     knobs = params(cluster_min_overlap=5, cluster_corr_threshold=0.7)
     assert decorrelate.fit(frame, ["a", "b"], knobs).clusters, "pooled, they look related"
@@ -694,7 +701,9 @@ def test_a_sharepoint_read_is_recorded_by_location_and_content(tmp_path, monkeyp
     from ml import share
 
     config = {
-        "sharepoint": {"phf_site_a": {"path": "<site-a-folder>/phf.xlsm", "drive_id": "DRIVE_X"}},
+        "sharepoint": {
+            "phf_site_a": {"path": "Batch%20records/site_a.xlsm", "drive_id": "DRIVE_X"}
+        },
     }
     frame = pd.DataFrame({"Patient Lot/Batch #": ["A", "B"], "Value": [1.0, 2.0]})
     module = types.ModuleType("io_sharepoint")
@@ -708,7 +717,8 @@ def test_a_sharepoint_read_is_recorded_by_location_and_content(tmp_path, monkeyp
     record = source.record(frame)
 
     assert record.kind == "SharePoint"
-    assert record.location == "SharePoint DRIVE_X: <site-a-folder>/phf.xlsm [<sheet:phf_site_a>]"
+    sheet = names.sheet("phf_site_a")
+    assert record.location == f"SharePoint DRIVE_X: Batch records/site_a.xlsm [{sheet}]"
     assert record.digest == provenance.frame_digest(frame)
     assert record.digest_of == "the table as it was consumed"
     assert not [e for e in cli.log.since(mark) if e.level == "WARN"]

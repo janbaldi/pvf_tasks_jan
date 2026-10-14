@@ -17,6 +17,7 @@ import pandas as pd
 
 from .io import Source, as_source, normalise_key
 from .logger import log
+from .names import col, site, value
 
 MODULE = "enrich"
 
@@ -117,11 +118,11 @@ def add_viability_parameters(
     with DatabricksConnection() as conn:
         df_add = QueryRunner(conn).run(Mapping.from_string(mapping))
 
-    df_add = df_add.rename(columns={"targetbatchnumber": BATCH_KEY})
+    df_add = df_add.rename(columns={col("raw_materials_batch"): BATCH_KEY})
     added = [c for c in df_add.columns if c != BATCH_KEY]
 
-    for site, df in phf.items():
-        phf[site] = _lookup_merge(df, df_add, BATCH_KEY, f"[{site}] Acridine Orange")
+    for name, df in phf.items():
+        phf[name] = _lookup_merge(df, df_add, BATCH_KEY, f"[{name}] Acridine Orange")
 
     absent = [c for c in added if c not in catalog_cols]
     if absent:
@@ -139,31 +140,33 @@ def merge_lv_coa(
     phf: dict[str, pd.DataFrame],
     df_lv_coa: pd.DataFrame,
 ) -> tuple[dict[str, dict], list[str]]:
-    """Join the lentiviral vector certificate of analysis on ``<vector_lot>``.
+    """Join the lentiviral vector certificate of analysis on the vector lot.
 
     Returns the per-site match rate and the columns added. A batch whose vector
     lot has no certificate keeps its row and gets empty CoA columns.
     """
-    log.step(MODULE, "Merging <coa_prefix>data")
+    log.step(MODULE, "Merging the vector certificates")
     coverage: dict[str, dict] = {}
-    added = [c for c in df_lv_coa.columns if c != "<vector_lot>"]
+    lot = col("vector_lot")
+    witness = col("coa_prefix") + col("coa_site_format")
+    added = [c for c in df_lv_coa.columns if c != lot]
 
-    for site, df in phf.items():
-        phf[site] = _lookup_merge(df, df_lv_coa, "<vector_lot>", f"[{site}] LV CoA")
+    for name, df in phf.items():
+        phf[name] = _lookup_merge(df, df_lv_coa, lot, f"[{name}] vector certificates")
 
-        total = len(phf[site])
-        matched = int(phf[site]["<coa_prefix><coa_site_format>"].notna().sum())
-        coverage[site] = {
+        total = len(phf[name])
+        matched = int(phf[name][witness].notna().sum())
+        coverage[name] = {
             "total": total,
             "matched": matched,
             "pct": round(100 * matched / total, 1) if total else 0,
         }
         log.info(
             MODULE,
-            f"[{site}] <coa_prefix>coverage: {matched}/{total} batches ({coverage[site]['pct']}%)",
+            f"[{name}] certificate coverage: {matched}/{total} batches ({coverage[name]['pct']}%)",
         )
 
-    log.success(MODULE, "<coa_prefix>merge complete")
+    log.success(MODULE, "Vector certificate merge complete")
     return coverage, added
 
 
@@ -173,19 +176,19 @@ def merge_raw_materials(
 ) -> list[str]:
     """Join raw material and consumable lot identifiers on the batch number.
 
-    A column the PHF already carries is dropped from the incoming frame rather
+    A column the batch records already carry is dropped from the incoming frame rather
     than joined twice under a suffix.
     """
     log.step(MODULE, "Merging raw materials and consumables")
     added = [c for c in df_raw.columns if c != BATCH_KEY]
 
-    for site, df in phf.items():
+    for name, df in phf.items():
         duplicated = (set(df.columns) & set(df_raw.columns)) - {BATCH_KEY}
-        phf[site] = _lookup_merge(
+        phf[name] = _lookup_merge(
             df,
             df_raw.drop(columns=list(duplicated), errors="ignore"),
             BATCH_KEY,
-            f"[{site}] raw materials",
+            f"[{name}] raw materials",
         )
 
     log.success(MODULE, f"Raw materials merged — {len(added)} identifier columns added")
@@ -198,80 +201,86 @@ def enrich_clinical_sites(
 ) -> tuple[list[str], list[str]]:
     """Give both sites a clinical site the other site would recognise.
 
-    SiteA encodes the site in the patient identifier (``EU-<site>-…``); SiteB
-    records an acronym that the mapping workbooks expand into an institution name.
-    Which workbooks, in which SharePoint folder, is config.yaml's business
-    (``sharepoint.site_maps``).
+    Site A encodes the clinical site in the patient identifier (a prefix, then
+    the site); site B records an acronym that the mapping workbooks expand into
+    an institution name. Which workbooks, in which SharePoint folder, is
+    config.yaml's business (``sharepoint.site_maps``).
 
-    Returns the SiteB acronyms no mapping file covers, and the columns added.
+    Returns site B's acronyms no mapping file covers, and the columns added.
     """
     log.step(MODULE, "Enriching clinical site identifiers")
+    site_id, clinical_site = col("clinical_site_id"), col("clinical_site")
+    acronym, institution = col("site_map_acronym"), col("site_map_institution")
+    prefix = value("patient_id_site_prefix")
 
-    site_a = phf["SiteA"]
-    patient = site_a["<patient_id>"].fillna("Unknown")
-    site_a["<clinical_site_id>"] = patient.map(
-        lambda x: x.split("-")[1] if isinstance(x, str) and x.startswith("EU-") else x
+    first = phf[site("a")]
+    patient = first[col("patient_id")].fillna("Unknown")
+    first[site_id] = patient.map(
+        lambda x: x.split("-")[1] if isinstance(x, str) and x.startswith(prefix) else x
     ).replace("Unknown", pd.NA)
-    log.info(MODULE, "[SiteA] <clinical_site_id> extracted from <patient_id>")
+    log.info(MODULE, f"[{site('a')}] clinical site extracted from the patient identifier")
 
-    site_b = phf["SiteB"]
-    site_b["<clinical_site_id>"] = site_b["<clinical_site>"].copy()
+    second = phf[site("b")]
+    second[site_id] = second[clinical_site].copy()
 
     frames = []
     for number, site_map in enumerate(site_maps, start=1):
         source = as_source(site_map, f"site_map_{number}")
         try:
             mapping = source.read()
-            mapping["Acronym"] = mapping["Acronym"].astype(str)
+            mapping[acronym] = mapping[acronym].astype(str)
             frames.append(mapping)
         except Exception as exc:  # one unreadable mapping file is reported, not fatal
             log.warn(MODULE, f"Could not load mapping file: {source.where} — {exc}")
 
     if not frames:
-        log.warn(MODULE, "No SiteB site mapping files loaded — acronyms unchanged")
-        return [], ["<clinical_site_id>"]
+        log.warn(MODULE, f"No {site('b')} site mapping files loaded — acronyms unchanged")
+        return [], [site_id]
 
     acronyms = (
         pd.concat(frames)
-        .drop_duplicates(["Acronym"], keep="last")
-        .set_index("Acronym")["Institution"]
+        .drop_duplicates([acronym], keep="last")
+        .set_index(acronym)[institution]
         .to_dict()
     )
 
     unmapped: list[str] = []
 
-    def expand(acronym):
-        key = str(acronym).upper()
+    def expand(code):
+        key = str(code).upper()
         if key in acronyms:
             return acronyms[key]
-        unmapped.append(acronym)
-        return acronym
+        unmapped.append(code)
+        return code
 
-    site = site_b["<clinical_site>"].fillna("Unknown")
-    site_b["<clinical_site>"] = site.map(expand).replace("Unknown", pd.NA)
+    recorded = second[clinical_site].fillna("Unknown")
+    second[clinical_site] = recorded.map(expand).replace("Unknown", pd.NA)
 
     unique = sorted({str(x) for x in unmapped})
     if unique:
         log.warn(
             MODULE,
-            f"[SiteB] {len(unique)} clinical site acronyms have no mapping",
+            f"[{site('b')}] {len(unique)} clinical site acronyms have no mapping",
             ", ".join(unique[:20]),
         )
     else:
-        log.success(MODULE, "[SiteB] All clinical site acronyms resolved")
+        log.success(MODULE, f"[{site('b')}] All clinical site acronyms resolved")
 
-    return unique, ["<clinical_site_id>"]
+    return unique, [site_id]
 
 
 def harmonise_countries(phf: dict[str, pd.DataFrame]) -> None:
-    """Spell the SiteB countries the way SiteA spells them.
+    """Spell site B's countries the way site A spells them.
 
     A replacement rather than a lookup, and on the site's own frame rather than
     on the raw one it was loaded from: a lookup empties every country that is not
     in the table, and the raw frame no longer carries the corrections cleaning
-    made — the Israeli clinical site among them.
+    made.
     """
     log.step(MODULE, "Harmonising country names")
-    site_b = phf["SiteB"]
-    site_b["Country"] = site_b["Country"].replace({"<value:country_to_harmonise>": "<value:country_harmonised>"})
+    second = phf[site("b")]
+    country = col("country")
+    second[country] = second[country].replace(
+        {value("country_to_harmonise"): value("country_harmonised")}
+    )
     log.success(MODULE, "Country harmonisation complete")

@@ -19,7 +19,7 @@ from typing import Any
 
 import yaml
 
-from . import io, share
+from . import corrections, io, names, share
 from .features import Params
 from .logger import log
 
@@ -32,6 +32,7 @@ CONFIG_ENV = "ML_CONFIG"
 
 #: Inputs that may be read from SharePoint, by the label they have everywhere else.
 SHAREPOINT_SOURCES = (
+    "vocabulary",
     "catalog",
     "batch_table",
     "phf_site_a",
@@ -61,16 +62,15 @@ REMOVED = {
     "upload": "ml build always writes the batch table to sharepoint.batch_table",
     "sources.location": "every input is read from SharePoint; there is no local option",
     "sources.fallback_to_local": "every input is read from SharePoint; there is no local option",
+    "cleaning.corrections": "the corrections are the Corrections sheet of sharepoint.vocabulary",
 }
 CLEANING_KEYS = (
     "censored",
     "censored_flags",
     "duration_unit",
     "yes_no_defaults",
-    "site_b_type_commercial",
-    "site_b_type_commercial_reason",
-    "corrections",
     "disable",
+    "corrections",  # removed, and refused with what replaced it (REMOVED)
 )
 
 
@@ -122,9 +122,6 @@ def load(path: str | Path) -> dict[str, Any]:
     env = load_env(base)
     config["sharepoint"] = expand_env(config.get("sharepoint"), str(path))
     validate(config, str(path))
-    cleaning = config.get("cleaning") or {}
-    if isinstance(cleaning.get("corrections"), str) and cleaning["corrections"]:
-        cleaning["corrections"] = str(_resolve(cleaning["corrections"], base))
     config["__path__"] = str(path)
     config["__dir__"] = str(base)
     config["__env__"] = env
@@ -260,7 +257,7 @@ def validate(config: dict[str, Any], source: str = "config") -> None:
     _mapping(config.get("lv_coa"), "lv_coa", ("ph_nominal", "osmo_nominal"), errors)
     mapping = _mapping(config.get("mapping"), "mapping", ("exclude",), errors)
     if mapping.get("exclude") is not None and not isinstance(mapping["exclude"], list):
-        errors.append("mapping.exclude: expected a list of SiteB names")
+        errors.append("mapping.exclude: expected a list of vocabulary keys")
 
     if errors:
         raise ConfigError(f"{source} cannot be used:\n  - " + "\n  - ".join(errors))
@@ -277,7 +274,7 @@ def location(config: dict[str, Any], label: str) -> share.Location:
             f"{config.get('__path__', 'config')}: sharepoint.{label} is not set — "
             "every input is read from SharePoint"
         )
-    sheet = entry.get("sheet", io.DEFAULT_SHEETS.get(label, 0))
+    sheet = entry.get("sheet", names.sheet(label, 0))
     return share.Location(str(entry["drive_id"]), str(entry["path"]), sheet)
 
 
@@ -297,13 +294,60 @@ def site_map_sources(config: dict[str, Any]) -> list[io.Source]:
         return []
     folder = str(entry["folder"])
     folder = folder if folder.endswith("/") else folder + "/"
-    sheet = entry.get("sheet", io.DEFAULT_SHEETS["site_maps"])
+    sheet = entry.get("sheet", names.sheet("site_maps", 0))
     return [
         io.Source(
             f"site_map_{number}", share.Location(str(entry["drive_id"]), f"{folder}{name}", sheet)
         )
         for number, name in enumerate(entry.get("files") or [], start=1)
     ]
+
+
+def load_vocabulary(config: dict[str, Any]) -> names.Vocabulary:
+    """Read the vocabulary from SharePoint and make it the one in use.
+
+    Every stage does this first: the code names no column, value, site or sheet
+    itself, so nothing can be read until the vocabulary says what they are.
+    """
+    require(config, ("vocabulary",))
+    where = location(config, "vocabulary").with_sheet(names.NAMES_SHEET)
+    log.step(MODULE, "Loading the vocabulary", f"{where.name}  ·  {where.where}")
+    frame = share.read_excel(where)
+    vocabulary = names.use(names.from_frame(frame, str(where)))
+    log.success(MODULE, f"Vocabulary loaded — {len(frame):,} names")
+    return vocabulary
+
+
+#: Where a task run keeps the vocabulary it ran with, beside its other inputs.
+RUN_VOCABULARY = "vocabulary.xlsx"
+
+
+def task_vocabulary(config: dict[str, Any] | None, copy: Path | None) -> names.Vocabulary:
+    """A task's vocabulary: the run's own copy for a rerun, else SharePoint's."""
+    if copy is None:
+        if not config:
+            raise ConfigError(
+                "The vocabulary is read from SharePoint, and no config.yaml says where: "
+                "pass --config, or name it under config: in task.yaml"
+            )
+        return load_vocabulary(config)
+    path = Path(copy).parent / RUN_VOCABULARY
+    if not path.is_file():
+        raise ConfigError(f"{path} does not exist — the run folder has no vocabulary copy")
+    import pandas as pd
+
+    return names.use(names.from_frame(pd.read_excel(path), str(path)))
+
+
+def load_corrections(config: dict[str, Any]) -> list[corrections.Rule]:
+    """The known data corrections: the Corrections sheet of the vocabulary workbook."""
+    where = location(config, "vocabulary").with_sheet(names.CORRECTIONS_SHEET)
+    try:
+        frame = share.read_excel(where)
+    except Exception as exc:  # a workbook without the sheet has no corrections to apply
+        log.warn(MODULE, f"No corrections read from {where}: {exc}")
+        return []
+    return corrections.from_frame(frame, str(where))
 
 
 def catalog_folder(config: dict[str, Any]) -> share.Location:

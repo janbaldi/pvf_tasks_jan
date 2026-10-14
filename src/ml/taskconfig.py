@@ -47,14 +47,6 @@ IMPUTATION = ("none", "median")
 
 CORRELATION_METHODS = ("spearman", "pearson")
 
-#: Status spellings that mean the same thing, flattened before a filter runs.
-STATUS_ALIASES = {
-    "withdrawn": "withdrawal",
-    "withdrawl": "withdrawal",
-    "terminated": "termination",
-}
-
-
 #: The file that makes a folder a task workspace.
 TASK_FILE = "task.yaml"
 

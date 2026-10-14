@@ -53,14 +53,15 @@ def normalise(name: object) -> str:
 
 
 def _unmapped_name(column: str, mapping: dict[str, str]) -> str:
-    """The SiteA name a SiteB column maps to, or the column itself."""
+    """The site A name a site B column maps to, or the column itself."""
     return mapping.get(normalise(column), column)
 
 
 def find_new_parameters(
     catalog_cols: list[str],
     sources: dict[str, pd.DataFrame],
-    site_b_mapping: dict[str, str] | None = None,
+    site_mapping: dict[str, str] | None = None,
+    mapped: tuple[str, ...] = (),
 ) -> CatalogReport:
     """Compare every source's columns against the catalog's parameters.
 
@@ -69,12 +70,13 @@ def find_new_parameters(
     catalog_cols
         The catalog parameter names.
     sources
-        ``{label: frame}``, one entry per source system. A label containing
-        "SiteB" is matched through ``site_b_mapping`` first, because SiteB's
-        own name for a parameter is not the name the catalog holds.
-    site_b_mapping
-        ``{site_b name: site_a name}``, as the parameter requirements file gives
-        it. A SiteB column with no mapping is compared under its own name.
+        ``{label: frame}``, one entry per source system.
+    site_mapping
+        ``{site B name: site A name}``, as the parameter mapping workbook gives it.
+    mapped
+        The labels whose columns are matched through ``site_mapping`` first,
+        because that site's own name for a parameter is not the name the catalog
+        holds. A column with no mapping is compared under its own name.
 
     Returns
     -------
@@ -84,7 +86,7 @@ def find_new_parameters(
     """
     log.step(MODULE, "Comparing source parameters against the catalog")
     known = {normalise(c) for c in catalog_cols}
-    mapping = {normalise(k): v for k, v in (site_b_mapping or {}).items()}
+    mapping = {normalise(k): v for k, v in (site_mapping or {}).items()}
 
     report = CatalogReport(catalog_parameters=len(catalog_cols))
     seen: set[str] = set()
@@ -99,7 +101,7 @@ def find_new_parameters(
         new: list[str] = []
         for column in frame.columns.astype(str):
             name = column
-            if "SiteB" in label:
+            if label in mapped:
                 name = _unmapped_name(column, mapping)
             elif "Power Query" in label or "Investigations" in label:
                 # The query tool wraps the parameter name in its own syntax.

@@ -31,12 +31,12 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from . import decorrelate, encode, features
+from . import decorrelate, encode, features, names
 from . import missingness as missing_analysis
 from .clean import CENSORED_SUFFIX
 from .encode import Record, TaskParams, sanitise
 from .logger import log
-from .taskconfig import STATUS_ALIASES, TaskSpec
+from .taskconfig import TaskSpec
 
 MODULE = "dataset"
 
@@ -146,7 +146,7 @@ def normalise_status(series: pd.Series) -> pd.Series:
     against — so the audit trail still shows what the source actually said.
     """
     text = series.astype("string").str.strip().str.lower().str.replace(r"\s+", " ", regex=True)
-    return text.replace(STATUS_ALIASES)
+    return text.replace(status_aliases())
 
 
 def _matches(values: pd.Series, rule) -> pd.Series:
@@ -177,13 +177,20 @@ def _comparable(value: Any, rule) -> Any:
     """A YAML value in the same shape as the values it is compared against.
 
     Only a filter that asked for normalisation gets its own values flattened, so
-    a rule written ``Withdrawal`` matches a batch recorded as ``withdrawn``
-    without every other rule quietly becoming case-insensitive too.
+    a rule matches a status however the site spells it (the vocabulary's
+    ``status_aliases``) without every other rule quietly becoming
+    case-insensitive too.
     """
     if not rule.normalise:
         return value
     text = str(value).strip().lower()
-    return STATUS_ALIASES.get(text, text)
+    return status_aliases().get(text, text)
+
+
+def status_aliases() -> dict[str, str]:
+    """Status spellings that mean the same thing, from the vocabulary: ``alias|canonical``."""
+    pairs = (entry.split("|", 1) for entry in names.values("status_aliases") if "|" in entry)
+    return {alias.strip().lower(): canonical.strip().lower() for alias, canonical in pairs}
 
 
 def select_cohort(batch_table: pd.DataFrame, spec: TaskSpec, result: TaskResult) -> pd.DataFrame:
@@ -423,7 +430,7 @@ def lineage(names: list[str] | tuple[str, ...] = ()) -> dict[str, list[tuple[str
     table.update(
         {
             name: [(source,) for source in sources]
-            for name, sources in features.DERIVED_SOURCES.items()
+            for name, sources in features.derived_sources().items()
         }
     )
     for name in names:
@@ -539,7 +546,7 @@ def candidate_predictors(
             refuse(
                 parameter, f"computed from the target: {descendants[parameter]}", "target lineage"
             )
-        elif parameter in features.SITE_RELATIVE:
+        elif parameter in features.site_relative():
             refuse(
                 parameter,
                 "standardised within its own site's batches, so its value depends on which "

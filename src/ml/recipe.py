@@ -14,7 +14,7 @@ things can be done with it here:
       from sklearn.pipeline import make_pipeline
       from ml.recipe import TaskTransformer, task_data
 
-      X, y, groups, spec = task_data("tasks/site_a_car_expression")
+      X, y, groups, spec = task_data("tasks/expression")
       model = make_pipeline(TaskTransformer(spec), SimpleImputer(), StandardScaler(), Ridge())
       cross_val_score(model, X, y, groups=groups, cv=GroupKFold(5))
 """
@@ -142,6 +142,7 @@ def task_catalog(spec: taskconfig.TaskSpec, config: dict | None = None) -> pd.Da
     if key not in _catalogs:
         if spec.catalog is None:
             config = config or _task_config(spec.source)
+        workspace.task_vocabulary(config, spec.catalog)
         _catalogs[key] = io.read_catalog(workspace.table_source(config, "catalog", spec.catalog))
     return _catalogs[key]
 
@@ -157,6 +158,7 @@ def task_data(
     spec = taskconfig.load(task)
     if config is None and spec.batch_table is None:
         config = _task_config(task)
+    workspace.task_vocabulary(config, spec.batch_table)
     batch_table = io.load_batch_table(
         workspace.table_source(config, "batch_table", spec.batch_table)
     )

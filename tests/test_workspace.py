@@ -21,13 +21,17 @@ import yaml
 
 import dummy_data
 from conftest import EXPLORATORY, PREDICTIVE, ROOT, artifact, csv, shared
-from ml import cli, corrections, dataset, encode, manifest, recipe, scaffold, taskconfig
+from dummy_data import c, v
+from ml import cli, corrections, dataset, encode, manifest, names, recipe, scaffold, taskconfig
 from ml import config as workspace
 
 CONFIG_TEXT = (ROOT / "config.yaml").read_text(encoding="utf-8")
 
 #: Made-up SharePoint locations for the shipped config's ${NAME} placeholders.
 SHAREPOINT_ENV = {
+    "SHAREPOINT_DRIVE_A": "DRIVE_FOR_A",
+    "SHAREPOINT_DRIVE_B": "DRIVE_FOR_B",
+    "SHAREPOINT_VOCABULARY": "Team%20Site/Data/private/vocabulary.xlsx",
     "SHAREPOINT_CATALOG": "Team%20Site/Data/catalog/catalog.xlsx",
     "SHAREPOINT_BATCH_TABLE": "Team%20Site/Data/batch_data/batch_data.xlsx",
     "SHAREPOINT_PHF_SITE_A": "Batch data/site_a.xlsm",
@@ -59,6 +63,7 @@ def test_the_package_holds_no_sharepoint_address():
     # Every SharePoint location in config.yaml is a ${NAME} filled in from .env.
     sharepoint = yaml.safe_load(CONFIG_TEXT)["sharepoint"]
     values = [entry["path"] for label, entry in sharepoint.items() if label != "site_maps"]
+    values += [entry["drive_id"] for entry in sharepoint.values()]
     values += [sharepoint["site_maps"]["folder"], sharepoint["site_maps"]["files"]]
     assert all(re.fullmatch(r"\$\{SHAREPOINT_[A-Z_]+\}", value) for value in values), values
     # .env.example names every variable and gives none of their values.
@@ -92,7 +97,8 @@ def test_the_shipped_config_is_a_valid_config():
     assert workspace.location(config, "batch_table").name == "batch_data.xlsx"
     assert workspace.catalog_folder(config).path.endswith("/Data/catalog/")
     assert workspace.batch_table_folder(config).path.endswith("/Data/batch_data/")
-    assert len(corrections.load((config.get("cleaning") or {}).get("corrections"))) > 5
+    # It names columns by key only, and the keys exist.
+    assert cli._unknown_keys(config) == []
 
 
 def _fake_io_sharepoint(monkeypatch) -> list:
@@ -120,8 +126,8 @@ def test_sharepoint_locations_come_from_the_config(tmp_path, monkeypatch):
             "read",
             {
                 "sharepoint_path": "General/Batch Data/site_b.xlsx",
-                "sheet_name": "<sheet:phf_site_a>",
-                "drive_id": "DRIVE_ID_SITE_B",
+                "sheet_name": names.sheet("phf_site_b"),
+                "drive_id": "DRIVE_FOR_B",
             },
         )
     ]
@@ -141,7 +147,7 @@ def test_outputs_are_uploaded_into_the_folder_of_their_stage(tmp_path, monkeypat
     [(what, where)] = share.upload({"report": report}, workspace.batch_table_folder(config))
     assert what == "report" and where.name == "build_report.html"
     assert calls[0][1]["sharepoint_target_path"].endswith("/Data/batch_data/")
-    assert calls[0][1]["drive_id"] == "DRIVE_ID_SITE_A"
+    assert calls[0][1]["drive_id"] == "DRIVE_FOR_A"
     assert "Team Site/Data/batch_data/" in where.where, "shown decoded, as a person reads it"
 
 
@@ -211,7 +217,7 @@ def test_the_config_is_found_above_the_working_directory(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 def test_a_new_task_is_a_workspace_that_reads_the_configured_batch_table(built, tmp_path):
     folder = tmp_path / "analyses" / "my_question"
-    path = scaffold.init(folder, "<fp_car_pct>", config=built["config_path"])
+    path = scaffold.init(folder, c("fp_car_pct"), config=built["config_path"])
     assert path == folder.resolve() / "task.yaml"
     spec = taskconfig.load(folder)
     assert spec.name == "my_question"
@@ -247,7 +253,7 @@ def test_inside_a_workspace_no_task_needs_naming(built, monkeypatch, caplog):
     monkeypatch.delenv(workspace.CONFIG_ENV, raising=False)
     monkeypatch.chdir(built["directory"] / dummy_data.TASK_FILES[0])
     assert cli.main(["validate"]) == 0
-    assert "Task 'site_a_car_expression' is valid" in caplog.text
+    assert "Task 'expression' is valid" in caplog.text
 
 
 def test_a_run_carries_its_inputs_and_can_be_redone_from_its_folder_alone(built):
@@ -357,25 +363,47 @@ def test_a_category_column_the_catalog_does_not_have_is_refused():
 # Corrections are data
 # ---------------------------------------------------------------------------
 def test_a_correction_rule_can_be_switched_off(tmp_path):
-    frame = {"SiteB": pd.DataFrame({"Type": ["Clinical", None]}), "SiteA": pd.DataFrame()}
-    rules = corrections.load(None)
+    frame = {
+        names.site("b"): pd.DataFrame({c("batch_type"): [v("type_clinical"), None]}),
+        names.site("a"): pd.DataFrame(),
+    }
+    rules = dummy_data.demo_corrections()
     changes = corrections.apply(frame, rules, corrections.INTEGRITY)
-    assert set(frame["SiteB"]["Type"]) == {"Commercial"}
-    assert next(c for c in changes if c["column"] == "Type")["rows"] == 2
+    assert set(frame[names.site("b")][c("batch_type")]) == {v("type_commercial")}
+    assert next(ch for ch in changes if ch["column"] == c("batch_type"))["rows"] == 2
 
-    frame = {"SiteB": pd.DataFrame({"Type": ["Clinical"]}), "SiteA": pd.DataFrame()}
-    corrections.apply(frame, rules, corrections.INTEGRITY, disabled={"site_b_type_commercial"})
-    assert frame["SiteB"]["Type"].tolist() == ["Clinical"]
+    frame = {
+        names.site("b"): pd.DataFrame({c("batch_type"): [v("type_clinical")]}),
+        names.site("a"): pd.DataFrame(),
+    }
+    corrections.apply(frame, rules, corrections.INTEGRITY, disabled={"site_b_batch_type"})
+    assert frame[names.site("b")][c("batch_type")].tolist() == [v("type_clinical")]
 
 
-def test_a_broken_corrections_table_names_the_rule(tmp_path):
-    path = tmp_path / "corrections.yaml"
-    path.write_text(
-        yaml.safe_dump({"corrections": [{"site": "SiteA", "column": "x", "divide_by": 0}]}),
-        encoding="utf-8",
+def test_a_broken_corrections_table_names_the_rule():
+    table = pd.DataFrame(
+        [
+            {
+                "Name": "scale",
+                "Site": names.site("a"),
+                "Column": "x",
+                "Action": "divide_by",
+                "New": 0,
+            },
+            {"Name": "odd", "Site": names.site("a"), "Column": "y", "Action": "rename"},
+        ]
     )
-    with pytest.raises(corrections.CorrectionsError, match=r"corrections\[0\]\.divide_by"):
-        corrections.load(path)
+    with pytest.raises(corrections.CorrectionsError) as raised:
+        corrections.from_frame(table, "the sheet")
+    assert "the sheet row 2: divide_by needs a non-zero number" in str(raised.value)
+    assert "row 3: Action 'rename' is not one of" in str(raised.value)
+
+
+def test_corrections_survive_the_round_trip_through_their_sheet(tmp_path):
+    rules = dummy_data.demo_corrections()
+    path = tmp_path / "vocabulary.xlsx"
+    corrections.to_frame(rules).to_excel(path, index=False)
+    assert corrections.from_frame(pd.read_excel(path)) == rules
 
 
 # ---------------------------------------------------------------------------

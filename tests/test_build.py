@@ -8,8 +8,9 @@ blocked, and the catalog gap in both directions.
 import pandas as pd
 
 import dummy_data
-from conftest import facts, figures, site_a, site_b, row_named, rows_naming, section, tables
-from ml import stlite
+from conftest import facts, figures, row_named, rows_naming, section, site_a, site_b, tables
+from dummy_data import c, cs, v, vs
+from ml import names, stlite
 
 
 # ---------------------------------------------------------------------------
@@ -18,12 +19,12 @@ from ml import stlite
 def test_both_sites_reach_the_batch_table_under_one_set_of_names(built):
     batch_table = built["batch_table"]
     assert len(batch_table) == dummy_data.SITE_A_BATCHES + dummy_data.SITE_B_BATCHES
-    assert set(batch_table["Site Merged"]) == {"SiteA", "SiteB"}
-    # SiteB records these under its own names; the mapping file renames them.
-    for renamed in dummy_data.SITE_B_NAMES:
+    assert set(batch_table["Site Merged"]) == {names.site("a"), names.site("b")}
+    # Site B records these under its own names; the mapping file renames them.
+    for renamed in dummy_data.site_b_names():
         assert site_b(batch_table)[renamed].notna().all(), renamed
-    for site_b_name in dummy_data.SITE_B_NAMES.values():
-        assert site_b_name not in batch_table.columns
+    for own_name in dummy_data.site_b_names().values():
+        assert own_name not in batch_table.columns
 
 
 def test_two_columns_claiming_one_name_are_both_kept_with_their_own_values(built):
@@ -34,18 +35,18 @@ def test_two_columns_claiming_one_name_are_both_kept_with_their_own_values(built
     plain one, which no test of column presence can see.
     """
     batch_table = built["batch_table"]
-    assert "Country_1" in batch_table.columns
+    assert c("country") + "_1" in batch_table.columns
     rows = site_b(batch_table)
-    # 'Country' was SiteB's own column, harmonised to the SiteA spelling.
-    assert set(rows["Country"].dropna()) <= {"<value:country_harmonised>", "Israel"}
-    # '<site_b_country>' mapped onto the taken name and kept its own values.
-    assert set(rows["Country_1"].dropna()) == {"USA"}
+    # The country was site B's own column, harmonised to site A's spelling.
+    assert set(rows[c("country")].dropna()) <= {v("country_harmonised"), v("foreign_country")}
+    # Site B's second country column mapped onto the taken name and kept its own values.
+    assert set(rows[c("country") + "_1"].dropna()) == {v("site_b_country_short")}
 
 
 def test_the_supplement_reaches_the_site_it_belongs_to(built):
     batch_table = built["batch_table"]
-    assert site_b(batch_table)["<prior_lines>"].notna().all()
-    assert site_a(batch_table)["<prior_lines>"].isna().all()
+    assert site_b(batch_table)[c("prior_lines")].notna().all()
+    assert site_a(batch_table)[c("prior_lines")].isna().all()
 
 
 # ---------------------------------------------------------------------------
@@ -53,34 +54,35 @@ def test_the_supplement_reaches_the_site_it_belongs_to(built):
 # ---------------------------------------------------------------------------
 def test_cleaning_corrects_what_the_sources_got_wrong(built):
     batch_table = built["batch_table"]
-    assert set(site_b(batch_table)["Type"]) == {"Commercial"}
-    assert set(site_a(batch_table)["Mycoplasma"]) == {"<value:mycoplasma_clean>"}
-    # The correction is SiteB's; SiteA's own spelling is left alone.
-    assert "withdrawn" not in set(site_b(batch_table)["<nonconformance>"].dropna())
-    assert "withdrawal" in set(site_b(batch_table)["<nonconformance>"].dropna())
+    assert set(site_b(batch_table)[c("batch_type")]) == {v("type_commercial")}
+    assert set(site_a(batch_table)[c("mycoplasma")]) == {v("mycoplasma_clean")}
+    # The correction is site B's; site A's own spelling is left alone.
+    assert vs("status_fix")[0] not in set(site_b(batch_table)[c("nonconformance")].dropna())
+    assert vs("status_fix")[1] in set(site_b(batch_table)[c("nonconformance")].dropna())
     # A clump count that is really a mangled date.
-    assert "<value:mangled_count>" not in set(batch_table["<clumps_mix_count>"].astype(str))
+    assert v("mangled_count") not in set(batch_table[c("clumps_mix_count")].astype(str))
 
 
 def test_text_is_stripped_and_blanks_become_missing(built):
-    sites = set(built["batch_table"]["<clinical_site>"].dropna())
-    assert "UZ Leuven" in sites and "UZ Leuven\xa0" not in sites
-    assert "AZ Sint-Jan" in sites and "<value:clinical_sites_a>" not in sites
+    sites = set(built["batch_table"][c("clinical_site")].dropna())
+    raw = vs("clinical_sites_a")
+    assert raw[1].replace("\xa0", "") in sites and raw[1] not in sites
+    assert raw[2].strip() in sites and raw[2] not in sites
     assert "" not in sites
 
 
 def test_values_are_coerced_to_the_type_the_catalog_declares(built):
     batch_table = built["batch_table"]
-    # "<0.5<value:endotoxin_unit>" survives as a number, not as text.
-    assert pd.api.types.is_numeric_dtype(batch_table["<endotoxin>"])
-    assert batch_table["<endotoxin>"].notna().any()
+    # A censored "<0.5" with its unit survives as a number, not as text.
+    assert pd.api.types.is_numeric_dtype(batch_table[c("endotoxin")])
+    assert batch_table[c("endotoxin")].notna().any()
     # A duration written as HH:MM becomes minutes.
-    contact = batch_table["<contact_time>"]
+    contact = batch_table[c("contact_time")]
     assert pd.api.types.is_numeric_dtype(contact) and contact.max() < 24 * 60
     # A ratio keeps the side that carries the number.
-    assert not batch_table["<pt_cd4_cd8_ratio>"].astype(str).str.contains(":").any()
+    assert not batch_table[c("pt_cd4_cd8_ratio")].astype(str).str.contains(":").any()
     # Text in a numeric column is dropped rather than carried.
-    assert batch_table["<recovery>"].isna().sum() == 1
+    assert batch_table[c("recovery")].isna().sum() == 1
 
 
 def test_the_report_names_every_value_it_could_not_parse(built):
@@ -93,8 +95,8 @@ def test_the_report_names_every_value_it_could_not_parse(built):
 
 def test_yes_no_blanks_are_filled_in_each_site_own_spelling(built):
     batch_table = built["batch_table"]
-    assert site_a(batch_table)["<pre_activation_clumps_yn>"].notna().all()
-    assert set(site_b(batch_table)["<pre_activation_clumps_yn>"]) <= {"Y", "N"}
+    assert site_a(batch_table)[c("pre_activation_clumps_yn")].notna().all()
+    assert set(site_b(batch_table)[c("pre_activation_clumps_yn")]) <= {"Y", "N"}
 
 
 # ---------------------------------------------------------------------------
@@ -102,32 +104,35 @@ def test_yes_no_blanks_are_filled_in_each_site_own_spelling(built):
 # ---------------------------------------------------------------------------
 def test_vector_certificates_join_where_there_is_one(built):
     batch_table = built["batch_table"]
-    no_certificate = batch_table["<vector_lot>"] == dummy_data.LOT_WITHOUT_COA
+    no_certificate = batch_table[c("vector_lot")] == dummy_data.LOT_WITHOUT_COA
     assert no_certificate.any()
-    assert batch_table.loc[no_certificate, "<coa_prefix><coa_site_format>"].isna().all()
-    assert batch_table.loc[~no_certificate, "<coa_prefix><coa_site_format>"].notna().all()
+    assert batch_table.loc[no_certificate, c("coa_prefix") + c("coa_site_format")].isna().all()
+    assert batch_table.loc[~no_certificate, c("coa_prefix") + c("coa_site_format")].notna().all()
     # European-locale text became numbers, and a below-LOQ impurity was flagged.
-    assert pd.api.types.is_numeric_dtype(batch_table["<coa_prefix><coa_titer>"])
-    assert "<coa_prefix>HCP below LOQ" in batch_table.columns
-    assert "<coa_prefix>pH Abs Deviation" in batch_table.columns
+    assert pd.api.types.is_numeric_dtype(batch_table[c("coa_prefix") + c("coa_titer")])
+    assert c("coa_prefix") + cs("coa_impurities")[0] + " below LOQ" in batch_table.columns
+    assert f"{c('coa_prefix')}{c('coa_ph')} Abs Deviation" in batch_table.columns
 
 
 def test_raw_materials_and_clinical_sites_are_resolved(built):
     batch_table = built["batch_table"]
-    assert batch_table["<media_lot>"].notna().any()
-    assert "<value:institutions_second>" in set(batch_table["<clinical_site>"])
-    assert "<value:institutions_second>" in set(batch_table["<clinical_site>"])
+    assert batch_table[c("media_lot")].notna().any()
+    assert vs("institutions_second")[1] in set(batch_table[c("clinical_site")])
+    assert vs("institutions_second")[0] in set(batch_table[c("clinical_site")])
     # An acronym no mapping file covers stays as it is, and is reported.
-    assert dummy_data.UNMAPPED_ACRONYM in set(batch_table["<clinical_site>"])
+    assert dummy_data.UNMAPPED_ACRONYM in set(batch_table[c("clinical_site")])
     assert rows_naming(built["payloads"]["build"], dummy_data.UNMAPPED_ACRONYM)
-    assert site_a(batch_table)["<clinical_site_id>"].notna().all()
+    assert site_a(batch_table)[c("clinical_site_id")].notna().all()
 
 
 def test_the_country_correction_survives_harmonisation(built):
     batch_table = built["batch_table"]
-    assert "Israel" in set(site_b(batch_table)["Country"])
-    assert set(site_b(batch_table)["Country"]) <= {"Israel", "<value:country_harmonised>"}
-    assert set(site_a(batch_table)["Country"]) == {"Belgium", "Netherlands"}
+    assert v("foreign_country") in set(site_b(batch_table)[c("country")])
+    assert set(site_b(batch_table)[c("country")]) <= {
+        v("foreign_country"),
+        v("country_harmonised"),
+    }
+    assert set(site_a(batch_table)[c("country")]) == {vs("countries_a")[0], vs("countries_a")[1]}
 
 
 # ---------------------------------------------------------------------------
@@ -135,32 +140,32 @@ def test_the_country_correction_survives_harmonisation(built):
 # ---------------------------------------------------------------------------
 def test_features_are_computed_including_ones_built_on_other_features(built):
     batch_table = built["batch_table"]
-    assert set(batch_table["<f_growth_profile>"].dropna()) <= {"undergrowth", "normal", "overgrowth"}
-    assert batch_table["<f_harvest_lactate_norm>"].notna().any()
+    assert set(batch_table[c("f_growth_profile")].dropna()) <= set(vs("growth_profile_classes"))
+    assert batch_table[c("f_harvest_lactate_norm")].notna().any()
     # MOI needs the titer from the certificate, so this proves the join fed it.
-    assert batch_table["<f_moi_pool>"].notna().any()
+    assert batch_table[c("f_moi_pool")].notna().any()
     # The slope has two of its three days at both sites, and is computed anyway.
-    assert batch_table["<f_glucose_slope>"].notna().any()
+    assert batch_table[c("f_glucose_slope")].notna().any()
 
 
 def test_a_feature_missing_an_input_is_reported_and_not_invented(built):
     batch_table, payload = built["batch_table"], built["payloads"]["build"]
-    assert "<f_log_pt_cd4_cd8>" not in batch_table.columns
-    blocked = rows_naming(payload, "<f_log_pt_cd4_cd8>")
-    assert any(dummy_data.BLOCKED_INPUT in str(row) for row in blocked)
-    # SiteB alone lacks harvest glucose, so the gap is reported for one site.
+    assert c("f_log_pt_cd4_cd8") not in batch_table.columns
+    blocked = rows_naming(payload, c("f_log_pt_cd4_cd8"))
+    assert any(dummy_data.blocked_input() in str(row) for row in blocked)
+    # Site B alone lacks harvest glucose, so the gap is reported for one site.
     per_site = [
         row
-        for row in rows_naming(payload, "<f_glucose_per_cell_3>")
+        for row in rows_naming(payload, cs("f_glucose_per_cell")[2])
         if any(str(cell).startswith("missing:") for cell in row)
     ]
     assert per_site
-    assert all(any("SiteB" in str(cell) for cell in row) for row in per_site)
-    assert batch_table["<f_glucose_per_cell_3>"].notna().any()  # SiteA still has it
+    assert all(any(names.site("b") in str(cell) for cell in row) for row in per_site)
+    assert batch_table[cs("f_glucose_per_cell")[2]].notna().any()  # site A still has it
 
 
 def test_a_feature_the_catalog_does_not_list_is_reported_and_not_created(built):
-    for name in dummy_data.UNLISTED_FEATURES:
+    for name in dummy_data.unlisted_features():
         assert name not in built["batch_table"].columns
         assert rows_naming(built["payloads"]["build"], name), name
 
@@ -183,31 +188,31 @@ def test_the_report_lists_catalog_parameters_the_batch_table_does_not_have(built
     coverage = section(built["payloads"]["build"], "catalog-coverage")
     missing = coverage["blocks"][0]
     names = {row[0] for row in missing["rows"]}
-    for orphan in dummy_data.ORPHAN_PARAMETERS:
+    for orphan in dummy_data.orphan_parameters():
         assert orphan in names
         assert "no source supplies it" in str(
             dict(zip(missing["headers"], row_named(missing, orphan)))
         )
     # A blocked feature is a different kind of gap, and says so.
-    assert "<f_log_pt_cd4_cd8>" in names
-    assert "blocked" in str(row_named(missing, "<f_log_pt_cd4_cd8>"))
+    assert c("f_log_pt_cd4_cd8") in names
+    assert "blocked" in str(row_named(missing, c("f_log_pt_cd4_cd8")))
 
 
 def test_the_inventory_says_where_every_parameter_came_from(built):
     inventory = section(built["payloads"]["build"], "inventory")["blocks"][0]
     origins = {row[0]: row[1] for row in inventory["rows"]}
-    assert origins["<f_growth_profile>"].startswith("Derived")
-    assert origins["<coa_prefix><coa_titer>"] == "Vector certificate of analysis"
-    assert origins["<media_lot>"] == "Raw materials and consumables"
+    assert origins[c("f_growth_profile")].startswith("Derived")
+    assert origins[c("coa_prefix") + c("coa_titer")] == "Vector certificate of analysis"
+    assert origins[c("media_lot")] == "Raw materials and consumables"
     assert origins["Site Merged"] == "Merge"
-    assert origins["<site_a_comment>"] == "SiteA PHF only"
+    assert origins[c("site_a_comment")] == f"{names.site('a')} batch records only"
     assert len(origins) == built["batch_table"].shape[1]
 
 
 def test_columns_the_catalog_does_not_list_are_reported_too(built):
-    names = [row[0] for row in rows_naming(built["payloads"]["build"], "<site_a_comment>")]
-    assert "<site_a_comment>" in names
-    assert rows_naming(built["payloads"]["build"], "<site_b_comment>")
+    names = [row[0] for row in rows_naming(built["payloads"]["build"], c("site_a_comment"))]
+    assert c("site_a_comment") in names
+    assert rows_naming(built["payloads"]["build"], c("site_b_comment"))
 
 
 def test_the_report_is_one_file_with_its_provenance_in_it(built):

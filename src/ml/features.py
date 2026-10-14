@@ -7,9 +7,12 @@ here, in a single ordered registry.
 
 One entry per feature. To add one, append a :class:`Feature` — no other file
 changes. Entries run in list order, so a feature may require a column an earlier
-entry produced, which is how ``<f_harvest_lactate_norm>`` reaches
-``<f_growth_profile>`` and ``<f_lactate_per_cell_1>`` reaches the D6-D10 slope without a
+entry produced, which is how the normalised harvest lactate reaches the growth
+profile and the per-cell metabolite readings reach their D6-D10 slope without a
 dependency graph.
+
+No column is named here: every name is a key (``col("vector_titer")``) that the
+vocabulary resolves (:mod:`ml.names`), and so are the feature names themselves.
 
 A feature is computed only when its name is a catalog parameter. A feature that is
 not in the catalog is reported, not created: the catalog is the schema, and a column the
@@ -28,6 +31,7 @@ import numpy as np
 import pandas as pd
 
 from .logger import log
+from .names import col, cols, values
 
 MODULE = "features"
 
@@ -228,44 +232,38 @@ def process_day_of(column: str) -> str:
 # ---------------------------------------------------------------------------
 # Column names used by more than one feature
 # ---------------------------------------------------------------------------
-TITER = ("<coa_prefix><coa_titer>", "<vector_titer>")
-VOL_A = "<vector_volume_a>"
-VOL_B = "<vector_volume_b>"
-CELLS_A = "<cells_seeded_a>"
-CELLS_B = "<cells_seeded_b>"
-CELLS_AVAILABLE = "<cells_available>"
-VSVG_CELLS = "<vsvg_cells>"
-GREX_COUNT = "<vessel_count>"
-CLUMPS_PRE_COUNT = "<clumps_pre_count>"
-CLUMPS_PRE_SIZE = "<clumps_pre_size>"
-CLUMPS_POST_COUNT = "<clumps_post_count>"
-CLUMPS_POST_SIZE = "<clumps_post_size>"
-CLUMPS_MIX_COUNT = "<clumps_mix_count>"
-CLUMPS_MIX_SIZE = "<clumps_mix_size>"
-CLUMP_BAGS = tuple(f"Day 10 Clump Present Bag {i}" for i in range(1, 7))
-IMPURITIES = ("<coa_prefix>HCP", "<coa_prefix>pDNA", "<coa_prefix>cDNA", "<coa_prefix><coa_impurities_4>", "<coa_prefix><coa_impurities_5>")
-GLUCOSE_PER_E6 = ("<f_glucose_per_cell_1>", "<f_glucose_per_cell_2>", "<f_glucose_per_cell_3>")
-LACTATE_PER_E6 = ("<f_lactate_per_cell_1>", "<f_lactate_per_cell_2>", "<f_lactate_per_cell_3>")
+def _coa(key: str) -> str:
+    """A certificate column as the batch table carries it, with its prefix."""
+    return col("coa_prefix") + col(key)
+
+
+def _titer() -> tuple[str, str]:
+    """The measured vector titer: the certificate's, else the batch record's."""
+    return (_coa("coa_titer"), col("vector_titer"))
+
+
+def _impurities() -> tuple[str, ...]:
+    return tuple(col("coa_prefix") + name for name in cols("coa_impurities"))
+
+
 METABOLITE_DAYS = (6.0, 8.0, 10.0)
 
 
 def _pooled_vector_volume(df: pd.DataFrame) -> pd.Series:
-    return _row_sum(df, (VOL_A, VOL_B))
+    return _row_sum(df, (col("vector_volume_a"), col("vector_volume_b")))
 
 
 def _pooled_seeded_cells(df: pd.DataFrame) -> pd.Series:
     """Cells the vessels were seeded with: the recorded total, else the vessels."""
-    if CELLS_AVAILABLE in df.columns:
-        return _num(df[CELLS_AVAILABLE])
-    return _row_sum(df, (CELLS_A, CELLS_B))
+    if col("cells_available") in df.columns:
+        return _num(df[col("cells_available")])
+    return _row_sum(df, (col("cells_seeded_a"), col("cells_seeded_b")))
 
 
 # ---------------------------------------------------------------------------
 # Feature families — written once, expanded into entries
 # ---------------------------------------------------------------------------
-def _spread_features(
-    name: str, unit: str, column_a: str, column_b: str, what: str
-) -> list[Feature]:
+def _spread_features(key: str, column_a: str, column_b: str, what: str) -> list[Feature]:
     """Mean, extremes, spread and CV of one quantity across the two vessels.
 
     Five entries from one description, because a vessel pair is measured the same
@@ -292,7 +290,7 @@ def _spread_features(
     ]
     return [
         Feature(
-            name=f"{name}_{statistic}_AB{unit}",
+            name=col(key, statistic=statistic),
             requires=pair,
             compute=compute,
             group="Vessel balance",
@@ -307,15 +305,15 @@ def _spread_features(
 def _setpoint_features(columns: Sequence[str], params: Params) -> list[Feature]:
     """One deviation feature per environmental column the frame happens to carry.
 
-    The PHF names a CO2 or temperature column per reading and per vessel, and the
-    set differs between sites, so these are read off the columns rather than
-    listed.
+    The batch records name a CO2 or temperature column per reading and per vessel,
+    and the set differs between sites, so these are read off the columns (by the
+    vocabulary's markers) rather than listed.
     """
     features: list[Feature] = []
     for column in columns:
-        if "<co2_marker>" in column:
+        if col("co2_marker") in column:
             target, suffix, unit = params.co2_target, f"dev_from_{params.co2_target}pct", "CO2"
-        elif "<temperature_marker>" in column:
+        elif col("temperature_marker") in column:
             target, suffix, unit = (
                 params.temp_target,
                 f"dev_from_{params.temp_target}C",
@@ -338,24 +336,29 @@ def _setpoint_features(columns: Sequence[str], params: Params) -> list[Feature]:
     return features
 
 
-def _contact_time_features(column: str, label: str, params: Params) -> list[Feature]:
-    """Deviation from, and compliance with, the transduction contact time."""
+def _contact_time_features(column: str, which: int, params: Params) -> list[Feature]:
+    """Deviation from, and compliance with, the transduction contact time.
+
+    ``which`` is 0 for the batch's own reading, 1 and 2 for vessels A and B: the
+    position of the feature names in the ``f_contact_deviation`` and
+    ``f_contact_within`` lists.
+    """
     low = params.contact_target - params.contact_tolerance
     high = params.contact_target + params.contact_tolerance
-    suffix = f"_{label}" if label else ""
+    label = ("", "vessel A", "vessel B")[which]
     return [
         Feature(
-            name=f"<f_contact_deviation_1>{suffix}",
+            name=cols("f_contact_deviation")[which],
             requires=(column,),
             compute=lambda d, c=column: (_num(d[c]) - params.contact_target).abs(),
             group="Contact time",
             process_day="D3",
             value_type="numeric",
             rationale=f"Minutes away from the {params.contact_target:.0f} min "
-            f"transduction contact time{' for ' + label.replace('_', ' ') if label else ''}",
+            f"transduction contact time{' for ' + label if label else ''}",
         ),
         Feature(
-            name=f"<f_contact_within_1>{suffix}",
+            name=cols("f_contact_within")[which],
             requires=(column,),
             compute=lambda d, c=column: _num(d[c]).between(low, high).astype(float),
             group="Contact time",
@@ -379,9 +382,9 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
     entries: list[Feature] = [
         # ── Flow and phenotype ────────────────────────────────────────────
         Feature(
-            "<f_log_pt_cd4_cd8>",
-            ("<pt_cd4_pct>", "<pt_cd8_pct>"),
-            lambda d: np.log10(d["<pt_cd4_pct>"] / d["<pt_cd8_pct>"]),
+            col("f_log_pt_cd4_cd8"),
+            (col("pt_cd4_pct"), col("pt_cd8_pct")),
+            lambda d: np.log10(d[col("pt_cd4_pct")] / d[col("pt_cd8_pct")]),
             "Flow and phenotype",
             "D0",
             "numeric",
@@ -389,57 +392,54 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "two-fold shift reads the same in either direction",
         ),
         Feature(
-            "<f_log_pw_cd4_cd8>",
-            ("<pw_cd4_pct>", "<pw_cd8_pct>"),
-            lambda d: np.log10(d["<pw_cd4_pct>"] / d["<pw_cd8_pct>"]),
+            col("f_log_pw_cd4_cd8"),
+            (col("pw_cd4_pct"), col("pw_cd8_pct")),
+            lambda d: np.log10(d[col("pw_cd4_pct")] / d[col("pw_cd8_pct")]),
             "Flow and phenotype",
             "D0",
             "numeric",
             "CD4 to CD8 balance after enrichment, on a log scale",
         ),
         Feature(
-            "<f_pt_cd3_cells>",
-            ("<pt_viable_cells>", "<pt_cd3_pct>"),
-            lambda d: (
-                d["<pt_viable_cells>"]
-                * d["<pt_cd3_pct>"]
-            ),
+            col("f_pt_cd3_cells"),
+            (col("pt_viable_cells"), col("pt_cd3_pct")),
+            lambda d: d[col("pt_viable_cells")] * d[col("pt_cd3_pct")],
             "Flow and phenotype",
             "D0",
             "numeric",
             "Absolute CD3+ cells post thaw — the population the process actually works with",
         ),
         Feature(
-            "<f_pt_cd4_share>",
-            ("<pt_cd4_pct>", "<pt_cd3_pct>"),
-            lambda d: d["<pt_cd4_pct>"] * d["<pt_cd3_pct>"] / 100,
+            col("f_pt_cd4_share"),
+            (col("pt_cd4_pct"), col("pt_cd3_pct")),
+            lambda d: d[col("pt_cd4_pct")] * d[col("pt_cd3_pct")] / 100,
             "Flow and phenotype",
             "D0",
             "numeric",
             "CD4+ as a share of all cells rather than of the CD3+ gate",
         ),
         Feature(
-            "<f_pt_cd4_cells>",
-            ("<f_pt_cd4_share>", "<pt_viable_cells>"),
-            lambda d: d["<f_pt_cd4_share>"] * d["<pt_viable_cells>"],
+            col("f_pt_cd4_cells"),
+            (col("f_pt_cd4_share"), col("pt_viable_cells")),
+            lambda d: d[col("f_pt_cd4_share")] * d[col("pt_viable_cells")],
             "Flow and phenotype",
             "D0",
             "numeric",
             "Absolute CD3+CD4+ cells post thaw",
         ),
         Feature(
-            "<f_pw_cd4_share>",
-            ("<pw_cd4_pct>", "<pw_cd3_pct>"),
-            lambda d: d["<pw_cd4_pct>"] * d["<pw_cd3_pct>"] / 100,
+            col("f_pw_cd4_share"),
+            (col("pw_cd4_pct"), col("pw_cd3_pct")),
+            lambda d: d[col("pw_cd4_pct")] * d[col("pw_cd3_pct")] / 100,
             "Flow and phenotype",
             "D0",
             "numeric",
             "CD4+ as a share of all cells after enrichment",
         ),
         Feature(
-            "<f_pw_cd8_share>",
-            ("<pw_cd8_pct>", "<pw_cd3_pct>"),
-            lambda d: d["<pw_cd8_pct>"] * d["<pw_cd3_pct>"] / 100,
+            col("f_pw_cd8_share"),
+            (col("pw_cd8_pct"), col("pw_cd3_pct")),
+            lambda d: d[col("pw_cd8_pct")] * d[col("pw_cd3_pct")] / 100,
             "Flow and phenotype",
             "D0",
             "numeric",
@@ -447,9 +447,13 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
         ),
         # ── Metabolites ───────────────────────────────────────────────────
         Feature(
-            "<f_harvest_lactate_norm>",
-            (GREX_COUNT, "<harvest_lactate>", VSVG_CELLS),
-            lambda d: (d["<harvest_lactate>"] * 1_000_000_000) * d[GREX_COUNT] / d[VSVG_CELLS],
+            col("f_harvest_lactate_norm"),
+            (col("vessel_count"), col("harvest_lactate"), col("vsvg_cells")),
+            lambda d: (
+                (d[col("harvest_lactate")] * 1_000_000_000)
+                * d[col("vessel_count")]
+                / d[col("vsvg_cells")]
+            ),
             "Metabolites",
             "D10",
             "numeric",
@@ -457,14 +461,12 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "G-Rex can be compared",
         ),
         Feature(
-            "<f_lactate_per_cell_1>",
-            (GREX_COUNT, "<d6_lactate_a>", "<d6_lactate_b>", VSVG_CELLS),
+            cols("f_lactate_per_cell")[0],
+            (col("vessel_count"), col("d6_lactate_a"), col("d6_lactate_b"), col("vsvg_cells")),
             lambda d: np.where(
-                d[GREX_COUNT] == 1,
-                d["<d6_lactate_a>"] * 1e9 / d[VSVG_CELLS],
-                (d["<d6_lactate_a>"] + d["<d6_lactate_b>"])
-                * 1e9
-                / d[VSVG_CELLS],
+                d[col("vessel_count")] == 1,
+                d[col("d6_lactate_a")] * 1e9 / d[col("vsvg_cells")],
+                (d[col("d6_lactate_a")] + d[col("d6_lactate_b")]) * 1e9 / d[col("vsvg_cells")],
             ),
             "Metabolites",
             "D6",
@@ -472,14 +474,12 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "Lactate produced per million cells seeded, summed over the vessels in use",
         ),
         Feature(
-            "<f_lactate_per_cell_2>",
-            (GREX_COUNT, "<d8_lactate_a>", "<d8_lactate_b>", VSVG_CELLS),
+            cols("f_lactate_per_cell")[1],
+            (col("vessel_count"), col("d8_lactate_a"), col("d8_lactate_b"), col("vsvg_cells")),
             lambda d: np.where(
-                d[GREX_COUNT] == 1,
-                d["<d8_lactate_a>"] * 1e9 / d[VSVG_CELLS],
-                (d["<d8_lactate_a>"] + d["<d8_lactate_b>"])
-                * 1e9
-                / d[VSVG_CELLS],
+                d[col("vessel_count")] == 1,
+                d[col("d8_lactate_a")] * 1e9 / d[col("vsvg_cells")],
+                (d[col("d8_lactate_a")] + d[col("d8_lactate_b")]) * 1e9 / d[col("vsvg_cells")],
             ),
             "Metabolites",
             "D8",
@@ -487,12 +487,12 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "Lactate produced per million cells seeded, summed over the vessels in use",
         ),
         Feature(
-            "<f_lactate_per_cell_3>",
-            (GREX_COUNT, "<harvest_lactate>", VSVG_CELLS),
+            cols("f_lactate_per_cell")[2],
+            (col("vessel_count"), col("harvest_lactate"), col("vsvg_cells")),
             lambda d: np.where(
-                d[GREX_COUNT] == 1,
-                d["<harvest_lactate>"] * 1e9 / d[VSVG_CELLS],
-                d["<harvest_lactate>"] * 2e9 / d[VSVG_CELLS],
+                d[col("vessel_count")] == 1,
+                d[col("harvest_lactate")] * 1e9 / d[col("vsvg_cells")],
+                d[col("harvest_lactate")] * 2e9 / d[col("vsvg_cells")],
             ),
             "Metabolites",
             "D10",
@@ -501,14 +501,12 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "sampled once and counted twice",
         ),
         Feature(
-            "<f_glucose_per_cell_1>",
-            (GREX_COUNT, "<d6_glucose_a>", "<d6_glucose_b>", VSVG_CELLS),
+            cols("f_glucose_per_cell")[0],
+            (col("vessel_count"), col("d6_glucose_a"), col("d6_glucose_b"), col("vsvg_cells")),
             lambda d: np.where(
-                d[GREX_COUNT] == 1,
-                d["<d6_glucose_a>"] * 1e9 / d[VSVG_CELLS],
-                (d["<d6_glucose_a>"] + d["<d6_glucose_b>"])
-                * 1e9
-                / d[VSVG_CELLS],
+                d[col("vessel_count")] == 1,
+                d[col("d6_glucose_a")] * 1e9 / d[col("vsvg_cells")],
+                (d[col("d6_glucose_a")] + d[col("d6_glucose_b")]) * 1e9 / d[col("vsvg_cells")],
             ),
             "Metabolites",
             "D6",
@@ -516,14 +514,12 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "Glucose remaining per million cells seeded, summed over the vessels in use",
         ),
         Feature(
-            "<f_glucose_per_cell_2>",
-            (GREX_COUNT, "<d8_glucose_a>", "<d8_glucose_b>", VSVG_CELLS),
+            cols("f_glucose_per_cell")[1],
+            (col("vessel_count"), col("d8_glucose_a"), col("d8_glucose_b"), col("vsvg_cells")),
             lambda d: np.where(
-                d[GREX_COUNT] == 1,
-                d["<d8_glucose_a>"] * 1e9 / d[VSVG_CELLS],
-                (d["<d8_glucose_a>"] + d["<d8_glucose_b>"])
-                * 1e9
-                / d[VSVG_CELLS],
+                d[col("vessel_count")] == 1,
+                d[col("d8_glucose_a")] * 1e9 / d[col("vsvg_cells")],
+                (d[col("d8_glucose_a")] + d[col("d8_glucose_b")]) * 1e9 / d[col("vsvg_cells")],
             ),
             "Metabolites",
             "D8",
@@ -531,12 +527,12 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "Glucose remaining per million cells seeded, summed over the vessels in use",
         ),
         Feature(
-            "<f_glucose_per_cell_3>",
-            (GREX_COUNT, "<harvest_glucose>", VSVG_CELLS),
+            cols("f_glucose_per_cell")[2],
+            (col("vessel_count"), col("harvest_glucose"), col("vsvg_cells")),
             lambda d: np.where(
-                d[GREX_COUNT] == 1,
-                d["<harvest_glucose>"] * 1e9 / d[VSVG_CELLS],
-                d["<harvest_glucose>"] * 2 * 1e9 / d[VSVG_CELLS],
+                d[col("vessel_count")] == 1,
+                d[col("harvest_glucose")] * 1e9 / d[col("vsvg_cells")],
+                d[col("harvest_glucose")] * 2 * 1e9 / d[col("vsvg_cells")],
             ),
             "Metabolites",
             "D10",
@@ -544,9 +540,9 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "Harvest glucose per million cells seeded",
         ),
         Feature(
-            "<f_lactate_slope>",
-            (LACTATE_PER_E6,),
-            lambda d: slope(d, METABOLITE_DAYS, LACTATE_PER_E6),
+            col("f_lactate_slope"),
+            (cols("f_lactate_per_cell"),),
+            lambda d: slope(d, METABOLITE_DAYS, cols("f_lactate_per_cell")),
             "Metabolites",
             "D10",
             "numeric",
@@ -554,27 +550,27 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "instead of three readings",
         ),
         Feature(
-            "<f_lactate_auc>",
-            (LACTATE_PER_E6,),
-            lambda d: auc(d, METABOLITE_DAYS, LACTATE_PER_E6),
+            col("f_lactate_auc"),
+            (cols("f_lactate_per_cell"),),
+            lambda d: auc(d, METABOLITE_DAYS, cols("f_lactate_per_cell")),
             "Metabolites",
             "D10",
             "numeric",
             "Total normalised lactate exposure across expansion",
         ),
         Feature(
-            "<f_glucose_slope>",
-            (GLUCOSE_PER_E6,),
-            lambda d: slope(d, METABOLITE_DAYS, GLUCOSE_PER_E6),
+            col("f_glucose_slope"),
+            (cols("f_glucose_per_cell"),),
+            lambda d: slope(d, METABOLITE_DAYS, cols("f_glucose_per_cell")),
             "Metabolites",
             "D10",
             "numeric",
             "How fast normalised glucose falls across expansion",
         ),
         Feature(
-            "<f_glucose_auc>",
-            (GLUCOSE_PER_E6,),
-            lambda d: auc(d, METABOLITE_DAYS, GLUCOSE_PER_E6),
+            col("f_glucose_auc"),
+            (cols("f_glucose_per_cell"),),
+            lambda d: auc(d, METABOLITE_DAYS, cols("f_glucose_per_cell")),
             "Metabolites",
             "D10",
             "numeric",
@@ -582,7 +578,7 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
         ),
         *[
             Feature(
-                f"Lactate_to_Glucose_perE6_ratio_D{int(day)}",
+                col("f_lactate_glucose_ratio", day=int(day)),
                 (lactate, glucose),
                 lambda d, lact=lactate, gluc=glucose: safe_div(d[lact], d[gluc]),
                 "Metabolites",
@@ -591,56 +587,56 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
                 "Lactate against glucose on the same day, which separates cells "
                 "burning sugar fast from cells simply being fed more",
             )
-            for day, lactate, glucose in zip(METABOLITE_DAYS, LACTATE_PER_E6, GLUCOSE_PER_E6)
+            for day, lactate, glucose in zip(
+                METABOLITE_DAYS, cols("f_lactate_per_cell"), cols("f_glucose_per_cell")
+            )
         ],
-        # ── Growth and <f_cd4_profile> ────────────────────────────────────────
+        # ── Profiles ──────────────────────────────────────────────────────
         Feature(
-            "<f_growth_profile>",
-            ("<cpdl>", "<f_harvest_lactate_norm>"),
+            col("f_growth_profile"),
+            (col("cpdl"), col("f_harvest_lactate_norm")),
             lambda d: np.select(
                 [
-                    (d["<cpdl>"] < params.cpdl_low)
-                    | (d["<f_harvest_lactate_norm>"] < params.lactate_low),
-                    (d["<cpdl>"] > params.cpdl_high)
-                    & (d["<f_harvest_lactate_norm>"] > params.lactate_high),
+                    (d[col("cpdl")] < params.cpdl_low)
+                    | (d[col("f_harvest_lactate_norm")] < params.lactate_low),
+                    (d[col("cpdl")] > params.cpdl_high)
+                    & (d[col("f_harvest_lactate_norm")] > params.lactate_high),
                 ],
-                ["undergrowth", "overgrowth"],
-                default="normal",
+                list(values("growth_profile_classes")[:2]),
+                default=values("growth_profile_classes")[2],
             ),
             "Profiles",
             "D10",
             "categorical",
-            "Undergrowth, normal or overgrowth, from doublings and normalised "
+            "Below, within or above the expected growth, from doublings and normalised "
             "lactate together; thresholds are in config",
         ),
         Feature(
-            "<f_cd4_profile>",
-            ("<pt_cd4_pct>",),
+            col("f_cd4_profile"),
+            (col("pt_cd4_pct"),),
             lambda d: pd.Series(
                 np.select(
                     [
-                        d["<pt_cd4_pct>"] <= params.cd4_low,
-                        d["<pt_cd4_pct>"] >= params.cd4_high,
+                        d[col("pt_cd4_pct")] <= params.cd4_low,
+                        d[col("pt_cd4_pct")] >= params.cd4_high,
                     ],
-                    ["<value:cd4_profile_classes>", "<value:cd4_profile_classes>"],
-                    default="<value:cd4_profile_classes>",
+                    list(values("cd4_profile_classes")[:2]),
+                    default=values("cd4_profile_classes")[2],
                 ),
                 index=d.index,
-            ).where(d["<pt_cd4_pct>"].notna()),
+            ).where(d[col("pt_cd4_pct")].notna()),
             "Profiles",
             "D0",
             "categorical",
-            "Low, medium or <value:cd4_profile_classes> share of the incoming material; a batch with "
+            "The CD4 share of the incoming material in three bands; a batch with "
             "no reading gets no profile rather than the middle one",
         ),
         # ── Viability ─────────────────────────────────────────────────────
         Feature(
-            "<f_viability_drop_rel>",
-            ("<d3_viability>", "<pw_viability>"),
+            col("f_viability_drop_rel"),
+            (col("d3_viability"), col("pw_viability")),
             lambda d: (
-                (d["<d3_viability>"] - d["<pw_viability>"])
-                / d["<pw_viability>"]
-                * 100
+                (d[col("d3_viability")] - d[col("pw_viability")]) / d[col("pw_viability")] * 100
             ),
             "Viability",
             "D3",
@@ -648,12 +644,9 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "Viability change over activation, relative to where it started",
         ),
         Feature(
-            "<f_viability_drop_pts>",
-            ("<d3_viability>", "<pw_viability>"),
-            lambda d: (
-                _num(d["<d3_viability>"])
-                - _num(d["<pw_viability>"])
-            ),
+            col("f_viability_drop_pts"),
+            (col("d3_viability"), col("pw_viability")),
+            lambda d: _num(d[col("d3_viability")]) - _num(d[col("pw_viability")]),
             "Viability",
             "D3",
             "numeric",
@@ -661,14 +654,11 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "change, which keeps it readable when the starting viability is low",
         ),
         Feature(
-            "<f_viability_d3_d10_rel>",
-            ("<d3_viability>", "<harvest_viability>"),
+            col("f_viability_d3_d10_rel"),
+            (col("d3_viability"), col("harvest_viability")),
             lambda d: (
-                (
-                    d["<d3_viability>"]
-                    - d["<harvest_viability>"]
-                )
-                / d["<d3_viability>"]
+                (d[col("d3_viability")] - d[col("harvest_viability")])
+                / d[col("d3_viability")]
                 * 100
             ),
             "Viability",
@@ -677,14 +667,11 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "Viability lost between activation and harvest, relative to D3",
         ),
         Feature(
-            "<f_viability_expansion>",
-            ("<harvest_viability>", "<d3_viability>"),
+            col("f_viability_expansion"),
+            (col("harvest_viability"), col("d3_viability")),
             lambda d: (
-                (
-                    d["<harvest_viability>"]
-                    - d["<d3_viability>"]
-                )
-                / d["<d3_viability>"]
+                (d[col("harvest_viability")] - d[col("d3_viability")])
+                / d[col("d3_viability")]
                 * 100
             ),
             "Viability",
@@ -693,26 +680,20 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "The same comparison signed the other way, as the Power Query investigation reports it",
         ),
         Feature(
-            "<f_viability_d3_d10_pts>",
-            ("<d3_viability>", "<washed_viability>"),
-            lambda d: (
-                _num(d["<washed_viability>"])
-                - _num(d["<d3_viability>"])
-            ),
+            col("f_viability_d3_d10_pts"),
+            (col("d3_viability"), col("washed_viability")),
+            lambda d: _num(d[col("washed_viability")]) - _num(d[col("d3_viability")]),
             "Viability",
             "D10",
             "numeric",
             "Net viability change from activation to the washed harvest, in percentage points",
         ),
         Feature(
-            "<f_viability_wash>",
-            ("<washed_viability>", "<harvest_viability>"),
+            col("f_viability_wash"),
+            (col("washed_viability"), col("harvest_viability")),
             lambda d: (
-                (
-                    d["<washed_viability>"]
-                    - d["<harvest_viability>"]
-                )
-                / d["<harvest_viability>"]
+                (d[col("washed_viability")] - d[col("harvest_viability")])
+                / d[col("harvest_viability")]
                 * 100
             ),
             "Viability",
@@ -722,11 +703,11 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
         ),
         # ── Seeding and vessel balance ────────────────────────────────────
         Feature(
-            "<f_seeding_pct>",
-            (GREX_COUNT, VSVG_CELLS),
+            col("f_seeding_pct"),
+            (col("vessel_count"), col("vsvg_cells")),
             lambda d: np.select(
-                [d[GREX_COUNT] == 1, d[GREX_COUNT] == 2],
-                [d[VSVG_CELLS] / 500_000, d[VSVG_CELLS] / 1_000_000],
+                [d[col("vessel_count")] == 1, d[col("vessel_count")] == 2],
+                [d[col("vsvg_cells")] / 500_000, d[col("vsvg_cells")] / 1_000_000],
                 default=np.nan,
             ),
             "Seeding",
@@ -735,9 +716,9 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "Cells seeded against the target for the number of vessels used",
         ),
         Feature(
-            "<f_seeding_error>",
-            ("<f_seeding_pct>",),
-            lambda d: (_num(d["<f_seeding_pct>"]) - 100.0).abs(),
+            col("f_seeding_error"),
+            (col("f_seeding_pct"),),
+            lambda d: (_num(d[col("f_seeding_pct")]) - 100.0).abs(),
             "Seeding",
             "D3",
             "numeric",
@@ -745,10 +726,10 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "under-seeding count the same",
         ),
         Feature(
-            "<f_seeding_within>",
-            ("<f_seeding_pct>",),
+            col("f_seeding_within"),
+            (col("f_seeding_pct"),),
             lambda d: (
-                (_num(d["<f_seeding_pct>"]) - 100.0).abs() <= params.seeding_tolerance
+                (_num(d[col("f_seeding_pct")]) - 100.0).abs() <= params.seeding_tolerance
             ).astype(float),
             "Seeding",
             "D3",
@@ -756,21 +737,30 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             f"Whether seeding landed within ±{params.seeding_tolerance:.0f}% of target",
         ),
         Feature(
-            "<f_cells_per_bag>",
-            (CELLS_AVAILABLE, "<culture_bags>"),
-            lambda d: safe_div(d[CELLS_AVAILABLE], d["<culture_bags>"]),
+            col("f_cells_per_bag"),
+            (col("cells_available"), col("culture_bags")),
+            lambda d: safe_div(d[col("cells_available")], d[col("culture_bags")]),
             "Seeding",
             "D3",
             "numeric",
             "Cells per culture bag, which is the density the cells actually see",
         ),
-        *_spread_features("Seeded_cells", "", CELLS_A, CELLS_B, "seeded viable cells"),
-        *_spread_features("Vector_volume", "_mL", VOL_A, VOL_B, "vector volume added"),
+        *_spread_features(
+            "f_seeded_spread", col("cells_seeded_a"), col("cells_seeded_b"), "seeded viable cells"
+        ),
+        *_spread_features(
+            "f_vector_volume_spread",
+            col("vector_volume_a"),
+            col("vector_volume_b"),
+            "vector volume added",
+        ),
         # ── MOI ───────────────────────────────────────────────────────────
         Feature(
-            "<f_moi_a>",
-            (TITER, VOL_A, CELLS_A),
-            lambda d: _first(d, *TITER) * safe_div(d[VOL_A], d[CELLS_A]),
+            col("f_moi_a"),
+            (_titer(), col("vector_volume_a"), col("cells_seeded_a")),
+            lambda d: (
+                _first(d, *_titer()) * safe_div(d[col("vector_volume_a")], d[col("cells_seeded_a")])
+            ),
             "MOI",
             "D3",
             "numeric",
@@ -778,37 +768,44 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "titer rather than the nominal one",
         ),
         Feature(
-            "<f_log_moi_a>",
-            ("<f_moi_a>",),
-            lambda d: np.log1p(_num(d["<f_moi_a>"])),
+            col("f_log_moi_a"),
+            (col("f_moi_a"),),
+            lambda d: np.log1p(_num(d[col("f_moi_a")])),
             "MOI",
             "D3",
             "numeric",
             "Vessel A MOI on a log scale, where its spread is even enough to model",
         ),
         Feature(
-            "<f_moi_b>",
-            (TITER, VOL_B, CELLS_B),
-            lambda d: _first(d, *TITER) * safe_div(d[VOL_B], d[CELLS_B]),
+            col("f_moi_b"),
+            (_titer(), col("vector_volume_b"), col("cells_seeded_b")),
+            lambda d: (
+                _first(d, *_titer()) * safe_div(d[col("vector_volume_b")], d[col("cells_seeded_b")])
+            ),
             "MOI",
             "D3",
             "numeric",
             "Infectious units per seeded cell in vessel B",
         ),
         Feature(
-            "<f_log_moi_b>",
-            ("<f_moi_b>",),
-            lambda d: np.log1p(_num(d["<f_moi_b>"])),
+            col("f_log_moi_b"),
+            (col("f_moi_b"),),
+            lambda d: np.log1p(_num(d[col("f_moi_b")])),
             "MOI",
             "D3",
             "numeric",
             "Vessel B MOI on a log scale",
         ),
         Feature(
-            "<f_moi_pool>",
-            (TITER, VOL_A, VOL_B, (CELLS_AVAILABLE, CELLS_A)),
+            col("f_moi_pool"),
+            (
+                _titer(),
+                col("vector_volume_a"),
+                col("vector_volume_b"),
+                (col("cells_available"), col("cells_seeded_a")),
+            ),
             lambda d: (
-                _first(d, *TITER) * safe_div(_pooled_vector_volume(d), _pooled_seeded_cells(d))
+                _first(d, *_titer()) * safe_div(_pooled_vector_volume(d), _pooled_seeded_cells(d))
             ),
             "MOI",
             "D3",
@@ -817,18 +814,18 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "was not used contributes nothing rather than making the batch missing",
         ),
         Feature(
-            "<f_log_moi_pool>",
-            ("<f_moi_pool>",),
-            lambda d: np.log1p(_num(d["<f_moi_pool>"])),
+            col("f_log_moi_pool"),
+            (col("f_moi_pool"),),
+            lambda d: np.log1p(_num(d[col("f_moi_pool")])),
             "MOI",
             "D3",
             "numeric",
             "Pooled MOI on a log scale",
         ),
         Feature(
-            "<f_moi_quality>",
-            ("<f_moi_pool>", "<coa_prefix><coa_pi_ratio>"),
-            lambda d: _num(d["<f_moi_pool>"]) * _num(d["<coa_prefix><coa_pi_ratio>"]),
+            col("f_moi_quality"),
+            (col("f_moi_pool"), _coa("coa_pi_ratio")),
+            lambda d: _num(d[col("f_moi_pool")]) * _num(d[_coa("coa_pi_ratio")]),
             "MOI",
             "D3",
             "numeric",
@@ -836,11 +833,10 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "so two lots at the same titer are not treated as the same vector",
         ),
         Feature(
-            "<f_moi_per_cd3>",
-            (TITER, VOL_A, VOL_B, "<f_pt_cd3_cells>"),
+            col("f_moi_per_cd3"),
+            (_titer(), col("vector_volume_a"), col("vector_volume_b"), col("f_pt_cd3_cells")),
             lambda d: (
-                _first(d, *TITER)
-                * safe_div(_pooled_vector_volume(d), d["<f_pt_cd3_cells>"])
+                _first(d, *_titer()) * safe_div(_pooled_vector_volume(d), d[col("f_pt_cd3_cells")])
             ),
             "MOI",
             "D3",
@@ -849,24 +845,20 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "only T cells are the target",
         ),
         # ── Contact time ──────────────────────────────────────────────────
-        *_contact_time_features("<contact_time>", "", params),
-        *_contact_time_features(
-            "<contact_time_a>", "G-Rex_A", params
-        ),
-        *_contact_time_features(
-            "<contact_time_b>", "G-Rex_B", params
-        ),
+        *_contact_time_features(col("contact_time"), 0, params),
+        *_contact_time_features(col("contact_time_a"), 1, params),
+        *_contact_time_features(col("contact_time_b"), 2, params),
         # ── Incubation ────────────────────────────────────────────────────
         Feature(
-            "<f_incubation_d0_d1>",
+            col("f_incubation_d0_d1"),
             (
-                "<incubator_out_d1>",
-                "<incubator_in_d0>",
+                col("incubator_out_d1"),
+                col("incubator_in_d0"),
             ),
             lambda d: (
                 (
-                    pd.to_datetime(d["<incubator_out_d1>"])
-                    - pd.to_datetime(d["<incubator_in_d0>"])
+                    pd.to_datetime(d[col("incubator_out_d1")])
+                    - pd.to_datetime(d[col("incubator_in_d0")])
                 ).dt.total_seconds()
                 / 60
             ),
@@ -876,15 +868,15 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "Minutes the cells spent in the incubator between day 0 and day 1",
         ),
         Feature(
-            "<f_incubation_d1_d3>",
+            col("f_incubation_d1_d3"),
             (
-                "<incubator_out_d3>",
-                "<incubator_in_d1>",
+                col("incubator_out_d3"),
+                col("incubator_in_d1"),
             ),
             lambda d: (
                 (
-                    pd.to_datetime(d["<incubator_out_d3>"])
-                    - pd.to_datetime(d["<incubator_in_d1>"])
+                    pd.to_datetime(d[col("incubator_out_d3")])
+                    - pd.to_datetime(d[col("incubator_in_d1")])
                 ).dt.total_seconds()
                 / 60
             ),
@@ -894,15 +886,15 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "Minutes in the incubator between day 1 and day 3",
         ),
         Feature(
-            "<f_incubation_d3_d6>",
+            col("f_incubation_d3_d6"),
             (
-                "<incubator_out_d6>",
-                "<incubator_back_d3>",
+                col("incubator_out_d6"),
+                col("incubator_back_d3"),
             ),
             lambda d: (
                 (
-                    pd.to_datetime(d["<incubator_out_d6>"])
-                    - pd.to_datetime(d["<incubator_back_d3>"])
+                    pd.to_datetime(d[col("incubator_out_d6")])
+                    - pd.to_datetime(d[col("incubator_back_d3")])
                 ).dt.total_seconds()
                 / 60
             ),
@@ -912,15 +904,15 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "Minutes in the incubator between day 3 and day 6",
         ),
         Feature(
-            "<f_incubation_d6_d8>",
+            col("f_incubation_d6_d8"),
             (
-                "<incubator_out_d8>",
-                "<incubator_back_d6>",
+                col("incubator_out_d8"),
+                col("incubator_back_d6"),
             ),
             lambda d: (
                 (
-                    pd.to_datetime(d["<incubator_out_d8>"])
-                    - pd.to_datetime(d["<incubator_back_d6>"])
+                    pd.to_datetime(d[col("incubator_out_d8")])
+                    - pd.to_datetime(d[col("incubator_back_d6")])
                 ).dt.total_seconds()
                 / 60
             ),
@@ -930,15 +922,15 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "Minutes in the incubator between day 6 and day 8",
         ),
         Feature(
-            "<f_incubation_d8_d10>",
+            col("f_incubation_d8_d10"),
             (
-                "<incubator_out_d10>",
-                "<incubator_back_d8>",
+                col("incubator_out_d10"),
+                col("incubator_back_d8"),
             ),
             lambda d: (
                 (
-                    pd.to_datetime(d["<incubator_out_d10>"])
-                    - pd.to_datetime(d["<incubator_back_d8>"])
+                    pd.to_datetime(d[col("incubator_out_d10")])
+                    - pd.to_datetime(d[col("incubator_back_d8")])
                 ).dt.total_seconds()
                 / 60
             ),
@@ -948,12 +940,12 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "Minutes in the incubator between day 8 and day 10",
         ),
         Feature(
-            "<f_incubation_total>",
-            ("<f_incubation_d3_d6>", "<f_incubation_d6_d8>", "<f_incubation_d8_d10>"),
+            col("f_incubation_total"),
+            (col("f_incubation_d3_d6"), col("f_incubation_d6_d8"), col("f_incubation_d8_d10")),
             lambda d: (
-                _num(d["<f_incubation_d3_d6>"])
-                + _num(d["<f_incubation_d6_d8>"])
-                + _num(d["<f_incubation_d8_d10>"])
+                _num(d[col("f_incubation_d3_d6")])
+                + _num(d[col("f_incubation_d6_d8")])
+                + _num(d[col("f_incubation_d8_d10")])
             ),
             "Incubation",
             "D10",
@@ -963,9 +955,9 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
         ),
         # ── Clumps ────────────────────────────────────────────────────────
         Feature(
-            "<f_clump_count_reduction>",
-            (CLUMPS_PRE_COUNT, CLUMPS_POST_COUNT),
-            lambda d: 1.0 - safe_div(d[CLUMPS_POST_COUNT], d[CLUMPS_PRE_COUNT]),
+            col("f_clump_count_reduction"),
+            (col("clumps_pre_count"), col("clumps_post_count")),
+            lambda d: 1.0 - safe_div(d[col("clumps_post_count")], d[col("clumps_pre_count")]),
             "Clumps",
             "D1",
             "numeric",
@@ -973,18 +965,18 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "intervention rather than the starting material",
         ),
         Feature(
-            "<f_clump_size_reduction>",
-            (CLUMPS_PRE_SIZE, CLUMPS_POST_SIZE),
-            lambda d: 1.0 - safe_div(d[CLUMPS_POST_SIZE], d[CLUMPS_PRE_SIZE]),
+            col("f_clump_size_reduction"),
+            (col("clumps_pre_size"), col("clumps_post_size")),
+            lambda d: 1.0 - safe_div(d[col("clumps_post_size")], d[col("clumps_pre_size")]),
             "Clumps",
             "D1",
             "numeric",
             "Share of the clump size that massaging removed",
         ),
         Feature(
-            "<f_clump_burden_pre>",
-            (CLUMPS_PRE_COUNT, CLUMPS_PRE_SIZE),
-            lambda d: _num(d[CLUMPS_PRE_COUNT]) * _num(d[CLUMPS_PRE_SIZE]),
+            col("f_clump_burden_pre"),
+            (col("clumps_pre_count"), col("clumps_pre_size")),
+            lambda d: _num(d[col("clumps_pre_count")]) * _num(d[col("clumps_pre_size")]),
             "Clumps",
             "D1",
             "numeric",
@@ -992,29 +984,27 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "not recorded as the same burden",
         ),
         Feature(
-            "<f_clump_burden_post>",
-            (CLUMPS_POST_COUNT, CLUMPS_POST_SIZE),
-            lambda d: _num(d[CLUMPS_POST_COUNT]) * _num(d[CLUMPS_POST_SIZE]),
+            col("f_clump_burden_post"),
+            (col("clumps_post_count"), col("clumps_post_size")),
+            lambda d: _num(d[col("clumps_post_count")]) * _num(d[col("clumps_post_size")]),
             "Clumps",
             "D1",
             "numeric",
             "Size-weighted clump burden left after massaging",
         ),
         Feature(
-            "<f_clump_burden_mix>",
-            (CLUMPS_MIX_COUNT, CLUMPS_MIX_SIZE),
-            lambda d: _num(d[CLUMPS_MIX_COUNT]) * _num(d[CLUMPS_MIX_SIZE]),
+            col("f_clump_burden_mix"),
+            (col("clumps_mix_count"), col("clumps_mix_size")),
+            lambda d: _num(d[col("clumps_mix_count")]) * _num(d[col("clumps_mix_size")]),
             "Clumps",
             "D1",
             "numeric",
             "Size-weighted clump burden left after mixing",
         ),
         Feature(
-            "<f_mixing_x_clumps>",
-            ("<mixing_cycles>", CLUMPS_PRE_COUNT),
-            lambda d: (
-                _num(d["<mixing_cycles>"]) * _num(d[CLUMPS_PRE_COUNT])
-            ),
+            col("f_mixing_x_clumps"),
+            (col("mixing_cycles"), col("clumps_pre_count")),
+            lambda d: _num(d[col("mixing_cycles")]) * _num(d[col("clumps_pre_count")]),
             "Clumps",
             "D1",
             "numeric",
@@ -1022,18 +1012,18 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "means much without the other",
         ),
         Feature(
-            "<f_d3_clumps>",
-            ("<d3_clump_pattern>",),
-            lambda d: yn_to_bool(d["<d3_clump_pattern>"]),
+            col("f_d3_clumps"),
+            (col("d3_clump_pattern"),),
+            lambda d: yn_to_bool(d[col("d3_clump_pattern")]),
             "Clumps",
             "D3",
             "boolean",
             "Whether clumps were still recorded at day 3",
         ),
         Feature(
-            "<f_clump_bag_count>",
-            (CLUMP_BAGS,),
-            lambda d: sum(yn_to_bool(d[c]) for c in _present(d, CLUMP_BAGS)),
+            col("f_clump_bag_count"),
+            (cols("clump_bags"),),
+            lambda d: sum(yn_to_bool(d[c]) for c in _present(d, cols("clump_bags"))),
             "Clumps",
             "D10",
             "numeric",
@@ -1041,16 +1031,16 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
         ),
         # ── Dose and CAR ──────────────────────────────────────────────────
         Feature(
-            "<f_dose_all>",
-            ("<dose_per_kg>", "<dose_cells>"),
+            col("f_dose_all"),
+            (col("dose_per_kg"), col("dose_cells")),
             lambda d: np.select(
                 [
-                    d["<dose_per_kg>"].notna(),
-                    d["<dose_cells>"].notna(),
+                    d[col("dose_per_kg")].notna(),
+                    d[col("dose_cells")].notna(),
                 ],
                 [
-                    d["<dose_per_kg>"] / 1_000_000,
-                    d["<dose_cells>"] / 100_000_000,
+                    d[col("dose_per_kg")] / 1_000_000,
+                    d[col("dose_cells")] / 100_000_000,
                 ],
                 default=np.nan,
             ),
@@ -1061,20 +1051,20 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "only the absolute cell count was recorded",
         ),
         Feature(
-            "<f_post_formulation_dose>",
+            col("f_post_formulation_dose"),
             (
-                "<formulated_concentration>",
-                "<bag_volume>",
-                "<harvest_car_pct>",
-                "<subject_weight>",
+                col("formulated_concentration"),
+                col("bag_volume"),
+                col("harvest_car_pct"),
+                col("subject_weight"),
             ),
             lambda d: (
-                d["<formulated_concentration>"]
+                d[col("formulated_concentration")]
                 / 1_000_000
-                * d["<bag_volume>"]
-                * d["<harvest_car_pct>"]
+                * d[col("bag_volume")]
+                * d[col("harvest_car_pct")]
                 / 100
-                / d["<subject_weight>"]
+                / d[col("subject_weight")]
             ),
             "Dose and CAR",
             "D10",
@@ -1082,17 +1072,17 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "Dose per kilogram implied by what actually went into the bag",
         ),
         Feature(
-            "<f_achievable_dose>",
+            col("f_achievable_dose"),
             (
-                "<harvest_car_pct>",
-                "<washed_cells>",
-                "<subject_weight>",
+                col("harvest_car_pct"),
+                col("washed_cells"),
+                col("subject_weight"),
             ),
             lambda d: (
-                d["<harvest_car_pct>"]
+                d[col("harvest_car_pct")]
                 / 100
-                * d["<washed_cells>"]
-                / (d["<subject_weight>"] * 1_000_000)
+                * d[col("washed_cells")]
+                / (d[col("subject_weight")] * 1_000_000)
             ),
             "Dose and CAR",
             "D10",
@@ -1100,29 +1090,21 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "The dose the harvest could have supported, against the dose that was given",
         ),
         Feature(
-            "<f_car_cells>",
+            col("f_car_cells"),
             (
-                "<harvest_car_pct>",
-                "<washed_cells>",
+                col("harvest_car_pct"),
+                col("washed_cells"),
             ),
-            lambda d: (
-                d["<harvest_car_pct>"]
-                * d["<washed_cells>"]
-                / 100
-            ),
+            lambda d: d[col("harvest_car_pct")] * d[col("washed_cells")] / 100,
             "Dose and CAR",
             "D10",
             "numeric",
             "Absolute CAR+ cells at harvest",
         ),
         Feature(
-            "<f_car_yield>",
-            ("<harvest_car_pct>", "<cpdl>"),
-            lambda d: (
-                d["<harvest_car_pct>"]
-                / 100
-                * np.power(2, d["<cpdl>"])
-            ),
+            col("f_car_yield"),
+            (col("harvest_car_pct"), col("cpdl")),
+            lambda d: d[col("harvest_car_pct")] / 100 * np.power(2, d[col("cpdl")]),
             "Dose and CAR",
             "D10",
             "numeric",
@@ -1130,22 +1112,18 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "transduction into one yield",
         ),
         Feature(
-            "<f_vcn_per_cell>",
-            ("<fp_car_pct>", "<vcn>"),
-            lambda d: (
-                d["<fp_car_pct>"]
-                * d["<vcn>"]
-                / 100
-            ),
+            col("f_vcn_per_cell"),
+            (col("fp_car_pct"), col("vcn")),
+            lambda d: d[col("fp_car_pct")] * d[col("vcn")] / 100,
             "Dose and CAR",
             "Final product",
             "numeric",
             "Copies per cell across the whole product rather than per transduced cell",
         ),
         Feature(
-            "<f_flow_accuracy>",
-            ("<fp_car_pct>", "<harvest_car_pct>"),
-            lambda d: d["<fp_car_pct>"] / d["<harvest_car_pct>"],
+            col("f_flow_accuracy"),
+            (col("fp_car_pct"), col("harvest_car_pct")),
+            lambda d: d[col("fp_car_pct")] / d[col("harvest_car_pct")],
             "Dose and CAR",
             "Final product",
             "numeric",
@@ -1154,14 +1132,14 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
         ),
         # ── Formulation and wash ──────────────────────────────────────────
         Feature(
-            "<f_formulated_total_concentration>",
+            col("f_formulated_total_concentration"),
             (
-                "<formulated_concentration>",
-                "<formulated_viability>",
+                col("formulated_concentration"),
+                col("formulated_viability"),
             ),
             lambda d: (
-                d["<formulated_concentration>"]
-                / (d["<formulated_viability>"] / 100)
+                d[col("formulated_concentration")]
+                / (d[col("formulated_viability")] / 100)
                 / 1_000_000
             ),
             "Formulation and wash",
@@ -1170,76 +1148,60 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
             "Total cells in the formulated suspension, dead ones included",
         ),
         Feature(
-            "<f_cells_into_formulation>",
+            col("f_cells_into_formulation"),
             (
-                "<washed_concentration>",
-                "<formulation_cell_volume>",
+                col("washed_concentration"),
+                col("formulation_cell_volume"),
             ),
-            lambda d: (
-                d["<washed_concentration>"]
-                * d["<formulation_cell_volume>"]
-            ),
+            lambda d: d[col("washed_concentration")] * d[col("formulation_cell_volume")],
             "Formulation and wash",
             "D10",
             "numeric",
             "Viable cells that went into formulation",
         ),
         Feature(
-            "<f_cells_out_of_formulation>",
+            col("f_cells_out_of_formulation"),
             (
-                "<formulated_concentration>",
-                "<formulation_medium_volume>",
+                col("formulated_concentration"),
+                col("formulation_medium_volume"),
             ),
-            lambda d: (
-                d["<formulated_concentration>"]
-                * d["<formulation_medium_volume>"]
-            ),
+            lambda d: d[col("formulated_concentration")] * d[col("formulation_medium_volume")],
             "Formulation and wash",
             "D10",
             "numeric",
             "Viable cells that came out of formulation",
         ),
         Feature(
-            "<f_cells_lost_formulation>",
+            col("f_cells_lost_formulation"),
             (
-                "<f_cells_into_formulation>",
-                "<f_cells_out_of_formulation>",
+                col("f_cells_into_formulation"),
+                col("f_cells_out_of_formulation"),
             ),
-            lambda d: (
-                d["<f_cells_into_formulation>"]
-                - d["<f_cells_out_of_formulation>"]
-            ),
+            lambda d: d[col("f_cells_into_formulation")] - d[col("f_cells_out_of_formulation")],
             "Formulation and wash",
             "D10",
             "numeric",
             "The difference between those two, as cells",
         ),
         Feature(
-            "<f_pct_lost_formulation>",
+            col("f_pct_lost_formulation"),
             (
-                "<f_cells_lost_formulation>",
-                "<f_cells_into_formulation>",
+                col("f_cells_lost_formulation"),
+                col("f_cells_into_formulation"),
             ),
-            lambda d: (
-                d["<f_cells_lost_formulation>"]
-                / d["<f_cells_into_formulation>"]
-                * 100
-            ),
+            lambda d: d[col("f_cells_lost_formulation")] / d[col("f_cells_into_formulation")] * 100,
             "Formulation and wash",
             "D10",
             "numeric",
             "The same loss as a share, which is comparable across batch sizes",
         ),
         Feature(
-            "<f_cells_lost_wash>",
+            col("f_cells_lost_wash"),
             (
-                "<harvest_cells>",
-                "<washed_cells>",
+                col("harvest_cells"),
+                col("washed_cells"),
             ),
-            lambda d: (
-                d["<harvest_cells>"]
-                - d["<washed_cells>"]
-            ),
+            lambda d: d[col("harvest_cells")] - d[col("washed_cells")],
             "Formulation and wash",
             "D10",
             "numeric",
@@ -1247,9 +1209,9 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
         ),
         # ── Vector CoA ────────────────────────────────────────────────────
         Feature(
-            "<f_coa_impurity_index>",
-            (IMPURITIES,),
-            lambda d: sum(zscore(d[c]) for c in _present(d, IMPURITIES)),
+            col("f_coa_impurity_index"),
+            (_impurities(),),
+            lambda d: sum(zscore(d[c]) for c in _present(d, _impurities())),
             "Vector CoA",
             "Vector CoA",
             "numeric",
@@ -1259,26 +1221,18 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
         ),
         # ── IL-2 ──────────────────────────────────────────────────────────
         Feature(
-            "<f_il2_d6>",
-            ("<il2_activity_d6>", "<il2_content_d6>"),
-            lambda d: (
-                _num(d["<il2_activity_d6>"])
-                * _num(d["<il2_content_d6>"])
-                / 1000.0
-            ),
+            col("f_il2_d6"),
+            (col("il2_activity_d6"), col("il2_content_d6")),
+            lambda d: _num(d[col("il2_activity_d6")]) * _num(d[col("il2_content_d6")]) / 1000.0,
             "IL-2",
             "D6",
             "numeric",
             "IL-2 units fed at day 6: activity and protein mass mean little apart",
         ),
         Feature(
-            "<f_il2_d8>",
-            ("<il2_activity_d8>", "<il2_content_d8>"),
-            lambda d: (
-                _num(d["<il2_activity_d8>"])
-                * _num(d["<il2_content_d8>"])
-                / 1000.0
-            ),
+            col("f_il2_d8"),
+            (col("il2_activity_d8"), col("il2_content_d8")),
+            lambda d: _num(d[col("il2_activity_d8")]) * _num(d[col("il2_content_d8")]) / 1000.0,
             "IL-2",
             "D8",
             "numeric",
@@ -1286,10 +1240,10 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
         ),
         # ── Context ───────────────────────────────────────────────────────
         Feature(
-            "Shift",
-            ("<thaw_time>",),
+            col("f_shift"),
+            (col("thaw_time"),),
             lambda d: np.where(
-                pd.to_datetime(d["<thaw_time>"].astype(str)).dt.time
+                pd.to_datetime(d[col("thaw_time")].astype(str)).dt.time
                 < pd.to_datetime("11:59:00").time(),
                 "Morning",
                 "Afternoon",
@@ -1307,26 +1261,28 @@ def registry(params: Params, columns: Sequence[str] = ()) -> list[Feature]:
 # ---------------------------------------------------------------------------
 # Derived columns this registry does not build
 # ---------------------------------------------------------------------------
-#: The impurity concentration columns the certificate loader censors and flags.
-_COA_IMPURITIES = ("HCP", "pDNA", "cDNA", "<coa_impurities_4>", "<coa_impurities_5>")
-#: Every certificate column the loader coerces, and therefore may flag as absent.
-_COA_MEASURED = (
-    "<coa_titer>",
-    "<coa_p24>",
-    "<coa_pi_ratio>",
-    "<coa_donor:<coa_car_metric>-1>",
-    "<coa_donor:<coa_car_metric>-2>",
-    "<coa_donor_average:<coa_car_metric>>",
-    "<coa_donor:IFNg-1>",
-    "<coa_donor:IFNg-2>",
-    "<coa_donor_average:IFNg>",
-    "pH",
-    "Osmolality",
-    "Volume",
-    "<coa_dna_size>",
-    *_COA_IMPURITIES,
-    *(f"<coa_calc_prefix>{name}" for name in _COA_IMPURITIES),
-)
+def coa_measured() -> tuple[str, ...]:
+    """Every certificate column the loader coerces, and therefore may flag as absent."""
+    donors = []
+    for metric in (col("coa_car_metric"), col("coa_ifng_metric")):
+        donors += [
+            col("coa_donor", metric=metric, donor=1),
+            col("coa_donor", metric=metric, donor=2),
+            col("coa_donor_average", metric=metric),
+        ]
+    impurities = cols("coa_impurities")
+    return (
+        col("coa_titer"),
+        col("coa_p24"),
+        col("coa_pi_ratio"),
+        *donors,
+        col("coa_ph"),
+        col("coa_osmolality"),
+        col("coa_volume"),
+        col("coa_dna_size"),
+        *impurities,
+        *(col("coa_calc_prefix") + name for name in impurities),
+    )
 
 
 def coa_lineage() -> dict[str, tuple[str, ...]]:
@@ -1338,47 +1294,47 @@ def coa_lineage() -> dict[str, tuple[str, ...]]:
     from the target. The loader checks what it produced against this table, so
     the two cannot drift apart in silence.
     """
-    prefix = "<coa_prefix>"
+    prefix = col("coa_prefix")
+    titer, raw = _coa("coa_titer"), _coa("coa_titer_unadjusted")
+    impurities = cols("coa_impurities")
     lineage: dict[str, tuple[str, ...]] = {
-        f"{prefix}<coa_delivered_dose>": (
-            f"{prefix}<coa_titer>",
-            f"{prefix}<coa_titer_unadjusted>",
-            f"{prefix}Volume",
-        ),
-        f"{prefix}<coa_delivered_dose_fallback>": (f"{prefix}<coa_titer_unadjusted>",),
-        f"{prefix}<coa_titer_adjustment>": (
-            f"{prefix}<coa_titer>",
-            f"{prefix}<coa_titer_unadjusted>",
-        ),
-        f"{prefix}<coa_specific_infectivity>": (
-            f"{prefix}<coa_titer>",
-            f"{prefix}<coa_p24>",
-        ),
-        f"{prefix}<coa_last_dna_fraction>": tuple(
-            f"{prefix}{name}" for name in ("pDNA", "cDNA", "<coa_impurities_4>", "<coa_impurities_5>")
-        ),
-        f"{prefix}pH Abs Deviation": (f"{prefix}pH",),
-        f"{prefix}Osmolality Abs Deviation": (f"{prefix}Osmolality",),
+        _coa("coa_delivered_dose"): (titer, raw, _coa("coa_volume")),
+        _coa("coa_delivered_dose_fallback"): (raw,),
+        _coa("coa_titer_adjustment"): (titer, raw),
+        _coa("coa_specific_infectivity"): (titer, _coa("coa_p24")),
+        _coa("coa_last_dna_fraction"): tuple(prefix + name for name in impurities[1:]),
+        f"{_coa('coa_ph')} Abs Deviation": (_coa("coa_ph"),),
+        f"{_coa('coa_osmolality')} Abs Deviation": (_coa("coa_osmolality"),),
     }
-    for metric in ("<coa_car_metric>", "IFNg"):
-        donors = (f"{prefix}{metric} - Donor 1", f"{prefix}{metric} - Donor 2")
+    for metric in (col("coa_car_metric"), col("coa_ifng_metric")):
+        donors = (
+            prefix + col("coa_donor", metric=metric, donor=1),
+            prefix + col("coa_donor", metric=metric, donor=2),
+        )
         for statistic in ("MAX", "MIN", "DIFF", "DIFF Rel", "AVG"):
             lineage[f"{prefix}{metric} Donor {statistic}"] = donors
-    for name in _COA_IMPURITIES:
+    for name in impurities:
         lineage[f"{prefix}{name} below LOQ"] = (f"{prefix}{name}",)
-    for name in _COA_MEASURED:
+    for name in coa_measured():
         lineage[f"{prefix}{name} missing"] = (f"{prefix}{name}",)
     return lineage
 
 
-#: Every column that is arithmetic over another, and what it was computed from.
-#: The registry's own entries are added by :func:`derived_sources`.
-DERIVED_SOURCES: dict[str, tuple[str, ...]] = coa_lineage()
+def derived_sources() -> dict[str, tuple[str, ...]]:
+    """Every column that is arithmetic over another, and what it was computed from.
 
-#: Columns whose value depends on the frame they were computed over — a z-score
-#: is relative to the site's own batches, so it is not a fixed measurement and it
-#: cannot be recomputed for one new batch. Exploratory only.
-SITE_RELATIVE = ("<f_coa_impurity_index>",)
+    The registry's own entries are added by :func:`ml.dataset` from the registry.
+    """
+    return coa_lineage()
+
+
+def site_relative() -> tuple[str, ...]:
+    """Columns whose value depends on the frame they were computed over.
+
+    A z-score is relative to the site's own batches, so it is not a fixed
+    measurement and it cannot be recomputed for one new batch. Exploratory only.
+    """
+    return (col("f_coa_impurity_index"),)
 
 
 # ---------------------------------------------------------------------------
@@ -1394,7 +1350,9 @@ CREATED, PRESENT, NOT_IN_CATALOG, BLOCKED, ERRORED = (
     "errored",
 )
 
-PROFILE_COLUMNS = ("<f_growth_profile>", "<f_cd4_profile>")
+
+def profile_columns() -> tuple[str, str]:
+    return col("f_growth_profile"), col("f_cd4_profile")
 
 
 def _requirement_text(requirement: Requirement) -> str:
@@ -1487,7 +1445,7 @@ def apply(
 
     report.profiles = {
         column: df[column].value_counts().to_dict()
-        for column in PROFILE_COLUMNS
+        for column in profile_columns()
         if column in df.columns
     }
 

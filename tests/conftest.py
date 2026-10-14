@@ -30,12 +30,16 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import dummy_data  # noqa: E402
-from ml import cli, share, stlite, taskconfig  # noqa: E402
+from ml import cli, names, share, stlite, taskconfig  # noqa: E402
 from ml import config as workspace  # noqa: E402
 
+# The tests run on the demo's invented vocabulary, from the first import on:
+# parametrised cases name their columns through it too.
+names.use(names.demo())
+
 #: The two example tasks, by the name each of them carries.
-PREDICTIVE = "site_a_car_expression"
-EXPLORATORY = "site_b_release"
+PREDICTIVE = "expression"
+EXPLORATORY = "release"
 
 
 @pytest.fixture(scope="session")
@@ -199,8 +203,8 @@ def row_named(block: dict, first_cell: str) -> list:
 
 
 def site_a(batch_table: pd.DataFrame) -> pd.DataFrame:
-    return batch_table[batch_table["Site Merged"] == "SiteA"]
+    return batch_table[batch_table["Site Merged"] == names.site("a")]
 
 
 def site_b(batch_table: pd.DataFrame) -> pd.DataFrame:
-    return batch_table[batch_table["Site Merged"] == "SiteB"]
+    return batch_table[batch_table["Site Merged"] == names.site("b")]

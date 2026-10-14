@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 from .logger import log
+from .names import site
 
 MODULE = "merge"
 
@@ -25,11 +26,11 @@ class MergeReport:
 
 
 def merge_sites(phf: dict[str, pd.DataFrame]) -> pd.DataFrame:
-    """Concatenate SiteA and SiteB after stamping a Site Merged column."""
-    log.step(MODULE, "Merging SiteA and SiteB into batch table")
+    """Concatenate the two sites after stamping a Site Merged column."""
+    log.step(MODULE, f"Merging {site('a')} and {site('b')} into batch table")
 
-    for site, df in phf.items():
-        df["Site Merged"] = site
+    for name, df in phf.items():
+        df["Site Merged"] = name
 
     result = pd.concat(
         list(phf.values()),
@@ -57,7 +58,7 @@ def run_sanity_checks(
     report = MergeReport(
         total_rows=len(result),
         total_columns=result.shape[1],
-        site_rows={site: len(df) for site, df in phf.items()},
+        site_rows={name: len(df) for name, df in phf.items()},
     )
 
     # A batch that appears twice is counted twice by every task that keeps it.
@@ -88,29 +89,26 @@ def run_sanity_checks(
     else:
         log.success(MODULE, "All catalog parameters present in merged batch table")
 
-    # SiteA columns not in SiteB (and not in catalog mapping)
+    # Site A columns not in site B (and not in catalog mapping)
+    a, b = site("a"), site("b")
     report.site_a_only_cols = [
-        c
-        for c in phf["SiteA"].columns
-        if c not in phf["SiteB"].columns and c not in catalog_mapping
+        c for c in phf[a].columns if c not in phf[b].columns and c not in catalog_mapping
     ]
     if report.site_a_only_cols:
         log.info(
             MODULE,
-            f"{len(report.site_a_only_cols)} SiteA-only columns (not in catalog mapping)",
+            f"{len(report.site_a_only_cols)} {a}-only columns (not in catalog mapping)",
             ", ".join(report.site_a_only_cols[:20]),
         )
 
-    # SiteB columns not in SiteA
+    # Site B columns not in site A
     report.site_b_only_cols = [
-        c
-        for c in phf["SiteB"].columns
-        if c not in phf["SiteA"].columns and c not in catalog_mapping
+        c for c in phf[b].columns if c not in phf[a].columns and c not in catalog_mapping
     ]
     if report.site_b_only_cols:
         log.info(
             MODULE,
-            f"{len(report.site_b_only_cols)} SiteB-only columns (not in catalog mapping)",
+            f"{len(report.site_b_only_cols)} {b}-only columns (not in catalog mapping)",
             ", ".join(report.site_b_only_cols[:20]),
         )
 

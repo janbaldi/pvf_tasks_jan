@@ -2,6 +2,7 @@
 
     ml validate [--task ...]          validate the config and tasks; run nothing
     ml check-catalog                  what the sources record that the catalog does not list
+    ml check-leaks [folder]           any private vocabulary name in the repository
     ml build                          the batch table: every batch, cleaned and derived
     ml update [--task ...]            check-catalog, build and the given tasks, in that order
     ml task new <folder>              a task workspace: a folder with an annotated task.yaml
@@ -54,6 +55,7 @@ from . import (
     manifest,
     merge,
     missingness,
+    names,
     package,
     provenance,
     recipe,
@@ -79,6 +81,7 @@ TASK_LAYOUT = {Path(path).name: path for path in package.ARTEFACTS}
 #: Errors that are the user's to fix, shown as a message rather than a traceback.
 USER_ERRORS = (
     ConfigError,
+    names.VocabularyError,
     share.ShareError,
     TaskConfigError,
     dataset.TaskRefused,
@@ -124,7 +127,7 @@ def _events(mark: int) -> tuple[list[str], list[str]]:
 
 def _mapping_table(mapping: dict[str, str]) -> pd.DataFrame:
     """The name mapping as the table it was read into, for its provenance digest."""
-    return pd.DataFrame(list(mapping.items()), columns=["SiteB", "SiteA"])
+    return pd.DataFrame(list(mapping.items()), columns=["Site B", "Site A"])
 
 
 def _show_reads(sources: list[io.Source], title: str = "Reading from SharePoint") -> None:
@@ -187,8 +190,11 @@ def run_catalog(config: dict[str, Any], config_path: str | Path | None = None) -
     """
     run_start = datetime.now()
     mark = log.mark()
-    workspace.require(config, ("catalog", "phf_site_a", "phf_site_b", "param_mapping"))
+    workspace.require(
+        config, ("vocabulary", "catalog", "phf_site_a", "phf_site_b", "param_mapping")
+    )
     log.stage("Catalog")
+    workspace.load_vocabulary(config)
 
     labels = ["catalog", "phf_site_a", "phf_site_b", "param_mapping"]
     if workspace.has(config, "investigations"):
@@ -207,16 +213,16 @@ def run_catalog(config: dict[str, Any], config_path: str | Path | None = None) -
     log.section("Loading")
     catalog_frame = io.read_catalog(src["catalog"])
     catalog_cols = list(catalog_frame["Parameter"])
-    site_a = io.load_phf_site_a(src["phf_site_a"])
-    site_b = io.load_phf_site_b(src["phf_site_b"])
+    first = io.load_phf(src["phf_site_a"], "a")
+    second = io.load_phf(src["phf_site_b"], "b")
     mapping = io.load_site_mapping(src["param_mapping"], exclude=_mapping_exclude(config))
     investigations = (
         io.load_investigations(src["investigations"]) if "investigations" in src else None
     )
     sources = [
         src["catalog"].record(catalog_frame),
-        src["phf_site_a"].record(site_a),
-        src["phf_site_b"].record(site_b),
+        src["phf_site_a"].record(first),
+        src["phf_site_b"].record(second),
         src["param_mapping"].record(_mapping_table(mapping)),
         src["investigations"].record(investigations)
         if "investigations" in src
@@ -226,14 +232,16 @@ def run_catalog(config: dict[str, Any], config_path: str | Path | None = None) -
     ]
 
     log.section("Comparing")
+    second_label = f"{names.site('b')} batch records"
     found = catalog.find_new_parameters(
         catalog_cols,
         {
-            "SiteA PHF": site_a,
-            "SiteB batch data": site_b,
+            f"{names.site('a')} batch records": first,
+            second_label: second,
             "Investigations Power Query": investigations,
         },
-        site_b_mapping=mapping,
+        site_mapping=mapping,
+        mapped=(second_label,),
     )
 
     log.section("Writing")
@@ -283,9 +291,9 @@ def run_catalog(config: dict[str, Any], config_path: str | Path | None = None) -
         )
         uploaded = share.upload(files, folder)
 
-    for label, names in found.by_source.items():
-        if names:
-            log.names(f"{label}: columns the catalog does not list", names)
+    for label, columns in found.by_source.items():
+        if columns:
+            log.names(f"{label}: columns the catalog does not list", columns)
         else:
             log.names(f"{label}: every column is in the catalog", [], level="SUCCESS")
     for label in found.sources_absent:
@@ -298,7 +306,8 @@ def run_catalog(config: dict[str, Any], config_path: str | Path | None = None) -
 
 
 def _mapping_exclude(config: dict[str, Any]) -> list[str]:
-    return [str(name) for name in (config.get("mapping") or {}).get("exclude") or []]
+    """The mapping rows known to be wrong: ``mapping.exclude``, as vocabulary keys."""
+    return [names.col(str(key)) for key in (config.get("mapping") or {}).get("exclude") or []]
 
 
 # ---------------------------------------------------------------------------
@@ -324,9 +333,11 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
     """
     run_start = datetime.now()
     mark = log.mark()
-    workspace.require(config, (*BUILD_INPUTS, "batch_table"))
+    workspace.require(config, ("vocabulary", *BUILD_INPUTS, "batch_table"))
     params = features.Params(**(config.get("features") or {}))
     log.stage("Batch table build")
+    workspace.load_vocabulary(config)
+    rules = workspace.load_corrections(config)
 
     src = {label: workspace.source(config, label) for label in BUILD_INPUTS}
     site_maps = workspace.site_map_sources(config)
@@ -348,14 +359,14 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
     catalog_cols = list(catalog_frame["Parameter"])
     catalog_mapping = dict(zip(catalog_frame["Parameter"], catalog_frame["Value Type"]))
 
-    df_site_a = io.load_phf_site_a(src["phf_site_a"])
-    site_b_raw = io.load_phf_site_b(src["phf_site_b"])
+    df_first = io.load_phf(src["phf_site_a"], "a")
+    second_raw = io.load_phf(src["phf_site_b"], "b")
     mapping = io.load_site_mapping(src["param_mapping"], exclude=_mapping_exclude(config))
-    df_site_b = io.apply_column_mapping(site_b_raw, mapping)
+    df_second = io.apply_column_mapping(second_raw, mapping)
 
     df_remfg = io.load_remanufacturing_supplement(src["remfg"])
-    df_site_b = io.attach_supplement(
-        df_site_b, df_remfg, "Patient Lot/Batch #", ["<prior_lines>"]
+    df_second = io.attach_supplement(
+        df_second, df_remfg, "Patient Lot/Batch #", [names.col("prior_lines")]
     )
 
     lv_coa = config.get("lv_coa") or {}
@@ -371,24 +382,25 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
     # changes the site tables in place.
     sources = [
         src["catalog"].record(catalog_frame),
-        src["phf_site_a"].record(df_site_a),
-        src["phf_site_b"].record(site_b_raw),
+        src["phf_site_a"].record(df_first),
+        src["phf_site_b"].record(second_raw),
         src["param_mapping"].record(_mapping_table(mapping)),
         src["remfg"].record(df_remfg),
         src["lv_coa"].record(df_lv_coa),
         src["raw_materials"].record(df_raw),
     ]
 
-    phf = {"SiteA": df_site_a, "SiteB": df_site_b}
+    site_a, site_b = names.sites()
+    phf = {site_a: df_first, site_b: df_second}
     site_shapes = {site: df.shape for site, df in phf.items()}
 
     # Where every column came from, collected as the columns arrive.
-    site_a_cols, site_b_cols = set(df_site_a.columns), set(df_site_b.columns)
+    first_cols, second_cols = set(df_first.columns), set(df_second.columns)
     origins: dict[str, list[str]] = {
-        "Both sites' PHF": sorted(site_a_cols & site_b_cols),
-        "SiteA PHF only": sorted(site_a_cols - site_b_cols),
-        "SiteB PHF only": sorted(site_b_cols - site_a_cols),
-        "Re-manufacturing supplement": ["<prior_lines>"],
+        "Both sites' batch records": sorted(first_cols & second_cols),
+        f"{site_a} batch records only": sorted(first_cols - second_cols),
+        f"{site_b} batch records only": sorted(second_cols - first_cols),
+        "Re-manufacturing supplement": [names.col("prior_lines")],
     }
     source_rows = [
         ["Catalog", f"{len(catalog_cols):,}", f"{catalog_frame.shape[1]}", "loaded"],
@@ -405,7 +417,14 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
     # ── Clean ──────────────────────────────────────────────────────────────
     log.section("02 · Cleaning")
     cleaning_report = clean.run_all(
-        phf, catalog_cols, catalog_mapping, config.get("cleaning") or {}
+        phf,
+        catalog_cols,
+        catalog_mapping,
+        config.get("cleaning") or {},
+        rules=rules,
+        corrections_source=str(
+            workspace.location(config, "vocabulary").with_sheet(names.CORRECTIONS_SHEET)
+        ),
     )
     if cleaning_report.censored_flags:
         origins["Cleaning (censoring indicators)"] = list(cleaning_report.censored_flags)
@@ -688,6 +707,10 @@ def _carry_upstream(
     return upstream
 
 
+#: The run's copy of the vocabulary it ran with, which a rerun reads.
+VOCABULARY_COPY = f"inputs/{workspace.RUN_VOCABULARY}"
+
+
 def _input_name(source: io.Source, label: str) -> str:
     """Where a run keeps its copy of an input: ``inputs/batch_table.xlsx`` or ``catalog.xlsx``."""
     return f"inputs/{label}.xlsx"
@@ -727,6 +750,7 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec) -> Path:
     }
 
     try:
+        vocabulary = workspace.task_vocabulary(config, spec.batch_table)
         batch_table_source = workspace.table_source(config, "batch_table", spec.batch_table)
         catalog_source = workspace.table_source(config, "catalog", spec.catalog)
         _show_reads(
@@ -750,6 +774,7 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec) -> Path:
         catalog_frame = io.read_catalog(catalog_source)
         _copy_input(pkg, batch_table_source, batch_table, inputs["batch_table"])
         _copy_input(pkg, catalog_source, catalog_frame, inputs["catalog"])
+        names.to_frame(vocabulary).to_excel(pkg.path_for(VOCABULARY_COPY), index=False)
         sources = [batch_table_source.record(batch_table), catalog_source.record(catalog_frame)]
         prov = provenance.capture(
             sources, seed=spec.seed, config_path=spec.source, config=spec.as_dict()
@@ -803,7 +828,7 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec) -> Path:
                 },
                 "input_copies": inputs,
             },
-            required=REQUIRED_ARTIFACTS + tuple(inputs.values()),
+            required=REQUIRED_ARTIFACTS + tuple(inputs.values()) + (VOCABULARY_COPY,),
         )
     except Exception as exc:
         pkg.write_text(TASK_LAYOUT["run.log"], _log_text(log.since(mark)))
@@ -937,15 +962,22 @@ def validate(config: dict[str, Any] | None, specs: list[TaskSpec]) -> list[str]:
     problems: list[str] = []
     if config:
         try:
-            rules = corrections.load((config.get("cleaning") or {}).get("corrections"))
-            log.success(MODULE, f"Corrections table: {len(rules)} rules")
-        except corrections.CorrectionsError as exc:
-            problems.append(str(exc))
-        try:
             share.backend()
         except share.ShareError as exc:
             problems.append(str(exc))
             return problems
+        try:
+            workspace.load_vocabulary(config)
+        except (ConfigError, names.VocabularyError) as exc:
+            return problems + [str(exc)]
+        except Exception as exc:  # unreachable: the stages would stop the same way
+            return problems + [f"sharepoint.vocabulary could not be read: {exc}"]
+        try:
+            rules = workspace.load_corrections(config)
+            log.success(MODULE, f"Corrections table: {len(rules)} rules")
+        except corrections.CorrectionsError as exc:
+            problems.append(str(exc))
+        problems += _unknown_keys(config)
         if (config.get("sources") or {}).get("databricks"):
             try:
                 enrich.ao_mapping()
@@ -958,6 +990,22 @@ def validate(config: dict[str, Any] | None, specs: list[TaskSpec]) -> list[str]:
     for spec in specs:
         problems += [f"{spec.name}: {p}" for p in _check_task(config, spec)]
     return problems
+
+
+def _unknown_keys(config: dict[str, Any]) -> list[str]:
+    """Settings that name a column by a key the vocabulary does not define."""
+    named = {
+        "cleaning.yes_no_defaults": list(
+            (config.get("cleaning") or {}).get("yes_no_defaults") or {}
+        ),
+        "mapping.exclude": list((config.get("mapping") or {}).get("exclude") or []),
+    }
+    return [
+        f"{where}: '{key}' is not a column key of the vocabulary (see ml.names)"
+        for where, keys in named.items()
+        for key in keys
+        if str(key) not in names.COLUMNS
+    ]
 
 
 def _check_task(config: dict[str, Any] | None, spec: TaskSpec) -> list[str]:
@@ -979,8 +1027,8 @@ def _check_task(config: dict[str, Any] | None, spec: TaskSpec) -> list[str]:
         "cohort.filters": [f.column for f in spec.cohort.filters],
         "cohort.date_column": [spec.cohort.date_column],
     }
-    for where, names in named.items():
-        for name in names:
+    for where, wanted in named.items():
+        for name in wanted:
             if name and name not in columns:
                 problems.append(f"{where}: '{name}' is not a column of the batch table")
     if spec.cohort.sites and spec.cohort.site_column not in columns:
@@ -997,6 +1045,28 @@ def _check_task(config: dict[str, Any] | None, spec: TaskSpec) -> list[str]:
             if column not in frame.columns:
                 problems.append(f"predictors.{key}: '{column}' is not a column of the catalog")
     return problems
+
+
+def check_leaks(config: dict[str, Any], folder: Path) -> int:
+    """Search a repository for the private vocabulary's names; 1 when any turns up."""
+    from . import leaks
+
+    vocabulary = workspace.load_vocabulary(config)
+    rules = workspace.load_corrections(config)
+    terms = leaks.vocabulary_terms(vocabulary, rules)
+    root = folder.expanduser().resolve()
+    files = leaks.tracked_files(root)
+    log.step(MODULE, f"Searching {len(files):,} files for {len(terms):,} names", str(root))
+    found = leaks.scan(files, terms, root)
+    if not found:
+        log.success(MODULE, "None of the vocabulary's names is in the repository")
+        return 0
+    log.names(
+        "Lines that hold a name from the private vocabulary",
+        [f"{leak.path}:{leak.line}  {leak.name!r}  — {leak.text}" for leak in found],
+        level="ERROR",
+    )
+    return 1
 
 
 def encode_batches(run: str | Path, rows: pd.DataFrame, out: Path | None) -> Path:
@@ -1040,6 +1110,12 @@ def _parser() -> argparse.ArgumentParser:
     validate = commands.add_parser("validate", help="validate the config and tasks; run nothing")
     validate.add_argument("--task", action="append", help="a task workspace (repeatable)")
     commands.add_parser("check-catalog", help="what the sources record that the catalog lacks")
+    leaks_cmd = commands.add_parser(
+        "check-leaks", help="search the repository for any name the private vocabulary holds"
+    )
+    leaks_cmd.add_argument(
+        "folder", nargs="?", default=".", help="the repository to search (default: here)"
+    )
     commands.add_parser("build", help="build the batch table from both sites")
     update = commands.add_parser("update", help="check-catalog, build, then the given tasks")
     update.add_argument("--task", action="append", help="a task workspace (repeatable)")
@@ -1116,9 +1192,13 @@ def _run(args) -> int:
 
     if command == "task encode":
         config = _config(args)
+        workspace.load_vocabulary(config)
         rows = io.load_batch_table(workspace.source(config, "batch_table"))
         encode_batches(args.run, rows, Path(args.out) if args.out else None)
         return 0
+
+    if command == "check-leaks":
+        return check_leaks(_config(args), Path(args.folder))
 
     if command == "validate":
         config = _config(args, start=first_task, required=False)

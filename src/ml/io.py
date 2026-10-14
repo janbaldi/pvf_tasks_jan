@@ -1,10 +1,11 @@
 """Reading every source the batch table is built from.
 
-The catalog specification, both sites' PHF files, the parameter-name mapping between
-them, the re-manufacturing treatment-line supplement, the lentiviral vector
-certificates of analysis, and the raw-material identifiers. Each loader takes a
-:class:`Source`, read from the SharePoint location ``config.yaml`` gives it.
-Nothing here knows an address.
+The catalog specification, both sites' batch records, the parameter-name mapping
+between them, the re-manufacturing treatment-line supplement, the lentiviral
+vector certificates of analysis, and the raw-material identifiers. Each loader
+takes a :class:`Source`, read from the SharePoint location ``config.yaml`` gives
+it. Nothing here knows an address, and no source's column is named here: each is
+a key the vocabulary resolves (:mod:`ml.names`).
 
 Everything returned here is an *original* parameter. Nothing in this module
 calculates anything from another column.
@@ -22,26 +23,13 @@ import pandas as pd
 from . import features, share
 from . import provenance as prov
 from .logger import log
+from .names import col, cols, site, value
 
 MODULE = "io"
 
 #: The value types the catalog may declare, besides a bracketed ordinal category list.
 VALUE_TYPES = frozenset({"numeric", "categorical", "datetime", "duration", "ratio", "boolean"})
 
-#: The worksheet each source's data is on, in the files as the sites produce them.
-#: config.yaml can override any of these under ``sheets:``.
-DEFAULT_SHEETS: dict[str, str | int] = {
-    "catalog": 0,
-    "batch_table": 0,
-    "phf_site_a": "<sheet:phf_site_a>",
-    "phf_site_b": "<sheet:phf_site_a>",
-    "param_mapping": "Overall",
-    "remfg": "<sheet:remfg>",
-    "lv_coa": "<sheet:lv_coa>",
-    "raw_materials": 0,
-    "investigations": "<sheet:investigations>",
-    "site_maps": 0,
-}
 #: Rows of workbook furniture above the header, where a source has any.
 DEFAULT_HEADERS = {"lv_coa": 2}
 
@@ -205,17 +193,13 @@ def load_investigations(investigations: str | Path | Source) -> pd.DataFrame | N
         return None
 
 
-def load_phf_site_a(phf: str | Path | Source) -> pd.DataFrame:
-    """Load the SiteA PHF."""
-    frame = _read(as_source(phf, "phf_site_a"), "SiteA PHF")
-    log.success(MODULE, f"SiteA PHF loaded — {len(frame):,} rows × {frame.shape[1]} columns")
-    return frame
-
-
-def load_phf_site_b(phf: str | Path | Source) -> pd.DataFrame:
-    """Load the SiteB PHF."""
-    frame = _read(as_source(phf, "phf_site_b"), "SiteB PHF")
-    log.success(MODULE, f"SiteB PHF loaded — {len(frame):,} rows × {frame.shape[1]} columns")
+def load_phf(phf: str | Path | Source, which: str) -> pd.DataFrame:
+    """Load site ``which``'s batch records (``a`` or ``b``)."""
+    name = site(which)
+    frame = _read(as_source(phf, f"phf_site_{which}"), f"{name} batch records")
+    log.success(
+        MODULE, f"{name} batch records loaded — {len(frame):,} rows × {frame.shape[1]} columns"
+    )
     return frame
 
 
@@ -223,14 +207,14 @@ def load_site_mapping(
     mapping: str | Path | Source, exclude: list[str] | tuple[str, ...] = ()
 ) -> dict[str, str]:
     """
-    Load the SiteA ↔ SiteB parameter-name mapping.
+    Load the parameter-name mapping between the sites.
 
-    Returns a cleaned dict  {site_b_col_name: site_a_col_name}. ``exclude`` names
+    Returns a cleaned dict ``{site B column: site A column}``. ``exclude`` names
     mapping rows known to be wrong (``mapping.exclude`` in the config).
     """
     df_mapping = _read(as_source(mapping, "param_mapping"), "site parameter name mapping")
 
-    required = ["<map_site_b_name>", "<map_site_a_name>"]
+    required = [col("map_site_b_name"), col("map_site_a_name")]
     absent = [column for column in required if column not in df_mapping.columns]
     if absent:
         raise ValueError(f"The parameter mapping has no {' or '.join(absent)} column")
@@ -257,13 +241,13 @@ def load_site_mapping(
 
     if conflicts:
         raise ValueError(
-            "The parameter mapping sends one SiteB column to two different SiteA names: "
-            + "; ".join(conflicts[:5])
+            f"The parameter mapping sends one {site('b')} column to two different "
+            f"{site('a')} names: " + "; ".join(conflicts[:5])
         )
     if unusable:
         log.warn(
             MODULE,
-            f"{len(unusable)} mapping rows have no SiteA name and were dropped",
+            f"{len(unusable)} mapping rows have no {site('a')} name and were dropped",
             ", ".join(unusable[:10]),
         )
     log.success(MODULE, f"Site mapping loaded — {len(name_mapping)} usable mappings")
@@ -271,7 +255,7 @@ def load_site_mapping(
 
 
 def apply_column_mapping(df_site_b: pd.DataFrame, name_mapping: dict) -> pd.DataFrame:
-    """Rename SiteB columns to the SiteA names, suffixing only what collides.
+    """Rename site B's columns to site A's names, suffixing only what collides.
 
     Two source columns can map to one name — the site records a country twice
     under different headings, say. The first of them, by position, keeps the
@@ -279,7 +263,7 @@ def apply_column_mapping(df_site_b: pd.DataFrame, name_mapping: dict) -> pd.Data
     under which name is determined by the file, not by dictionary order. A
     suffix that is already a column name is skipped rather than reused.
     """
-    log.step(MODULE, "Applying column mapping to SiteB")
+    log.step(MODULE, f"Applying column mapping to {site('b')}")
 
     proposed = [str(name_mapping.get(column, column)) for column in df_site_b.columns]
     reserved = set(proposed)
@@ -309,7 +293,7 @@ def apply_column_mapping(df_site_b: pd.DataFrame, name_mapping: dict) -> pd.Data
 
     log.success(
         MODULE,
-        "SiteB column mapping applied",
+        f"{site('b')} column mapping applied",
         f"{len(renamed)} columns renamed to avoid duplicates",
     )
     return df_site_b
@@ -377,12 +361,12 @@ def attach_supplement(
 
 
 def load_remanufacturing_supplement(remfg: str | Path | Source) -> pd.DataFrame:
-    """Load the treatment-line supplement for SiteB (<prior_lines>)."""
+    """Load site B's treatment-line supplement (the number of prior lines of therapy)."""
     df = _read(as_source(remfg, "remfg"), "re-manufacturing treatment-line supplement")
 
     key = join_key(
         df,
-        ("<remfg_batch_keys_1>", "Patient Lot/Batch #", "<remfg_batch_keys_3>"),
+        cols("remfg_batch_keys"),
         "The re-manufacturing supplement",
     )
     df = df.rename(columns={key: "Patient Lot/Batch #"})
@@ -390,9 +374,7 @@ def load_remanufacturing_supplement(remfg: str | Path | Source) -> pd.DataFrame:
     if empty:
         log.warn(MODULE, f"{empty} supplement rows have no batch number and were dropped")
     df = df.dropna(subset=["Patient Lot/Batch #"])
-    df = df.rename(
-        columns={"<prior_lines_source>": "<prior_lines>"}
-    )
+    df = df.rename(columns={col("prior_lines_source"): col("prior_lines")})
     log.success(MODULE, f"Re-MFG supplement loaded — {len(df):,} rows")
     return df
 
@@ -404,8 +386,8 @@ def load_lv_coa(
     osmo_nominal: float | None = None,
 ) -> pd.DataFrame:
     """
-    Load <coa_prefix>correlation data and engineer lot-level features for the
-    "expected average patient-batch <coa_car_metric>" model.
+    Load the vector certificates of analysis and engineer lot-level features for
+    the expected patient-batch expression model.
 
     Parameters
     ----------
@@ -415,7 +397,7 @@ def load_lv_coa(
         centre leaks). If None, that deviation feature is skipped with a warning.
     """
     df = _read(as_source(lv_coa, "lv_coa"), "vector certificates of analysis")
-    log.success(MODULE, f"LVV CoA data loaded — {len(df):,} rows × {df.shape[1]} columns")
+    log.success(MODULE, f"Vector certificates loaded — {len(df):,} rows × {df.shape[1]} columns")
 
     # --- drop section-marker columns (headers "1".."5","42","42 ", empty) ---
     marker = [
@@ -426,8 +408,8 @@ def load_lv_coa(
     if marker:
         df.drop(columns=marker, inplace=True)
 
-    df["<coa_lot>"] = df["<coa_lot>"].astype("string").str.strip()
-    df = df[df["<coa_available>"] == "Yes"].copy()
+    df[col("coa_lot")] = df[col("coa_lot")].astype("string").str.strip()
+    df = df[df[col("coa_available")] == value("coa_available_yes")].copy()
     df = df.dropna(axis=1, how="all")  # removes unadjusted titer only if all-empty
 
     def norm(name: object) -> str:
@@ -438,12 +420,16 @@ def load_lv_coa(
     for c in df.columns:
         lookup.setdefault(norm(c), c)
 
-    def col(*cands: str) -> str | None:
+    def find(*cands: str) -> str | None:
+        """The workbook's own spelling of a vocabulary column, if it has it."""
         for cand in cands:
             hit = lookup.get(norm(cand))
             if hit is not None:
                 return hit
         return None
+
+    prefix = col("coa_prefix")
+    impurities = cols("coa_impurities")
 
     engineered: list[str] = []
     lineage: dict[str, tuple[str, ...]] = {}
@@ -459,7 +445,7 @@ def load_lv_coa(
         """
         df[name] = series
         engineered.append(name)
-        lineage[name] = tuple(f"<coa_prefix>{s}" for s in sources if s)
+        lineage[name] = tuple(f"{prefix}{s}" for s in sources if s)
 
     # ------------------------------------------------------------------ #
     # Numeric coercion for EUROPEAN-LOCALE TEXT cells:
@@ -484,17 +470,7 @@ def load_lv_coa(
     # (i) flag it and (ii) substitute LOQ/2 as a low sentinel. Concentration
     # columns only (that's where LOQ censoring lives).
     # ================================================================== #
-    conc_impurity = [
-        c
-        for c in (
-            col("HCP"),
-            col("pDNA"),
-            col("cDNA"),
-            col("<coa_impurities_4>"),
-            col("<coa_impurities_5>"),
-        )
-        if c is not None
-    ]
+    conc_impurity = [c for c in (find(name) for name in impurities) if c is not None]
 
     for c in conc_impurity:
         raw = df[c].astype("string").str.strip()
@@ -505,23 +481,16 @@ def load_lv_coa(
             loq_num = pd.to_numeric(loq.str.replace(",", ".", regex=False), errors="coerce") / 2.0
             df[c] = raw.where(~below, loq_num.astype("string"))  # LOQ/2 sentinel
 
-    # Delivered-mass ("<coa_calc_prefix>*") columns — kept as features (see header note).
+    # Delivered-mass impurity columns — kept as features (see header note).
     calc_impurity = [
-        c
-        for c in (
-            col("<coa_calc_prefix>HCP"),
-            col("<coa_calc_prefix>pDNA"),
-            col("<coa_calc_prefix>cDNA"),
-            col("<coa_calc_prefix><coa_impurities_4>"),
-            col("<coa_calc_prefix><coa_impurities_5>"),
-        )
-        if c is not None
+        c for c in (find(col("coa_calc_prefix") + name) for name in impurities) if c is not None
     ]
 
-    titer_adj = col("<coa_titer>")
-    titer_unadj = col("<coa_titer_unadjusted>")  # may survive but be PARTIAL
-    p24 = col("<coa_p24>")
-    vol = col("Volume")
+    titer_adj = find(col("coa_titer"))
+    titer_unadj = find(col("coa_titer_unadjusted"))  # may survive but be PARTIAL
+    p24 = find(col("coa_p24"))
+    vol = find(col("coa_volume"))
+    car, ifng = col("coa_car_metric"), col("coa_ifng_metric")
 
     numeric_cols = [
         c
@@ -529,17 +498,17 @@ def load_lv_coa(
             titer_adj,
             titer_unadj,
             p24,
-            col("<coa_pi_ratio>"),
-            col("<coa_donor:<coa_car_metric>-1>"),
-            col("<coa_donor:<coa_car_metric>-2>"),
-            col("<coa_donor_average:<coa_car_metric>>"),
-            col("<coa_donor:IFNg-1>"),
-            col("<coa_donor:IFNg-2>"),
-            col("<coa_donor_average:IFNg>"),
-            col("pH"),
-            col("Osmolality"),
+            find(col("coa_pi_ratio")),
+            find(col("coa_donor", metric=car, donor=1)),
+            find(col("coa_donor", metric=car, donor=2)),
+            find(col("coa_donor_average", metric=car)),
+            find(col("coa_donor", metric=ifng, donor=1)),
+            find(col("coa_donor", metric=ifng, donor=2)),
+            find(col("coa_donor_average", metric=ifng)),
+            find(col("coa_ph")),
+            find(col("coa_osmolality")),
             vol,
-            col("<coa_dna_size>"),
+            find(col("coa_dna_size")),
             *conc_impurity,
             *calc_impurity,
         )
@@ -566,10 +535,10 @@ def load_lv_coa(
         if titer_unadj and titer_adj:
             dose_titer = df[titer_unadj].where(df[titer_unadj].notna(), df[titer_adj])
             n_fb = int(df[titer_unadj].isna().to_numpy().sum())
-            add("<coa_delivered_dose>", dose_titer * df[vol], titer_unadj, titer_adj, vol)
+            add(col("coa_delivered_dose"), dose_titer * df[vol], titer_unadj, titer_adj, vol)
             if n_fb:
                 add(
-                    "<coa_delivered_dose_fallback>",
+                    col("coa_delivered_dose_fallback"),
                     df[titer_unadj].isna().astype("int8"),
                     titer_unadj,
                 )
@@ -587,14 +556,14 @@ def load_lv_coa(
                     "Delivered-dose uses ADJUSTED titer (no unadjusted "
                     "column) — check for potency back-channel",
                 )
-            add("<coa_delivered_dose>", df[basis] * df[vol], basis, vol)
+            add(col("coa_delivered_dose"), df[basis] * df[vol], basis, vol)
 
     # Titer adjustment factor = adjusted / unadjusted.
     #   How hard release titer was corrected; large corrections can flag assay
     #   drift. Defined only where BOTH exist; NaN elsewhere (Block 4b flags it).
     if titer_adj and titer_unadj:
         add(
-            "<coa_titer_adjustment>",
+            col("coa_titer_adjustment"),
             df[titer_adj] / df[titer_unadj].replace(0, np.nan),
             titer_adj,
             titer_unadj,
@@ -603,22 +572,26 @@ def load_lv_coa(
     # Specific infectivity = infectious titer / physical p24 titer.
     #   Functional particles per physical particle; empty/defective particles
     #   don't transduce, so this adds signal beyond raw titer. Built explicitly
-    #   rather than reused from <coa_pi_ratio> (different units/polarity here: <coa_pi_ratio>
-    #   is ~1e4 while titer/p24 is ~1 — NOT the same quantity).
+    #   rather than reused from the particle ratio column (different units and
+    #   polarity: that ratio is ~1e4 while titer/p24 is ~1 — NOT the same quantity).
     if titer_adj and p24:
-        add("<coa_specific_infectivity>", df[titer_adj] / df[p24].replace(0, np.nan), titer_adj, p24)
+        add(
+            col("coa_specific_infectivity"),
+            df[titer_adj] / df[p24].replace(0, np.nan),
+            titer_adj,
+            p24,
+        )
 
-    # <coa_impurities_5> as a fraction of total residual DNA (concentration basis).
-    #   *** LEAKAGE CAUTION: <coa_impurities_5> is a known lot-FINGERPRINT risk — it can
+    # The last residual-DNA impurity as a fraction of total residual DNA
+    #   (concentration basis). *** LEAKAGE CAUTION: it is a known lot-FINGERPRINT
+    #   risk — it can
     #   encode vector-lot identity rather than genuine quality. Validate under
     #   vector-lot GroupKFold; drop if it only helps within-lot.
-    dna_cols = [
-        c for c in (col("pDNA"), col("cDNA"), col("<coa_impurities_4>"), col("<coa_impurities_5>")) if c is not None
-    ]
-    e1b = col("<coa_impurities_5>")
+    dna_cols = [c for c in (find(name) for name in impurities[1:]) if c is not None]
+    e1b = find(impurities[-1])
     if e1b and len(dna_cols) >= 2:
         total_dna = df[dna_cols].sum(axis=1, min_count=1)
-        add("<coa_last_dna_fraction>", df[e1b] / total_dna.replace(0, np.nan), *dna_cols)
+        add(col("coa_last_dna_fraction"), df[e1b] / total_dna.replace(0, np.nan), *dna_cols)
 
     # ================================================================== #
     # BLOCK 2 — two-sided spec deviations as monotone features.
@@ -626,22 +599,23 @@ def load_lv_coa(
     # folds that into ONE monotone feature -> a single split instead of extra
     # depth to rediscover both tails. nominal = fixed spec midpoint, not a mean.
     # ================================================================== #
-    for name, target, nominal in [
-        ("pH", col("pH"), ph_nominal),
-        ("Osmolality", col("Osmolality"), osmo_nominal),
+    for name, target, nominal, setting in [
+        (col("coa_ph"), find(col("coa_ph")), ph_nominal, "lv_coa.ph_nominal"),
+        (col("coa_osmolality"), find(col("coa_osmolality")), osmo_nominal, "lv_coa.osmo_nominal"),
     ]:
         if target is None:
             continue
         if nominal is None:
-            log.warn(MODULE, f"{name} deviation skipped — pass {name.lower()}_nominal")
+            log.warn(MODULE, f"{name} deviation skipped — set {setting}")
             continue
         add(f"{name} Abs Deviation", (df[target] - nominal).abs(), target)
 
     # ================================================================== #
     # BLOCK 3 — reference-donor summaries (features, not target).
     # ================================================================== #
-    for metric in ["<coa_car_metric>", "IFNg"]:
-        d1, d2 = col(f"{metric} - Donor 1"), col(f"{metric} - Donor 2")
+    for metric in (car, ifng):
+        d1 = find(col("coa_donor", metric=metric, donor=1))
+        d2 = find(col("coa_donor", metric=metric, donor=2))
         if not (d1 and d2):
             continue
         pair = df[[d1, d2]]
@@ -660,9 +634,9 @@ def load_lv_coa(
         add(f"{metric} Donor DIFF", diff, d1, d2)
         add(f"{metric} Donor DIFF Rel", diff / pair.mean(axis=1).replace(0, np.nan), d1, d2)
 
-        # Reference average (primary potency level). Prefer the CoA's own
-        # "- Average" if present (it reconciles with the donor mean); else compute.
-        if col(f"{metric} - Average") is None:
+        # Reference average (primary potency level). Prefer the certificate's own
+        # average if present (it reconciles with the donor mean); else compute.
+        if find(col("coa_donor_average", metric=metric)) is None:
             add(f"{metric} Donor AVG", pair.mean(axis=1), d1, d2)
 
     # ================================================================== #
@@ -670,7 +644,7 @@ def load_lv_coa(
     # "Not run" != "below LOQ". Which lots got the full panel can be informative,
     # so flag genuine NaN explicitly instead of relying only on the default branch.
     # Skip unadjusted titer (dropped below; its missingness is already encoded by
-    # "<coa_delivered_dose_fallback>").
+    # the delivered-dose fallback flag).
     # ================================================================== #
     for c in numeric_cols:
         if c == titer_unadj:
@@ -681,12 +655,12 @@ def load_lv_coa(
     # ------------------------------------------------------------------ #
     # Drop identifiers / consumed raw columns, then namespace.
     # ------------------------------------------------------------------ #
-    for c in ["<coa_available>", "<coa_lot_number>", "<coa_made>", titer_unadj]:
+    for c in [col("coa_available"), col("coa_lot_number"), col("coa_made"), titer_unadj]:
         if c and c in df.columns:
             df.drop(columns=c, inplace=True)
 
-    df.columns = ["<vector_lot>"] + ["<coa_prefix>" + str(c) for c in df.columns[1:]]
-    engineered_prefixed = {"<coa_prefix>" + n for n in engineered}
+    df.columns = [col("vector_lot")] + [prefix + str(c) for c in df.columns[1:]]
+    engineered_prefixed = {prefix + n for n in engineered}
 
     missing_from_catalog = [
         c for c in df.columns if c not in catalog_cols and c not in engineered_prefixed
@@ -701,9 +675,7 @@ def load_lv_coa(
     # Derived columns are not catalog parameters, and that is a decision, not an
     # oversight — but each of them has to be visibly derived, with its inputs.
     declared = features.coa_lineage()
-    undeclared = sorted(
-        name for name in engineered_prefixed if f"<coa_prefix>{name[7:]}" not in declared
-    )
+    undeclared = sorted(name for name in engineered_prefixed if name not in declared)
     if undeclared:
         log.warn(
             MODULE,
@@ -713,15 +685,15 @@ def load_lv_coa(
         )
     log.info(
         MODULE,
-        f"Derived {len(engineered_prefixed)} <coa_prefix>columns from other certificate columns "
+        f"Derived {len(engineered_prefixed)} certificate columns from other certificate columns "
         "(not catalog parameters; their lineage is in features.coa_lineage())",
         "; ".join(
-            f"<coa_prefix>{name} ← {', '.join(sources) or 'unrecorded'}"
+            f"{prefix}{name} ← {', '.join(sources) or 'unrecorded'}"
             for name, sources in list(lineage.items())[:10]
         ),
     )
 
-    log.success(MODULE, f"<coa_prefix>loaded — {len(df):,} lots × {df.shape[1]} columns")
+    log.success(MODULE, f"Vector certificates ready — {len(df):,} lots × {df.shape[1]} columns")
     return df
 
 
@@ -734,13 +706,9 @@ def load_raw_materials(raw_materials: str | Path | Source, catalog_cols: list[st
         for c in df.columns
     ]
 
-    df = df.rename(columns={"targetbatchnumber": "Patient Lot/Batch #"})
+    df = df.rename(columns={col("raw_materials_batch"): "Patient Lot/Batch #"})
 
-    key = join_key(
-        df,
-        ("Patient Lot/Batch #", "Batch", "<remfg_batch_keys_3>", "<remfg_batch_keys_1>"),
-        "The raw materials export",
-    )
+    key = join_key(df, cols("raw_materials_batch_keys"), "The raw materials export")
     df = df.rename(columns={key: "Patient Lot/Batch #"})
     df["Patient Lot/Batch #"] = normalise_key(df["Patient Lot/Batch #"])
 

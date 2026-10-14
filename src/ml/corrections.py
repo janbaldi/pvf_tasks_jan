@@ -1,50 +1,37 @@
 """Known data corrections, as a table rather than as code.
 
 A correction is a business fact someone established against a source system — a
-clump count that is really a date Excel mangled, a clinical site recorded under
-the wrong country, a site that stores cell counts without the 1e6 divisor. Those
-facts change when the sources change, so they belong with the data, named by
-config.yaml, in ``corrections.yaml``, where a data steward can add one without
-touching the code. Each rule names its site, its column, what it does and why:
+count that is really a date Excel mangled, a clinical site recorded under the
+wrong country, a site that stores cell counts without the 1e6 divisor. Those
+facts change when the sources change, so they belong with the data: the
+``Corrections`` sheet of the vocabulary workbook on SharePoint, where a data
+steward can add one without touching the code. One row per rule, or per pair
+for the rules that replace text:
 
-.. code-block:: yaml
+============  ===============================================================
+Name          the rule's name; rows sharing a name form one rule
+Site          the site's name, as the vocabulary names it
+Column        the column it corrects
+Action        set | replace_text | replace_values | divide_by
+Old           replace_text / replace_values: what is replaced
+New           set: the new value (empty → missing) · replace_*: the replacement ·
+              divide_by: the divisor
+When column   optional: only rows where this column…
+When equals   …equals this, compared as text (without When column: the column itself)
+Reason        why
+Enabled       optional: no / false switches it off
+============  ===============================================================
 
-    corrections:
-      - name: clump_count_date_serial
-        site: SiteB
-        column: "<clumps_mix_count>"
-        when: {equals: "<value:mangled_count>"}              # compared as text
-        set: null                            # → missing
-        reason: a clump count Excel turned into a date serial
-      - name: israel_country
-        site: SiteB
-        column: Country
-        when: {column: <clinical_site>, equals: "<value:clinical_sites_b>"}
-        set: Israel
-      - site: SiteB
-        column: <oos_type>
-        replace_text: [[VIability, Viability], [<value:oos_raw>, Dose]]   # substrings, in order
-      - site: SiteA
-        column: Mycoplasma
-        replace_values: {<value:mycoplasma_raw>: <value:mycoplasma_clean>}    # whole values
-      - site: SiteB
-        column: <cells_per_bag>
-        divide_by: 1.0e6                     # applied after numeric coercion
-
-A rule without ``when`` applies to every row. ``cleaning.disable`` in the config
-switches named rules off for a workspace.
+``cleaning.disable`` in config.yaml switches named rules off for a workspace.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from importlib import resources
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
-import yaml
 
 from .logger import log
 
@@ -53,7 +40,19 @@ MODULE = "clean"
 #: The rules applied before values are coerced to their types, and after.
 INTEGRITY, SCALE = "integrity", "scale"
 _ACTIONS = ("set", "replace_text", "replace_values", "divide_by")
-_KEYS = ("name", "site", "column", "when", "reason", "enabled", *_ACTIONS)
+#: The columns of the Corrections sheet.
+HEADERS = [
+    "Name",
+    "Site",
+    "Column",
+    "Action",
+    "Old",
+    "New",
+    "When column",
+    "When equals",
+    "Reason",
+    "Enabled",
+]
 
 
 class CorrectionsError(ValueError):
@@ -82,76 +81,97 @@ class Rule:
         return self.name or f"{self.site}/{self.column}/{self.action}"
 
 
-def default_path() -> Path:
-    """The corrections shipped with the package, used when a config names none."""
-    return Path(str(resources.files("ml") / "templates" / "corrections.yaml"))
+def _cell(value: Any) -> Any:
+    """A cell as the rule means it: blank is None, and 12345.0 is the text "12345"."""
+    if value is None or (isinstance(value, float) and np.isnan(value)):
+        return None
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    text = str(value)
+    return text if text.strip() else None
 
 
-def load(path: str | Path | None) -> list[Rule]:
-    """Read and validate a corrections table."""
-    path = Path(path) if path else default_path()
-    if not path.is_file():
-        raise CorrectionsError(f"cleaning.corrections: {path} does not exist")
-    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    entries = raw.get("corrections") if isinstance(raw, dict) else raw
-    if entries is None:
-        return []
-    if not isinstance(entries, list):
-        raise CorrectionsError(f"{path}: expected a 'corrections:' list of rules")
+def from_frame(frame: pd.DataFrame, source: str = "the corrections table") -> list[Rule]:
+    """Read and validate a corrections table: one row per rule, or per replaced pair."""
+    headers = {str(c).strip().lower(): c for c in frame.columns}
+    absent = [c for c in ("site", "column", "action") if c not in headers]
+    if absent:
+        raise CorrectionsError(f"{source}: no {', '.join(absent)} column")
+
+    def get(record: dict, column: str) -> Any:
+        return _cell(record.get(headers[column])) if column in headers else None
+
+    groups: dict[str, dict] = {}
+    order: list[str] = []
+    errors: list[str] = []
+    for number, row in enumerate(frame.itertuples(index=False), start=2):
+        record = dict(zip(frame.columns, row))
+        site, column, action = get(record, "site"), get(record, "column"), get(record, "action")
+        if not (site or column or action):
+            continue
+        where = f"{source} row {number}"
+        if not site or not column:
+            errors.append(f"{where}: Site and Column are required")
+            continue
+        action = str(action or "").strip().lower()
+        if action not in _ACTIONS:
+            errors.append(f"{where}: Action '{action}' is not one of {', '.join(_ACTIONS)}")
+            continue
+        name = get(record, "name") or f"row {number}"
+        group = groups.get(name)
+        if group is None:
+            group = groups[name] = {
+                "name": get(record, "name") or "",
+                "site": site,
+                "column": column,
+                "action": action,
+                "pairs": [],
+                "new": get(record, "new"),
+                "when_column": get(record, "when column") or "",
+                "when_equals": get(record, "when equals"),
+                "reason": get(record, "reason") or "",
+                "enabled": str(get(record, "enabled") or "yes").strip().lower()
+                not in ("no", "false", "0", "off"),
+                "where": where,
+            }
+            order.append(name)
+        elif (group["site"], group["column"], group["action"]) != (site, column, action):
+            errors.append(f"{where}: rule '{name}' already has another site, column or action")
+            continue
+        if action in ("replace_text", "replace_values"):
+            old, new = get(record, "old"), get(record, "new")
+            if old is None:
+                errors.append(f"{where}: {action} needs Old")
+                continue
+            group["pairs"].append((old, "" if new is None else new))
 
     rules: list[Rule] = []
-    errors: list[str] = []
-    for index, entry in enumerate(entries):
-        where = f"{path.name} corrections[{index}]"
-        if not isinstance(entry, dict):
-            errors.append(f"{where}: expected a mapping")
-            continue
-        unknown = [key for key in entry if key not in _KEYS]
-        if unknown:
-            errors.append(f"{where}: unknown keys {unknown} (allowed: {', '.join(_KEYS)})")
-        actions = [key for key in _ACTIONS if key in entry]
-        if len(actions) != 1:
-            errors.append(f"{where}: give exactly one of {', '.join(_ACTIONS)}")
-            continue
-        if not entry.get("site") or not entry.get("column"):
-            errors.append(f"{where}: site and column are required")
-            continue
-        action = actions[0]
-        value = entry[action]
-        if action == "replace_text" and not (
-            isinstance(value, list) and all(isinstance(p, list) and len(p) == 2 for p in value)
-        ):
-            errors.append(f"{where}.replace_text: expected a list of [old, new] pairs")
-            continue
-        if action == "replace_values" and not isinstance(value, dict):
-            errors.append(f"{where}.replace_values: expected a mapping of old: new")
-            continue
-        if action == "divide_by":
-            # YAML reads 1.0e6 as text (it wants 1.0e+6), so a numeric string counts.
+    for name in order:
+        group = groups[name]
+        action, value = group["action"], group["new"]
+        if action == "replace_text":
+            value = [list(pair) for pair in group["pairs"]]
+        elif action == "replace_values":
+            value = dict(group["pairs"])
+        elif action == "divide_by":
             try:
                 value = float(value)
             except (TypeError, ValueError):
                 value = 0.0
-            if isinstance(entry[action], bool) or value == 0:
-                errors.append(f"{where}.divide_by: expected a non-zero number")
+            if not value:
+                errors.append(f"{group['where']}: divide_by needs a non-zero number in New")
                 continue
-        when = entry.get("when") or {}
-        if when and (not isinstance(when, dict) or "equals" not in when):
-            errors.append(
-                f"{where}.when: expected {{equals: value}} or {{column: ..., equals: ...}}"
-            )
-            continue
         rules.append(
             Rule(
-                site=str(entry["site"]),
-                column=str(entry["column"]),
+                site=group["site"],
+                column=group["column"],
                 action=action,
                 value=value,
-                name=str(entry.get("name") or ""),
-                when_column=str(when.get("column") or ""),
-                when_equals=when.get("equals"),
-                reason=str(entry.get("reason") or ""),
-                enabled=bool(entry.get("enabled", True)),
+                name=group["name"],
+                when_column=group["when_column"],
+                when_equals=group["when_equals"],
+                reason=group["reason"],
+                enabled=group["enabled"],
             )
         )
     if errors:
@@ -159,6 +179,31 @@ def load(path: str | Path | None) -> list[Rule]:
             "The corrections table cannot be used:\n  - " + "\n  - ".join(errors)
         )
     return rules
+
+
+def to_frame(rules: list[Rule]) -> pd.DataFrame:
+    """The table for a list of rules, one row per rule or per replaced pair."""
+    rows = []
+    for rule in rules:
+        base = {
+            "Name": rule.name,
+            "Site": rule.site,
+            "Column": rule.column,
+            "Action": rule.action,
+            "Old": None,
+            "New": None,
+            "When column": rule.when_column or None,
+            "When equals": rule.when_equals,
+            "Reason": rule.reason,
+            "Enabled": None if rule.enabled else "no",
+        }
+        if rule.action == "replace_text":
+            rows += [dict(base, Old=old, New=new) for old, new in rule.value]
+        elif rule.action == "replace_values":
+            rows += [dict(base, Old=old, New=new) for old, new in rule.value.items()]
+        else:
+            rows.append(dict(base, New=rule.value))
+    return pd.DataFrame(rows, columns=HEADERS)
 
 
 def apply(

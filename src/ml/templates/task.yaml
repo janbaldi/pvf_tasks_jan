@@ -18,24 +18,24 @@ task:
   seed: 20260917
 
 cohort:
-  sites: []                       # e.g. [SiteA]; empty means every site
+  sites: []                       # e.g. [<site name>]; empty means every site
   filters: []                     # applied in order; operators: equals, not_equals, in,
                                   # not_in, min, max, is_null, not_null. For example:
-  # - {column: Type, op: equals, value: Commercial, reason: manufactured commercially}
-  # - {column: <nonconformance>, op: not_in, value: [termination, withdrawal],
-  #    normalise: true, missing: include, reason: not terminated or withdrawn}
+  # - {column: <column>, op: equals, value: <value>, reason: <why>}
+  # - {column: <column>, op: not_in, value: [<value>, <value>],
+  #    normalise: true, missing: include, reason: <why>}
 
 target:
   column: "__TARGET__"
   type: __TARGET_TYPE__           # numeric | binary
-  # positive_class: Released      # required for a binary target
-  # negative_class: Discarded
+  # positive_class: <value>       # required for a binary target
+  # negative_class: <value>
 
 # What some columns are. They are kept as metadata, never used as predictors.
 roles:
   id: 'Patient Lot/Batch #'       # identifies a batch
-  group: <vector_lot>               # grouping column, for grouped cross-validation later
-  # patient: <patient_id>           # joins a patient's batches into one group
+  # group: <column>               # grouping column, for grouped cross-validation later
+  # patient: <column>             # joins a patient's batches into one group
 
 # Which other batch table columns may be predictors.
 predictors:

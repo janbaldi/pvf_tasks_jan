@@ -5,29 +5,33 @@ pipeline — or read its report — without them. This module writes a complete 
 of stand-ins: two sites' batch files, the catalog that defines the schema, the
 parameter-name mapping between the sites, the vector certificates, the
 re-manufacturing supplement, the raw-material export, the investigations Power
-Query workbook and the clinical-site mappings.
+Query workbook, the clinical-site mappings, and the vocabulary workbook that
+names all of them.
 
-The numbers are invented and the batches are not real, but the *shapes* are
-deliberate. Every path the pipeline can take is represented somewhere in here:
-values that need cleaning, a parameter only one site records, a batch whose
-vector lot has no certificate, a clinical-site acronym nobody mapped, a feature
-whose input is missing, a feature the catalog does not list, a catalog parameter no
-source supplies, a parameter for each encoder the dataset stage has, and a group
-of parameters correlated strongly enough to be de-correlated. What the reports
-show is therefore what the pipeline does.
+The numbers, names and values are invented, but the *shapes* are deliberate.
+Every path the pipeline can take is represented somewhere in here: values that
+need cleaning, a parameter only one site records, a batch whose vector lot has no
+certificate, a clinical-site acronym nobody mapped, a feature whose input is
+missing, a feature the catalog does not list, a catalog parameter no source
+supplies, a parameter for each encoder the dataset stage has, and a group of
+parameters correlated strongly enough to be de-correlated. What the reports show
+is therefore what the pipeline does.
 
-It writes the config, corrections, sources and two task workspaces, so the demo
-is also the example of how they are laid out. There is no SharePoint here, so the
-sources go into ``sharepoint/``, a folder laid out the way the share is, and the
-demo's ``.env`` points ``$ML_SHAREPOINT_STANDIN`` at it::
+Every name goes through a key, exactly as in the package: the columns the
+package uses come from the vocabulary in use (:func:`ml.names.demo` unless one is
+passed), and the demo's own columns and values from the tables below.
+
+It writes the config, sources and two task workspaces, so the demo is also the
+example of how they are laid out. There is no SharePoint here, so the sources go
+into ``sharepoint/``, a folder laid out the way the share is, and the demo's
+``.env`` points ``$ML_SHAREPOINT_STANDIN`` at it::
 
     python -m ml.demo demo
-    cd demo && ml update --task tasks/site_a_car_expression --task tasks/site_b_release
+    cd demo && ml update --task tasks/expression --task tasks/release
 """
 
 from __future__ import annotations
 
-import shutil
 import sys
 from pathlib import Path
 
@@ -35,175 +39,392 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from . import corrections, names
+from .encode import sanitise
+
 SEED = 20260917
 SITE_A_BATCHES = 40
 SITE_B_BATCHES = 30
 
+#: The demo's own columns — the ones no stage of the package names — by key.
+DEMO_COLUMNS: dict[str, str] = {
+    "ordinal_parameter": "Mixing severity",
+    "team": "Operator team",
+    "incubator_id": "Incubator code",
+    "recovery": "Recovery rate (%)",
+    "testing_done": "Testing complete (Y/N)",
+    "mycoplasma": "Contaminant test",
+    "oos_type": "Out-of-spec class",
+    "nonconformance": "Deviation class",
+    "batch_type": "Batch kind",
+    "disposition": "Outcome",
+    "pt_cd4_cd8_ratio": "Thawed CD4 to CD8 ratio",
+    "seeding_density_a": "Seeding density vessel A",
+    "seeding_density_b": "Seeding density vessel B",
+    "site_a_comment": "Site note",
+    "site_b_comment": "Remark",
+    "site_b_batch": "Lot reference",
+    "site_b_vector_lot": "Vector lot code",
+    "site_b_weight": "Body weight (kg)",
+    "site_b_car": "Expression before wash (%)",
+    "site_b_country": "Nation name",
+    "site_b_site_code": "Plant code",
+    "cells_per_bag": "Viable cells per bag",
+    "cells_for_recovery": "Viable cells recovered (cells)",
+    "formulated_concentration_a": "Formulated concentration A (cells/mL)",
+    "formulated_concentration_b": "Formulated concentration B (cells/mL)",
+    "media_lot": "Medium lot",
+    "cytokine_lot": "Cytokine lot",
+    "sterility": "Sterile test",
+    "mycoplasma_method": "Contaminant method",
+    "investigation_id": "Case number",
+    "root_cause": "Cause class",
+    "days_to_close": "Days open",
+}
+
+#: The demo's own category values, by key.
+DEMO_VALUES: dict[str, str | tuple[str, ...]] = {
+    "batch_prefix_a": "NF",
+    "batch_prefix_b": "SB",
+    "clinical_sites_a": ("Hill Clinic", "Lake Hospital\xa0", " River Centre", ""),
+    "countries_a": ("Northland", "Westland"),
+    "type_commercial": "Routine",
+    "type_clinical": "Trial",
+    "released": "Accepted",
+    "rejected": "Refused",
+    "discarded": "Scrapped",
+    "oos_raw": ("Viabilty", "Low Count", "Expr", ""),
+    "nonconformance_raw": ("", "", "", "deviation", "recalled", "Recall", "Halt"),
+    "excluded_statuses": ("halt", "recall"),
+    "status_fix": ("recalled", "recall"),
+    "mycoplasma_raw": "contaminant not found",
+    "mycoplasma_clean": "not found",
+    "clinical_sites_b": ("HCC", "20431", "XYZ"),
+    "site_b_foreign_code": "20431",
+    "foreign_country": "Eastland",
+    "site_b_country_short": "SL",
+    "site_b_site_code_value": "SB-01",
+    "bad_lot": "XK0042",
+    "mangled_count": "45123",
+    "acronyms_first": ("HCC", "GMC"),
+    "institutions_first": ("Harbour Cancer Centre", "Garden Medical College"),
+    "acronyms_second": ("20431", "HCC"),
+    "institutions_second": ("Eastland General", "Harbour Cancer Centre Main"),
+    "oos_fixes_b": ("Viabilty|Viability", "Low Count|Count", "Expr|Expression"),
+    "oos_fixes_a": ("Activity Assay|Activity",),
+}
+
+
+def c(key: str, **placeholders) -> str:
+    """A column by its key: the vocabulary's when the package uses it, else the demo's."""
+    if key in names.COLUMNS:
+        return names.col(key, **placeholders)
+    return DEMO_COLUMNS[key].format(**placeholders) if placeholders else DEMO_COLUMNS[key]
+
+
+def cs(key: str) -> tuple[str, ...]:
+    return names.cols(key)
+
+
+def v(key: str):
+    """A category value by its key: the vocabulary's, else the demo's (a tuple for a list)."""
+    if key in names.VALUES:
+        found = names.values(key)
+        return found if len(found) > 1 else found[0]
+    return DEMO_VALUES[key]
+
+
+def vs(key: str) -> list:
+    found = v(key)
+    return list(found) if isinstance(found, tuple) else [found]
+
+
 # Deliberate gaps, each one visible in the report. Changing these changes what
 # the demo demonstrates, which is the point of naming them here.
-BLOCKED_INPUT = "<pt_cd8_pct>"  # no site records it: two features blocked
-SITE_B_ONLY_GAP = "<harvest_glucose>"  # SiteA only: a feature one site cannot have
-UNLISTED_FEATURES = ("Shift", "<f_moi_per_cd3>")  # computable, but not catalog parameters
-ORPHAN_PARAMETERS = ("Sterility", "<mycoplasma_method>")  # in the catalog, supplied by nothing
+def blocked_input() -> str:
+    return c("pt_cd8_pct")  # no site records it: two features blocked
+
+
+def site_a_only() -> str:
+    return c("harvest_glucose")  # site A only: a feature one site cannot have
+
+
+def unlisted_features() -> tuple[str, ...]:
+    return (c("f_shift"), c("f_moi_per_cd3"))  # computable, but not catalog parameters
+
+
+def orphan_parameters() -> tuple[str, ...]:
+    return (c("sterility"), c("mycoplasma_method"))  # in the catalog, supplied by nothing
+
+
 UNMAPPED_ACRONYM = "XYZ"  # a clinical site no mapping file covers
 LOT_WITHOUT_COA = "LV-909"  # a vector lot with no certificate
+BATCH = "Patient Lot/Batch #"
 
 # For the dataset stage: one categorical parameter per encoder, an ordinal one,
 # and a target a couple of batches are missing.
-TARGET = "<fp_car_pct>"
-ONE_HOT_PARAMETER = "<clinical_site>"  # few categories
-TARGET_ENCODED_PARAMETER = "<team>"  # several
-HASHED_PARAMETER = "<incubator_id>"  # many
-ORDINAL_PARAMETER = "<ordinal_parameter>"
 ORDINAL_ORDER = ("None", "Low", "Medium", "High")
 ORDINAL_STRAY = "Severe"  # not one of the catalog's categories
-#: What the target is called once the dataset stage has sanitised its name.
-TARGET_COLUMN = "fp_flow_car"
 
-# Value types the catalog declares for the columns whose type is not obvious from
-# their contents. Everything else is numeric or categorical, decided below.
-DATETIME_PARAMETERS = (
-    "<thaw_time>",
-    "<incubator_in_d0>",
-    "<incubator_out_d1>",
-    "<incubator_in_d1>",
-    "<incubator_out_d3>",
-    "<incubator_back_d3>",
-    "<incubator_out_d6>",
-    "<incubator_back_d6>",
-    "<incubator_out_d8>",
-    "<incubator_back_d8>",
-    "<incubator_out_d10>",
+
+def target() -> str:
+    return c("fp_car_pct")
+
+
+def target_column() -> str:
+    """What the target is called once the dataset stage has sanitised its name."""
+    return sanitise(target())
+
+
+# The catalog's value type and 'Available At' stage, by key. Everything not listed
+# is numeric; features and the keys under "" are left without a stage.
+DATETIME_KEYS = (
+    "thaw_time",
+    "incubator_in_d0",
+    "incubator_out_d1",
+    "incubator_in_d1",
+    "incubator_out_d3",
+    "incubator_back_d3",
+    "incubator_out_d6",
+    "incubator_back_d6",
+    "incubator_out_d8",
+    "incubator_back_d8",
+    "incubator_out_d10",
 )
-DURATION_PARAMETERS = (
-    "<contact_time>",
-    "<contact_time_a>",
-    "<contact_time_b>",
+DURATION_KEYS = ("contact_time", "contact_time_a", "contact_time_b")
+RATIO_KEYS = ("pt_cd4_cd8_ratio",)
+CATEGORICAL_KEYS = (
+    "patient_id",
+    "vector_lot",
+    "clinical_site",
+    "clinical_site_id",
+    "country",
+    "batch_type",
+    "disposition",
+    "oos_type",
+    "mycoplasma",
+    "nonconformance",
+    "pre_activation_clumps_yn",
+    "d3_clump_pattern",
+    "f_growth_profile",
+    "f_cd4_profile",
+    "media_lot",
+    "cytokine_lot",
+    "sterility",
+    "mycoplasma_method",
+    "testing_done",
+    "clinical_site",
+    "team",
+    "incubator_id",
 )
-RATIO_PARAMETERS = ("<pt_cd4_cd8_ratio>",)
-CATEGORICAL_PARAMETERS = (
-    "Patient Lot/Batch #",
-    "<patient_id>",
-    "<vector_lot>",
-    "<clinical_site>",
-    "<clinical_site_id>",
-    "Country",
-    "Type",
-    "Disposition",
-    "<oos_type>",
-    "Mycoplasma",
-    "<nonconformance>",
-    "<pre_activation_clumps_yn>",
-    "<d3_clump_pattern>",
-    "<clump_bags_1>",
-    "<clump_bags_2>",
-    "<clump_bags_3>",
-    "<f_growth_profile>",
-    "<f_cd4_profile>",
-    "Site Merged",
-    "<media_lot>",
-    "<cytokine_lot>",
-    "Sterility",
-    "<mycoplasma_method>",
-    "<coa_prefix><coa_site_format>",
-    "<testing_done>",
-    ONE_HOT_PARAMETER,
-    TARGET_ENCODED_PARAMETER,
-    HASHED_PARAMETER,
+STAGES = {
+    "D0": (
+        "patient_id",
+        "vector_lot",
+        "subject_weight",
+        "thaw_time",
+        "team",
+        "clinical_site",
+        "country",
+        "batch_type",
+        "prior_lines",
+        "clinical_site_id",
+        "media_lot",
+        "cytokine_lot",
+    ),
+    "D1": (
+        "incubator_in_d0",
+        "incubator_out_d1",
+        "incubator_in_d1",
+        "contact_time_a",
+        "contact_time_b",
+        "clumps_pre_count",
+        "clumps_pre_size",
+        "clumps_post_count",
+        "clumps_post_size",
+        "clumps_mix_count",
+        "clumps_mix_size",
+        "mixing_cycles",
+        "ordinal_parameter",
+        "incubator_id",
+        "pre_activation_clumps_yn",
+    ),
+    "D3": (
+        "vessel_count",
+        "vsvg_cells",
+        "cells_available",
+        "cells_seeded_a",
+        "cells_seeded_b",
+        "culture_bags",
+        "vector_volume_a",
+        "vector_volume_b",
+        "d3_viability",
+        "incubator_out_d3",
+        "incubator_back_d3",
+        "contact_time",
+        "d3_clump_pattern",
+        "seeding_density_a",
+        "cells_per_bag",
+    ),
+    "D6": (
+        "d6_lactate_a",
+        "d6_lactate_b",
+        "d6_glucose_a",
+        "d6_glucose_b",
+        "incubator_out_d6",
+        "incubator_back_d6",
+        "il2_activity_d6",
+        "il2_content_d6",
+    ),
+    "D8": (
+        "d8_lactate_a",
+        "d8_glucose_a",
+        "d8_glucose_b",
+        "incubator_out_d8",
+        "incubator_back_d8",
+        "il2_activity_d8",
+        "il2_content_d8",
+    ),
+    "D10": ("cpdl", "incubator_out_d10"),
+    "Harvest": (
+        "harvest_lactate",
+        "harvest_glucose",
+        "harvest_viability",
+        "harvest_cells",
+        "harvest_car_pct",
+    ),
+    "Post-thaw": ("pt_cd3_pct", "pt_cd4_pct", "pt_cd4_cd8_ratio", "pt_viable_cells"),
+    "Wash": (
+        "pw_cd3_pct",
+        "pw_cd4_pct",
+        "pw_cd8_pct",
+        "pw_viability",
+        "washed_viability",
+        "washed_cells",
+        "washed_concentration",
+    ),
+    "Formulation": (
+        "formulation_cell_volume",
+        "formulation_medium_volume",
+        "bag_volume",
+        "formulated_concentration",
+        "formulated_viability",
+        "dose_per_kg",
+        "dose_cells",
+    ),
+    "Final product": ("fp_car_pct", "vcn"),
+    "Release": (
+        "endotoxin",
+        "recovery",
+        "testing_done",
+        "mycoplasma",
+        "sterility",
+        "mycoplasma_method",
+    ),
+    "Post-release": ("oos_type", "nonconformance", "disposition"),
+}
+
+#: The feature keys the catalog lists, so the registry may create them. The two in
+#: :func:`unlisted_features` are left out on purpose.
+FEATURE_KEYS = (
+    "f_log_pt_cd4_cd8",
+    "f_log_pw_cd4_cd8",
+    "f_pt_cd3_cells",
+    "f_pt_cd4_share",
+    "f_pt_cd4_cells",
+    "f_pw_cd4_share",
+    "f_pw_cd8_share",
+    "f_harvest_lactate_norm",
+)
+FEATURE_KEYS_AFTER_METABOLITES = (
+    "f_lactate_slope",
+    "f_lactate_auc",
+    "f_glucose_slope",
+    "f_glucose_auc",
+)
+FEATURE_KEYS_REST = (
+    "f_growth_profile",
+    "f_cd4_profile",
+    "f_viability_drop_rel",
+    "f_viability_drop_pts",
+    "f_viability_d3_d10_rel",
+    "f_viability_expansion",
+    "f_viability_d3_d10_pts",
+    "f_viability_wash",
+    "f_seeding_pct",
+    "f_seeding_error",
+    "f_seeding_within",
+    "f_cells_per_bag",
+)
+FEATURE_KEYS_MOI = (
+    "f_moi_a",
+    "f_log_moi_a",
+    "f_moi_b",
+    "f_log_moi_b",
+    "f_moi_pool",
+    "f_log_moi_pool",
+    "f_moi_quality",
+)
+FEATURE_KEYS_LATE = (
+    "f_incubation_d0_d1",
+    "f_incubation_d1_d3",
+    "f_incubation_d3_d6",
+    "f_incubation_d6_d8",
+    "f_incubation_d8_d10",
+    "f_incubation_total",
+    "f_clump_count_reduction",
+    "f_clump_size_reduction",
+    "f_clump_burden_pre",
+    "f_clump_burden_post",
+    "f_clump_burden_mix",
+    "f_mixing_x_clumps",
+    "f_d3_clumps",
+    "f_clump_bag_count",
+    "f_dose_all",
+    "f_post_formulation_dose",
+    "f_achievable_dose",
+    "f_car_cells",
+    "f_car_yield",
+    "f_vcn_per_cell",
+    "f_flow_accuracy",
+    "f_formulated_total_concentration",
+    "f_cells_into_formulation",
+    "f_cells_out_of_formulation",
+    "f_cells_lost_formulation",
+    "f_pct_lost_formulation",
+    "f_cells_lost_wash",
+    "f_coa_impurity_index",
+    "f_il2_d6",
+    "f_il2_d8",
 )
 
-#: Feature names the catalog lists, so the registry may create them. The two in
-#: UNLISTED_FEATURES are left out on purpose.
-FEATURE_PARAMETERS = (
-    "<f_log_pt_cd4_cd8>",
-    "<f_log_pw_cd4_cd8>",
-    "<f_pt_cd3_cells>",
-    "<f_pt_cd4_share>",
-    "<f_pt_cd4_cells>",
-    "<f_pw_cd4_share>",
-    "<f_pw_cd8_share>",
-    "<f_harvest_lactate_norm>",
-    "<f_lactate_per_cell_1>",
-    "<f_lactate_per_cell_2>",
-    "<f_lactate_per_cell_3>",
-    "<f_glucose_per_cell_1>",
-    "<f_glucose_per_cell_2>",
-    "<f_glucose_per_cell_3>",
-    "<f_lactate_slope>",
-    "<f_lactate_auc>",
-    "<f_glucose_slope>",
-    "<f_glucose_auc>",
-    "<f_lactate_glucose_ratio:6>",
-    "<f_lactate_glucose_ratio:8>",
-    "<f_lactate_glucose_ratio:10>",
-    "<f_growth_profile>",
-    "<f_cd4_profile>",
-    "<f_viability_drop_rel>",
-    "<f_viability_drop_pts>",
-    "<f_viability_d3_d10_rel>",
-    "<f_viability_expansion>",
-    "<f_viability_d3_d10_pts>",
-    "<f_viability_wash>",
-    "<f_seeding_pct>",
-    "<f_seeding_error>",
-    "<f_seeding_within>",
-    "<f_cells_per_bag>",
-    "<f_seeded_spread:mean>",
-    "<f_seeded_spread:min>",
-    "<f_seeded_spread:max>",
-    "<f_seeded_spread:std>",
-    "<f_seeded_spread:cv>",
-    "<f_vector_volume_spread:mean>",
-    "<f_vector_volume_spread:min>",
-    "<f_vector_volume_spread:max>",
-    "<f_vector_volume_spread:std>",
-    "<f_vector_volume_spread:cv>",
-    "<f_moi_a>",
-    "<f_log_moi_a>",
-    "<f_moi_b>",
-    "<f_log_moi_b>",
-    "<f_moi_pool>",
-    "<f_log_moi_pool>",
-    "<f_moi_quality>",
-    "<f_contact_deviation_1>",
-    "<f_contact_within_1>",
-    "<f_contact_deviation_2>",
-    "<f_contact_within_2>",
-    "<f_contact_deviation_3>",
-    "<f_contact_within_3>",
-    "<f_incubation_d0_d1>",
-    "<f_incubation_d1_d3>",
-    "<f_incubation_d3_d6>",
-    "<f_incubation_d6_d8>",
-    "<f_incubation_d8_d10>",
-    "<f_incubation_total>",
-    "<f_clump_count_reduction>",
-    "<f_clump_size_reduction>",
-    "<f_clump_burden_pre>",
-    "<f_clump_burden_post>",
-    "<f_clump_burden_mix>",
-    "<f_mixing_x_clumps>",
-    "<f_d3_clumps>",
-    "<f_clump_bag_count>",
-    "<f_dose_all>",
-    "<f_post_formulation_dose>",
-    "<f_achievable_dose>",
-    "<f_car_cells>",
-    "<f_car_yield>",
-    "<f_vcn_per_cell>",
-    "<f_flow_accuracy>",
-    "<f_formulated_total_concentration>",
-    "<f_cells_into_formulation>",
-    "<f_cells_out_of_formulation>",
-    "<f_cells_lost_formulation>",
-    "<f_pct_lost_formulation>",
-    "<f_cells_lost_wash>",
-    "<f_coa_impurity_index>",
-    "<f_il2_d6>",
-    "<f_il2_d8>",
-    "Day 6 <co2_marker> dev_from_5.0pct",
-    "Day 6 <temperature_marker> dev_from_37.0C",
-)
+
+def co2_reading() -> str:
+    return f"Day 6 {c('co2_marker')}"
+
+
+def temperature_reading() -> str:
+    return f"Day 6 {c('temperature_marker')}"
+
+
+def feature_parameters() -> tuple[str, ...]:
+    """The feature names the catalog lists, in the order the made-up catalog has them."""
+    statistics = ("mean", "min", "max", "std", "cv")
+    return (
+        *(c(k) for k in FEATURE_KEYS),
+        *cs("f_lactate_per_cell"),
+        *cs("f_glucose_per_cell"),
+        *(c(k) for k in FEATURE_KEYS_AFTER_METABOLITES),
+        *(c("f_lactate_glucose_ratio", day=day) for day in (6, 8, 10)),
+        *(c(k) for k in FEATURE_KEYS_REST),
+        *(c("f_seeded_spread", statistic=s) for s in statistics),
+        *(c("f_vector_volume_spread", statistic=s) for s in statistics),
+        *(c(k) for k in FEATURE_KEYS_MOI),
+        *(name for pair in zip(cs("f_contact_deviation"), cs("f_contact_within")) for name in pair),
+        *(c(k) for k in FEATURE_KEYS_LATE),
+        f"{co2_reading()} dev_from_5.0pct",
+        f"{temperature_reading()} dev_from_37.0C",
+    )
 
 
 def _cycle(values: list, n: int) -> list:
@@ -212,7 +433,7 @@ def _cycle(values: list, n: int) -> list:
 
 
 def _timestamps(n: int, day: int, hour: int) -> list[str]:
-    """Batch timestamps as the PHF holds them: text, one batch per day."""
+    """Batch timestamps as the batch records hold them: text, one batch per day."""
     return [
         f"2026-0{1 + i % 2}-{(i % 20) + 1:02d} {hour:02d}:{(day * 7 + i) % 60:02d}:00"
         for i in range(n)
@@ -220,7 +441,7 @@ def _timestamps(n: int, day: int, hour: int) -> list[str]:
 
 
 def _site_frame(n: int, rng: np.random.Generator) -> pd.DataFrame:
-    """The measurements both sites record, under the SiteA names.
+    """The measurements both sites record, under site A's names.
 
     Values are built from a few latent quantities rather than drawn one column at
     a time: batch size drives every cell count, metabolic rate drives lactate and
@@ -232,6 +453,7 @@ def _site_frame(n: int, rng: np.random.Generator) -> pd.DataFrame:
     metabolism = rng.lognormal(0.0, 0.22, n)  # how fast the cells burn sugar
     transduction = rng.beta(2.5, 3.0, n)  # how well the vector took
     noise = lambda spread: rng.normal(1.0, spread, n)  # noqa: E731 — one line, used ten times
+    unit = v("endotoxin_unit")
 
     vessels = np.where(np.arange(n) % 3 == 0, 1, 2)
     seeded = (size * 5.4e5).round(0)
@@ -243,252 +465,235 @@ def _site_frame(n: int, rng: np.random.Generator) -> pd.DataFrame:
 
     return pd.DataFrame(
         {
-            "<vessel_count>": vessels,
-            "<vsvg_cells>": vsvg,
+            c("vessel_count"): vessels,
+            c("vsvg_cells"): vsvg,
             # 5% more cells were available than were seeded, every time: the pair
             # is a near-duplicate and one of them is dropped.
-            "<cells_available>": (vsvg * 1.05).round(0),
-            "<cells_seeded_a>": seeded,
-            "<cells_seeded_b>": np.where(
-                vessels == 2, (seeded * 0.97).round(0), np.nan
-            ),
-            "<culture_bags>": np.where(vessels == 2, 4, 2),
-            "<vector_volume_a>": (2.1 * noise(0.06)).round(2),
-            "<vector_volume_b>": np.where(
-                vessels == 2, (2.1 * noise(0.06)).round(2), np.nan
-            ),
+            c("cells_available"): (vsvg * 1.05).round(0),
+            c("cells_seeded_a"): seeded,
+            c("cells_seeded_b"): np.where(vessels == 2, (seeded * 0.97).round(0), np.nan),
+            c("culture_bags"): np.where(vessels == 2, 4, 2),
+            c("vector_volume_a"): (2.1 * noise(0.06)).round(2),
+            c("vector_volume_b"): np.where(vessels == 2, (2.1 * noise(0.06)).round(2), np.nan),
             # Metabolites: one rate, sampled on three days. Day 8 vessel B is
             # absent from both sites on purpose — that feature is blocked while
             # the D6-D10 slope still has two of its three days.
-            "<d6_lactate_a>": (metabolism * 1.15 * noise(0.07)).round(3),
-            "<d6_lactate_b>": np.where(
+            c("d6_lactate_a"): (metabolism * 1.15 * noise(0.07)).round(3),
+            c("d6_lactate_b"): np.where(
                 vessels == 2, (metabolism * 1.15 * noise(0.07)).round(3), np.nan
             ),
-            "<d8_lactate_a>": (metabolism * 1.9 * noise(0.07)).round(3),
-            "<harvest_lactate>": (metabolism * 2.6 * noise(0.07)).round(3),
-            "<d6_glucose_a>": (3.4 - metabolism * 0.7 * noise(0.06)).round(3),
-            "<d6_glucose_b>": np.where(
+            c("d8_lactate_a"): (metabolism * 1.9 * noise(0.07)).round(3),
+            c("harvest_lactate"): (metabolism * 2.6 * noise(0.07)).round(3),
+            c("d6_glucose_a"): (3.4 - metabolism * 0.7 * noise(0.06)).round(3),
+            c("d6_glucose_b"): np.where(
                 vessels == 2, (3.4 - metabolism * 0.7 * noise(0.06)).round(3), np.nan
             ),
-            "<d8_glucose_a>": (2.6 - metabolism * 0.6 * noise(0.06)).round(3),
-            "<d8_glucose_b>": np.where(
+            c("d8_glucose_a"): (2.6 - metabolism * 0.6 * noise(0.06)).round(3),
+            c("d8_glucose_b"): np.where(
                 vessels == 2, (2.6 - metabolism * 0.6 * noise(0.06)).round(3), np.nan
             ),
-            "<harvest_glucose>": (1.9 - metabolism * 0.5 * noise(0.06)).round(3),
-            "<cpdl>": (4.6 * metabolism**0.6 * noise(0.06)).round(2),
+            c("harvest_glucose"): (1.9 - metabolism * 0.5 * noise(0.06)).round(3),
+            c("cpdl"): (4.6 * metabolism**0.6 * noise(0.06)).round(2),
             # Flow
-            "<pt_cd3_pct>": rng.uniform(55, 88, n).round(1),
-            "<pt_cd4_pct>": rng.uniform(28, 72, n).round(1),
-            "<pw_cd3_pct>": rng.uniform(80, 97, n).round(1),
-            "<pw_cd4_pct>": rng.uniform(30, 70, n).round(1),
-            "<pw_cd8_pct>": rng.uniform(25, 60, n).round(1),
-            "<pt_cd4_cd8_ratio>": [f"1:{v:.2f}" for v in rng.uniform(0.6, 2.4, n)],
-            "<pt_viable_cells>": (size * 4.2e8).round(0),
+            c("pt_cd3_pct"): rng.uniform(55, 88, n).round(1),
+            c("pt_cd4_pct"): rng.uniform(28, 72, n).round(1),
+            c("pw_cd3_pct"): rng.uniform(80, 97, n).round(1),
+            c("pw_cd4_pct"): rng.uniform(30, 70, n).round(1),
+            c("pw_cd8_pct"): rng.uniform(25, 60, n).round(1),
+            c("pt_cd4_cd8_ratio"): [f"1:{x:.2f}" for x in rng.uniform(0.6, 2.4, n)],
+            c("pt_viable_cells"): (size * 4.2e8).round(0),
             # Viability
-            "<pw_viability>": rng.uniform(88, 98, n).round(1),
-            "<d3_viability>": rng.uniform(85, 96, n).round(1),
-            "<harvest_viability>": rng.uniform(80, 95, n).round(1),
-            "<washed_viability>": rng.uniform(82, 96, n).round(1),
+            c("pw_viability"): rng.uniform(88, 98, n).round(1),
+            c("d3_viability"): rng.uniform(85, 96, n).round(1),
+            c("harvest_viability"): rng.uniform(80, 95, n).round(1),
+            c("washed_viability"): rng.uniform(82, 96, n).round(1),
             # Harvest and formulation: every count follows the batch size, which
             # is what puts them in one correlated cluster.
-            "<harvest_cells>": prewash,
-            "<washed_cells>": postwash,
-            "<washed_concentration>": (
-                postwash / formulation_volume
-            ).round(0),
-            "<formulation_cell_volume>": formulation_volume,
-            "<formulation_medium_volume>": (formulation_volume * 1.3).round(1),
-            "<bag_volume>": rng.choice([20.0, 30.0], n),
-            "<formulated_concentration>": (
+            c("harvest_cells"): prewash,
+            c("washed_cells"): postwash,
+            c("washed_concentration"): (postwash / formulation_volume).round(0),
+            c("formulation_cell_volume"): formulation_volume,
+            c("formulation_medium_volume"): (formulation_volume * 1.3).round(1),
+            c("bag_volume"): rng.choice([20.0, 30.0], n),
+            c("formulated_concentration"): (
                 postwash / (formulation_volume * 1.3) * noise(0.03)
             ).round(0),
-            "<formulated_viability>": rng.uniform(84, 96, n).round(1),
+            c("formulated_viability"): rng.uniform(84, 96, n).round(1),
             # Product and dose. The target and the harvest CAR reading share a
             # latent, as they do in a real process.
-            "<harvest_car_pct>": car_expression,
-            TARGET: (car_expression * noise(0.08)).round(1),
-            "<vcn>": (
-                1.1 + 2.0 * transduction
-            ).round(2),
-            "<subject_weight>": rng.uniform(52, 104, n).round(1),
-            "<dose_per_kg>": (size * 2.4e6).round(0),
-            "<dose_cells>": (size * 2.6e8).round(0),
+            c("harvest_car_pct"): car_expression,
+            target(): (car_expression * noise(0.08)).round(1),
+            c("vcn"): (1.1 + 2.0 * transduction).round(2),
+            c("subject_weight"): rng.uniform(52, 104, n).round(1),
+            c("dose_per_kg"): (size * 2.4e6).round(0),
+            c("dose_cells"): (size * 2.6e8).round(0),
             # Timing
-            "<thaw_time>": [f"{8 + i % 6:02d}:{(i * 13) % 60:02d}" for i in range(n)],
-            "<incubator_in_d0>": _timestamps(n, 0, 9),
-            "<incubator_out_d1>": _timestamps(n, 1, 10),
-            "<incubator_in_d1>": _timestamps(n, 1, 11),
-            "<incubator_out_d3>": _timestamps(n, 3, 9),
-            "<incubator_back_d3>": _timestamps(n, 3, 12),
-            "<incubator_out_d6>": _timestamps(n, 6, 9),
-            "<incubator_back_d6>": _timestamps(n, 6, 13),
-            "<incubator_out_d8>": _timestamps(n, 8, 9),
-            "<incubator_back_d8>": _timestamps(n, 8, 14),
-            "<incubator_out_d10>": _timestamps(n, 10, 8),
-            "<contact_time>": [
-                f"0{1 + i % 2}:{(i * 11) % 60:02d}" for i in range(n)
-            ],
-            "<contact_time_a>": [
-                f"0{1 + i % 2}:{(i * 7) % 60:02d}" for i in range(n)
-            ],
-            "<contact_time_b>": [
-                f"0{1 + i % 2}:{(i * 5) % 60:02d}" for i in range(n)
-            ],
+            c("thaw_time"): [f"{8 + i % 6:02d}:{(i * 13) % 60:02d}" for i in range(n)],
+            c("incubator_in_d0"): _timestamps(n, 0, 9),
+            c("incubator_out_d1"): _timestamps(n, 1, 10),
+            c("incubator_in_d1"): _timestamps(n, 1, 11),
+            c("incubator_out_d3"): _timestamps(n, 3, 9),
+            c("incubator_back_d3"): _timestamps(n, 3, 12),
+            c("incubator_out_d6"): _timestamps(n, 6, 9),
+            c("incubator_back_d6"): _timestamps(n, 6, 13),
+            c("incubator_out_d8"): _timestamps(n, 8, 9),
+            c("incubator_back_d8"): _timestamps(n, 8, 14),
+            c("incubator_out_d10"): _timestamps(n, 10, 8),
+            c("contact_time"): [f"0{1 + i % 2}:{(i * 11) % 60:02d}" for i in range(n)],
+            c("contact_time_a"): [f"0{1 + i % 2}:{(i * 7) % 60:02d}" for i in range(n)],
+            c("contact_time_b"): [f"0{1 + i % 2}:{(i * 5) % 60:02d}" for i in range(n)],
             # Clumps
-            "<clumps_pre_count>": rng.integers(2, 12, n),
-            "<clumps_pre_size>": rng.integers(1, 5, n),
-            "<clumps_post_count>": rng.integers(0, 6, n),
-            "<clumps_post_size>": rng.integers(1, 4, n),
-            "<clumps_mix_count>": rng.integers(0, 4, n).astype(str),
-            "<clumps_mix_size>": rng.integers(1, 3, n),
-            "<mixing_cycles>": rng.integers(2, 7, n),
-            "<d3_clump_pattern>": rng.choice(["None", "Few small", "Many small"], n),
-            "<clump_bags_1>": rng.choice(["Yes", "No"], n),
-            "<clump_bags_2>": rng.choice(["Yes", "No"], n),
-            "<clump_bags_3>": rng.choice(["Yes", "No"], n),
-            ORDINAL_PARAMETER: _cycle([*ORDINAL_ORDER, ORDINAL_STRAY], n),
+            c("clumps_pre_count"): rng.integers(2, 12, n),
+            c("clumps_pre_size"): rng.integers(1, 5, n),
+            c("clumps_post_count"): rng.integers(0, 6, n),
+            c("clumps_post_size"): rng.integers(1, 4, n),
+            c("clumps_mix_count"): rng.integers(0, 4, n).astype(str),
+            c("clumps_mix_size"): rng.integers(1, 3, n),
+            c("mixing_cycles"): rng.integers(2, 7, n),
+            c("d3_clump_pattern"): rng.choice(["None", "Few small", "Many small"], n),
+            cs("clump_bags")[0]: rng.choice(["Yes", "No"], n),
+            cs("clump_bags")[1]: rng.choice(["Yes", "No"], n),
+            cs("clump_bags")[2]: rng.choice(["Yes", "No"], n),
+            c("ordinal_parameter"): _cycle([*ORDINAL_ORDER, ORDINAL_STRAY], n),
             # Feeds and environment
-            "<il2_activity_d6>": rng.uniform(1.4e7, 2.2e7, n).round(0),
-            "<il2_content_d6>": rng.uniform(180, 240, n).round(1),
-            "<il2_activity_d8>": rng.uniform(1.4e7, 2.2e7, n).round(0),
-            "<il2_content_d8>": rng.uniform(180, 240, n).round(1),
-            "Day 6 <co2_marker>": rng.uniform(4.6, 5.4, n).round(2),
-            "Day 6 <temperature_marker>": rng.uniform(36.4, 37.6, n).round(2),
+            c("il2_activity_d6"): rng.uniform(1.4e7, 2.2e7, n).round(0),
+            c("il2_content_d6"): rng.uniform(180, 240, n).round(1),
+            c("il2_activity_d8"): rng.uniform(1.4e7, 2.2e7, n).round(0),
+            c("il2_content_d8"): rng.uniform(180, 240, n).round(1),
+            co2_reading(): rng.uniform(4.6, 5.4, n).round(2),
+            temperature_reading(): rng.uniform(36.4, 37.6, n).round(2),
             # Who and where: one categorical per encoder the dataset stage has.
             # Drawn rather than cycled: a strict cycle of six teams over three
             # vector lots gives each lot its own two teams, and grouped folds
             # then have nothing to learn a team's mean from.
-            TARGET_ENCODED_PARAMETER: rng.choice(list("ABCDEF"), n),
-            HASHED_PARAMETER: _cycle([f"INC-{i:02d}" for i in range(10)], n),
+            c("team"): rng.choice(list("ABCDEF"), n),
+            c("incubator_id"): _cycle([f"INC-{i:02d}" for i in range(10)], n),
             # Release
-            "<endotoxin>": [
-                "<0.5<value:endotoxin_unit>" if i % 4 == 0 else f"{v:.2f}<value:endotoxin_unit>"
-                for i, v in enumerate(rng.uniform(0.1, 1.2, n))
+            c("endotoxin"): [
+                f"<0.5{unit}" if i % 4 == 0 else f"{x:.2f}{unit}"
+                for i, x in enumerate(rng.uniform(0.1, 1.2, n))
             ],
-            "<recovery>": rng.uniform(70, 99, n).round(1),
-            "<testing_done>": _cycle(["Y"] * 9 + ["N"], n),
-            "Mycoplasma": "<value:mycoplasma_raw>",
-            "<oos_type>": _cycle(["VIability", "<value:oos_raw>", "CAR", ""], n),
-            "<nonconformance>": _cycle(
-                ["", "", "", "deviation", "withdrawn", "Withdrawal", "Termination"], n
-            ),
+            c("recovery"): rng.uniform(70, 99, n).round(1),
+            c("testing_done"): _cycle(["Y"] * 9 + ["N"], n),
+            c("mycoplasma"): v("mycoplasma_raw"),
+            c("oos_type"): _cycle(vs("oos_raw"), n),
+            c("nonconformance"): _cycle(vs("nonconformance_raw"), n),
         }
     )
 
 
-# SiteB records some parameters under its own names. The mapping file below is
-# what teaches the pipeline they are the same thing.
-SITE_B_NAMES = {
-    "Patient Lot/Batch #": "<remfg_batch_keys_3>",
-    "<vector_lot>": "<site_b_vector_lot>",
-    "<subject_weight>": "<site_b_weight>",
-    "<harvest_car_pct>": "<site_b_car>",
-}
+def site_b_names() -> dict[str, str]:
+    """Site B records some parameters under its own names; the mapping file says so."""
+    return {
+        BATCH: c("site_b_batch"),
+        c("vector_lot"): c("site_b_vector_lot"),
+        c("subject_weight"): c("site_b_weight"),
+        c("harvest_car_pct"): c("site_b_car"),
+    }
 
 
 def site_a_phf(rng: np.random.Generator, n: int = SITE_A_BATCHES) -> pd.DataFrame:
-    """SiteA batches, with the values that give cleaning something to do."""
+    """Site A's batches, with the values that give cleaning something to do."""
     df = _site_frame(n, rng)
-    df.insert(0, "Patient Lot/Batch #", [f"GH{i:03d}" for i in range(n)])
-    df.insert(1, "<patient_id>", [f"EU-{1200 + i % 3:04d}-{i:03d}" for i in range(n)])
-    df.insert(2, "<vector_lot>", _cycle(["LV-101", "LV-102", LOT_WITHOUT_COA], n))
-    df["<clinical_site>"] = _cycle(["<value:clinical_sites_a>", "UZ Leuven\xa0", "<value:clinical_sites_a>", ""], n)
-    df["Country"] = _cycle(["Belgium", "Netherlands"], n)
-    df["Type"] = _cycle(["Commercial"] * 9 + ["Clinical"], n)
-    df["Disposition"] = _cycle(["Released", "Rejected"], n)
-    df["<pre_activation_clumps_yn>"] = _cycle(["Yes", "No", None, "Yes"], n)
-    df["<seeding_density_a>"] = rng.uniform(
-        4e11, 6e11, n
-    ).round(0)
-    df["<site_a_comment>"] = "site note"  # not a catalog parameter: a SiteA-only column
+    prefix = v("batch_prefix_a")
+    df.insert(0, BATCH, [f"{prefix}{i:03d}" for i in range(n)])
+    patient = v("patient_id_site_prefix")
+    df.insert(1, c("patient_id"), [f"{patient}{1200 + i % 3:04d}-{i:03d}" for i in range(n)])
+    df.insert(2, c("vector_lot"), _cycle(["LV-101", "LV-102", LOT_WITHOUT_COA], n))
+    df[c("clinical_site")] = _cycle(vs("clinical_sites_a"), n)
+    df[c("country")] = _cycle(vs("countries_a"), n)
+    df[c("batch_type")] = _cycle([v("type_commercial")] * 9 + [v("type_clinical")], n)
+    df[c("disposition")] = _cycle([v("released"), v("rejected")], n)
+    df[c("pre_activation_clumps_yn")] = _cycle(["Yes", "No", None, "Yes"], n)
+    df[c("seeding_density_a")] = rng.uniform(4e11, 6e11, n).round(0)
+    df[c("site_a_comment")] = "site note"  # not a catalog parameter: a site A-only column
 
     # One batch the integrity corrections know by name.
-    df.loc[0, "Patient Lot/Batch #"] = "<value:bad_lot>"
+    df.loc[0, BATCH] = v("bad_lot")
     # A number recorded as text, and a percentage that cannot be one. The column
     # becomes text here exactly as the source file has it — coercion is the
     # pipeline's job, not the fixture's.
-    df["<recovery>"] = df["<recovery>"].astype(object)
-    df.loc[1, "<recovery>"] = "not measured"
-    df.loc[2, "<recovery>"] = 105.0
+    df[c("recovery")] = df[c("recovery")].astype(object)
+    df.loc[1, c("recovery")] = "not measured"
+    df.loc[2, c("recovery")] = 105.0
     # A timestamp and a duration nobody filled in properly.
-    df.loc[3, "<incubator_out_d8>"] = "not recorded"
-    df.loc[4, "<contact_time_b>"] = "not started"
+    df.loc[3, c("incubator_out_d8")] = "not recorded"
+    df.loc[4, c("contact_time_b")] = "not started"
     # A duration that ran backwards, and two batches whose target was never read.
-    df.loc[2, "<contact_time>"] = "00:00"
-    df.loc[[6, 7], TARGET] = np.nan
+    df.loc[2, c("contact_time")] = "00:00"
+    df.loc[[6, 7], target()] = np.nan
     return df
 
 
 def site_b_phf(rng: np.random.Generator, n: int = SITE_B_BATCHES) -> pd.DataFrame:
-    """SiteB batches, under SiteB's own column names."""
+    """Site B's batches, under site B's own column names."""
     df = _site_frame(n, rng)
-    df.insert(0, "<remfg_batch_keys_3>", [f"RA{i:03d}" for i in range(n)])
-    df.insert(1, "<site_b_vector_lot>", _cycle(["LV-102", "LV-103", "LV-101"], n))
+    prefix = v("batch_prefix_b")
+    df.insert(0, c("site_b_batch"), [f"{prefix}{i:03d}" for i in range(n)])
+    df.insert(1, c("site_b_vector_lot"), _cycle(["LV-102", "LV-103", "LV-101"], n))
     df = df.rename(
         columns={
-            "<subject_weight>": "<site_b_weight>",
-            "<harvest_car_pct>": "<site_b_car>",
+            c("subject_weight"): c("site_b_weight"),
+            c("harvest_car_pct"): c("site_b_car"),
         }
     )
-    # SiteB does not record harvest glucose, so one feature cannot be computed
+    # Site B does not record harvest glucose, so one feature cannot be computed
     # there and is reported as blocked for that site alone.
-    df = df.drop(columns=[SITE_B_ONLY_GAP], errors="ignore")
-    df["<clinical_site>"] = _cycle(["MSKCC", "<value:clinical_sites_b>", UNMAPPED_ACRONYM], n)
-    df["Country"] = "<value:country_to_harmonise>"
-    # A second column that maps onto Country as well, spelled differently so a
+    df = df.drop(columns=[site_a_only()], errors="ignore")
+    df[c("clinical_site")] = _cycle(vs("clinical_sites_b"), n)
+    df[c("country")] = v("country_to_harmonise")
+    # A second column that maps onto the country as well, spelled differently so a
     # test can tell which values ended up under which name.
-    df["<site_b_country>"] = "USA"
-    df["<site_b_site_code>"] = "<value:site_b_site_code_value>"  # mapped to nothing, so the mapping drops it
-    df["Type"] = "Clinical"  # cleaning forces this to Commercial
-    df["Disposition"] = _cycle(["Released", "Discarded"], n)  # a level SiteA never uses
-    df["<pre_activation_clumps_yn>"] = _cycle(["Y", "N", None], n)
-    df["<cells_per_bag>"] = rng.uniform(3e12, 7e12, n).round(0)
-    df[ORDINAL_PARAMETER] = _cycle(list(ORDINAL_ORDER), n)
-    df["<site_b_comment>"] = "cmd note"  # not a catalog parameter: a SiteB-only column
+    df[c("site_b_country")] = v("site_b_country_short")
+    df[c("site_b_site_code")] = v("site_b_site_code_value")  # mapped to nothing: dropped
+    df[c("batch_type")] = v("type_clinical")  # a correction forces this to the commercial type
+    df[c("disposition")] = _cycle([v("released"), v("discarded")], n)  # a level A never uses
+    df[c("pre_activation_clumps_yn")] = _cycle(["Y", "N", None], n)
+    df[c("cells_per_bag")] = rng.uniform(3e12, 7e12, n).round(0)
+    df[c("ordinal_parameter")] = _cycle(list(ORDINAL_ORDER), n)
+    df[c("site_b_comment")] = "cmd note"  # not a catalog parameter: a site B-only column
 
-    # The clump count that is really a date Excel mangled.
-    df.loc[0, "<clumps_mix_count>"] = "<value:mangled_count>"
+    # The count that is really a date Excel mangled.
+    df.loc[0, c("clumps_mix_count")] = v("mangled_count")
     return df
 
 
 def parameter_mapping() -> pd.DataFrame:
-    """SiteB parameter names against their SiteA equivalents."""
-    rows = [(site_b, site_a) for site_a, site_b in SITE_B_NAMES.items()]
+    """Site B's parameter names against their site A equivalents."""
+    rows = [(theirs, ours) for ours, theirs in site_b_names().items()]
     rows += [
-        ("<site_b_country>", "Country"),  # a second column claiming a taken name
-        ("<site_b_site_code>", None),  # no SiteA equivalent: dropped
-        ("<excluded_mapping_row>", "<nonconformance>"),  # known bad entry
+        (c("site_b_country"), c("country")),  # a second column claiming a taken name
+        (c("site_b_site_code"), None),  # no site A equivalent: dropped
+        (c("excluded_mapping_row"), c("nonconformance")),  # known bad entry
     ]
-    return pd.DataFrame(
-        rows, columns=["<map_site_b_name>", "<map_site_a_name>"]
+    return pd.DataFrame(rows, columns=[c("map_site_b_name"), c("map_site_a_name")])
+
+
+def coa_columns() -> tuple[str, ...]:
+    """The certificate columns, in the order the workbook holds them.
+
+    The first is the lot number, which the loader renames to the vector lot.
+    """
+    car, activity = c("coa_car_metric"), c("coa_ifng_metric")
+    return (
+        c("coa_lot"),
+        c("coa_available"),
+        c("coa_site_format"),
+        c("coa_titer"),
+        c("coa_titer_unadjusted"),
+        c("coa_p24"),
+        c("coa_pi_ratio"),
+        c("coa_donor", metric=car, donor=1),
+        c("coa_donor", metric=car, donor=2),
+        c("coa_donor", metric=activity, donor=1),
+        c("coa_donor", metric=activity, donor=2),
+        c("coa_ph"),
+        c("coa_osmolality"),
+        c("coa_volume"),
+        c("coa_dna_size"),
+        *cs("coa_impurities"),
+        c("coa_made"),
     )
-
-
-#: The certificate columns, in the order the workbook holds them. The first is
-#: the lot number, which the loader renames to <vector_lot>.
-COA_COLUMNS = (
-    "<coa_lot>",
-    "<coa_available>",
-    "<coa_site_format>",
-    "<coa_titer>",
-    "<coa_titer_unadjusted>",
-    "<coa_p24>",
-    "<coa_pi_ratio>",
-    "<coa_donor:<coa_car_metric>-1>",
-    "<coa_donor:<coa_car_metric>-2>",
-    "<coa_donor:IFNg-1>",
-    "<coa_donor:IFNg-2>",
-    "pH",
-    "Osmolality",
-    "Volume",
-    "<coa_dna_size>",
-    "HCP",
-    "pDNA",
-    "cDNA",
-    "<coa_impurities_4>",
-    "<coa_impurities_5>",
-    "<coa_made>",
-)
 
 
 def lv_coa() -> pd.DataFrame:
@@ -500,11 +705,16 @@ def lv_coa() -> pd.DataFrame:
     filtered out; ``LV-909`` never appears, so the batches built from it have no
     certificate at all.
     """
+    yes, a_format, b_format = (
+        v("coa_available_yes"),
+        f"{names.site('a')}/250mL",
+        (f"{names.site('b')}/500mL"),
+    )
     rows = [
         [
             "LV-101",
-            "Yes",
-            "SiteA/250mL",
+            yes,
+            a_format,
             "3,40E+07",
             "3,10E+07",
             "1,20E+11",
@@ -526,8 +736,8 @@ def lv_coa() -> pd.DataFrame:
         ],
         [
             "LV-102",
-            "Yes",
-            "SiteB/500mL",
+            yes,
+            b_format,
             "2,90E+07",
             "2,70E+07",
             "1,05E+11",
@@ -549,8 +759,8 @@ def lv_coa() -> pd.DataFrame:
         ],
         [
             "LV-103",
-            "Yes",
-            "SiteB/500mL",
+            yes,
+            b_format,
             "3,10E+07",
             "2,95E+07",
             "1,15E+11",
@@ -573,7 +783,7 @@ def lv_coa() -> pd.DataFrame:
         [
             "LV-104",
             "No",
-            "SiteA/250mL",
+            a_format,
             None,
             None,
             None,
@@ -594,30 +804,32 @@ def lv_coa() -> pd.DataFrame:
             "2026-01-09",
         ],
     ]
-    df = pd.DataFrame(rows, columns=list(COA_COLUMNS))
+    df = pd.DataFrame(rows, columns=list(coa_columns()))
     df.insert(2, 1, np.nan)  # a section marker column, which the loader drops
     return df
 
 
 def remanufacturing(n: int = SITE_B_BATCHES) -> pd.DataFrame:
-    """Prior lines of therapy, keyed by the SiteB batch number."""
+    """Prior lines of therapy, keyed by site B's batch number."""
+    prefix = v("batch_prefix_b")
     return pd.DataFrame(
         {
-            "<remfg_batch_keys_1>": [f"RA{i:03d}" for i in range(n)] + [None],
-            "<prior_lines_source>": list(range(1, n + 1)) + [None],
+            cs("remfg_batch_keys")[0]: [f"{prefix}{i:03d}" for i in range(n)] + [None],
+            c("prior_lines_source"): list(range(1, n + 1)) + [None],
         }
     )
 
 
-def raw_materials(site_a: int = SITE_A_BATCHES, site_b: int = SITE_B_BATCHES) -> pd.DataFrame:
+def raw_materials(first: int = SITE_A_BATCHES, second: int = SITE_B_BATCHES) -> pd.DataFrame:
     """The consumables export, with the column names its query tool produces."""
-    batches = [f"GH{i:03d}" for i in range(site_a)] + [f"RA{i:03d}" for i in range(site_b)]
-    batches[0] = "<value:bad_lot>"
+    a, b = v("batch_prefix_a"), v("batch_prefix_b")
+    batches = [f"{a}{i:03d}" for i in range(first)] + [f"{b}{i:03d}" for i in range(second)]
+    batches[0] = v("bad_lot")
     return pd.DataFrame(
         {
-            "Batch": batches,
-            "Query[<media_lot>]": [f"MED-{100 + i % 4}" for i in range(len(batches))],
-            "Query[<cytokine_lot>]": [f"IL2-{200 + i % 3}" for i in range(len(batches))],
+            cs("raw_materials_batch_keys")[1]: batches,
+            f"Query[{c('media_lot')}]": [f"MED-{100 + i % 4}" for i in range(len(batches))],
+            f"Query[{c('cytokine_lot')}]": [f"IL2-{200 + i % 3}" for i in range(len(batches))],
         }
     )
 
@@ -632,147 +844,96 @@ def investigations(n: int = 12) -> pd.DataFrame:
     """
     return pd.DataFrame(
         {
-            "Query[Patient Lot/Batch #]": [f"GH{i:03d}" for i in range(n)],
-            "Query[<harvest_lactate>]": np.linspace(1.5, 3.0, n).round(2),
-            "Query[<investigation_id>]": [f"INV-{i:03d}" for i in range(n)],
-            "Query[<root_cause>]": _cycle(["Operator", "Equipment", "Material"], n),
-            "<days_to_close>": _cycle([7, 14, 30], n),
+            f"Query[{BATCH}]": [f"{v('batch_prefix_a')}{i:03d}" for i in range(n)],
+            f"Query[{c('harvest_lactate')}]": np.linspace(1.5, 3.0, n).round(2),
+            f"Query[{c('investigation_id')}]": [f"INV-{i:03d}" for i in range(n)],
+            f"Query[{c('root_cause')}]": _cycle(["Operator", "Equipment", "Material"], n),
+            c("days_to_close"): _cycle([7, 14, 30], n),
         }
     )
 
 
 def site_mappings() -> tuple[pd.DataFrame, pd.DataFrame]:
     """Two acronym files, as they arrive from two different meetings."""
-    first = pd.DataFrame(
-        {"Acronym": ["MSKCC", "MDACC"], "Institution": ["<value:institutions_first>", "<value:institutions_first>"]}
-    )
-    second = pd.DataFrame(
-        {
-            "Acronym": ["<value:clinical_sites_b>", "MSKCC"],
-            "Institution": ["<value:institutions_second>", "<value:institutions_second>"],
-        }
-    )
+    acronym, institution = c("site_map_acronym"), c("site_map_institution")
+    first = pd.DataFrame({acronym: vs("acronyms_first"), institution: vs("institutions_first")})
+    second = pd.DataFrame({acronym: vs("acronyms_second"), institution: vs("institutions_second")})
     return first, second
 
 
 def _value_type(parameter: str) -> str:
     # An ordinal parameter's value type is its categories, in order. That is how
     # the catalog says "this is a rank, not a set of labels".
-    if parameter == ORDINAL_PARAMETER:
+    if parameter == c("ordinal_parameter"):
         return "[" + ", ".join(ORDINAL_ORDER) + "]"
-    if parameter in DATETIME_PARAMETERS:
+    if parameter in {c(key) for key in DATETIME_KEYS}:
         return "datetime"
-    if parameter in DURATION_PARAMETERS:
+    if parameter in {c(key) for key in DURATION_KEYS}:
         return "duration"
-    if parameter in RATIO_PARAMETERS:
+    if parameter in {c(key) for key in RATIO_KEYS}:
         return "ratio"
-    if parameter in CATEGORICAL_PARAMETERS or "profile" in parameter:
-        return "categorical"
-    return "numeric"
-
-
-#: The made-up catalog's 'Available At' column, by parameter name: a category a task
-#: can select parameters by. Earliest match wins; features are left without one.
-STAGE_RULES = (
-    ("Disposition", "Post-release"),
-    ("<oos_type>", "Post-release"),
-    ("Non-Conformance", "Post-release"),
-    ("Endotoxin", "Release"),
-    ("Mycoplasma", "Release"),
-    ("Sterility", "Release"),
-    ("Recovery", "Release"),
-    ("Manufacturing and Release Testing", "Release"),
-    (TARGET, "Final product"),
-    ("Provirus Vector Copy Number", "Final product"),
-    ("Post Thaw", "Post-thaw"),
-    ("Dose", "Formulation"),
-    ("Formulation", "Formulation"),
-    ("Volume per Bag", "Formulation"),
-    ("Post Wash", "Wash"),
-    ("Harvest", "Harvest"),
-    ("Day 10", "D10"),
-    ("Day 10 Clump", "D10"),
-    ("cPDL", "D10"),
-    ("Day 8", "D8"),
-    ("Day 6", "D6"),
-    ("Day 3", "D3"),
-    ("day 3", "D3"),
-    ("<culture_bags>", "D3"),
-    ("Volume Vector Added", "D3"),
-    ("Total Viable Cells for Expansion", "D3"),
-    ("<cells_per_bag>", "D3"),
-    ("Target Final Seeding Density", "D3"),
-    ("Incubator", "D1"),
-    ("Day 1", "D1"),
-    ("Clump", "D1"),
-    ("Post-Mixing", "D1"),
-    ("Post-Massaging", "D1"),
-    ("Pre-Activation", "D0"),
-    ("Thaw Start", "D0"),
-    ("Day 0", "D0"),
-    ("LV CoA", "D0"),
-    ("<media_lot>", "D0"),
-    ("<cytokine_lot>", "D0"),
-    ("<team>", "D0"),
-    ("<clinical_site>", "D0"),
-    ("Country", "D0"),
-    ("Subject Weight", "D0"),
-    ("Number of Prior Lines", "D0"),
-    ("Type", "D0"),
-    ("Patient", "D0"),
-    ("<vector_lot>", "D0"),
-    ("Site Merged", "D0"),
-)
-#: Parameters the made-up catalog leaves without a stage.
-UNSTAGED = ("Day 6 <temperature_marker>",)
+    categorical = {
+        BATCH,
+        "Site Merged",
+        c("coa_prefix") + c("coa_site_format"),
+        *cs("clump_bags")[:3],
+        *(c(key) for key in CATEGORICAL_KEYS),
+    }
+    return "categorical" if parameter in categorical else "numeric"
 
 
 def _stage(parameter: str) -> str:
-    if parameter in FEATURE_PARAMETERS or parameter in UNSTAGED:
+    """The made-up catalog's 'Available At' column: a category a task can select by."""
+    if parameter in feature_parameters() or parameter == temperature_reading():
         return ""
-    for fragment, stage in STAGE_RULES:
-        if fragment in parameter:
+    if parameter in (BATCH, "Site Merged") or parameter.startswith(c("coa_prefix")):
+        return "D0"
+    if parameter == co2_reading():
+        return "D6"
+    if parameter in cs("clump_bags"):
+        return "D10"
+    for stage, keys in STAGES.items():
+        if parameter in {c(key) for key in keys}:
             return stage
     return ""
 
 
-def catalog(site_a: pd.DataFrame, site_b: pd.DataFrame) -> pd.DataFrame:
+def catalog(first: pd.DataFrame, second: pd.DataFrame) -> pd.DataFrame:
     """The catalog: every parameter the batch table may hold, and the type it holds.
 
     Built from what the sources carry, minus the few things left out on purpose —
     the site comment columns, which the catalog has never accepted, and the two
-    features in ``UNLISTED_FEATURES`` — plus parameters nothing supplies, so the
-    report has a catalog gap to show.
+    features in :func:`unlisted_features` — plus parameters nothing supplies, so
+    the report has a catalog gap to show.
     """
-    to_site_a = {site_b_name: site_a for site_a, site_b_name in SITE_B_NAMES.items()}
-    to_site_a["<site_b_country>"] = "Country"
-    mapped = dict.fromkeys(to_site_a.get(c, c) for c in site_b.columns)
+    to_first = {theirs: ours for ours, theirs in site_b_names().items()}
+    to_first[c("site_b_country")] = c("country")
+    mapped = dict.fromkeys(to_first.get(column, column) for column in second.columns)
+    dropped = (c("coa_available"), c("coa_titer_unadjusted"), c("coa_made"))
     certificates = [
-        f"<coa_prefix>{column}"
-        for column in COA_COLUMNS[2:]
-        if column not in ("<coa_available>", "<coa_titer_unadjusted>", "<coa_made>")
+        c("coa_prefix") + column for column in coa_columns()[2:] if column not in dropped
     ]
 
     parameters = dict.fromkeys(
         [
-            *site_a.columns,
+            *first.columns,
             *mapped,
-            "<vector_lot>",
-            "<prior_lines>",
-            "<clinical_site_id>",
-            "<media_lot>",
-            "<cytokine_lot>",
+            c("vector_lot"),
+            c("prior_lines"),
+            c("clinical_site_id"),
+            c("media_lot"),
+            c("cytokine_lot"),
             *certificates,
-            *FEATURE_PARAMETERS,
-            *ORPHAN_PARAMETERS,
+            *feature_parameters(),
+            *orphan_parameters(),
         ]
     )
     for absent in (
-        "<site_a_comment>",
-        "<site_b_comment>",
-        "<site_b_site_code>",
-        "<site_b_country>",
-        *UNLISTED_FEATURES,
+        c("site_a_comment"),
+        c("site_b_comment"),
+        c("site_b_site_code"),
+        c("site_b_country"),
+        *unlisted_features(),
     ):
         parameters.pop(absent, None)
 
@@ -785,41 +946,149 @@ def catalog(site_a: pd.DataFrame, site_b: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def demo_corrections() -> list[corrections.Rule]:
+    """The demo's known data errors, as the Corrections sheet of its vocabulary holds them."""
+    a, b = names.site("a"), names.site("b")
+
+    def pairs(key: str) -> list[list[str]]:
+        return [entry.split("|", 1) for entry in vs(key)]
+
+    shift = "stored without the 1e6 divisor"
+    return [
+        corrections.Rule(
+            site=b,
+            column=c("clumps_mix_count"),
+            action="set",
+            value=None,
+            name="count_date_serial",
+            when_equals=v("mangled_count"),
+            reason="a count Excel turned into a date serial",
+        ),
+        corrections.Rule(
+            site=b,
+            column=c("country"),
+            action="set",
+            value=v("foreign_country"),
+            name="site_country",
+            when_column=c("clinical_site"),
+            when_equals=v("site_b_foreign_code"),
+            reason="the clinical site is abroad; the export has the wrong country",
+        ),
+        corrections.Rule(
+            site=b,
+            column=c("batch_type"),
+            action="set",
+            value=v("type_commercial"),
+            name="site_b_batch_type",
+            reason="site B's export does not fill the batch kind",
+        ),
+        corrections.Rule(
+            site=b,
+            column=c("oos_type"),
+            action="replace_text",
+            value=pairs("oos_fixes_b"),
+            name="site_b_oos_spelling",
+            reason="site B spells its out-of-spec classes its own way",
+        ),
+        corrections.Rule(
+            site=a,
+            column=c("oos_type"),
+            action="replace_text",
+            value=pairs("oos_fixes_a"),
+            name="site_a_oos_spelling",
+            reason="one spelling for one out-of-spec class",
+        ),
+        corrections.Rule(
+            site=a,
+            column=c("pre_activation_clumps_yn"),
+            action="set",
+            value="No",
+            name="bad_lot_clumps",
+            when_column=BATCH,
+            when_equals=v("bad_lot"),
+            reason="a known bad cell for one lot",
+        ),
+        corrections.Rule(
+            site=a,
+            column=c("mycoplasma"),
+            action="replace_values",
+            value={v("mycoplasma_raw"): v("mycoplasma_clean")},
+            name="site_a_contaminant_spelling",
+            reason="one spelling for a negative result",
+        ),
+        corrections.Rule(
+            site=b,
+            column=c("nonconformance"),
+            action="replace_values",
+            value=dict([vs("status_fix")]),
+            name="site_b_status_spelling",
+            reason="one spelling for one status",
+        ),
+        corrections.Rule(b, c("cells_per_bag"), "divide_by", 1e6, reason=shift),
+        corrections.Rule(b, c("cells_for_recovery"), "divide_by", 1e6, reason=shift),
+        corrections.Rule(b, c("formulated_concentration_a"), "divide_by", 1e6, reason=shift),
+        corrections.Rule(b, c("formulated_concentration_b"), "divide_by", 1e6, reason=shift),
+        corrections.Rule(a, c("seeding_density_a"), "divide_by", 1e6, reason=shift),
+        corrections.Rule(a, c("seeding_density_b"), "divide_by", 1e6, reason=shift),
+    ]
+
+
+#: Each source's file in the demo's stand-in share, by its config label.
+FILES = {
+    "catalog": "catalog.xlsx",
+    "phf_site_a": "site_a_batch_records.xlsx",
+    "phf_site_b": "site_b_batch_records.xlsx",
+    "param_mapping": "parameter_mapping.xlsx",
+    "remfg": "remfg.xlsx",
+    "lv_coa": "lv_coa.xlsx",
+    "raw_materials": "raw_materials.xlsx",
+    "investigations": "investigations_power_query.xlsx",
+    "vocabulary": "vocabulary.xlsx",
+}
+SITE_MAP_FILES = ("site_map_first.xlsx", "site_map_second.xlsx")
+
+
 def write_sources(directory: Path, seed: int = SEED) -> dict[str, object]:
-    """Write one complete set of sources into a folder, and return their paths."""
+    """Write one complete set of sources into a folder, and return their paths.
+
+    Each workbook's data goes on the sheet the vocabulary in use names for it.
+    """
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(seed)
 
-    site_a = site_a_phf(rng)
-    site_b = site_b_phf(rng)
+    first = site_a_phf(rng)
+    second = site_b_phf(rng)
     first_map, second_map = site_mappings()
+    paths: dict[str, object] = {label: directory / name for label, name in FILES.items()}
+    paths["site_maps"] = [directory / name for name in SITE_MAP_FILES]
 
-    paths = {
-        "catalog": directory / "catalog.xlsx",
-        "phf_site_a": directory / "phf_site_a.xlsx",
-        "phf_site_b": directory / "phf_site_b.xlsx",
-        "param_mapping": directory / "parameter_requirements.xlsx",
-        "remfg": directory / "remfg.xlsx",
-        "lv_coa": directory / "lv_coa.xlsx",
-        "raw_materials": directory / "raw_materials.xlsx",
-        "investigations": directory / "investigations_power_query.xlsx",
-        "site_maps": [directory / "site_map_hannelore.xlsx", directory / "site_map_meeting.xlsx"],
-    }
+    def sheet(label: str) -> str:
+        found = names.sheet(label, "Sheet1")
+        return "Sheet1" if isinstance(found, int) else str(found)
 
-    catalog(site_a, site_b).to_excel(paths["catalog"], index=False)
-    site_a.to_excel(paths["phf_site_a"], sheet_name="<sheet:phf_site_a>", index=False)
-    site_b.to_excel(paths["phf_site_b"], sheet_name="<sheet:phf_site_a>", index=False)
-    parameter_mapping().to_excel(paths["param_mapping"], sheet_name="Overall", index=False)
-    remanufacturing().to_excel(paths["remfg"], sheet_name="<sheet:remfg>", index=False)
-    # Two rows of workbook furniture above the header, as the real file has.
-    lv_coa().to_excel(paths["lv_coa"], sheet_name="<sheet:lv_coa>", index=False, startrow=2)
-    raw_materials().to_excel(paths["raw_materials"], index=False)
-    investigations().to_excel(
-        paths["investigations"], sheet_name="<sheet:investigations>", index=False
+    catalog(first, second).to_excel(paths["catalog"], sheet_name=sheet("catalog"), index=False)
+    first.to_excel(paths["phf_site_a"], sheet_name=sheet("phf_site_a"), index=False)
+    second.to_excel(paths["phf_site_b"], sheet_name=sheet("phf_site_b"), index=False)
+    parameter_mapping().to_excel(
+        paths["param_mapping"], sheet_name=sheet("param_mapping"), index=False
     )
-    first_map.to_excel(paths["site_maps"][0], index=False)
-    second_map.to_excel(paths["site_maps"][1], index=False)
+    remanufacturing().to_excel(paths["remfg"], sheet_name=sheet("remfg"), index=False)
+    # Two rows of workbook furniture above the header, as the real file has.
+    lv_coa().to_excel(paths["lv_coa"], sheet_name=sheet("lv_coa"), index=False, startrow=2)
+    raw_materials().to_excel(paths["raw_materials"], sheet_name=sheet("raw_materials"), index=False)
+    investigations().to_excel(
+        paths["investigations"], sheet_name=sheet("investigations"), index=False
+    )
+    for path, frame in zip(paths["site_maps"], (first_map, second_map)):
+        frame.to_excel(path, sheet_name=sheet("site_maps"), index=False)
+    with pd.ExcelWriter(paths["vocabulary"]) as workbook:
+        names.to_frame(names.current()).to_excel(
+            workbook, sheet_name=names.NAMES_SHEET, index=False
+        )
+        corrections.to_frame(demo_corrections()).to_excel(
+            workbook, sheet_name=names.CORRECTIONS_SHEET, index=False
+        )
 
     return {
         key: [str(p) for p in value] if isinstance(value, list) else str(value)
@@ -838,35 +1107,37 @@ def standin(directory: Path) -> Path:
     return Path(directory).resolve() / "sharepoint"
 
 
-def write_config(directory: Path, seed: int = SEED) -> Path:
+def write_config(
+    directory: Path, seed: int = SEED, vocabulary: names.Vocabulary | None = None
+) -> Path:
     """Write the demo data, config and task workspaces into ``directory``; return the config.
 
-    The sources go onto the stand-in share (``sharepoint/DEMO_DRIVE/Data/raw``),
-    the catalog into ``Data/catalog`` and ``ml build`` writes into
-    ``Data/batch_data`` — the layout the real share has. Each task goes to its own
-    workspace under ``tasks/``.
+    The sources and the vocabulary go onto the stand-in share
+    (``sharepoint/DEMO_DRIVE/Data/raw``), the catalog into ``Data/catalog`` and
+    ``ml build`` writes into ``Data/batch_data`` — the layout the real share has.
+    Each task goes to its own workspace under ``tasks/``. ``vocabulary`` is the
+    one the demo is written in (default: :func:`ml.names.demo`).
 
     The thresholds here are the ones that suit a cohort this small: with forty
     batches, a parameter with a dozen categories is already high-cardinality, and
     a feature needs fewer values before it is worth keeping.
     """
+    names.use(vocabulary or names.demo())
     directory = Path(directory)
     drive = standin(directory) / DRIVE
     sources = write_sources(drive / FOLDERS["raw"], seed=seed)
     (drive / FOLDERS["catalog"]).mkdir(parents=True, exist_ok=True)
-    shutil.move(sources["catalog"], drive / FOLDERS["catalog"] / "catalog.xlsx")
+    Path(sources["catalog"]).replace(drive / FOLDERS["catalog"] / FILES["catalog"])
 
-    def at(folder: str, name: str, sheet: str | int | None = None) -> dict[str, object]:
-        entry: dict[str, object] = {"path": f"{FOLDERS[folder]}{name}", "drive_id": DRIVE}
-        if sheet is not None:
-            entry["sheet"] = sheet
-        return entry
+    def at(folder: str, name: str) -> dict[str, object]:
+        return {"path": f"{FOLDERS[folder]}{name}", "drive_id": DRIVE}
 
     sharepoint = {
-        "catalog": at("catalog", "catalog.xlsx", 0),
-        "batch_table": at("batch_data", "batch_data.xlsx", "Sheet1"),
+        "vocabulary": at("raw", FILES["vocabulary"]),
+        "catalog": at("catalog", FILES["catalog"]),
+        "batch_table": at("batch_data", "batch_data.xlsx"),
         **{
-            label: at("raw", Path(sources[label]).name)
+            label: at("raw", FILES[label])
             for label in (
                 "phf_site_a",
                 "phf_site_b",
@@ -879,12 +1150,10 @@ def write_config(directory: Path, seed: int = SEED) -> Path:
         },
         "site_maps": {
             "folder": FOLDERS["raw"],
-            "files": [Path(p).name for p in sources["site_maps"]],
-            "sheet": 0,
+            "files": list(SITE_MAP_FILES),
             "drive_id": DRIVE,
         },
     }
-    shutil.copyfile(_template("corrections.yaml"), directory / "corrections.yaml")
     (directory / ".env").write_text(
         "# The demo has no SharePoint: this folder stands in for it.\n"
         f"ML_SHAREPOINT_STANDIN={standin(directory)}\n",
@@ -898,14 +1167,12 @@ def write_config(directory: Path, seed: int = SEED) -> Path:
         "catalog": {"write_new_parameters": True},
         "build": {"write_parquet": True},
         "cleaning": {
-            "corrections": "corrections.yaml",
             "censored": "limit",
             "censored_flags": False,
             "duration_unit": "minutes",
-            "site_b_type_commercial": True,
-            "yes_no_defaults": {"<pre_activation_clumps_yn>": "No"},
+            "yes_no_defaults": {"pre_activation_clumps_yn": "No"},
         },
-        "mapping": {"exclude": ["<excluded_mapping_row>"]},
+        "mapping": {"exclude": ["excluded_mapping_row"]},
         "features": {
             "co2_target": 5.0,
             "temp_target": 37.0,
@@ -935,12 +1202,6 @@ def write_config(directory: Path, seed: int = SEED) -> Path:
     return config_path
 
 
-def _template(name: str) -> Path:
-    from importlib import resources
-
-    return Path(str(resources.files("ml") / "templates" / name))
-
-
 #: The encoder and quality settings both example tasks share, sized for 40 batches.
 _SMALL_COHORT = {
     "encoding": {
@@ -954,7 +1215,7 @@ _SMALL_COHORT = {
     "quality": {"min_non_missing": 8, "duplicate_r2_threshold": 0.99, "duplicate_min_overlap": 8},
 }
 
-#: The made-up catalog's stages after harvest, which the SiteA demo task leaves out.
+#: The made-up catalog's stages after harvest, which the site A demo task leaves out.
 LATER_THAN_HARVEST = [
     "Wash",
     "Formulation",
@@ -965,7 +1226,7 @@ LATER_THAN_HARVEST = [
 ]
 
 #: The demo's task workspaces, relative to the config.
-TASK_FILES = ("tasks/site_a_car_expression", "tasks/site_b_release")
+TASK_FILES = ("tasks/expression", "tasks/release")
 
 
 def write_tasks(directory: Path) -> list[Path]:
@@ -976,49 +1237,49 @@ def write_tasks(directory: Path) -> list[Path]:
     all move in YAML.
     """
     directory = Path(directory)
-    car_expression = {
+    a, b = names.site("a"), names.site("b")
+    expression = {
         "config": "../../config.yaml",
         "task": {
-            "name": "site_a_car_expression",
-            "question": "Which manufacturing parameters go with final product CAR+ "
-            "expression at SiteA?",
+            "name": "expression",
+            "question": f"Which manufacturing parameters go with final product expression at {a}?",
             "seed": SEED,
         },
         "cohort": {
-            "sites": ["SiteA"],
+            "sites": [a],
             "filters": [
                 {
-                    "column": "Type",
+                    "column": c("batch_type"),
                     "op": "equals",
-                    "value": "Commercial",
-                    "reason": "manufactured commercially",
+                    "value": v("type_commercial"),
+                    "reason": "manufactured routinely",
                 },
                 {
-                    "column": "<testing_done>",
+                    "column": c("testing_done"),
                     "op": "equals",
                     "value": "Y",
                     "reason": "manufacturing and testing finished",
                 },
                 {
-                    "column": "<nonconformance>",
+                    "column": c("nonconformance"),
                     "op": "not_in",
-                    "value": ["termination", "withdrawal"],
+                    "value": vs("excluded_statuses"),
                     "normalise": True,
                     "missing": "include",
-                    "reason": "not terminated or withdrawn, however it is spelled",
+                    "reason": "not stopped, however it is spelled",
                 },
             ],
         },
-        "target": {"column": TARGET, "type": "numeric"},
-        "roles": {"id": "Patient Lot/Batch #", "group": "<vector_lot>"},
+        "target": {"column": target(), "type": "numeric"},
+        "roles": {"id": BATCH, "group": c("vector_lot")},
         "predictors": {
             "exclude": [
                 {
-                    "column": "<subject_weight>",
+                    "column": c("subject_weight"),
                     "reason": "dose per kilogram already carries it",
                 },
                 {
-                    "column": "<washed_cells>",
+                    "column": c("washed_cells"),
                     "reason": "counted after the wash",
                 },
             ],
@@ -1035,18 +1296,18 @@ def write_tasks(directory: Path) -> list[Path]:
         "report": {"preview_rows": 15},
     }
 
-    release_outcome = {
+    release = {
         "config": "../../config.yaml",
         "task": {
-            "name": "site_b_release",
-            "question": "What does a released SiteB batch look like, next to a discarded one?",
+            "name": "release",
+            "question": f"What does an accepted {b} batch look like, next to a scrapped one?",
             "seed": SEED,
         },
         "cohort": {
-            "sites": ["SiteB"],
+            "sites": [b],
             "filters": [
                 {
-                    "column": "<testing_done>",
+                    "column": c("testing_done"),
                     "op": "equals",
                     "value": "Y",
                     "reason": "manufacturing and testing finished",
@@ -1054,19 +1315,19 @@ def write_tasks(directory: Path) -> list[Path]:
             ],
         },
         "target": {
-            "column": "Disposition",
+            "column": c("disposition"),
             "type": "binary",
-            "positive_class": "Released",
-            "negative_class": "Discarded",
+            "positive_class": v("released"),
+            "negative_class": v("discarded"),
         },
-        "roles": {"id": "Patient Lot/Batch #", "group": "<vector_lot>"},
+        "roles": {"id": BATCH, "group": c("vector_lot")},
         "predictors": {
-            "exclude": [{"column": "<oos_type>", "reason": "it is the reason for the disposition"}],
+            "exclude": [{"column": c("oos_type"), "reason": "it is the reason for the outcome"}],
             # Whole categories of the catalog's metadata can be left out by name.
             "exclude_by_catalog": {"Available At": ["Post-release"]},
         },
         **_SMALL_COHORT,
-        # The SiteB cohort is just big enough to show the other two encoders,
+        # Site B's cohort is just big enough to show the other two encoders,
         # so this task lowers the sample-size bars they normally have to clear.
         "encoding": {
             **_SMALL_COHORT["encoding"],
@@ -1087,7 +1348,7 @@ def write_tasks(directory: Path) -> list[Path]:
     }
 
     written = []
-    for name, task in zip(TASK_FILES, (car_expression, release_outcome)):
+    for name, task in zip(TASK_FILES, (expression, release)):
         path = directory / name / "task.yaml"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
@@ -1100,9 +1361,9 @@ def write_tasks(directory: Path) -> list[Path]:
 
 
 if __name__ == "__main__":
-    target = Path(sys.argv[1] if len(sys.argv) > 1 else "demo")
-    written = write_config(target)
+    target_folder = Path(sys.argv[1] if len(sys.argv) > 1 else "demo")
+    write_config(target_folder)
     print(
-        f"The demo is in {target}/. Now run:  cd {target} && ml update "
+        f"The demo is in {target_folder}/. Now run:  cd {target_folder} && ml update "
         + " ".join(f"--task {name}" for name in TASK_FILES)
     )

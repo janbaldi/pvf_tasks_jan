@@ -46,10 +46,18 @@ from .blocks import (
     frame as frame_block,
 )
 from .features import BLOCKED, CREATED, ERRORED, NOT_IN_CATALOG, PRESENT, FeatureReport, Params
+from .names import col, values
+from .names import site as site_name
 
 DERIVED = "Derived"
-GROWTH_ORDER = ("undergrowth", "normal", "overgrowth")
-CD4_ORDER = ("<value:cd4_profile_classes>", "<value:cd4_profile_classes>", "<value:cd4_profile_classes>")
+
+
+def _profile_order(key: str) -> tuple[str, str, str]:
+    """A profile's classes from low to high (the vocabulary lists low, high, middle)."""
+    low, high, middle = values(key)
+    return low, middle, high
+
+
 #: Below this share of batches, a column is drawn as a warning in the inventory.
 THIN_COVERAGE = 5.0
 
@@ -130,7 +138,9 @@ def _overview(run: BuildRun) -> dict | None:
 def _sources(run: BuildRun) -> dict | None:
     rows = [[esc(a), b, c, d] for a, b, c, d in run.source_rows]
     for site, (n_rows, n_columns) in run.site_shapes.items():
-        rows.append([f"{esc(site)} PHF, as loaded", f"{n_rows:,}", f"{n_columns:,}", "loaded"])
+        rows.append(
+            [f"{esc(site)} batch records, as loaded", f"{n_rows:,}", f"{n_columns:,}", "loaded"]
+        )
     merged = [[esc(site), f"{count:,}"] for site, count in run.merge.site_rows.items()] + [
         [bold("Merged batch table"), bold(f"{run.merge.total_rows:,}")]
     ]
@@ -294,7 +304,7 @@ def _cleaning(run: BuildRun) -> dict | None:
                 f"({len(report.categorical_diffs)} parameters)",
                 [
                     table(
-                        ["Parameter", "SiteA only", "SiteB only"],
+                        ["Parameter", f"{site_name('a')} only", f"{site_name('b')} only"],
                         [
                             [
                                 esc(c["column"]),
@@ -340,7 +350,7 @@ def _inventory(run: BuildRun) -> dict | None:
         rows.append(
             [
                 str(column),
-                origins.get(column, "PHF"),
+                origins.get(column, "batch records"),
                 str(run.catalog_mapping.get(column, "—")),
                 "yes" if column in set(run.catalog_cols) else "no",
                 *["yes" if column in run.phf[site].columns else "—" for site in sites],
@@ -414,7 +424,7 @@ def _catalog_coverage(run: BuildRun) -> dict | None:
                 [
                     sortable(
                         ["Parameter", "Origin"],
-                        [[str(c), _origin_index(run).get(c, "PHF")] for c in extra],
+                        [[str(c), _origin_index(run).get(c, "batch records")] for c in extra],
                         filter_column="Parameter",
                         note="These reach the batch table because a source carries them. The "
                         "catalog decides whether they belong there.",
@@ -423,8 +433,8 @@ def _catalog_coverage(run: BuildRun) -> dict | None:
             )
         )
 
-    only = [["SiteA only", c] for c in run.merge.site_a_only_cols] + [
-        ["SiteB only", c] for c in run.merge.site_b_only_cols
+    only = [[f"{site_name('a')} only", c] for c in run.merge.site_a_only_cols] + [
+        [f"{site_name('b')} only", c] for c in run.merge.site_b_only_cols
     ]
     if only:
         blocks.append(
@@ -563,7 +573,10 @@ def _features(run: BuildRun) -> dict | None:
     blocks.append(catalogue)
 
     profiles = {site: report.profiles for site, report in run.features.items()}
-    for column, order in (("<f_growth_profile>", GROWTH_ORDER), ("<f_cd4_profile>", CD4_ORDER)):
+    for column, order in (
+        (col("f_growth_profile"), _profile_order("growth_profile_classes")),
+        (col("f_cd4_profile"), _profile_order("cd4_profile_classes")),
+    ):
         blocks.append(_profile_table(profiles, column, order))
         blocks.append(plots.profile_distribution(profiles, column, order))
     for report in run.features.values():
@@ -599,7 +612,8 @@ def _enrichment(run: BuildRun) -> dict | None:
     if run.unmapped_sites:
         blocks.append(
             collapsed(
-                f"SiteB clinical site acronyms with no institution ({len(run.unmapped_sites)})",
+                f"{site_name('b')} clinical site acronyms with no institution "
+                f"({len(run.unmapped_sites)})",
                 [
                     table(
                         ["Acronym"],
@@ -737,7 +751,7 @@ def build_batch_table_payload(run: BuildRun) -> dict[str, Any]:
     return {
         "title": "Batch table build",
         "lead": f"{run.merge.total_rows:,} batches and "
-        f"{run.merge.total_columns:,} parameters from SiteA and SiteB, built "
+        f"{run.merge.total_columns:,} parameters from {site_name('a')} and {site_name('b')}, built "
         f"against {len(run.catalog_cols):,} catalog parameters.",
         "subtitle": f"CAR-T manufacturing data · run {stamp}",
         "sections": [section for section in sections if section],

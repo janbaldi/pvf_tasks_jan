@@ -1,41 +1,40 @@
 # A demo task workspace written by `python -m ml.demo`. Its runs go to runs/.
 config: ../../config.yaml
 task:
-  name: site_a_car_expression
-  question: Which manufacturing parameters go with final product CAR+ expression at
-    SiteA?
+  name: expression
+  question: Which manufacturing parameters go with final product expression at Northfield?
   seed: 20260917
 cohort:
   sites:
-  - SiteA
+  - Northfield
   filters:
-  - column: Type
+  - column: Batch kind
     op: equals
-    value: Commercial
-    reason: manufactured commercially
-  - column: <testing_done>
+    value: Routine
+    reason: manufactured routinely
+  - column: Testing complete (Y/N)
     op: equals
     value: Y
     reason: manufacturing and testing finished
-  - column: <nonconformance>
+  - column: Deviation class
     op: not_in
     value:
-    - termination
-    - withdrawal
+    - halt
+    - recall
     normalise: true
     missing: include
-    reason: not terminated or withdrawn, however it is spelled
+    reason: not stopped, however it is spelled
 target:
-  column: <fp_car_pct>
+  column: Product CAR expression (%)
   type: numeric
 roles:
   id: 'Patient Lot/Batch #'
-  group: <vector_lot>
+  group: Vector lot
 predictors:
   exclude:
-  - column: <subject_weight>
+  - column: Patient weight (kg)
     reason: dose per kilogram already carries it
-  - column: <washed_cells>
+  - column: Day 10 cells after wash (cells)
     reason: counted after the wash
   exclude_by_catalog:
     Available At:

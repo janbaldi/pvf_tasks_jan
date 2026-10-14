@@ -14,9 +14,12 @@
 #                           batch_table_manifest.json into its folder (Data/batch_data/)
 #   ml task new <folder>    a task workspace with an annotated task.yaml
 #   ml task run             run the task in this folder; runs go into <folder>/runs/
+#   ml check-leaks          search this repository for any name the private
+#                           vocabulary holds; run it before pushing
 #
 # Secrets and SharePoint addresses go in a .env next to this file; see
-# .env.example. Relative paths (cleaning.corrections) are relative to THIS file.
+# .env.example. No column, category value, site or worksheet is named here or in
+# the code: they are keys, and the private vocabulary workbook names them.
 
 seed: 20260917
 
@@ -24,24 +27,29 @@ sources:
   databricks: true        # join the Acridine Orange readings from Databricks
 
 # Where everything lives on SharePoint. The addresses themselves are in .env
-# (git-ignored; see .env.example): ${NAME} is filled in from there. `sheet` is
-# the worksheet the data is on. catalog and batch_table are also where the stages
-# write: each stage's outputs go into the folder of its file.
+# (git-ignored; see .env.example): ${NAME} is filled in from there.
+#
+# The vocabulary workbook is private too: its Names sheet says what every column,
+# category value, site and worksheet is called (the code refers to them by keys
+# only), and its Corrections sheet holds the known data corrections.
+#
+# catalog and batch_table are also where the stages write: each stage's outputs
+# go into the folder of its file. A `sheet:` here overrides the vocabulary's.
 sharepoint:
-  catalog:        {path: "${SHAREPOINT_CATALOG}", sheet: Catalogue, drive_id: DRIVE_ID_SITE_A}
-  batch_table:    {path: "${SHAREPOINT_BATCH_TABLE}", sheet: Sheet1, drive_id: DRIVE_ID_SITE_A}
-  phf_site_a:      {path: "${SHAREPOINT_PHF_SITE_A}", sheet: <sheet:phf_site_a>, drive_id: DRIVE_ID_SITE_A}
-  phf_site_b:    {path: "${SHAREPOINT_PHF_SITE_B}", sheet: <sheet:phf_site_a>, drive_id: DRIVE_ID_SITE_B}
-  param_mapping:  {path: "${SHAREPOINT_PARAM_MAPPING}", sheet: Overall, drive_id: DRIVE_ID_SITE_A}
-  remfg:          {path: "${SHAREPOINT_REMFG}", sheet: <sheet:remfg>, drive_id: DRIVE_ID_SITE_B}
-  lv_coa:         {path: "${SHAREPOINT_LV_COA}", sheet: <sheet:lv_coa>, drive_id: DRIVE_ID_SITE_A}
-  raw_materials:  {path: "${SHAREPOINT_RAW_MATERIALS}", sheet: <sheet:raw_materials>, drive_id: DRIVE_ID_SITE_A}
-  investigations: {path: "${SHAREPOINT_INVESTIGATIONS}", sheet: <sheet:investigations>, drive_id: DRIVE_ID_SITE_A}
+  vocabulary:     {path: "${SHAREPOINT_VOCABULARY}", drive_id: "${SHAREPOINT_DRIVE_A}"}
+  catalog:        {path: "${SHAREPOINT_CATALOG}", drive_id: "${SHAREPOINT_DRIVE_A}"}
+  batch_table:    {path: "${SHAREPOINT_BATCH_TABLE}", drive_id: "${SHAREPOINT_DRIVE_A}"}
+  phf_site_a:     {path: "${SHAREPOINT_PHF_SITE_A}", drive_id: "${SHAREPOINT_DRIVE_A}"}
+  phf_site_b:     {path: "${SHAREPOINT_PHF_SITE_B}", drive_id: "${SHAREPOINT_DRIVE_B}"}
+  param_mapping:  {path: "${SHAREPOINT_PARAM_MAPPING}", drive_id: "${SHAREPOINT_DRIVE_A}"}
+  remfg:          {path: "${SHAREPOINT_REMFG}", drive_id: "${SHAREPOINT_DRIVE_B}"}
+  lv_coa:         {path: "${SHAREPOINT_LV_COA}", drive_id: "${SHAREPOINT_DRIVE_A}"}
+  raw_materials:  {path: "${SHAREPOINT_RAW_MATERIALS}", drive_id: "${SHAREPOINT_DRIVE_A}"}
+  investigations: {path: "${SHAREPOINT_INVESTIGATIONS}", drive_id: "${SHAREPOINT_DRIVE_A}"}
   site_maps:
     folder: "${SHAREPOINT_SITE_MAPS_FOLDER}"
     files: "${SHAREPOINT_SITE_MAPS_FILES}"     # comma-separated workbook names
-    sheet: Sheet1
-    drive_id: DRIVE_ID_SITE_A
+    drive_id: "${SHAREPOINT_DRIVE_A}"
 
 catalog:
   write_new_parameters: true
@@ -50,18 +58,16 @@ build:
   write_parquet: true      # a batch_data.parquet beside batch_data.xlsx, which keeps column types
 
 cleaning:
-  # corrections: ~/ml_data/corrections.yaml   # known data corrections, as a table;
-  #                                            # default: the package's own table
   disable: []                     # names of corrections to switch off
   censored: limit                 # what '<0.5' becomes: limit | half | missing
   censored_flags: false           # also add a '<column> censored' 0/1 column
   duration_unit: minutes          # what a bare number in a duration cell means
-  yes_no_defaults:                # blanks filled only for these columns
-    '<pre_activation_clumps_yn>': 'No'
+  yes_no_defaults:                # blanks filled only for these columns (vocabulary keys)
+    pre_activation_clumps_yn: 'No'
 
 mapping:
-  exclude:                        # SiteB → SiteA mapping rows known to be wrong
-    - <excluded_mapping_row>
+  exclude:                        # site mapping rows known to be wrong (vocabulary keys)
+    - excluded_mapping_row
 
 features:
   co2_target: 5.0

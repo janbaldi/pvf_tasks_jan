@@ -30,6 +30,9 @@ from conftest import (
     section,
     table_with,
 )
+from dummy_data import c, v, vs
+from ml import names
+from ml.encode import sanitise
 
 REQUIRED = (
     "task.yaml",
@@ -61,6 +64,10 @@ def test_a_finished_task_folder_holds_everything_it_promises(built):
         # dataset.csv is the raw predictors for every task; the encoded one is beside it.
         assert artifact(built, task, "dataset_encoded.csv").exists()
         assert manifest(built, task)["dataset_role"].startswith("raw modelling inputs")
+
+
+#: The release task's binary target, as the dataset stage names it.
+RELEASE_TARGET = f"{sanitise(c('disposition'))}_is_{sanitise(v('released'))}"
 
 
 def test_the_manifest_hashes_every_artefact_but_itself(built):
@@ -115,12 +122,16 @@ def test_the_cohort_is_narrower_than_the_batch_table_and_says_how(built):
 def test_withdrawals_are_excluded_however_the_source_spells_them(built):
     batch_table = built["batch_table"]
     kept = set(csv(built, PREDICTIVE, "dataset.csv")["Patient Lot/Batch #"])
-    site_a = batch_table[batch_table["Site Merged"] == "SiteA"]
-    spellings = site_a["<nonconformance>"].astype("string")
-    assert {"withdrawn", "Withdrawal"} <= set(spellings.dropna()), "the fixture has both spellings"
+    first = batch_table[batch_table["Site Merged"] == names.site("a")]
+    spellings = first[c("nonconformance")].astype("string")
+    assert {vs("status_fix")[0], vs("nonconformance_raw")[5]} <= set(spellings.dropna()), (
+        "the fixture has both spellings"
+    )
 
-    is_withdrawal = spellings.str.lower().isin({"withdrawn", "withdrawal"}).fillna(False)
-    withdrawn = set(site_a.loc[is_withdrawal, "Patient Lot/Batch #"])
+    is_withdrawal = (
+        spellings.str.lower().isin({vs("status_fix")[0], vs("status_fix")[1]}).fillna(False)
+    )
+    withdrawn = set(first.loc[is_withdrawal, "Patient Lot/Batch #"])
     assert withdrawn, "there are withdrawals to exclude"
     assert not (withdrawn & kept), "a withdrawal is a withdrawal however it is written"
 
@@ -138,7 +149,7 @@ def test_batches_without_a_target_are_counted_and_named_separately(built):
 
 def test_a_balanced_binary_target_maps_both_classes(built):
     dataset = csv(built, EXPLORATORY, "dataset.csv")
-    target = dataset["disposition_is_released"]
+    target = dataset[RELEASE_TARGET]
     assert set(target.dropna().unique()) == {0, 1}
     assert target.notna().all()
     # The declared positive class is 1, whether or not it is the rarer one.
@@ -153,32 +164,32 @@ def test_the_target_and_everything_computed_from_it_stay_out(built):
     dataset = csv(built, PREDICTIVE, "dataset.csv")
     decisions = csv(built, PREDICTIVE, "parameters.csv")
 
-    for leaked in ("<f_vcn_per_cell>", "<f_flow_accuracy>", dummy_data.TARGET):
+    for leaked in (c("f_vcn_per_cell"), c("f_flow_accuracy"), dummy_data.target()):
         assert leaked not in dataset.columns
     lineage = decisions[decisions["Stage"] == "target lineage"]
-    assert {"<f_vcn_per_cell>", "<f_flow_accuracy>"} <= set(lineage["Parameter"])
-    assert all(dummy_data.TARGET in reason for reason in lineage["Reason"])
+    assert {c("f_vcn_per_cell"), c("f_flow_accuracy")} <= set(lineage["Parameter"])
+    assert all(dummy_data.target() in reason for reason in lineage["Reason"])
 
 
 def test_roles_are_metadata_and_are_not_encoded(built):
     dataset = csv(built, PREDICTIVE, "dataset.csv")
     columns = csv(built, PREDICTIVE, "dataset_columns.csv")
     assert list(dataset.columns)[0] == "Patient Lot/Batch #"
-    assert list(dataset.columns)[-1] == "fp_flow_car"
-    assert list(columns["Column"]).count("<vector_lot>") == 1
-    assert columns.loc[columns["Column"] == "<vector_lot>", "Role"].iloc[0] == "group"
+    assert list(dataset.columns)[-1] == dummy_data.target_column()
+    assert list(columns["Column"]).count(c("vector_lot")) == 1
+    assert columns.loc[columns["Column"] == c("vector_lot"), "Role"].iloc[0] == "group"
     # No one-hot or target encoding built out of the grouping column.
-    assert not [c for c in dataset.columns if c.startswith("<vector_lot>_")]
+    assert not [name for name in dataset.columns if name.startswith(c("vector_lot") + "_")]
     assert not [c for c in dataset.columns if c.startswith("patient_lot")]
 
 
 def test_parameters_in_an_excluded_catalog_category_are_left_out(built):
     decisions = csv(built, PREDICTIVE, "parameters.csv")
     late = decisions[decisions["Stage"] == "category exclusion"]
-    assert {"Disposition", "<endotoxin>"} <= set(late["Parameter"])
+    assert {c("disposition"), c("endotoxin")} <= set(late["Parameter"])
     assert all(reason.startswith("Catalog 'Available At' is") for reason in late["Reason"])
     dataset = csv(built, PREDICTIVE, "dataset.csv")
-    assert "Disposition" not in dataset.columns
+    assert c("disposition") not in dataset.columns
 
 
 def test_every_exported_column_has_exactly_one_dictionary_entry(built):
@@ -193,7 +204,7 @@ def test_the_encoded_table_can_be_read_back_to_its_parameters(built):
     report = payload(built, EXPLORATORY)
     dictionary = {row[0]: row for row in table_with(report, "Meaning")["rows"]}
     dataset = csv(built, EXPLORATORY, "dataset_encoded.csv")
-    metadata = {"Patient Lot/Batch #", "<vector_lot>", "disposition_is_released"}
+    metadata = {"Patient Lot/Batch #", c("vector_lot"), RELEASE_TARGET}
     for column in dataset.columns:
         if column not in metadata:
             assert column in dictionary, column
@@ -205,17 +216,17 @@ def test_the_encoded_table_can_be_read_back_to_its_parameters(built):
 # Encoding
 # ---------------------------------------------------------------------------
 def test_each_categorical_parameter_went_to_the_encoder_its_size_calls_for(built):
-    site_a = {row[0]: row for row in table_with(payload(built, PREDICTIVE), "Encoder")["rows"]}
-    assert site_a[dummy_data.ONE_HOT_PARAMETER][3] == "one_hot"
+    first = {row[0]: row for row in table_with(payload(built, PREDICTIVE), "Encoder")["rows"]}
+    assert first[c("clinical_site")][3] == "one_hot"
     # A column with a value per batch identifies it rather than describing it.
-    assert site_a["<patient_id>"][3] == "skip"
-    assert "identifier" in site_a["<patient_id>"][4]
+    assert first[c("patient_id")][3] == "skip"
+    assert "identifier" in first[c("patient_id")][4]
 
-    # The SiteB cohort is large enough for the other two encoders to be chosen;
-    # over fourteen SiteA training rows, ten incubators are near-identifying.
-    site_b = {row[0]: row for row in table_with(payload(built, EXPLORATORY), "Encoder")["rows"]}
-    assert site_b[dummy_data.TARGET_ENCODED_PARAMETER][3] == "target"
-    assert site_b[dummy_data.HASHED_PARAMETER][3] == "hashing"
+    # Site B's cohort is large enough for the other two encoders to be chosen;
+    # over fourteen site A training rows, ten incubators are near-identifying.
+    second = {row[0]: row for row in table_with(payload(built, EXPLORATORY), "Encoder")["rows"]}
+    assert second[c("team")][3] == "target"
+    assert second[c("incubator_id")][3] == "hashing"
 
 
 def test_target_encoding_is_cross_fitted_and_says_which_folds(built):
@@ -236,11 +247,11 @@ def test_target_encoding_is_cross_fitted_and_says_which_folds(built):
         # it: that is the difference between cross-fitted and leaked.
         whole_cohort = raw[source].astype(str).map(fitted["means"])
         assert not whole_cohort.equals(dataset[column]), column
-        assert dataset[column].corr(dataset["disposition_is_released"]) < 0.99
+        assert dataset[column].corr(dataset[RELEASE_TARGET]) < 0.99
 
 
 def test_an_ordinal_parameter_becomes_a_rank_and_strays_are_left_missing(built):
-    ranks = csv(built, EXPLORATORY, "dataset_encoded.csv")[dummy_data.ORDINAL_PARAMETER].dropna()
+    ranks = csv(built, EXPLORATORY, "dataset_encoded.csv")[c("ordinal_parameter")].dropna()
     assert set(ranks) <= set(range(1, len(dummy_data.ORDINAL_ORDER) + 1))
 
 
@@ -337,7 +348,7 @@ def test_provenance_records_the_inputs_this_stage_actually_read(built):
     assert set(inputs) == {"batch_table", "catalog"}
     assert all(len(row[3]) == 64 for row in inputs.values())
     log = artifact(built, PREDICTIVE, "run.log").read_text(encoding="utf-8")
-    assert "Task 'site_a_car_expression'" in log
+    assert "Task 'expression'" in log
     assert "Batch table build" not in log, "an earlier stage's events do not belong to this run"
 
 
@@ -364,11 +375,11 @@ def test_the_dataset_section_describes_the_table_on_disk(built):
     dataset = csv(built, EXPLORATORY, "dataset.csv")
     assert f"{len(dataset):,} batches" in stated["Shape"]
     assert str(dataset.shape[1]) in stated["Shape"].replace(",", "")
-    assert pd.api.types.is_numeric_dtype(dataset["disposition_is_released"])
+    assert pd.api.types.is_numeric_dtype(dataset[RELEASE_TARGET])
 
 
 def test_a_task_names_itself_in_its_report(built):
-    assert "site_a_car_expression" in payload(built, PREDICTIVE)["title"]
+    assert "expression" in payload(built, PREDICTIVE)["title"]
     assert rows_naming(payload(built, PREDICTIVE), "Which manufacturing parameters")
 
 
@@ -394,7 +405,7 @@ def test_the_task_carries_the_catalog_and_batch_table_manifests_of_its_input(bui
     assert batch_table["batch_table"]["rows"] == len(built["batch_table"])
     missing = set(batch_table["catalog_parameters_not_in_batch_table"])
     assert missing and not missing & set(built["batch_table"].columns)
-    assert "<site_a_comment>" in catalog["not_in_catalog"]["SiteA PHF"]
+    assert c("site_a_comment") in catalog["not_in_catalog"][f"{names.site('a')} batch records"]
     assert not any("manifest" in warning for warning in record["warnings"])
 
 

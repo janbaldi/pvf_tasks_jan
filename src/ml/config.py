@@ -12,6 +12,7 @@ SharePoint address is written into the code.
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import fields
 from pathlib import Path
 from typing import Any
@@ -117,15 +118,59 @@ def load(path: str | Path) -> dict[str, Any]:
     if not isinstance(config, dict):
         raise ConfigError(f"{path} is not a mapping")
 
-    validate(config, str(path))
     base = path.parent
+    env = load_env(base)
+    config["sharepoint"] = expand_env(config.get("sharepoint"), str(path))
+    validate(config, str(path))
     cleaning = config.get("cleaning") or {}
     if isinstance(cleaning.get("corrections"), str) and cleaning["corrections"]:
         cleaning["corrections"] = str(_resolve(cleaning["corrections"], base))
     config["__path__"] = str(path)
     config["__dir__"] = str(base)
-    config["__env__"] = load_env(base)
+    config["__env__"] = env
     return config
+
+
+#: ``${NAME}`` in a ``sharepoint:`` value: filled in from ``.env`` or the environment.
+_VARIABLE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def expand_env(sharepoint: Any, source: str = "config") -> Any:
+    """The ``sharepoint:`` block with every ``${NAME}`` replaced from the environment.
+
+    The SharePoint addresses live in ``.env`` (git-ignored), not in
+    ``config.yaml``: an entry says ``path: ${SHAREPOINT_CATALOG}`` and ``.env``
+    says where that is. A list of workbooks may be one comma-separated variable.
+    A variable that is not set stops the run, naming every one that is missing.
+    """
+    missing: list[str] = []
+
+    def fill(value: Any, where: str) -> Any:
+        if isinstance(value, str):
+
+            def one(match: re.Match) -> str:
+                name = match.group(1)
+                if name not in os.environ:
+                    missing.append(f"{where}: ${{{name}}} is not set")
+                return os.environ.get(name, "")
+
+            return _VARIABLE.sub(one, value)
+        if isinstance(value, dict):
+            return {key: fill(item, f"{where}.{key}") for key, item in value.items()}
+        if isinstance(value, list):
+            return [fill(item, f"{where}[{i}]") for i, item in enumerate(value)]
+        return value
+
+    filled = fill(sharepoint, "sharepoint")
+    site_maps = (filled or {}).get("site_maps") if isinstance(filled, dict) else None
+    if isinstance(site_maps, dict) and isinstance(site_maps.get("files"), str):
+        site_maps["files"] = [f.strip() for f in site_maps["files"].split(",") if f.strip()]
+    if missing:
+        raise ConfigError(
+            f"{source}: SharePoint locations are missing from the environment — add them to "
+            "the .env next to config.yaml (see .env.example):\n  - " + "\n  - ".join(missing)
+        )
+    return filled
 
 
 def load_env(folder: str | Path) -> str:

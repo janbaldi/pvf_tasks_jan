@@ -532,27 +532,35 @@ again: every question gets its own folder and its own history of runs.
 You do this once. Afterwards you only rerun `ml check-catalog` and `ml build`
 when the sources or the catalog change.
 
-**1. Point `config.yaml` at SharePoint.** `config.yaml` in the repository root
-is annotated. Every input has a location under `sharepoint:` — a path, the
-worksheet and the drive:
+**1. Put the SharePoint locations in `.env`.** Copy `.env.example` to `.env`
+next to `config.yaml` and fill it in: the credentials and drive ids
+`io_sharepoint` needs, and where each input is. `.env` is git-ignored, so no
+SharePoint address is ever committed:
+
+```bash
+SHAREPOINT_CATALOG="<team site>/Data/catalog/catalog.xlsx"
+SHAREPOINT_BATCH_TABLE="<team site>/Data/batch_data/batch_data.xlsx"
+SHAREPOINT_PHF_SITE_A="…"
+…
+SHAREPOINT_SITE_MAPS_FOLDER="<team site>/Data/mappings/"
+SHAREPOINT_SITE_MAPS_FILES="first.xlsx,second.xlsx"   # comma-separated
+```
+
+**2. Check `config.yaml`.** It is annotated, and refers to those variables:
+every input has a path, the worksheet and the drive under `sharepoint:`.
 
 ```yaml
 sharepoint:
-  catalog:     {path: ".../Data/catalog/catalog.xlsx", sheet: Catalogue, drive_id: DRIVE_ID_SITE_A}
-  batch_table: {path: ".../Data/batch_data/batch_data.xlsx", sheet: Sheet1, drive_id: DRIVE_ID_SITE_A}
-  phf_site_a:   {path: "<site-a-folder>/phf.xlsm", sheet: <sheet:phf_site_a>, drive_id: DRIVE_ID_SITE_A}
+  catalog:     {path: "${SHAREPOINT_CATALOG}", sheet: Catalogue, drive_id: DRIVE_ID_SITE_A}
+  batch_table: {path: "${SHAREPOINT_BATCH_TABLE}", sheet: Sheet1, drive_id: DRIVE_ID_SITE_A}
   …
-  site_maps:   {folder: ".../Data/mappings/", files: [clinical_sites.xlsx, …], sheet: Sheet1, drive_id: …}
 ```
 
-The catalog and batch table locations also say where the stages write:
-`ml check-catalog` writes into the catalog's folder (`Data/catalog/`) and
-`ml build` writes into the batch table's (`Data/batch_data/`).
+A variable that is not set stops the run and is named. The catalog and batch
+table locations also say where the stages write: `ml check-catalog` writes into
+the catalog's folder and `ml build` into the batch table's.
 
-**2. Install `io_sharepoint`** in the same environment (`uv pip install …`).
-
-**3. Put secrets in `.env`.** Copy `.env.example` to `.env` next to
-`config.yaml` and fill in the credentials and drive ids. `.env` is git-ignored.
+**3. Install `io_sharepoint`** in the same environment (`uv pip install …`).
 
 **4. Run steps 2–8 of the tutorial** with your own data: `ml validate`,
 `ml check-catalog`, `ml build`, then `ml task new` for each question. A task
@@ -663,8 +671,9 @@ anything runs. So are the old local settings (`paths:`, `sheets:`, `upload:`,
 
 Every input is read from its entry under `sharepoint:`, and every stage output is
 written there; there is no local data option. Without `io_sharepoint`
-installed a run stops before it reads anything. All SharePoint addresses live in
-`config.yaml`; none are in the code.
+installed a run stops before it reads anything. The SharePoint addresses live in
+`.env`, which is git-ignored; `config.yaml` refers to them as `${NAME}`, and none
+are in the code.
 
 | Stage | Reads | Writes, into |
 |---|---|---|

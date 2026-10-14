@@ -15,7 +15,7 @@
 #   ml task new <folder>    a task workspace with an annotated task.yaml
 #   ml task run             run the task in this folder; runs go into <folder>/runs/
 #
-# Secrets (SharePoint credentials, drive ids) go in a .env next to this file; see
+# Secrets and SharePoint addresses go in a .env next to this file; see
 # .env.example. Relative paths (cleaning.corrections) are relative to THIS file.
 
 seed: 20260917
@@ -23,22 +23,23 @@ seed: 20260917
 sources:
   databricks: true        # join the Acridine Orange readings from Databricks
 
-# Where everything lives on SharePoint. `sheet` is the worksheet the data is on.
-# catalog and batch_table are also where the stages write: each stage's outputs go
-# into the folder of its file.
+# Where everything lives on SharePoint. The addresses themselves are in .env
+# (git-ignored; see .env.example): ${NAME} is filled in from there. `sheet` is
+# the worksheet the data is on. catalog and batch_table are also where the stages
+# write: each stage's outputs go into the folder of its file.
 sharepoint:
-  catalog:        {path: "<team-site>//Reports/<analytics>/Data/catalog/catalog.xlsx", sheet: Catalogue, drive_id: DRIVE_ID_SITE_A}
-  batch_table:    {path: "<team-site>//Reports/<analytics>/Data/batch_data/batch_data.xlsx", sheet: Sheet1, drive_id: DRIVE_ID_SITE_A}
-  phf_site_a:      {path: "<site-a-folder>/phf.xlsm", sheet: <sheet:phf_site_a>, drive_id: DRIVE_ID_SITE_A}
-  phf_site_b:    {path: "<site-b-folder>/batch_records.xlsx", sheet: <sheet:phf_site_a>, drive_id: DRIVE_ID_SITE_B}
-  param_mapping:  {path: "<team-site>/<mapping-folder>/parameter_mapping.xlsx", sheet: Overall, drive_id: DRIVE_ID_SITE_A}
-  remfg:          {path: "<site-b-folder>/remfg.xlsx", sheet: <sheet:remfg>, drive_id: DRIVE_ID_SITE_B}
-  lv_coa:         {path: "<team-site>//Reports/<analytics>/Data/lv_coa.xlsx", sheet: <sheet:lv_coa>, drive_id: DRIVE_ID_SITE_A}
-  raw_materials:  {path: "<team-site>//Reports/<analytics>/Data/raw_materials.xlsx", sheet: <sheet:raw_materials>, drive_id: DRIVE_ID_SITE_A}
-  investigations: {path: "<investigations>/power_query.xlsx", sheet: <sheet:investigations>, drive_id: DRIVE_ID_SITE_A}
+  catalog:        {path: "${SHAREPOINT_CATALOG}", sheet: Catalogue, drive_id: DRIVE_ID_SITE_A}
+  batch_table:    {path: "${SHAREPOINT_BATCH_TABLE}", sheet: Sheet1, drive_id: DRIVE_ID_SITE_A}
+  phf_site_a:      {path: "${SHAREPOINT_PHF_SITE_A}", sheet: <sheet:phf_site_a>, drive_id: DRIVE_ID_SITE_A}
+  phf_site_b:    {path: "${SHAREPOINT_PHF_SITE_B}", sheet: <sheet:phf_site_a>, drive_id: DRIVE_ID_SITE_B}
+  param_mapping:  {path: "${SHAREPOINT_PARAM_MAPPING}", sheet: Overall, drive_id: DRIVE_ID_SITE_A}
+  remfg:          {path: "${SHAREPOINT_REMFG}", sheet: <sheet:remfg>, drive_id: DRIVE_ID_SITE_B}
+  lv_coa:         {path: "${SHAREPOINT_LV_COA}", sheet: <sheet:lv_coa>, drive_id: DRIVE_ID_SITE_A}
+  raw_materials:  {path: "${SHAREPOINT_RAW_MATERIALS}", sheet: <sheet:raw_materials>, drive_id: DRIVE_ID_SITE_A}
+  investigations: {path: "${SHAREPOINT_INVESTIGATIONS}", sheet: <sheet:investigations>, drive_id: DRIVE_ID_SITE_A}
   site_maps:
-    folder: "<team-site>//Reports/<analytics>/Data/mappings/"
-    files: [clinical_sites.xlsx, cross_data_meeting.xlsx, from_Hannelore.xlsx]
+    folder: "${SHAREPOINT_SITE_MAPS_FOLDER}"
+    files: "${SHAREPOINT_SITE_MAPS_FILES}"     # comma-separated workbook names
     sheet: Sheet1
     drive_id: DRIVE_ID_SITE_A
 

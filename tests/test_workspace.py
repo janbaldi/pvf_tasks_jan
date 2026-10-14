@@ -25,6 +25,28 @@ from ml import config as workspace
 
 CONFIG_TEXT = (ROOT / "config.yaml").read_text(encoding="utf-8")
 
+#: Made-up SharePoint locations for the shipped config's ${NAME} placeholders.
+SHAREPOINT_ENV = {
+    "SHAREPOINT_CATALOG": "Team%20Site/Data/catalog/catalog.xlsx",
+    "SHAREPOINT_BATCH_TABLE": "Team%20Site/Data/batch_data/batch_data.xlsx",
+    "SHAREPOINT_PHF_SITE_A": "Batch data/site_a.xlsm",
+    "SHAREPOINT_PHF_SITE_B": "General/Batch Data/site_b.xlsx",
+    "SHAREPOINT_PARAM_MAPPING": "Team%20Site/mapping.xlsx",
+    "SHAREPOINT_REMFG": "General/remfg.xlsx",
+    "SHAREPOINT_LV_COA": "Team%20Site/Data/coa.xlsx",
+    "SHAREPOINT_RAW_MATERIALS": "Team%20Site/Data/consumables.xlsx",
+    "SHAREPOINT_INVESTIGATIONS": "Investigations/power_query.xlsx",
+    "SHAREPOINT_SITE_MAPS_FOLDER": "Team%20Site/Data/mappings/",
+    "SHAREPOINT_SITE_MAPS_FILES": "first.xlsx, second.xlsx,third.xlsx",
+}
+
+
+@pytest.fixture(autouse=True)
+def sharepoint_env(monkeypatch):
+    """What a real .env holds: where each input is on SharePoint."""
+    for name, value in SHAREPOINT_ENV.items():
+        monkeypatch.setenv(name, value)
+
 
 # ---------------------------------------------------------------------------
 # Config: found, validated, and the only place a SharePoint address lives
@@ -33,7 +55,30 @@ def test_the_package_holds_no_sharepoint_address():
     source = Path(cli.__file__).parent
     code = "\n".join(path.read_text(encoding="utf-8") for path in source.glob("*.py"))
     assert "<team-site>" not in code and "DRIVE_ID_" not in code
-    assert "<team-site>" in CONFIG_TEXT, "config.yaml carries them instead"
+    assert "<team-site>" not in CONFIG_TEXT, "nor does config.yaml: the addresses are in .env"
+    example = (ROOT / ".env.example").read_text(encoding="utf-8")
+    assert "<team-site>" not in example
+    for name in SHAREPOINT_ENV:
+        assert f"${{{name}}}" in CONFIG_TEXT and f'{name}=""' in example
+
+
+def test_a_sharepoint_address_missing_from_the_environment_is_named(tmp_path, monkeypatch):
+    monkeypatch.delenv("SHAREPOINT_CATALOG")
+    monkeypatch.delenv("SHAREPOINT_REMFG")
+    (tmp_path / "config.yaml").write_text(CONFIG_TEXT, encoding="utf-8")
+    with pytest.raises(workspace.ConfigError) as raised:
+        workspace.load(tmp_path / "config.yaml")
+    assert "sharepoint.catalog.path: ${SHAREPOINT_CATALOG} is not set" in str(raised.value)
+    assert "${SHAREPOINT_REMFG}" in str(raised.value) and ".env" in str(raised.value)
+
+
+def test_sharepoint_addresses_are_read_from_the_env_file(tmp_path, monkeypatch):
+    monkeypatch.delenv("SHAREPOINT_CATALOG")
+    (tmp_path / "config.yaml").write_text(CONFIG_TEXT, encoding="utf-8")
+    (tmp_path / ".env").write_text('SHAREPOINT_CATALOG="Elsewhere/catalog.xlsx"\n')
+    config = workspace.load(tmp_path / "config.yaml")
+    assert workspace.location(config, "catalog").path == "Elsewhere/catalog.xlsx"
+    monkeypatch.delenv("SHAREPOINT_CATALOG")
 
 
 def test_the_shipped_config_is_a_valid_config():
@@ -68,18 +113,14 @@ def test_sharepoint_locations_come_from_the_config(tmp_path, monkeypatch):
         (
             "read",
             {
-                "sharepoint_path": "<site-b-folder>/batch_records.xlsx",
+                "sharepoint_path": "General/Batch Data/site_b.xlsx",
                 "sheet_name": "<sheet:phf_site_a>",
                 "drive_id": "DRIVE_ID_SITE_B",
             },
         )
     ]
     maps = workspace.site_map_sources(config)
-    assert [m.location.name for m in maps] == [
-        "clinical_sites.xlsx",
-        "cross_data_meeting.xlsx",
-        "from_Hannelore.xlsx",
-    ]
+    assert [m.location.name for m in maps] == ["first.xlsx", "second.xlsx", "third.xlsx"]
     # The certificate workbook keeps its two rows of furniture above the header.
     assert workspace.source(config, "lv_coa").header == 2
 
@@ -95,7 +136,7 @@ def test_outputs_are_uploaded_into_the_folder_of_their_stage(tmp_path, monkeypat
     assert what == "report" and where.name == "build_report.html"
     assert calls[0][1]["sharepoint_target_path"].endswith("/Data/batch_data/")
     assert calls[0][1]["drive_id"] == "DRIVE_ID_SITE_A"
-    assert "<team-site>/Reports" in where.where, "shown decoded, as a person reads it"
+    assert "Team Site/Data/batch_data/" in where.where, "shown decoded, as a person reads it"
 
 
 def test_without_io_sharepoint_a_run_stops_and_says_why(monkeypatch):

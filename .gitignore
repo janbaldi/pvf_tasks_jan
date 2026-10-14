@@ -25,3 +25,6 @@ dist/
 /demo/sharepoint/
 /demo/tasks/*/runs/
 /demo/run.log
+
+# Local Python environments
+env/

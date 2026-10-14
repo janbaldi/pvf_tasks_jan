@@ -10,6 +10,7 @@ and applied.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -54,12 +55,17 @@ def sharepoint_env(monkeypatch):
 def test_the_package_holds_no_sharepoint_address():
     source = Path(cli.__file__).parent
     code = "\n".join(path.read_text(encoding="utf-8") for path in source.glob("*.py"))
-    assert "<team-site>" not in code and "DRIVE_ID_" not in code
-    assert "<team-site>" not in CONFIG_TEXT, "nor does config.yaml: the addresses are in .env"
+    assert "DRIVE_ID_" not in code and "%20" not in code
+    # Every SharePoint location in config.yaml is a ${NAME} filled in from .env.
+    sharepoint = yaml.safe_load(CONFIG_TEXT)["sharepoint"]
+    values = [entry["path"] for label, entry in sharepoint.items() if label != "site_maps"]
+    values += [sharepoint["site_maps"]["folder"], sharepoint["site_maps"]["files"]]
+    assert all(re.fullmatch(r"\$\{SHAREPOINT_[A-Z_]+\}", value) for value in values), values
+    # .env.example names every variable and gives none of their values.
     example = (ROOT / ".env.example").read_text(encoding="utf-8")
-    assert "<team-site>" not in example
     for name in SHAREPOINT_ENV:
         assert f"${{{name}}}" in CONFIG_TEXT and f'{name}=""' in example
+    assert "DATABRICKS_AO_MAPPING=''" in example
 
 
 def test_a_sharepoint_address_missing_from_the_environment_is_named(tmp_path, monkeypatch):

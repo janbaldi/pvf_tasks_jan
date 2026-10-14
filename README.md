@@ -673,7 +673,9 @@ Every input is read from its entry under `sharepoint:`, and every stage output i
 written there; there is no local data option. Without `io_sharepoint`
 installed a run stops before it reads anything. The SharePoint addresses live in
 `.env`, which is git-ignored; `config.yaml` refers to them as `${NAME}`, and none
-are in the code.
+are in the code. The same goes for the Acridine Orange readings `sources.databricks`
+fetches: their Databricks parameter ids are in `$DATABRICKS_AO_MAPPING` in `.env`
+(`name|parameter id|type` entries separated by `;`, see `.env.example`).
 
 | Stage | Reads | Writes, into |
 |---|---|---|

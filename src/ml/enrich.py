@@ -11,6 +11,8 @@ column in the batch table came from.
 
 from __future__ import annotations
 
+import os
+
 import pandas as pd
 
 from .io import Source, as_source, normalise_key
@@ -18,26 +20,28 @@ from .logger import log
 
 MODULE = "enrich"
 
-#: Acridine Orange viability and clump readings, by their Databricks parameter id.
-AO_MAPPING = """
-("D10 Pre-Wash AO%1","<parameter-id>","VL"),
-("D10 Pre-Wash AO%2","<parameter-id>","VL"),
-("D10 Pre-Wash AO%3","<parameter-id>","VL"),
-("D0 Post-Thaw AO%","<parameter-id>","VL"),
-("D0 Post-Enrichment AO%1","<parameter-id>","VL"),
-("D0 Post-Enrichment AO%2","<parameter-id>","VL"),
-("D0 Post-Enrichment AO%3","<parameter-id>","VL"),
-("D3 Activated T-cells AO%1","<parameter-id>","VL"),
-("D3 Activated T-cells AO%2","<parameter-id>","VL"),
-("D3 Activated T-cells AO%3","<parameter-id>","VL"),
-("D0 SD viable cell concentration Enriched T-Cells","<parameter-id>","VL"),
-("D3 SD viable cell concentration Activated T-Cells","<parameter-id>","VL"),
-("D10 SD viable cell concentration pre-wash","<parameter-id>","VL"),
-("D1 Pre-massaging Clumps: Color of Clumps","<parameter-id>","VL"),
-("D1 Pre-massaging Clumps: Shape and Texture of Clumps","<parameter-id>","VL"),
-("D3 Clumps: Color of Clumps","<parameter-id>","VL"),
-("D3 Clumps: Shape and Texture of Clumps","<parameter-id>","VL")
-"""
+#: The variable that holds the Acridine Orange readings to fetch from Databricks:
+#: ``name|parameter id|type`` entries separated by ``;``. It lives in ``.env``,
+#: not in the code, because the parameter ids are internal.
+AO_MAPPING_ENV = "DATABRICKS_AO_MAPPING"
+
+
+def ao_mapping() -> str:
+    """The Acridine Orange mapping from ``$DATABRICKS_AO_MAPPING``, as Databricks wants it."""
+    raw = os.getenv(AO_MAPPING_ENV, "").strip()
+    if not raw:
+        raise RuntimeError(
+            f"sources.databricks is on but ${AO_MAPPING_ENV} is not set — add it to the .env "
+            "next to config.yaml (see .env.example)"
+        )
+    rows = []
+    for entry in filter(None, (part.strip() for part in raw.split(";"))):
+        fields = [field.strip() for field in entry.split("|")]
+        if len(fields) != 3 or not all(fields):
+            raise RuntimeError(f"${AO_MAPPING_ENV}: '{entry}' is not name|parameter id|type")
+        rows.append("(" + ",".join(f'"{field}"' for field in fields) + ")")
+    return "\n" + ",\n".join(rows) + "\n"
+
 
 BATCH_KEY = "Patient Lot/Batch #"
 
@@ -102,6 +106,7 @@ def add_viability_parameters(
         return []
 
     log.step(MODULE, "Adding Acridine Orange viability parameters")
+    mapping = ao_mapping()
     try:
         from databricks_query_tool import DatabricksConnection, Mapping, QueryRunner
     except ImportError as exc:
@@ -110,7 +115,7 @@ def add_viability_parameters(
         ) from exc
 
     with DatabricksConnection() as conn:
-        df_add = QueryRunner(conn).run(Mapping.from_string(AO_MAPPING))
+        df_add = QueryRunner(conn).run(Mapping.from_string(mapping))
 
     df_add = df_add.rename(columns={"targetbatchnumber": BATCH_KEY})
     added = [c for c in df_add.columns if c != BATCH_KEY]

@@ -946,6 +946,11 @@ def validate(config: dict[str, Any] | None, specs: list[TaskSpec]) -> list[str]:
         except share.ShareError as exc:
             problems.append(str(exc))
             return problems
+        if (config.get("sources") or {}).get("databricks"):
+            try:
+                enrich.ao_mapping()
+            except RuntimeError as exc:
+                problems.append(str(exc))
         missing = [
             label for label in (*BUILD_INPUTS, "batch_table") if not workspace.has(config, label)
         ]

@@ -718,6 +718,21 @@ def test_a_sharepoint_read_is_recorded_by_location_and_content(tmp_path, monkeyp
         workspace.source(config, "raw_materials")
 
 
+def test_the_databricks_mapping_comes_from_the_environment(monkeypatch):
+    from ml import enrich
+
+    monkeypatch.delenv(enrich.AO_MAPPING_ENV, raising=False)
+    with pytest.raises(RuntimeError, match="DATABRICKS_AO_MAPPING is not set"):
+        enrich.ao_mapping()
+    monkeypatch.setenv(enrich.AO_MAPPING_ENV, "D0 AO%|P/1|VL; D3 AO%|P/2|VL;")
+    assert enrich.ao_mapping() == '\n("D0 AO%","P/1","VL"),\n("D3 AO%","P/2","VL")\n'
+    monkeypatch.setenv(enrich.AO_MAPPING_ENV, "D0 AO%|P/1")
+    with pytest.raises(RuntimeError, match="name|parameter id|type"):
+        enrich.ao_mapping()
+    source = Path(enrich.__file__).read_text(encoding="utf-8")
+    assert "AO_MAPPING = " not in source, "no Databricks parameter id is in the code"
+
+
 # ---------------------------------------------------------------------------
 # The console
 # ---------------------------------------------------------------------------

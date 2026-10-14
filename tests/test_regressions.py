@@ -882,3 +882,45 @@ def test_a_period_no_batch_falls_in_is_refused():
     frame = pd.DataFrame({"made": ["2025-01-10", "2025-01-20"]})
     with pytest.raises(dataset.TaskRefused, match="'after'"):
         dataset.prepare_target(frame, spec, dataset.TaskResult(spec=spec))
+
+
+# ---------------------------------------------------------------------------
+# A run folder Windows will not rename at once
+# ---------------------------------------------------------------------------
+def refusing_rename(monkeypatch, refusals: int) -> list[int]:
+    """Path.rename raising as Windows does while a file in the folder is open."""
+    calls: list[int] = []
+    original = Path.rename
+
+    def rename(self, target):
+        calls.append(1)
+        if len(calls) <= refusals:
+            raise PermissionError(5, "Access is denied")
+        return original(self, target)
+
+    monkeypatch.setattr(Path, "rename", rename)
+    monkeypatch.setattr(package, "PROMOTE_PAUSE", 0)
+    return calls
+
+
+def staged_folder(tmp_path: Path) -> tuple[Path, Path]:
+    staging = tmp_path / "run.incomplete"
+    (staging / "data").mkdir(parents=True)
+    (staging / "data" / "dataset.csv").write_text("a\n1\n", encoding="utf-8")
+    return staging, tmp_path / "run"
+
+
+def test_a_run_folder_held_for_a_moment_is_renamed_once_it_is_free(tmp_path, monkeypatch):
+    calls = refusing_rename(monkeypatch, refusals=3)
+    staging, destination = staged_folder(tmp_path)
+    package.promote(staging, destination)
+    assert len(calls) == 4
+    assert (destination / "data" / "dataset.csv").is_file() and not staging.exists()
+
+
+def test_a_run_folder_never_freed_is_copied_to_its_final_name(tmp_path, monkeypatch):
+    refusing_rename(monkeypatch, refusals=10_000)
+    staging, destination = staged_folder(tmp_path)
+    package.promote(staging, destination)
+    assert (destination / "data" / "dataset.csv").read_text(encoding="utf-8") == "a\n1\n"
+    assert not staging.exists()

@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import json
 import secrets
+import shutil
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -139,7 +141,7 @@ class TaskPackage:
         manifest.write(self.staging / MANIFEST, record)
         if self.destination.exists():
             raise FileExistsError(f"{self.destination} already exists; nothing was overwritten")
-        self.staging.rename(self.destination)
+        promote(self.staging, self.destination)
         log.success(MODULE, f"Task package written to {self.destination}")
         return self.destination
 
@@ -163,9 +165,52 @@ class TaskPackage:
         manifest.write(self.staging / MANIFEST, record)
         failed = self.destination.with_name(self.destination.name + FAILED_SUFFIX)
         if not failed.exists():
-            self.staging.rename(failed)
+            try:
+                promote(self.staging, failed)
+            except OSError:
+                failed = self.staging  # the reason is in its manifest either way
         log.error(MODULE, f"Task failed — partial output kept at {failed}", reason)
         return failed
+
+
+#: How long to keep trying when Windows will not let a run folder be renamed.
+PROMOTE_ATTEMPTS = 10
+PROMOTE_PAUSE = 0.5
+
+
+def promote(staging: Path, destination: Path) -> None:
+    """Give a finished run folder its final name.
+
+    On Windows a folder cannot be renamed while anything has a file in it open,
+    and the virus scanner or search indexer often opens files just written, or
+    an Explorer or editor window is showing the folder. That holds only
+    seconds, so the rename is retried; if it is still refused, the folder is
+    copied to its final name and the staging copy removed as far as it can be.
+    """
+    for attempt in range(PROMOTE_ATTEMPTS):
+        try:
+            staging.rename(destination)
+            return
+        except PermissionError:
+            if attempt + 1 < PROMOTE_ATTEMPTS:
+                time.sleep(PROMOTE_PAUSE)
+    log.warn(
+        MODULE,
+        f"Windows would not rename {staging.name} (a file in it is open elsewhere); "
+        "copying it to its final name instead",
+    )
+    try:
+        shutil.copytree(staging, destination)
+    except OSError as exc:
+        shutil.rmtree(destination, ignore_errors=True)
+        raise PermissionError(
+            f"The run finished, but its folder could not be renamed or copied to "
+            f"{destination.name}: something has a file in it open ({exc}). The complete "
+            f"output is in {staging}. Close any window showing it and rename it by hand"
+        ) from exc
+    shutil.rmtree(staging, ignore_errors=True)
+    if staging.exists():
+        log.warn(MODULE, f"{staging} could not be removed; delete it once nothing holds it")
 
 
 def open_package(root: str | Path, task: str, identifier: str | None = None) -> TaskPackage:

@@ -994,6 +994,7 @@ file that changed after the run.
 | `The catalog changed after the batch table was built — rerun ml build` | Run `ml build`, then the task again. |
 | `The vocabulary from … leaves out N names the code needs` | Add a `Names` row for each key listed; `src/ml/names.py` says what each one is. |
 | `Lines that hold a name from the private vocabulary` (`ml check-leaks`) | Replace each listed name with its key (code) or an invented name (tests, docs), then run it again. |
+| `Windows would not rename … copying it to its final name instead` (Windows) | Nothing: something (the virus scanner, the search indexer, or an Explorer or editor window showing `runs/`) had a file in the new run folder open, so `ml` copied the folder instead of renaming it. If it also says the folder `could not be removed`, delete that `….incomplete` folder later. If the run stops with `could not be renamed or copied`, the complete output is in the `….incomplete` folder it names: close whatever shows it and rename it by hand. |
 | `quality.min_non_missing is 20 but only N rows are being fitted on` | Lower `quality.min_non_missing` or widen the cohort. |
 
 Errors you can fix exit with code 2 and a one-line message; `--debug` shows the

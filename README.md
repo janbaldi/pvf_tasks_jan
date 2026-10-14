@@ -54,11 +54,11 @@ option. Joining Acridine Orange readings needs `databricks_query_tool`.
 
 This tutorial takes about 20 minutes. It uses the demo: made-up data with the
 same shape as the real sources, so every command below runs as written and
-prints what is shown. Run IDs (such as `20261012-170843-61f466`) and timings
+prints what is shown. Run IDs (such as `20261014-101858-32352c`) and timings
 will differ on your machine.
 
 You will build the batch table, ask one question of it — *which manufacturing
-parameters go with CAR+ expression at SiteA?* — refine the dataset four times,
+parameters go with CAR+ expression at Northfield?* — refine the dataset four times,
 fit a model, find a leak through the model's explanation, and fix it.
 
 ### 1. Make the demo data
@@ -71,29 +71,35 @@ cd demo
 ```
 
 ```
-config.yaml       where on SharePoint the sources, the catalog and the batch table are
-.env              points ML_SHAREPOINT_STANDIN at sharepoint/
-corrections.yaml  known errors in the sources, as rules
-sharepoint/       a folder standing in for SharePoint: DEMO_DRIVE/Data/raw/ holds
-                  the made-up sources, DEMO_DRIVE/Data/catalog/ the catalog
-tasks/            two finished example tasks
+config.yaml   where on SharePoint the vocabulary, the sources, the catalog and the
+              batch table are
+.env          points ML_SHAREPOINT_STANDIN at sharepoint/
+sharepoint/   a folder standing in for SharePoint: DEMO_DRIVE/Data/raw/ holds the
+              made-up sources and their vocabulary.xlsx, DEMO_DRIVE/Data/catalog/
+              the catalog
+tasks/        two finished example tasks: expression and release
 ```
 
 The demo has no SharePoint, so `sharepoint/` plays its part; every run says so
-with a warning. Every command from now on is run inside `demo/`, where
-`config.yaml` is.
+with a warning. The demo's two sites are called Northfield (site A) and
+Southbank (site B), and every column and value in it is invented; its
+`vocabulary.xlsx` maps the code's keys to those names, as the private one does
+for the real sources (see [The vocabulary](#the-vocabulary)). Every command from
+now on is run inside `demo/`, where `config.yaml` is.
 
 ### 2. Check the catalog and build the batch table
 
-First see whether the configuration is sound. Nothing is read or written yet:
+First see whether the configuration is sound. Only the vocabulary is read, and
+nothing is written:
 
 ```bash
 uv run ml validate
 ```
 
 ```
-OK  cli  Corrections table: 14 rules
-OK  cli  Everything checked out
+OK  config  Vocabulary loaded — 233 names
+OK  cli     Corrections table: 14 rules
+OK  cli     Everything checked out
 ```
 
 Then compare every source with the catalog:
@@ -107,9 +113,9 @@ Every command first lists what it will read and write:
 ```
 Reading from SharePoint
   catalog         catalog.xlsx
-                  DEMO_DRIVE › Data/catalog/
-  phf_site_a       phf_site_a.xlsx
-                  DEMO_DRIVE › Data/raw/  ·  sheet <sheet:phf_site_a>
+                  DEMO_DRIVE › Data/catalog/  ·  sheet Catalog
+  phf_site_a      site_a_batch_records.xlsx
+                  DEMO_DRIVE › Data/raw/  ·  sheet Batch Records
   …
 
 Writing to SharePoint
@@ -122,15 +128,14 @@ Writing to SharePoint
 and ends with what it found and where each file went:
 
 ```
-SiteA PHF: columns the catalog does not list (1)
-  - <site_a_comment>
-SiteB batch data: columns the catalog does not list (2)
-  - <site_b_site_code>
-  - <site_b_comment>
+Northfield batch records: columns the catalog does not list (1)
+  - Site note
+Southbank batch records: columns the catalog does not list (2)
+  - Plant code
+  - Remark
 Investigations Power Query: columns the catalog does not list (3)
-  - Query[<investigation_id>]
-  - Query[<root_cause>]
-  - <days_to_close>
+  …
+  - Days open
 
 Written to SharePoint
   new parameters  new_parameters.csv
@@ -170,7 +175,7 @@ something, and the derived features.
 ### 3. Create a task
 
 ```bash
-uv run ml task new tasks/car_expression --target "<fp_car_pct>"
+uv run ml task new tasks/car_expression --target "Product CAR expression (%)"
 cd tasks/car_expression
 ```
 
@@ -187,7 +192,7 @@ batch table from wherever you run it. Its main sections:
 
 ```yaml
 cohort:      which batches are rows        (empty: every batch)
-target:      what the model will predict   (here <fp_car_pct>, numeric)
+target:      what the model will predict   (here Product CAR expression (%), numeric)
 roles:       columns that describe a batch rather than predict anything
 predictors:  which other parameters may be predictors
 clustering:  what to do about parameters that move together
@@ -204,17 +209,17 @@ uv run ml task run
 
 ```
 Written — 68 batches × 150 columns
-  Task folder  …/tasks/car_expression/runs/20261012-170555-bfe8d0
+  Task folder  …/tasks/car_expression/runs/20261014-101452-ed627c
 
   WARN  dataset  2 batches have no usable target and are not in the dataset
-  WARN  dataset  Only 4 distinct <vector_lot> values: any grouped cross-validation rests on 4 groups, not on 68 batches
-  WARN  dataset  197 predictor columns for 68 fitted batches (p/n = 2.9): a model needs strong regularisation, …
+  WARN  encode   Mixing severity: 'Severe' is not one of its catalog categories (8 batches) — left missing  (×3)
+  WARN  dataset  201 predictor columns for 68 fitted batches (p/n = 3.0): a model needs strong regularisation, …
 ```
 
 It works, and the run folder already holds a full dataset:
 
 ```
-runs/20261012-170555-bfe8d0/
+runs/20261014-101452-ed627c/
   data/dataset.csv               one row per batch: id, group, raw predictors, target
   data/dataset_encoded.csv       the same rows as numbers, ready for a model
   metadata/parameters.csv        every parameter: included or excluded, and why
@@ -222,7 +227,7 @@ runs/20261012-170555-bfe8d0/
   metadata/dataset_columns.csv   every column of dataset.csv: role, source, unit, meaning
   metadata/groups.json           groups of parameters to explain a model by (step 7)
   report/report.html             all of the above with figures; open it in a browser
-  inputs/                        the exact batch table and catalog this run read
+  inputs/                        the exact batch table, catalog and vocabulary this run read
   config/task.yaml               every setting, defaults included
 ```
 
@@ -234,29 +239,38 @@ import pandas as pd
 
 run = sorted(glob.glob("runs/*/"))[-1]                       # the latest run
 data = pd.read_csv(f"{run}data/dataset.csv")
-print([c for c in data.columns if "Post" in c or "Endotoxin" in c][:4])
+print([c for c in data.columns if "after wash" in c or "Endotoxin" in c][:4])
 ```
 
 ```
-['<mixing_cycles>', '<endotoxin>',
- '<washed_viability>', '<washed_concentration>']
+['Day 10 concentration after wash (cells/mL)', 'Day 10 viability after wash (%)',
+ 'Endotoxin level']
 ```
 
-Endotoxin is a release test and the post-wash counts come after harvest: a
+Endotoxin is a release test and the after-wash counts come after harvest: a
 model trained on them would "predict" CAR+ expression from things measured
-after it was decided. Both sites are mixed in, as are clinical batches. The
+after it was decided. Both sites are mixed in, as are trial batches. The
 default dataset answers no particular question, so the next step says what the
 question is.
 
 ### 5. Narrow the cohort and choose the predictors
 
-Edit `task.yaml`. Keep only commercial SiteA batches:
+Edit `task.yaml`. Keep only routine Northfield batches:
 
 ```yaml
 cohort:
-  sites: [SiteA]
+  sites: [Northfield]
   filters:
-    - {column: Type, op: equals, value: Commercial, reason: manufactured commercially}
+    - {column: Batch kind, op: equals, value: Routine, reason: manufactured routinely}
+```
+
+say which column groups batches, so that whole vector lots can be held out
+later (step 7):
+
+```yaml
+roles:
+  id: 'Patient Lot/Batch #'
+  group: Vector lot
 ```
 
 and choose the predictors:
@@ -264,7 +278,7 @@ and choose the predictors:
 ```yaml
 predictors:
   exclude:                        # single columns, each with its reason
-    - {column: <subject_weight>, reason: dose per kilogram already carries it}
+    - {column: Patient weight (kg), reason: dose per kilogram already carries it}
   exclude_by_catalog:             # every parameter with these catalog values
     Value Type: [datetime]
     Available At: [Wash, Formulation, Final product, Post-thaw, Release, Post-release]
@@ -283,49 +297,51 @@ uv run ml task run
 ```
 
 ```
-Written — 34 batches × 115 columns
+Written — 34 batches × 116 columns
+
+  WARN  dataset  Only 3 distinct Vector lot values: any grouped cross-validation rests on 3 groups, not on 34 batches
 ```
 
 `metadata/parameters.csv` now says why each late parameter is gone:
 
 | Parameter | Decision | Reason | Stage |
 |---|---|---|---|
-| <pt_cd3_pct> | excluded | Catalog 'Available At' is 'Post-thaw' | category exclusion |
-| <subject_weight> | excluded | dose per kilogram already carries it | task exclusion |
-| <f_vcn_per_cell> | excluded | computed from the target: <fp_car_pct> → <f_vcn_per_cell> | target lineage |
-| <f_seeding_pct> | excluded | duplicates '<f_cells_per_bag>' (R²=1.0 over 34 shared batches) | near-duplicate |
+| Thawed CD3 share (%) | excluded | Catalog 'Available At' is 'Post-thaw' | category exclusion |
+| Patient weight (kg) | excluded | dose per kilogram already carries it | task exclusion |
+| Vector copies per cell | excluded | computed from the target: Product CAR expression (%) → Vector copies per cell | target lineage |
+| D3 seeding vs target (%) | excluded | duplicates 'D3 cells per bag' (R²=1.0 over 34 shared batches) | near-duplicate |
 
-Some exclusions you never asked for: `<f_vcn_per_cell>` is computed from the target, so
-it would be the answer key, and a near-duplicate adds nothing its twin does not
-already say. In all, 37 parameters were left out by catalog category, and 138
-encoded predictor columns remain for 34 batches.
+Some exclusions you never asked for: `Vector copies per cell` is computed from
+the target, so it would be the answer key, and a near-duplicate adds nothing its
+twin does not already say. In all, 36 parameters were left out by catalog
+category, and 139 encoded predictor columns remain for 34 batches.
 
-A typo is caught before anything runs. With `column: FP Flow CAR (%)`:
+A typo is caught before anything runs. With `column: Product CAR expression`:
 
 ```
 Problems that would stop a run (1)
-  - car_expression: target.column: 'FP Flow CAR (%)' is not a column of the batch table
+  - car_expression: target.column: 'Product CAR expression' is not a column of the batch table
 ```
 
 ### 6. Tame correlated parameters
 
-Manufacturing parameters measure the same few things several times over: four
-Day 3 cell counts move together. A model given all four cannot say which
+Manufacturing parameters measure the same few things several times over: the
+lactate and glucose readings of days 6 to 10 move together. A model given all four cannot say which
 mattered, so its explanations split credit arbitrarily and change from fold to
 fold. Every run looks for such groups and writes them to
 `metadata/clusters.csv`. In the last run:
 
 | Cluster | Members | Representative | Stability |
 |---|---|---|---|
-| Cluster 01 | 12 | <f_lactate_glucose_ratio:6> | 0.92 |
-| Cluster 02 | 9 | <f_cells_per_bag> | 0.70 |
-| Cluster 03 | 5 | <f_moi_pool> | 0.38 |
-| Cluster 05 | 3 | <f_lactate_per_cell_3> | 0.98 |
+| Cluster 01 | 12 | Lactate to glucose ratio D6 | 0.92 |
+| Cluster 02 | 9 | D3 cells per bag | 0.70 |
+| Cluster 03 | 5 | MOI pooled | 0.38 |
+| Cluster 04 | 3 | D10 lactate per E6 cells | 0.98 |
 
 *Stability* is how often the group comes back when the clustering is redone on
 50 random subsets of 80% of the batches. With 34 batches some groups hang on a
-handful of them: Cluster 03 is a coincidence of this cohort, Cluster 05 is
-real. Of 24 groups, 17 reach the default bar of 0.8; only those are acted on.
+handful of them: Cluster 03 is a coincidence of this cohort, Cluster 04 is
+real. Of 25 groups, 18 reach the default bar of 0.8; only those are acted on.
 
 Replace each stable group by one score. In `task.yaml`:
 
@@ -339,17 +355,17 @@ uv run ml task run
 ```
 
 ```
-Written — 34 batches × 115 columns
+Written — 34 batches × 116 columns
 ```
 
 `dataset.csv` is unchanged — it keeps every raw parameter — but
 `dataset_encoded.csv` now has one column per stable group instead of its
-members: 46 parameters became 17 scores such as `<f_lactate_per_cell_3> group`,
+members: 48 parameters became 18 scores such as `D10 lactate per E6 cells group`,
 each the mean of its members after z-scoring, with negatively related members
 flipped. `parameters.csv` records each one:
 
 ```
-<d6_glucose_a>  changed  summarised into '<f_lactate_glucose_ratio:6> group' with 11 other members of Cluster 01
+Day 6 glucose vessel A (g/L)  changed  summarised into 'Lactate to glucose ratio D6 group' with 11 other members of Cluster 01
 ```
 
 If your catalog has a column such as `Process step`, `clustering.name_by:
@@ -359,7 +375,7 @@ Process step` names a group after the step its members share.
 
 `metadata/groups.json` puts every encoded column into one explanation group:
 a stable cluster, or a single parameter with all its encoded columns (every
-one-hot column of `<team>`, say). Explaining by group gives each group its
+one-hot column of `Operator team`, say). Explaining by group gives each group its
 full credit instead of splitting it between correlated members.
 
 Save this as `fit_and_explain.py` in the task folder and run it with
@@ -407,12 +423,12 @@ print(importance.sort_values(ascending=False).head(5).round(3).to_string())
 ```
 
 ```
-R² per fold: [ 0.46  0.38 -0.15]
-<harvest_car_pct>    0.268
-<f_post_formulation_dose>                        0.113
-Cluster 11                                   0.077
-<f_car_yield>           0.059
-<il2_content_d8>         0.041
+R² per fold: [ 0.46  0.37 -0.08]
+Cluster 20                   0.268
+Dose from formulation        0.137
+Cluster 12                   0.083
+CAR yield per seeded cell    0.060
+Cluster 13                   0.044
 ```
 
 Three things keep this honest:
@@ -432,21 +448,22 @@ Three things keep this honest:
 
 Read the top of that list as a process engineer would:
 
-- **<harvest_car_pct>** is CAR+ expression measured at
+- **Cluster 20** is, `groups.json` shows, `Day 10 CAR expression (%)` with
+  `Vector copies per transduced cell`. The first is CAR+ expression measured at
   harvest: the target, measured one step earlier.
-- **<f_post_formulation_dose>** is a derived feature computed after formulation.
+- **Dose from formulation** is a derived feature computed after formulation.
   Derived features have no catalog value of their own, so
   `exclude_by_catalog` could not catch it.
 
 Neither crossed the automatic proxy check (|r| ≥ 0.95 with the target), so
-only the explanation showed them. Exclude both:
+only the explanation showed them. Exclude the harvest reading and the dose:
 
 ```yaml
 predictors:
   exclude:
-    - {column: <subject_weight>, reason: dose per kilogram already carries it}
-    - {column: <harvest_car_pct>, reason: the target measured at harvest}
-    - {column: <f_post_formulation_dose>, reason: computed after formulation}
+    - {column: Patient weight (kg), reason: dose per kilogram already carries it}
+    - {column: Day 10 CAR expression (%), reason: the target measured at harvest}
+    - {column: Dose from formulation, reason: computed after formulation}
   exclude_by_catalog:
     Value Type: [datetime]
     Available At: [Wash, Formulation, Final product, Post-thaw, Release, Post-release]
@@ -458,31 +475,34 @@ uv run python fit_and_explain.py
 ```
 
 ```
-Written — 34 batches × 113 columns
-R² per fold: [ 0.14 -0.09 -0.58]
-Cluster 11                                    0.247
-<il2_content_d8>          0.081
-<f_car_yield>            0.068
-<f_formulated_total_concentration>    0.062
-<team>                                    0.050
+Written — 34 batches × 114 columns
+R² per fold: [0.47 0.34 0.02]
+Vector copies per transduced cell    0.197
+D10 CAR cells                        0.140
+D10 achievable dose                  0.040
+Cluster 14                           0.035
+Cluster 01                           0.035
 ```
 
-The score fell: the earlier one was the leak talking. Now `Cluster 11` leads —
-`groups.json` shows it is `D10 Achievable Dose` with `D10 Total CAR+ viable
-T-cells achieved`, CAR+ counts on day 10. Whether those are known when you want
-to predict is your decision; this loop of *run, explain, question, exclude* is
-how a task gets to a dataset you can trust.
+The scores hardly moved, and the new top of the list says why: the leak is still
+there, one step removed. `D10 CAR cells` and `D10 achievable dose` are derived
+features computed from `Day 10 CAR expression (%)` (their `requires` in
+`src/ml/features.py` say so): leaving a parameter out does not leave out what is
+computed from it. `Vector copies per transduced cell`, now on its own, is a
+vector measurement the catalog marks as available on day 0. Whether those are
+known when you want to predict is your decision; this loop of *run, explain,
+question, exclude* is how a task gets to a dataset you can trust.
 
 ### 9. Reproduce a run, and encode new batches
 
 A run folder holds everything it needs (`ls runs/` lists yours; the newest is last):
 
 ```bash
-uv run ml task rerun runs/20261012-170843-61f466
+uv run ml task rerun runs/20261014-101858-32352c
 ```
 
 ```
-OK  cli  dataset.csv is identical to the one in 20261012-170843-61f466
+OK  cli  dataset.csv is identical to the one in 20261014-101858-32352c
 ```
 
 The rerun reads only that folder — its `config/task.yaml` points at the copies
@@ -492,36 +512,36 @@ redo it years later, however the batch table has changed since.
 To encode batches exactly as a run encoded its cohort, with nothing refitted:
 
 ```bash
-uv run ml task encode --run runs/20261012-170843-61f466 --out new_batches_encoded.csv
+uv run ml task encode --run runs/20261014-101858-32352c --out new_batches_encoded.csv
 ```
 
 ```
-OK  cli  70 batches encoded with 20261012-170843-61f466's encoding → new_batches_encoded.csv
+OK  cli  70 batches encoded with 20261014-101858-32352c's encoding → new_batches_encoded.csv
 ```
 
 ### 10. A binary target
 
-The finished example `demo/tasks/site_b_release` predicts whether a SiteB
-batch was released:
+The finished example `demo/tasks/release` predicts whether a Southbank batch
+was accepted:
 
 ```yaml
 target:
-  column: Disposition
+  column: Outcome
   type: binary
-  positive_class: Released        # becomes 1
-  negative_class: Discarded       # becomes 0; any third value stops the run
+  positive_class: Accepted        # becomes 1
+  negative_class: Scrapped        # becomes 0; any third value stops the run
 ```
 
 ```bash
-uv run ml task run --task ../site_b_release
+uv run ml task run --task ../release
 ```
 
 ```
 Written — 27 batches × 142 columns
 ```
 
-The target column in `dataset.csv` is `disposition_is_released` (15 released,
-12 discarded). That task also uses `clustering.action: summarise` with
+The target column in `dataset.csv` is `outcome_is_accepted` (15 accepted,
+12 scrapped). That task also uses `clustering.action: summarise` with
 `name_by: Available At`.
 
 **You now know the whole loop.** To ask a second question, run `ml task new`
@@ -533,39 +553,56 @@ You do this once. Afterwards you only rerun `ml check-catalog` and `ml build`
 when the sources or the catalog change.
 
 **1. Put the SharePoint locations in `.env`.** Copy `.env.example` to `.env`
-next to `config.yaml` and fill it in: the credentials and drive ids
-`io_sharepoint` needs, and where each input is. `.env` is git-ignored, so no
-SharePoint address is ever committed:
+next to `config.yaml` and fill it in: the credentials `io_sharepoint` needs, the
+drive each site's files are on, and where each input is. `.env` is git-ignored,
+so no SharePoint address is ever committed:
 
 ```bash
+SHAREPOINT_DRIVE_A="…"                     # the drive site A's files are on
+SHAREPOINT_DRIVE_B="…"                     # the drive site B's files are on
+SHAREPOINT_VOCABULARY="<team site>/Data/vocabulary.xlsx"
 SHAREPOINT_CATALOG="<team site>/Data/catalog/catalog.xlsx"
 SHAREPOINT_BATCH_TABLE="<team site>/Data/batch_data/batch_data.xlsx"
-SHAREPOINT_PHF_SITE_A="…"
-…
+…                                          # one variable per input, as .env.example lists them
 SHAREPOINT_SITE_MAPS_FOLDER="<team site>/Data/mappings/"
 SHAREPOINT_SITE_MAPS_FILES="first.xlsx,second.xlsx"   # comma-separated
 ```
 
 **2. Check `config.yaml`.** It is annotated, and refers to those variables:
-every input has a path, the worksheet and the drive under `sharepoint:`.
+every input has a path and a drive under `sharepoint:`.
 
 ```yaml
 sharepoint:
-  catalog:     {path: "${SHAREPOINT_CATALOG}", sheet: Catalogue, drive_id: DRIVE_ID_SITE_A}
-  batch_table: {path: "${SHAREPOINT_BATCH_TABLE}", sheet: Sheet1, drive_id: DRIVE_ID_SITE_A}
+  vocabulary:  {path: "${SHAREPOINT_VOCABULARY}", drive_id: "${SHAREPOINT_DRIVE_A}"}
+  catalog:     {path: "${SHAREPOINT_CATALOG}", drive_id: "${SHAREPOINT_DRIVE_A}"}
+  batch_table: {path: "${SHAREPOINT_BATCH_TABLE}", drive_id: "${SHAREPOINT_DRIVE_A}"}
+  phf_site_a:  {path: …, drive_id: "${SHAREPOINT_DRIVE_A}"}   # site A's batch records
+  phf_site_b:  {path: …, drive_id: "${SHAREPOINT_DRIVE_B}"}   # site B's batch records
   …
 ```
 
-A variable that is not set stops the run and is named. The catalog and batch
-table locations also say where the stages write: `ml check-catalog` writes into
-the catalog's folder and `ml build` into the batch table's.
+A variable that is not set stops the run and is named. The worksheet each input
+is on comes from the vocabulary; a `sheet:` here overrides it. The catalog and
+batch table locations also say where the stages write: `ml check-catalog` writes
+into the catalog's folder and `ml build` into the batch table's.
 
-**3. Install `io_sharepoint`** in the same environment (`uv pip install …`).
+**3. Fill in the vocabulary.** The code never names a real column, category
+value, site or worksheet; it refers to each by a key, and the private vocabulary
+workbook at `${SHAREPOINT_VOCABULARY}` says what each key stands for in your
+sources, next to the known data corrections. See
+[The vocabulary](#the-vocabulary) for its format; `ml validate` names every key
+it leaves out.
 
-**4. Run steps 2–8 of the tutorial** with your own data: `ml validate`,
+**4. Install `io_sharepoint`** in the same environment (`uv pip install …`).
+
+**5. Run steps 2–8 of the tutorial** with your own data: `ml validate`,
 `ml check-catalog`, `ml build`, then `ml task new` for each question. A task
 folder can live anywhere — next to the analysis it belongs to, say — because its
 `task.yaml` records where `config.yaml` is.
+
+**6. Run `ml check-leaks` before every push.** It reads the vocabulary and the
+corrections from SharePoint and searches the repository's tracked files for any
+real name in them, so none is ever committed; see [Commands](#commands).
 
 ## Reference
 
@@ -575,7 +612,8 @@ Global options come before the command: `uv run ml [--config FILE] [--debug] [--
 
 | Command | What it does |
 |---|---|
-| `ml validate [--task T]` | Validate `config.yaml`, the corrections table and the tasks against the batch table and catalog. Runs nothing. Inside a task workspace, also validates that task. |
+| `ml validate [--task T]` | Validate `config.yaml`, the vocabulary (naming any key it leaves out), the corrections table and the tasks against the batch table and catalog. Runs nothing. Inside a task workspace, also validates that task. |
+| `ml check-leaks [FOLDER]` | Search the git-tracked files of `FOLDER` (default: here) for any name the private vocabulary or its corrections hold. Exits 1 and lists every line when it finds one. Run it before pushing. |
 | `ml check-catalog` | Compare every source's columns with the catalog. Writes `catalog_report.html`, `catalog_manifest.json` and `new_parameters.csv` into the catalog's SharePoint folder. |
 | `ml build` | Build the batch table. Writes `batch_data.xlsx`, `batch_data.parquet`, `build_report.html` and `batch_table_manifest.json` into the batch table's SharePoint folder. |
 | `ml task new FOLDER [--target COL] [--question TEXT] [--force]` | Create a task workspace with an annotated `task.yaml` linked to the current `config.yaml`. |
@@ -583,6 +621,15 @@ Global options come before the command: `uv run ml [--config FILE] [--debug] [--
 | `ml task rerun RUN_FOLDER` | Redo a finished run from its own folder and report whether `dataset.csv` is identical. |
 | `ml update [--task T]` | `check-catalog`, then `build`, then the given tasks. |
 | `ml task encode --run RUN_FOLDER [--out FILE]` | Encode the batch table's batches with a run's fitted encoding. |
+
+`ml check-leaks` matches a site's name as a whole word, and any other name that
+has a space, a digit or a symbol in it anywhere; a single plain word is too
+common to tell from ordinary text and is skipped. Only a run with access to the
+share knows the real names, so run it before pushing:
+
+```bash
+uv run ml check-leaks          # from the repository root
+```
 
 `--task` accepts a task workspace folder, a `task.yaml`, or a folder that
 contains several workspaces, and can be repeated. `--debug` shows Python
@@ -652,16 +699,22 @@ batch table doesn't have stops the run instead of quietly keeping every batch.
 ```yaml
 seed: 20260917
 sources:    {databricks: false}
-sharepoint: {catalog: {path: …, sheet: …, drive_id: …}, batch_table: {…}, phf_site_a: {…}, …,
+sharepoint: {vocabulary: {path: …, drive_id: …}, catalog: {path: …, sheet: …, drive_id: …},
+             batch_table: {…}, phf_site_a: {…}, phf_site_b: {…}, …,
              site_maps: {folder: …, files: […], sheet: …, drive_id: …}}
 catalog:    {write_new_parameters: true}
 build:      {write_parquet: true}
-cleaning:   {corrections: …, disable: [], censored: limit, censored_flags: false,
-             duration_unit: minutes, yes_no_defaults: {…}}
-mapping:    {exclude: [<excluded_mapping_row>]}
+cleaning:   {disable: [], censored: limit, censored_flags: false,
+             duration_unit: minutes, yes_no_defaults: {pre_activation_clumps_yn: 'No'}}
+mapping:    {exclude: [excluded_mapping_row]}
 features:   {co2_target: 5.0, temp_target: 37.0, …}
 lv_coa:     {ph_nominal: 7.2, osmo_nominal: 300.0}
 ```
+
+`sheet:` is optional: without it, a source's worksheet is the one the
+vocabulary's `sheet` rows give. `cleaning.yes_no_defaults` and `mapping.exclude`
+name columns by their vocabulary key, not by their name; a key the vocabulary
+does not define is refused.
 
 Unknown keys, wrong types and incomplete SharePoint entries are refused before
 anything runs. So are the old local settings (`paths:`, `sheets:`, `upload:`,
@@ -679,9 +732,9 @@ fetches: their Databricks parameter ids are in `$DATABRICKS_AO_MAPPING` in `.env
 
 | Stage | Reads | Writes, into |
 |---|---|---|
-| `ml check-catalog` | catalog, both PHFs, the parameter mapping, investigations | `catalog_report.html`, `catalog_manifest.json`, `new_parameters.csv` → the catalog's folder |
-| `ml build` | catalog, every source, the site maps, `catalog_manifest.json` | `batch_data.xlsx`, `batch_data.parquet`, `build_report.html`, `batch_table_manifest.json` → the batch table's folder |
-| `ml task run` | batch table, catalog, both manifests | the run folder in the task's workspace |
+| `ml check-catalog` | vocabulary, catalog, both sites' batch records, the parameter mapping, investigations | `catalog_report.html`, `catalog_manifest.json`, `new_parameters.csv` → the catalog's folder |
+| `ml build` | vocabulary and its corrections, catalog, every source, the site maps, `catalog_manifest.json` | `batch_data.xlsx`, `batch_data.parquet`, `build_report.html`, `batch_table_manifest.json` → the batch table's folder |
+| `ml task run` | vocabulary, batch table, catalog, both manifests | the run folder in the task's workspace |
 
 Each command prints these lists — file name, drive, folder and sheet — before it
 starts, and again with where each file went when it is done.
@@ -693,24 +746,71 @@ Credentials and drive ids live in `.env`; variables already set in the shell win
 `ML_SHAREPOINT_STANDIN` makes a local folder stand in for SharePoint; it is for
 the demo and the tests only.
 
+#### The vocabulary
+
+The repository holds no real column name, category value, site name or
+worksheet name. The code refers to each by a key — `col("vector_titer")`,
+`value("coa_available_yes")`, `site("a")` — and the vocabulary says what the key
+stands for. The real vocabulary is private: an Excel workbook on SharePoint
+(`sharepoint.vocabulary`, its path in `$SHAREPOINT_VOCABULARY`). Every stage
+loads it first.
+
+Its `Names` sheet has one row per name:
+
+| Kind | Key | Name |
+|---|---|---|
+| `column` | `vector_titer` | the column's name in the source |
+| `column` | `clump_bags` | one row per name, in order, for a list |
+| `value` | `coa_available_yes` | a category value the code compares against |
+| `site` | `a` | site A's name (`b`: site B's) |
+| `sheet` | `phf_site_a` | the worksheet a source's data is on |
+
+Several rows with the same kind and key form a list, in the order they are in.
+A name may hold a `{placeholder}` the code fills in, such as `{day}` in
+`Lactate to glucose ratio D{day}`. Other columns (a description, say) are
+ignored.
+
+`src/ml/names.py` lists every key the code uses, with an invented name for each:
+those are the demo's names, and the description of what each key is. A
+vocabulary that leaves out a key the code needs is refused before a stage starts,
+naming the key; `ml validate` reports them all. Sites are site A and site B
+throughout the code and `config.yaml` (`phf_site_a`, `phf_site_b`); their names
+come from the `site` rows, and `cohort.sites` in a task uses those names. A task
+run keeps a copy of the vocabulary as `inputs/vocabulary.xlsx`, so
+`ml task rerun` works from the run folder alone.
+
+`ml check-leaks` reads the same workbook and fails when any of its names, or a
+name in its corrections, turns up in a tracked file: run it before pushing.
+
 #### Corrections
 
-Known errors in the sources are rules in a `corrections.yaml`
-(`cleaning.corrections`; without it the package's own table is used):
+Known errors in the sources are rules on the `Corrections` sheet of the
+vocabulary workbook, where a data steward can add one without touching the code.
+One row per rule, or per replaced pair for the rules that replace text:
 
-```yaml
-corrections:
-  - name: israel_country
-    site: SiteB
-    column: Country
-    when: {column: <clinical_site>, equals: "<value:clinical_sites_b>"}
-    set: Israel
-    reason: the site is in Israel; the export has the wrong country
-  - {site: SiteB, column: <cells_per_bag>, divide_by: 1000000, reason: stored without the 1e6 divisor}
-```
+| Column | Meaning |
+|---|---|
+| `Name` | The rule's name; rows sharing a name form one rule. |
+| `Site` | The site's name, as the vocabulary names it. |
+| `Column` | The column it corrects. |
+| `Action` | `set`, `replace_text`, `replace_values` or `divide_by`. |
+| `Old` | `replace_text` / `replace_values`: what is replaced. |
+| `New` | `set`: the new value (empty means missing) · `replace_*`: the replacement · `divide_by`: the divisor. |
+| `When column` | Optional: only rows where this column… |
+| `When equals` | …equals this, compared as text (without `When column`: the column itself). |
+| `Reason` | Why. |
+| `Enabled` | Optional: `no` or `false` switches the rule off. |
 
-The actions are `set`, `replace_text`, `replace_values` and `divide_by`.
-`cleaning.disable: [name]` switches a rule off. The build report lists every
+In the demo's workbook, for example:
+
+| Name | Site | Column | Action | Old | New | When column | When equals | Reason |
+|---|---|---|---|---|---|---|---|---|
+| site_country | Southbank | Nation | set | | Eastland | Treatment centre | 20431 | the clinical site is abroad; the export has the wrong country |
+| site_b_oos_spelling | Southbank | Out-of-spec class | replace_text | Viabilty | Viability | | | site B spells its out-of-spec classes its own way |
+| site_b_oos_spelling | Southbank | Out-of-spec class | replace_text | Low Count | Count | | | site B spells its out-of-spec classes its own way |
+| | Southbank | Viable cells per bag | divide_by | | 1000000 | | | stored without the 1e6 divisor |
+
+`cleaning.disable: [name]` switches a rule off for one workspace. The build report lists every
 rule that ran and the rows it changed. `cleaning.censored` decides what `<0.5`
 becomes (`limit`, `half` or `missing`), and `cleaning.yes_no_defaults` names the
 yes/no columns whose blanks may be filled.
@@ -725,9 +825,10 @@ For each task, `ml task run`:
 2. **Chooses the predictors**: the catalog parameters present in the batch
    table, minus
    - the target and the `roles` columns;
-   - features the registry computed from the target (`<f_vcn_per_cell>` from `<fp_car_pct>`);
+   - features the registry computed from the target (`Vector copies per cell` from
+     `Product CAR expression (%)`);
    - `predictors.exclude` and the catalog rules;
-   - `<f_coa_impurity_index>`, which is standardised within each site.
+   - `Vector impurity index`, which is standardised within each site.
 
    Each exclusion is a row in `parameters.csv`.
 3. **Fits the preprocessing** on the whole cohort, records it in `encoding.json`,
@@ -793,7 +894,7 @@ For each task, `ml task run`:
 | `metadata/encoding.json` | The fitted preprocessing, used by `ml task encode` and `TaskTransformer`. |
 | `report/report.html` | The report: cohort, data quality, encodings, clusters, dataset, provenance. |
 | `report/report_payload.json` | The report's numbers as JSON. |
-| `inputs/batch_table.xlsx`, `inputs/catalog.xlsx` | The exact inputs this run read. |
+| `inputs/batch_table.xlsx`, `inputs/catalog.xlsx`, `inputs/vocabulary.xlsx` | The exact inputs this run read, and the vocabulary it ran with. |
 | `inputs/batch_table_manifest.json`, `inputs/catalog_manifest.json` | How those inputs were made. |
 | `config/task.yaml` | Every setting, defaults included, pointing at `inputs/`. |
 | `logs/run.log` | This run's log. |
@@ -814,6 +915,8 @@ file that changed after the run.
 | `predictors.exclude_by_catalog: the catalog has no '…' column` | Use a column that exists in the catalog; the message lists them. |
 | `(root).columns: unknown setting` (or any `unknown setting`) | The key was renamed, removed or misspelled; the message lists the allowed keys. `columns:` is now `roles:` and `predictors:`. |
 | `The catalog changed after the batch table was built — rerun ml build` | Run `ml build`, then the task again. |
+| `The vocabulary from … leaves out N names the code needs` | Add a `Names` row for each key listed; `src/ml/names.py` says what each one is. |
+| `Lines that hold a name from the private vocabulary` (`ml check-leaks`) | Replace each listed name with its key (code) or an invented name (tests, docs), then run it again. |
 | `quality.min_non_missing is 20 but only N rows are being fitted on` | Lower `quality.min_non_missing` or widen the cohort. |
 
 Errors you can fix exit with code 2 and a one-line message; `--debug` shows the
@@ -828,8 +931,9 @@ uv run ruff check src tests   # lint
 ```
 
 CI runs both on every push (`.github/workflows/ci.yml`). The demo's data and
-runs are generated, not committed: only `demo/config.yaml`,
-`demo/corrections.yaml` and the two `task.yaml` files are in git.
+runs are generated, not committed: only `demo/config.yaml` and the two
+`task.yaml` files are in git. Tests and the demo use only the invented names of
+`src/ml/names.py`; run `uv run ml check-leaks` before pushing.
 
 **Adding a derived feature:** append one `Feature(…)` entry to the registry in
 `src/ml/features.py`. It is built only when the catalog lists its name and all
@@ -840,6 +944,8 @@ is what lets a task find, and leave out, features computed from the target.
 src/ml/
   cli.py          the commands
   config.py       config.yaml: discovery, validation, where each input is read from
+  names.py        the vocabulary: every key the code uses, with the demo's invented name
+  leaks.py        ml check-leaks
   taskconfig.py   task.yaml and its validation
   scaffold.py     ml task new; templates/ holds the task.yaml it writes
   catalog.py io.py clean.py corrections.py enrich.py features.py merge.py   ml check-catalog and ml build

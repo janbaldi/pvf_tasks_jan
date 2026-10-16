@@ -26,6 +26,22 @@ mutual information), onto the task's cohort:
    same time as the group has not explained anything.
 
 This is description only. Nothing here changes what goes into the dataset.
+
+The build runs the same grouping over the whole batch table (:func:`for_build`),
+and adds what an audit of a column filter asks for, per parameter:
+
+6. With the batches in date order, the gaps (runs of missing batches) are
+   counted against what chance would give for that many missing batches
+   (Wald-Wolfowitz runs test). Fewer, longer gaps than chance are clumped and
+   named by where they sit: at the start (introduced late), at the end
+   (retired), at both ends (measured in a window), in one stretch (gap in the
+   middle). More gaps than chance is regular skipping. See :data:`PATTERNS`.
+7. A depth-2 decision tree on the categorical parameters (the site included)
+   names the batches the parameter is missing on, e.g. "Site = B". Its leaves
+   are scored like an explainer in 4. A category whose own blanks track the
+   pattern is not offered to the tree, for the reason given in 5. For a group,
+   the tree replaces the explainer of 4, so the group and its members are
+   explained by one method.
 """
 
 from __future__ import annotations
@@ -36,8 +52,10 @@ import numpy as np
 import pandas as pd
 from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import squareform
+from sklearn.tree import DecisionTreeClassifier
 
 from .logger import log
+from .taskconfig import Missingness
 
 MODULE = "missingness"
 
@@ -56,6 +74,32 @@ MIN_PER_CATEGORY = 5
 SELF_CORRELATION = 0.3
 #: How many runner-up explainers the report lists.
 ALTERNATIVES = 4
+#: |z| of the runs test beyond which the gaps are not random: two-sided p < 0.01.
+RUNS_Z = 2.576
+#: Share of a parameter's missing batches one gap (or the two end gaps) must
+#: hold to name the pattern after it; the rest may be scattered single misses.
+DOMINANT = 0.8
+#: A decision tree scoring at least this is reported as the condition.
+CONDITIONAL = 0.5
+#: Two splits name conditions like "Site = B and Kit = X".
+TREE_DEPTH = 2
+#: The latest batches "Measured in last" counts.
+RECENT = 10
+
+#: Every pattern a parameter is given, and what it means. The order is the report's.
+PATTERNS = {
+    "Complete": "Never missing.",
+    "Never recorded": "Missing on every batch.",
+    "Introduced late": "Clumped, and most missing batches are the first ones: "
+    "measured from some batch on.",
+    "Retired": "Clumped, and most missing batches are the last ones: no longer measured.",
+    "Measured in a window": "Clumped, and most missing batches are the first and the last.",
+    "Gap in the middle": "Clumped, and most missing batches are one stretch in the middle.",
+    "Clumped": "Fewer, longer gaps than chance, spread over several stretches.",
+    "Random gaps": "As many gaps as chance would give: consistent with missing at random.",
+    "Regular skipping": "More gaps than chance: missing batches avoid each other, "
+    "as when every n-th batch is skipped.",
+}
 
 
 @dataclass
@@ -83,6 +127,9 @@ class MissingGroup:
     #: members × batches, 1 where the member is missing, batches in ``batch_labels`` order
     pattern: list[list[int]]
     batch_labels: list[str]
+    #: Set by the build: the group pattern's :data:`PATTERNS` key and its tree condition.
+    kind: str = ""
+    condition: str = ""
 
 
 @dataclass
@@ -129,7 +176,12 @@ def _score(values: pd.Series, missing: np.ndarray) -> float:
     target = missing[present]
     if not len(target) or target.all() or not target.any():
         return 0.0
-    joint = pd.crosstab(_pooled(values[present]).to_numpy(), target).to_numpy() / len(target)
+    return _nmi(_pooled(values[present]).to_numpy(), target)
+
+
+def _nmi(categories: np.ndarray, target: np.ndarray) -> float:
+    """Mutual information over the target's entropy; the target holds both classes."""
+    joint = pd.crosstab(categories, target).to_numpy() / len(target)
     p_category = joint.sum(axis=1, keepdims=True)
     p_missing = joint.sum(axis=0, keepdims=True)
     nonzero = joint > 0
@@ -184,6 +236,14 @@ def explainer_candidates(
     ]
 
 
+def _ordered(frame: pd.DataFrame, order_column: str) -> tuple[pd.DataFrame, str]:
+    """The batches in date order, undated ones last; and how they were ordered."""
+    if not order_column or order_column not in frame.columns:
+        return frame, "in batch table order"
+    dates = pd.to_datetime(frame[order_column], errors="coerce")
+    return frame.iloc[np.argsort(dates.to_numpy(), kind="stable")], f"ordered by {order_column}"
+
+
 def analyse(
     frame: pd.DataFrame,
     value_types: dict[str, str],
@@ -223,15 +283,7 @@ def analyse(
         return report
     log.step(MODULE, f"Looking for parameters that go missing together over {len(frame)} batches")
 
-    if order_column and order_column in frame.columns:
-        frame = frame.iloc[
-            np.argsort(
-                pd.to_datetime(frame[order_column], errors="coerce").to_numpy(), kind="stable"
-            )
-        ]
-        report.order = f"ordered by {order_column}"
-    else:
-        report.order = "in batch table order"
+    frame, report.order = _ordered(frame, order_column)
     labels = (
         frame[id_column].astype(str).tolist()
         if id_column and id_column in frame.columns
@@ -315,6 +367,213 @@ def analyse(
         f"{len(report.candidates)} categorical parameters scored as explainers",
     )
     return report
+
+
+# ---------------------------------------------------------------------------
+# The build: every parameter's gaps and condition, and the groups
+# ---------------------------------------------------------------------------
+def timeline(missing: np.ndarray) -> dict:
+    """The gaps of one missing/present vector, in batch order, and the pattern they make."""
+    missing = np.asarray(missing, dtype=bool)
+    n, m = len(missing), int(missing.sum())
+    k = n - m
+    edges = np.diff(np.concatenate(([0], missing.astype(np.int8), [0])))
+    starts, ends = np.flatnonzero(edges == 1), np.flatnonzero(edges == -1)
+    lengths = ends - starts
+    # Runs test, counting only the runs of missing batches.
+    # shortcut: normal approximation, rough below ~10 missing batches; small
+    # counts land on "Random gaps", which claims nothing.
+    expected = m * (k + 1) / n if n else 0.0
+    variance = m * (m - 1) * k * (k + 1) / (n * n * (n - 1)) if n > 1 else 0.0
+    z = (len(starts) - expected) / np.sqrt(variance) if variance > 0 else 0.0
+    leading = int(lengths[0]) if m and starts[0] == 0 else 0
+    trailing = int(lengths[-1]) if m and ends[-1] == n else 0
+    if m == 0:
+        kind = "Complete"
+    elif m == n:
+        kind = "Never recorded"
+    elif z > RUNS_Z:
+        kind = "Regular skipping"
+    elif z >= -RUNS_Z:
+        kind = "Random gaps"
+    elif leading >= DOMINANT * m:
+        kind = "Introduced late"
+    elif trailing >= DOMINANT * m:
+        kind = "Retired"
+    elif leading + trailing >= DOMINANT * m:
+        kind = "Measured in a window"
+    elif lengths.max() >= DOMINANT * m:
+        kind = "Gap in the middle"
+    else:
+        kind = "Clumped"
+    after = missing[1:][missing[:-1]]
+    return {
+        "Pattern": kind,
+        "Missing %": round(100 * m / n, 1) if n else 0.0,
+        "Gaps": len(starts),
+        "Random would give": round(expected, 1),
+        "Runs test z": round(float(z), 2),
+        "Longest gap": int(lengths.max()) if m else 0,
+        "Missing after missing %": round(100 * float(after.mean()), 1) if len(after) else None,
+        f"Measured in last {RECENT} %": round(100 * float((~missing[-RECENT:]).mean()), 1)
+        if n
+        else None,
+    }
+
+
+@dataclass
+class Condition:
+    #: The tree's leaves where at least half the batches are missing, as one rule.
+    rule: str
+    score: float
+    #: The column of the tree's first split.
+    column: str
+    #: Other columns that split the batches exactly as the first split does.
+    aliases: list[str] = field(default_factory=list)
+
+
+def _phis(blanks: np.ndarray, target: np.ndarray) -> np.ndarray:
+    """phi between each column of ``blanks`` and ``target``; 0 for a constant column."""
+    a = blanks - blanks.mean(axis=0)
+    b = target - target.mean()
+    scale = np.sqrt((a * a).sum(axis=0) * (b * b).sum())
+    with np.errstate(invalid="ignore", divide="ignore"):
+        return np.where(scale > 0, (a * b[:, None]).sum(axis=0) / scale, 0.0)
+
+
+class _Tree:
+    """The categorical parameters one-hot, ready for a decision tree per pattern."""
+
+    def __init__(self, frame: pd.DataFrame, candidates: list[str]):
+        self.candidates = candidates
+        columns, self.names, self.levels = [], [], {}
+        for column in candidates:
+            values = frame[column]
+            text = _pooled(values[values.notna()]).reindex(values.index)
+            self.levels[column] = sorted(text.dropna().unique())
+            for category in self.levels[column]:
+                columns.append((text == category).to_numpy())
+                self.names.append((column, category))
+        self.x = np.column_stack(columns) if columns else np.zeros((len(frame), 0), bool)
+        self.source = np.array([candidates.index(column) for column, _ in self.names], dtype=int)
+        # Features that split the batches identically (or as each other's complement)
+        # share a twin id; the tree is offered the first, so ties go to the site.
+        _, self.twin = np.unique((self.x ^ self.x[:1]).T, axis=0, return_inverse=True)
+        self.blanks = frame[candidates].isna().to_numpy(np.float64)
+
+    def condition(self, missing: np.ndarray, exclude: set[str]) -> Condition | None:
+        if missing.all() or not missing.any() or not self.names:
+            return None
+        tracks = np.abs(_phis(self.blanks, missing.astype(np.float64))) > SELF_CORRELATION
+        usable = [
+            not tracks[i] and self.candidates[i] not in exclude for i in range(len(self.candidates))
+        ]
+        offered = np.flatnonzero(np.array(usable)[self.source])
+        if not len(offered):
+            return None
+        _, first = np.unique(self.twin[offered], return_index=True)
+        keep = offered[np.sort(first)]
+        x = self.x[:, keep]
+        tree = DecisionTreeClassifier(
+            max_depth=TREE_DEPTH, min_samples_leaf=MIN_PER_CATEGORY, random_state=0
+        ).fit(x, missing)
+        t = tree.tree_
+        if t.node_count == 1:
+            return None
+        leaves = tree.apply(x)
+        rules: list[str] = []
+
+        def walk(node: int, path: list[str]) -> None:
+            if t.children_left[node] == -1:
+                batches = int((leaves == node).sum())
+                share = float(missing[leaves == node].mean())
+                if share >= 0.5:
+                    rules.append(f"{' and '.join(path)} ({100 * share:.0f}% of {batches} missing)")
+                return
+            column, category = self.names[keep[t.feature[node]]]
+            others = [level for level in self.levels[column] if level != category]
+            # A two-valued column reads better as the other value (its blanks go there too).
+            left = f"= {others[0]}" if len(others) == 1 else f"≠ {category}"
+            walk(t.children_left[node], [*path, f"{column} {left}"])
+            walk(t.children_right[node], [*path, f"{column} = {category}"])
+
+        walk(0, [])
+        root = keep[t.feature[0]]
+        column = self.names[root][0]
+        twins = offered[self.twin[offered] == self.twin[root]]
+        aliases = sorted({self.names[i][0] for i in twins} - {column})
+        return Condition(" or ".join(rules), _nmi(leaves, missing), column, aliases)
+
+
+def for_build(
+    frame: pd.DataFrame,
+    value_types: dict[str, str],
+    id_column: str,
+    order_column: str,
+    site_column: str,
+) -> tuple[list[dict], MissingnessReport]:
+    """Every batch table column's missingness, and the groups that go missing together.
+
+    One row per column: its pattern and gap statistics over the batches in date
+    order, the tree's condition, and its group. The groups use the task's
+    default settings, with the tree as their explainer.
+    """
+    settings = Missingness()
+    frame, order = _ordered(frame, order_column)
+    types = {**value_types, site_column: "categorical"}
+    report = analyse(frame, types, settings, id_column=id_column, order_column=order_column)
+    undated = int(pd.to_datetime(frame.get(order_column), errors="coerce").isna().sum())
+    if undated and order_column in frame.columns:
+        report.order += f", the {undated:,} batches without one last"
+    log.step(MODULE, f"Profiling the gaps of {frame.shape[1]:,} columns, {order}")
+
+    tree = _Tree(frame, sorted(report.candidates, key=lambda column: column != site_column))
+    blank = frame.isna()
+    dates = (
+        pd.to_datetime(frame[order_column], errors="coerce").dt.strftime("%Y-%m-%d")
+        if order_column in frame.columns
+        else pd.Series("", index=frame.index)
+    )
+    group_of = {member: group.name for group in report.groups for member in group.members}
+    rows = []
+    for column in frame.columns:
+        missing = blank[column].to_numpy()
+        found = tree.condition(missing, {column})
+        measured = np.flatnonzero(~missing)
+        rows.append(
+            {
+                "Parameter": str(column),
+                **timeline(missing),
+                "Condition": found.rule if found and found.score >= CONDITIONAL else "",
+                "Condition score": round(found.score, 2) if found else None,
+                "Same split as": ", ".join(found.aliases) if found else "",
+                "First measured": dates.iloc[measured[0]] if len(measured) else "",
+                "Last measured": dates.iloc[measured[-1]] if len(measured) else "",
+                "Group": group_of.get(column, ""),
+            }
+        )
+
+    for group in report.groups:
+        union = np.array(group.pattern, dtype=bool).any(axis=0)
+        group.kind = timeline(union)["Pattern"]
+        found = tree.condition(union, set(group.members))
+        group.alternatives = []
+        group.explainer = (
+            _explain(frame[found.column], union, found.column, found.score) if found else None
+        )
+        group.strong = bool(found and found.score >= CONDITIONAL)
+        group.condition = (
+            found.rule + "".join(f"; {name} splits the same batches" for name in found.aliases)
+            if group.strong
+            else ""
+        )
+    report.settings["condition_score"] = CONDITIONAL
+    log.success(
+        MODULE,
+        f"{sum(bool(row['Condition']) for row in rows):,} columns missing on a clear condition, "
+        f"{len(report.groups)} groups missing together",
+    )
+    return rows, report
 
 
 def rows(report: MissingnessReport) -> list[dict]:

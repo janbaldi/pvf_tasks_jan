@@ -453,6 +453,13 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
     result = merge.merge_sites(phf)
     merge_report = merge.run_sanity_checks(result, phf, catalog_cols, catalog_mapping)
     origins["Merge"] = ["Site Merged"]
+    missing_rows, missing_groups = missingness.for_build(
+        result,
+        catalog_mapping,
+        id_column="Patient Lot/Batch #",
+        order_column=names.col("incubator_in_d0"),
+        site_column="Site Merged",
+    )
 
     # ── Write ──────────────────────────────────────────────────────────────
     log.section("06 · Output")
@@ -492,6 +499,8 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
                         cleaning=cleaning_report,
                         features=feature_reports,
                         merge=merge_report,
+                        missing_rows=missing_rows,
+                        missing_groups=missing_groups,
                         events=log.since(mark),
                         params=params,
                         provenance=prov,

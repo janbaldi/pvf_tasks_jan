@@ -83,6 +83,9 @@ class BuildRun:
     unmapped_sites: list[str] = field(default_factory=list)
     source_rows: list[list[str]] = field(default_factory=list)
     run_start: datetime = field(default_factory=datetime.now)
+    #: :func:`ml.missingness.for_build`: one row per column, and the groups
+    missing_rows: list[dict] = field(default_factory=list)
+    missing_groups: Any = None
 
 
 def _section(section_id: str, title: str, blocks: list[Block | None]) -> dict | None:
@@ -378,6 +381,131 @@ def _inventory(run: BuildRun) -> dict | None:
             )
         ],
     )
+
+
+def _build_missingness(run: BuildRun) -> dict | None:
+    """Every parameter's gaps, the condition it goes missing on, and the groups."""
+    rows, analysis = run.missing_rows, run.missing_groups
+    if not rows or analysis is None:
+        return None
+    settings = analysis.settings
+    counts = {kind: sum(row["Pattern"] == kind for row in rows) for kind in missingness.PATTERNS}
+    by_name = {row["Parameter"]: row for row in rows}
+    headers = list(rows[0])
+    formats = {
+        "Missing %": "%.1f",
+        "Gaps": "%d",
+        "Random would give": "%.1f",
+        "Runs test z": "%.2f",
+        "Longest gap": "%d",
+        "Missing after missing %": "%.1f",
+        f"Measured in last {missingness.RECENT} %": "%.0f",
+        "Condition score": "%.2f",
+    }
+    blocks: list[Block | None] = [
+        md(
+            f"How each of the {len(rows):,} parameters goes missing over the "
+            f"{analysis.rows:,} batches, {analysis.order}. This is description only: nothing "
+            "here changes the batch table.\n\n"
+            "- **Pattern.** A gap is a run of consecutive missing batches. The runs test "
+            "compares the number of gaps with what chance gives for that many missing batches "
+            f"(*Random would give*); |z| > {missingness.RUNS_Z} (p < 0.01, two-sided) is not "
+            "random. Clumped patterns are named after where at least "
+            f"{missingness.DOMINANT:.0%} of the missing batches sit.\n"
+            "- **Missing after missing** is the share of batches missing when the batch "
+            "before it is missing: near the missing rate is random, near 100% is long gaps, "
+            "near 0% is regular skipping.\n"
+            f"- **Condition.** A decision tree of depth {missingness.TREE_DEPTH} on the "
+            f"categorical parameters with 2 to {settings['max_categories']} categories, the "
+            f"site included, with at least {missingness.MIN_PER_CATEGORY} batches per leaf, "
+            "names the batches a parameter is missing on. A category whose own blanks track "
+            f"the parameter's (|phi| > {missingness.SELF_CORRELATION}) is not offered to it. "
+            "The score is the mutual information between the tree's leaves and the missing "
+            "pattern over the pattern's entropy: 0 says nothing, 1 says the condition alone "
+            f"decides. It is given as the condition from {missingness.CONDITIONAL}. "
+            "*Same split as* lists the parameters that split the batches exactly as the "
+            "tree's first split does: the data cannot tell them apart.\n"
+            "- Read the pattern with the condition: a parameter one site never records "
+            "shows that site's batches as gaps in date order."
+        ),
+        table(
+            ["Pattern", "Parameters", "Meaning"],
+            [
+                [esc(kind), f"{counts[kind]:,}", meaning]
+                for kind, meaning in missingness.PATTERNS.items()
+            ],
+        ),
+        sortable(
+            headers,
+            [[row[h] for h in headers] for row in rows],
+            formats=[formats.get(h) for h in headers],
+            filter_column="Parameter",
+            note="One row per batch table column. Click a column header to sort.",
+        ),
+        download("Download missingness.csv", "missingness.csv", csv_text(rows)),
+    ]
+    if not analysis.groups:
+        blocks.append(md("No group of parameters goes missing together."))
+        return _section("missingness", "Missingness", blocks)
+    blocks += [
+        md(
+            f"#### {len(analysis.groups)} groups of parameters missing together\n\n"
+            f"{len(analysis.analysed):,} parameters missing on {settings['min_rate']:.0%} to "
+            f"{settings['max_rate']:.0%} of the batches take part. Two parameters group when "
+            "the share of batches missing either that miss both (Jaccard similarity) reaches "
+            f"{settings['threshold']}, by average linkage; a group has at least "
+            f"{settings['min_size']} members. A group's pattern and condition are those of the "
+            "batches missing at least one member."
+        ),
+        table(
+            ["Group", "Members", "Batches missing ≥1 member (%)", "Pattern", "Condition", "Score"],
+            [
+                [
+                    esc(g.name),
+                    str(len(g.members)),
+                    f"{100 * g.group_rate:.0f}",
+                    esc(g.kind),
+                    esc(g.condition or "—"),
+                    f"{g.explainer.score:.2f}" if g.explainer else "—",
+                ]
+                for g in analysis.groups
+            ],
+        ),
+        chooser(
+            "Group",
+            [
+                {
+                    "label": g.name,
+                    "blocks": [
+                        md(
+                            f"#### {g.name}: {esc(g.kind)}\n\n"
+                            + (
+                                f"Missing when {esc(g.condition)}."
+                                if g.condition
+                                else "No clear condition."
+                            )
+                        ),
+                        table(
+                            ["Parameter", "Missing %", "Pattern", "Condition"],
+                            [
+                                [
+                                    esc(m),
+                                    f"{by_name[m]['Missing %']:.1f}",
+                                    esc(by_name[m]["Pattern"]),
+                                    esc(by_name[m]["Condition"] or "—"),
+                                ]
+                                for m in g.members
+                            ],
+                        ),
+                        plots.missing_pattern(g),
+                        plots.missing_by_category(g),
+                    ],
+                }
+                for g in analysis.groups
+            ],
+        ),
+    ]
+    return _section("missingness", "Missingness", blocks)
 
 
 def _missing_reason(run: BuildRun, parameter: str) -> str:
@@ -741,6 +869,7 @@ def build_batch_table_payload(run: BuildRun) -> dict[str, Any]:
         _sources(run),
         _cleaning(run),
         _inventory(run),
+        _build_missingness(run),
         _catalog_coverage(run),
         _features(run),
         _enrichment(run),

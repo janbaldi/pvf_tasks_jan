@@ -170,7 +170,14 @@ Written to SharePoint — 70 batches × 221 columns
 
 The warning is the catalog check from a moment ago. `build_report.html` shows
 what came out: every parameter's source, each cleaning rule that changed
-something, and the derived features.
+something, and the derived features. Its **Missingness** section gives every
+parameter a missingness pattern over the batches in date order (complete,
+introduced late, retired, measured in a window, gap in the middle, clumped,
+random gaps, regular skipping) with the statistics behind it, the condition it
+goes missing on (a depth-2 decision tree on the categorical parameters and the
+site), and the groups of parameters missing on the same batches, each with its
+plots. `missingness.csv` in that section has one row per parameter, to filter
+columns by and to show why.
 
 ### 3. Create a task
 

@@ -5,12 +5,24 @@ the cleaning had to correct, sources joined on, features computed or reported as
 blocked, and the catalog gap in both directions.
 """
 
+import numpy as np
 import pandas as pd
+import pytest
 
 import dummy_data
-from conftest import facts, figures, row_named, rows_naming, section, site_a, site_b, tables
+from conftest import (
+    facts,
+    figures,
+    row_named,
+    rows_naming,
+    section,
+    site_a,
+    site_b,
+    table_with,
+    tables,
+)
 from dummy_data import c, cs, v, vs
-from ml import names, stlite
+from ml import missingness, names, stlite
 
 
 # ---------------------------------------------------------------------------
@@ -179,6 +191,47 @@ def test_no_feature_raised(built):
         if any("Traceback" in str(cell) or "could not be broadcast" in str(cell) for cell in row)
     ]
     assert not errored
+
+
+# ---------------------------------------------------------------------------
+# Missingness
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "missing, pattern",
+    [
+        ([0] * 20 + [1] * 16 + [0] * 24, "Gap in the middle"),
+        ([1] * 18 + [0] * 42, "Introduced late"),
+        ([0] * 47 + [1] * 13, "Retired"),
+        ([1] * 10 + [0] * 40 + [1] * 10, "Measured in a window"),
+        ([i % 4 == 3 for i in range(200)], "Regular skipping"),
+        ([0] * 60, "Complete"),
+        ([1] * 60, "Never recorded"),
+    ],
+)
+def test_a_parameter_is_named_by_how_its_gaps_fall(missing, pattern):
+    assert missingness.timeline(np.array(missing, bool))["Pattern"] == pattern
+
+
+def test_gaps_at_random_are_called_random_and_counted_against_chance():
+    missing = np.random.default_rng(0).random(2000) < 0.25
+    stats = missingness.timeline(missing)
+    assert stats["Pattern"] == "Random gaps"
+    assert abs(stats["Gaps"] - stats["Random would give"]) < 0.05 * stats["Gaps"]
+    assert abs(stats["Missing after missing %"] - 25) < 3
+
+
+def test_the_build_report_gives_every_column_its_missingness_and_condition(built):
+    block = table_with(built["payloads"]["build"], "Missing after missing %")
+    rows = {row[0]: dict(zip(block["headers"], row)) for row in block["rows"]}
+    assert set(rows) == {str(column) for column in built["batch_table"].columns}
+    # Only site B's re-manufacturing supplement fills it: missing on site A.
+    supplement = rows[c("prior_lines")]
+    assert supplement["Condition"].startswith(f"Site Merged = {names.site('a')} ")
+    assert supplement["Condition score"] == 1.0
+    # The demo has a column that splits the batches exactly as the site does: the
+    # site is named, and the other is listed beside it.
+    assert c("mycoplasma") in supplement["Same split as"]
+    assert rows["Site Merged"]["Pattern"] == "Complete"
 
 
 # ---------------------------------------------------------------------------

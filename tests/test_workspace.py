@@ -105,6 +105,27 @@ def test_the_shipped_config_is_a_valid_config():
     ]
 
 
+def test_a_key_the_vocabulary_workbook_adds_can_be_named_in_config():
+    """The code's registry lists the keys it uses; a workbook may define more."""
+    config = workspace.load(ROOT / "config.yaml")
+    config["build"] = {"date_column": "release_date"}
+    demo = names.demo()
+    try:
+        names.use(
+            names.Vocabulary(
+                {**demo.columns, "release_date": "Released on"},
+                demo.values,
+                demo.sites,
+                demo.sheets,
+                "a workbook",
+            )
+        )
+        assert cli._unknown_keys(config) == []
+        assert names.col("release_date") == "Released on"
+    finally:
+        names.use(demo)
+
+
 def _fake_io_sharepoint(monkeypatch) -> list:
     """io_sharepoint as a module that records what it is asked, and the real share in use."""
     import sys

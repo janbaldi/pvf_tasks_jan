@@ -1007,7 +1007,7 @@ def validate(config: dict[str, Any] | None, specs: list[TaskSpec]) -> list[str]:
 
 
 def _unknown_keys(config: dict[str, Any]) -> list[str]:
-    """Settings that name a column by a key the vocabulary does not define."""
+    """Settings that name a column by a key the loaded vocabulary does not define."""
     named = {
         "cleaning.yes_no_defaults": list(
             (config.get("cleaning") or {}).get("yes_no_defaults") or {}
@@ -1019,7 +1019,7 @@ def _unknown_keys(config: dict[str, Any]) -> list[str]:
         f"{where}: '{key}' is not a column key of the vocabulary (see ml.names)"
         for where, keys in named.items()
         for key in keys
-        if str(key) not in names.COLUMNS
+        if str(key) not in names.current().columns
     ]
 
 

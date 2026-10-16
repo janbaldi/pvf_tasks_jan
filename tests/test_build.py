@@ -304,6 +304,13 @@ def test_columns_the_catalog_does_not_list_are_reported_too(built):
     assert rows_naming(built["payloads"]["build"], c("site_b_comment"))
 
 
+def test_the_streamlit_config_is_one_stlite_accepts():
+    # stlite throws "Invalid streamlitConfig" at mount, in the browser, for any value
+    # that is not a string, number, boolean or null, and the report never starts.
+    for key, value in stlite.STREAMLIT_CONFIG.items():
+        assert isinstance(value, (str, int, float, bool)) or value is None, key
+
+
 def test_the_report_is_one_file_with_its_provenance_in_it(built):
     page = built["reports"]["build"].read_text(encoding="utf-8")
     assert page.startswith("<!doctype html>")

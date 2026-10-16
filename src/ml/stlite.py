@@ -35,12 +35,16 @@ APP_PATH = Path(__file__).with_name("streamlit_app.py")
 FONTS = Path(__file__).with_name("fonts")
 
 # The dashboard's .streamlit/config.toml, as the options stlite passes to Streamlit.
-# Light only: the colours in the page module and the figures assume it.
+# Light only: the colours in the page module and the figures assume it. stlite
+# refuses anything but strings, numbers and booleans here, so a list goes in as
+# JSON text, which Streamlit reads as it does a list given on the command line.
 STREAMLIT_CONFIG = {
     "client.toolbarMode": "viewer",
     "theme.base": "light",
     "theme.baseFontSize": 14,
-    "theme.headingFontSizes": ["1.9rem", "1.35rem", "1.15rem", "1rem", "0.9rem", "0.85rem"],
+    "theme.headingFontSizes": json.dumps(
+        ["1.9rem", "1.35rem", "1.15rem", "1rem", "0.9rem", "0.85rem"]
+    ),
     "theme.primaryColor": "#0066cc",
     "theme.backgroundColor": "#fafbfc",
     "theme.secondaryBackgroundColor": "#f4f6f8",

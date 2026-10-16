@@ -6,7 +6,8 @@ This module imports :mod:`ml.blocks` and nothing else from the project.
 
 Colour is spent only where it carries something: the two sites share an axis and
 get one colour each, and the registry outcomes are a severity scale. Everything
-single-series is neutral ink.
+single-series is neutral ink. The colours and sizes are the CAR-T manufacturing
+dashboard's, so a figure here reads like one there.
 """
 
 from __future__ import annotations
@@ -20,17 +21,22 @@ from plotly.subplots import make_subplots
 
 from .blocks import Block, figure
 
-INK = "#3f4750"
+INK = "#2c3e50"
 MUTED = "#9aa5b1"
-SITE_COLOURS = ("#3f4750", "#7c9cbf")
+GRID = "rgba(44,62,80,0.12)"
+SITE_COLOURS = ("#0047ab", "#9aa5b1")
 #: created, already present, blocked, not in catalog, errored
 STATUS_COLOURS = {
-    "created": "#3f4750",
-    "present": "#b9c2cc",
-    "blocked": "#c79a3e",
-    "not in catalog": "#7c9cbf",
-    "errored": "#c0392b",
+    "created": "#2c3e50",
+    "present": "#d3d2cc",
+    "blocked": "#d18b00",
+    "not in catalog": "#2a78d6",
+    "errored": "#eb6834",
 }
+#: the dashboard's categorical palette: no dark blue, red, pink or orange
+CATEGORY_COLOURS = ("#7a8b00", "#35a02c", "#e5b400", "#12a4b6", "#6a3fb5", "#8c6239")
+#: correlation, -1 to 1: orange through near-white to blue (no red)
+DIVERGING = [[0.0, "#eb6834"], [0.5, "#f4f6f8"], [1.0, "#0047ab"]]
 
 
 def _fig(fig: go.Figure, caption: str = "") -> Block:
@@ -44,6 +50,7 @@ def _fig(fig: go.Figure, caption: str = "") -> Block:
     """
     spec = json.loads(fig.to_json())
     spec.get("layout", {}).pop("template", None)
+    spec.setdefault("layout", {}).setdefault("font", {}).setdefault("size", 11)
     return figure(spec, caption)
 
 
@@ -58,7 +65,7 @@ def _style(fig: go.Figure, title: str, x: str = "", y: str = "", height: int = 3
     fig.update_layout(
         title=dict(
             text=title,
-            font=dict(size=14),
+            font=dict(size=13),
             x=0,
             xanchor="left",
             y=1,
@@ -77,7 +84,7 @@ def _style(fig: go.Figure, title: str, x: str = "", y: str = "", height: int = 3
         hovermode="closest",
     )
     fig.update_xaxes(showgrid=False, zeroline=False)
-    fig.update_yaxes(showgrid=True, gridcolor="rgba(128,128,128,0.22)", zeroline=False)
+    fig.update_yaxes(showgrid=True, gridcolor=GRID, zeroline=False)
     return fig
 
 
@@ -170,7 +177,7 @@ def coverage_bars(report, limit: int = 30) -> Block | None:
             hovertemplate="%{y}: %{x:.1f}% of batches<extra></extra>",
         )
     )
-    fig.update_xaxes(range=[0, 100], showgrid=True, gridcolor="rgba(128,128,128,0.22)")
+    fig.update_xaxes(range=[0, 100], showgrid=True, gridcolor=GRID)
     fig.update_yaxes(showgrid=False, autorange="reversed")
     return _fig(
         _style(
@@ -203,7 +210,7 @@ def cluster_fits(cluster) -> Block | None:
     if not fits:
         return None
 
-    palette = ("#3f4750", "#7c9cbf", "#a68a64", "#6b8f71", "#9b7d9b", "#c0864f")
+    palette = CATEGORY_COLOURS
     figure_ = make_subplots(
         rows=1,
         cols=2,
@@ -271,13 +278,13 @@ def cluster_fits(cluster) -> Block | None:
         showgrid=False,
         zeroline=False,
     )
-    figure_.update_yaxes(showgrid=True, gridcolor="rgba(128,128,128,0.22)", zeroline=False)
+    figure_.update_yaxes(showgrid=True, gridcolor=GRID, zeroline=False)
     figure_.update_yaxes(title_text="observed (standardised)", row=1, col=1)
     figure_.update_yaxes(title_text="residual (standardised)", row=1, col=2)
     figure_.update_layout(
         title=dict(
             text=f"{cluster.name} — members against their fits",
-            font=dict(size=14),
+            font=dict(size=13),
             x=0,
             xanchor="left",
         ),
@@ -334,8 +341,7 @@ def cluster_correlation(cluster) -> Block | None:
         y=codes_before,
         zmin=-1,
         zmax=1,
-        colorscale="RdBu",
-        reversescale=True,
+        colorscale=DIVERGING,
         showscale=False,
         text=hover,
         hovertemplate="%{text}<extra></extra>",
@@ -364,8 +370,7 @@ def cluster_correlation(cluster) -> Block | None:
             y=codes_after,
             zmin=-1,
             zmax=1,
-            colorscale="RdBu",
-            reversescale=True,
+            colorscale=DIVERGING,
             colorbar=dict(title="r", thickness=12),
             text=after_hover,
             hovertemplate="%{text}<extra></extra>",
@@ -378,7 +383,7 @@ def cluster_correlation(cluster) -> Block | None:
     figure_.update_layout(
         title=dict(
             text=f"{cluster.name} — {cluster.action} · correlation within the cluster",
-            font=dict(size=14),
+            font=dict(size=13),
             x=0,
             xanchor="left",
         ),

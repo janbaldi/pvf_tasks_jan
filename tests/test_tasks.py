@@ -38,6 +38,7 @@ from ml.encode import sanitise
 REQUIRED = (
     "task.yaml",
     "dataset.csv",
+    "dataset_unencoded.csv",
     "dataset_columns.csv",
     "encoded_columns.csv",
     "parameters.csv",
@@ -62,9 +63,9 @@ def test_a_finished_task_folder_holds_everything_it_promises(built):
         for name in REQUIRED:
             assert artifact(built, task, name).exists(), f"{task}/{name}"
         assert manifest(built, task)["status"] == "complete"
-        # dataset.csv is the raw predictors for every task; the encoded one is beside it.
-        assert artifact(built, task, "dataset_encoded.csv").exists()
-        assert manifest(built, task)["dataset_role"].startswith("raw modelling inputs")
+        # dataset.csv is the encoded predictors for every task; the raw one is beside it.
+        assert not artifact(built, task, "dataset_encoded.csv").exists()
+        assert manifest(built, task)["dataset_role"].startswith("encoded modelling inputs")
 
 
 #: The release task's binary target, as the dataset stage names it.
@@ -83,10 +84,12 @@ def test_the_counts_agree_wherever_they_are_written(built):
     for task in (PREDICTIVE, EXPLORATORY):
         counts = manifest(built, task)["counts"]
         dataset = csv(built, task, "dataset.csv")
+        unencoded = csv(built, task, "dataset_unencoded.csv")
         columns = csv(built, task, "dataset_columns.csv")
-        assert counts["dataset_rows"] == len(dataset)
+        assert counts["dataset_rows"] == len(dataset) == len(unencoded)
         assert counts["dataset_columns"] == dataset.shape[1]
-        assert list(columns["Column"]) == list(dataset.columns)
+        assert counts["unencoded_columns"] == unencoded.shape[1]
+        assert list(columns["Column"]) == list(unencoded.columns)
 
         overview = facts(first_table(payload(built, task), "overview"))
         assert int(overview["Batches in the dataset"].replace(",", "")) == len(dataset)
@@ -162,7 +165,7 @@ def test_a_balanced_binary_target_maps_both_classes(built):
 # Predictors
 # ---------------------------------------------------------------------------
 def test_the_target_and_everything_computed_from_it_stay_out(built):
-    dataset = csv(built, PREDICTIVE, "dataset.csv")
+    dataset = csv(built, PREDICTIVE, "dataset_unencoded.csv")
     decisions = csv(built, PREDICTIVE, "parameters.csv")
 
     for leaked in (c("f_vcn_per_cell"), c("f_flow_accuracy"), dummy_data.target()):
@@ -189,13 +192,14 @@ def test_parameters_in_an_excluded_catalog_category_are_left_out(built):
     late = decisions[decisions["Stage"] == "category exclusion"]
     assert {c("disposition"), c("endotoxin")} <= set(late["Parameter"])
     assert all(reason.startswith("Catalog 'Available At' is") for reason in late["Reason"])
-    dataset = csv(built, PREDICTIVE, "dataset.csv")
+    dataset = csv(built, PREDICTIVE, "dataset_unencoded.csv")
     assert c("disposition") not in dataset.columns
 
 
 def test_every_exported_column_has_exactly_one_dictionary_entry(built):
     for task in (PREDICTIVE, EXPLORATORY):
-        dataset, columns = csv(built, task, "dataset.csv"), csv(built, task, "dataset_columns.csv")
+        dataset = csv(built, task, "dataset_unencoded.csv")
+        columns = csv(built, task, "dataset_columns.csv")
         assert list(columns["Column"]) == list(dataset.columns)
         assert not columns["Column"].duplicated().any()
         assert columns["Role"].notna().all() and columns["Transformation"].notna().all()
@@ -204,7 +208,7 @@ def test_every_exported_column_has_exactly_one_dictionary_entry(built):
 def test_the_encoded_table_can_be_read_back_to_its_parameters(built):
     report = payload(built, EXPLORATORY)
     dictionary = {row[0]: row for row in table_with(report, "Meaning")["rows"]}
-    dataset = csv(built, EXPLORATORY, "dataset_encoded.csv")
+    dataset = csv(built, EXPLORATORY, "dataset.csv")
     metadata = {"Patient Lot/Batch #", c("vector_lot"), RELEASE_TARGET}
     for column in dataset.columns:
         if column not in metadata:
@@ -234,8 +238,8 @@ def test_target_encoding_is_cross_fitted_and_says_which_folds(built):
     prose = str(section(payload(built, EXPLORATORY), "parameters")["blocks"])
     assert "fold's training rows alone" in prose
 
-    dataset = csv(built, EXPLORATORY, "dataset_encoded.csv")
-    raw = csv(built, EXPLORATORY, "dataset.csv")
+    dataset = csv(built, EXPLORATORY, "dataset.csv")
+    raw = csv(built, EXPLORATORY, "dataset_unencoded.csv")
     recipe = json.loads(artifact(built, EXPLORATORY, "encoding.json").read_text(encoding="utf-8"))
     encoded = [c for c in dataset.columns if c.endswith("_target_enc")]
     assert encoded
@@ -252,7 +256,7 @@ def test_target_encoding_is_cross_fitted_and_says_which_folds(built):
 
 
 def test_an_ordinal_parameter_becomes_a_rank_and_strays_are_left_missing(built):
-    ranks = csv(built, EXPLORATORY, "dataset_encoded.csv")[c("ordinal_parameter")].dropna()
+    ranks = csv(built, EXPLORATORY, "dataset.csv")[c("ordinal_parameter")].dropna()
     assert set(ranks) <= set(range(1, len(dummy_data.ORDINAL_ORDER) + 1))
 
 
@@ -265,7 +269,7 @@ def test_report_only_clustering_leaves_the_predictors_alone(built):
     assert manifest(built, PREDICTIVE)["counts"]["clusters"] > 0
     assert not [c for c in dataset.columns if c.endswith("_resid")]
     clustered = membership[membership["Action"] == "describe"]["Parameter"]
-    kept = set(dataset.columns)
+    kept = set(csv(built, PREDICTIVE, "dataset_unencoded.csv").columns)
     assert any(name in kept for name in clustered), "the parameters are still there, unchanged"
 
 
@@ -276,8 +280,8 @@ def test_a_summarised_group_becomes_one_score_fed_by_every_member(built):
     assert (summarised["Output column"].str.endswith(" group")).all()
     assert (summarised["Stability"] >= 0.8).all(), "only stable groups are acted on"
 
-    encoded = csv(built, EXPLORATORY, "dataset_encoded.csv")
-    raw = csv(built, EXPLORATORY, "dataset.csv")
+    encoded = csv(built, EXPLORATORY, "dataset.csv")
+    raw = csv(built, EXPLORATORY, "dataset_unencoded.csv")
     assert set(summarised["Output column"]) <= set(encoded.columns)
     # The score needs every member, so every member is a raw input of the dataset.
     assert set(summarised["Parameter"]) <= set(raw.columns)
@@ -298,7 +302,7 @@ def test_every_clustered_parameter_is_in_the_membership_export(built):
 
 def test_a_dropped_duplicate_points_at_a_parameter_that_survived(built):
     decisions = csv(built, EXPLORATORY, "parameters.csv")
-    dataset = csv(built, EXPLORATORY, "dataset.csv")
+    dataset = csv(built, EXPLORATORY, "dataset_unencoded.csv")
     duplicates = decisions[decisions["Stage"] == "near-duplicate"]
     assert not duplicates.empty
     for reason in duplicates["Reason"]:
@@ -338,8 +342,8 @@ def test_the_report_does_not_claim_a_model_was_evaluated(built):
 def test_the_report_states_what_the_table_is_for(built):
     for task in (PREDICTIVE, EXPLORATORY):
         overview = facts(first_table(payload(built, task), "overview"))
-        assert "raw modelling inputs" in overview["What the table is"]
-        assert "data/dataset\\_encoded.csv" in overview["What the table is"]  # markdown
+        assert "encoded modelling inputs" in overview["What the table is"]
+        assert "data/dataset\\_unencoded.csv" in overview["What the table is"]  # markdown
 
 
 def test_provenance_records_the_inputs_this_stage_actually_read(built):
@@ -456,7 +460,7 @@ def test_a_task_can_compare_two_periods_of_batches(built, tmp_path):
     (tmp_path / "task.yaml").write_text(yaml.safe_dump(task, sort_keys=False), encoding="utf-8")
     folder = cli.run_task(built["config"], taskconfig.load(tmp_path))
 
-    table = pd.read_csv(folder / cli.TASK_LAYOUT.get("dataset.csv", "dataset.csv"))
+    table = pd.read_csv(folder / cli.TASK_LAYOUT["dataset_unencoded.csv"])
     assert set(table["period_is_after"]) == {0, 1}
     assert made not in table.columns, "the date that defines the periods is not a predictor"
     batches = pd.read_csv(folder / cli.TASK_LAYOUT.get("batches.csv", "batches.csv"))

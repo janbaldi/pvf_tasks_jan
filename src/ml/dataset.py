@@ -1253,8 +1253,9 @@ def build(
     final = pd.concat([metadata, raw, target.rename(result.target_column)], axis=1)
     result.encoded = pd.concat([metadata, transformed, target.rename(result.target_column)], axis=1)
     result.dataset_role = (
-        "raw modelling inputs, one row per batch; data/dataset_encoded.csv is the same rows "
-        f"through encoding.json, fitted on {result.fitted_on}"
+        f"encoded modelling inputs, one row per batch, through encoding.json fitted on "
+        f"{result.fitted_on}; data/dataset_unencoded.csv is the same rows with the raw "
+        "parameter values"
     )
 
     result.dictionary = list(pre.dictionary)

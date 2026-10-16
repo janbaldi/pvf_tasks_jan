@@ -13,8 +13,8 @@ ml task run          # a training dataset, its report, and every decision behind
 ```
 
 **What you get from one task run:** `dataset.csv` (one row per batch: id, group,
-predictors, target), an encoded version ready for a model, the reason every
-parameter is in or out, a report, groups of correlated parameters to explain a
+encoded predictors, target), ready for a model, the same rows unencoded as
+`dataset_unencoded.csv`, the reason every parameter is in or out, a report, groups of correlated parameters to explain a
 model by, and a copy of the inputs so the run can be redone exactly.
 
 **What it does not do:** fit models or split data into train and validation sets.
@@ -220,11 +220,11 @@ It works, and the run folder already holds a full dataset:
 
 ```
 runs/20261014-101452-ed627c/
-  data/dataset.csv               one row per batch: id, group, raw predictors, target
-  data/dataset_encoded.csv       the same rows as numbers, ready for a model
+  data/dataset.csv               one row per batch: id, group, encoded predictors, target
+  data/dataset_unencoded.csv     the same rows with the raw parameter values
   metadata/parameters.csv        every parameter: included or excluded, and why
   metadata/batches.csv           every batch: in or out, and why
-  metadata/dataset_columns.csv   every column of dataset.csv: role, source, unit, meaning
+  metadata/dataset_columns.csv   every column of dataset_unencoded.csv: role, source, unit, meaning
   metadata/groups.json           groups of parameters to explain a model by (step 7)
   report/report.html             all of the above with figures; open it in a browser
   inputs/                        the exact batch table, catalog and vocabulary this run read
@@ -238,7 +238,7 @@ import glob
 import pandas as pd
 
 run = sorted(glob.glob("runs/*/"))[-1]                       # the latest run
-data = pd.read_csv(f"{run}data/dataset.csv")
+data = pd.read_csv(f"{run}data/dataset_unencoded.csv")
 print([c for c in data.columns if "after wash" in c or "Endotoxin" in c][:4])
 ```
 
@@ -358,8 +358,8 @@ uv run ml task run
 Written — 34 batches × 116 columns
 ```
 
-`dataset.csv` is unchanged — it keeps every raw parameter — but
-`dataset_encoded.csv` now has one column per stable group instead of its
+`dataset_unencoded.csv` is unchanged — it keeps every raw parameter — but
+`dataset.csv` now has one column per stable group instead of its
 members: 48 parameters became 18 scores such as `D10 lactate per E6 cells group`,
 each the mean of its members after z-scoring, with negatively related members
 flipped. `parameters.csv` records each one:
@@ -503,6 +503,7 @@ uv run ml task rerun runs/20261014-101858-32352c
 
 ```
 OK  cli  dataset.csv is identical to the one in 20261014-101858-32352c
+OK  cli  dataset_unencoded.csv is identical to the one in 20261014-101858-32352c
 ```
 
 The rerun reads only that folder — its `config/task.yaml` points at the copies
@@ -694,7 +695,7 @@ Global options come before the command: `uv run ml [--config FILE] [--debug] [--
 | `ml build` | Build the batch table. Writes `batch_data.xlsx`, `batch_data.parquet`, `build_report.html` and `batch_table_manifest.json` into the batch table's SharePoint folder. |
 | `ml task new FOLDER [--target COL] [--question TEXT] [--force]` | Create a task workspace with an annotated `task.yaml` linked to the current `config.yaml`. |
 | `ml task run [--task T]` | Run tasks. Without `--task`, runs the task in the current folder. |
-| `ml task rerun RUN_FOLDER` | Redo a finished run from its own folder and report whether `dataset.csv` is identical. |
+| `ml task rerun RUN_FOLDER` | Redo a finished run from its own folder and report whether `dataset.csv` and `dataset_unencoded.csv` are identical. |
 | `ml update [--task T]` | `check-catalog`, then `build`, then the given tasks. |
 | `ml task encode --run RUN_FOLDER [--out FILE]` | Encode the batch table's batches with a run's fitted encoding. |
 
@@ -909,7 +910,7 @@ For each task, `ml task run`:
 
    Each exclusion is a row in `parameters.csv`.
 3. **Fits the preprocessing** on the whole cohort, records it in `encoding.json`,
-   and writes the encoded table as `dataset_encoded.csv`:
+   and writes the encoded table as `dataset.csv`:
    - Two categories become 0/1. A few become one column each. More become the
      target's mean per category (cross-fitted, so no row sees its own target).
      Very many are hashed into buckets.
@@ -920,8 +921,9 @@ For each task, `ml task run`:
    - Correlated parameters are grouped, and stable groups get the
      `clustering.action`. Every encoded column is assigned to an explanation
      group in `groups.json`.
-4. **Writes the dataset**: `dataset.csv` holds the id, group, the raw predictors
-   the encoding uses, and the target. It has one row per batch and no split.
+4. **Writes the unencoded dataset**: `dataset_unencoded.csv` holds the id, group,
+   the raw predictors the encoding uses, and the target. Like `dataset.csv`, it
+   has one row per batch and no split.
 5. **Checks** that the row and column counts agree across every file, then
    renames the run folder from `.incomplete` to its final name. A failed run
    keeps its folder as `.failed`, with the log and the reason in its manifest.
@@ -959,11 +961,11 @@ For each task, `ml task run`:
 
 | File | Contents |
 |---|---|
-| `data/dataset.csv` | The training dataset: id, group, raw predictors, target. One row per batch. |
-| `data/dataset_encoded.csv` | The same rows encoded by `encoding.json`. |
+| `data/dataset.csv` | The training dataset: id, group, predictors encoded by `encoding.json`, target. One row per batch. |
+| `data/dataset_unencoded.csv` | The same rows with the raw predictors. |
 | `metadata/parameters.csv` | Every parameter: included or excluded, with the reason and the step. |
 | `metadata/batches.csv` | Every batch in the batch table: in or out, and the first rule that ruled it out. |
-| `metadata/dataset_columns.csv` | Every dataset column: role, source, type, catalog value type, unit, meaning. |
+| `metadata/dataset_columns.csv` | Every column of `dataset_unencoded.csv`: role, source, type, catalog value type, unit, meaning. |
 | `metadata/encoded_columns.csv` | Every encoded column and the parameter it came from. |
 | `metadata/clusters.csv` | Correlated groups: stability, representative and what was done. |
 | `metadata/groups.json` | Explanation groups: every encoded column, grouped with what it measures. |

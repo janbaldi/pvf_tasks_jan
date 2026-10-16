@@ -269,9 +269,8 @@ def test_a_run_carries_its_inputs_and_can_be_redone_from_its_folder_alone(built)
 
     again = cli.rerun(run)
     assert again.parent == run.parent, "the rerun is a new run of the same workspace"
-    assert (again / "data" / "dataset.csv").read_bytes() == (
-        run / "data" / "dataset.csv"
-    ).read_bytes()
+    for name in ("dataset.csv", "dataset_unencoded.csv"):
+        assert (again / "data" / name).read_bytes() == (run / "data" / name).read_bytes(), name
     record = json.loads((again / "manifest.json").read_text(encoding="utf-8"))
     stale = ("manifest", "catalog changed")
     assert not [w for w in record["warnings"] if any(word in w for word in stale)]
@@ -475,7 +474,7 @@ def test_floating_point_jitter_is_constant():
 
 def test_no_constant_column_reaches_an_exported_table(built):
     for task in (EXPLORATORY, PREDICTIVE):
-        table = csv(built, task, "dataset_encoded.csv")
+        table = csv(built, task, "dataset.csv")
         recipe_ = json.loads(artifact(built, task, "encoding.json").read_text(encoding="utf-8"))
         predictors = recipe_["output_columns"]
         constant = [c for c in predictors if encode.near_constant(table[c])]
@@ -503,7 +502,7 @@ def test_a_small_cohort_is_not_target_encoded_or_hashed():
 # ---------------------------------------------------------------------------
 def test_a_recipe_applied_to_the_cohort_reproduces_the_package(built):
     run = artifact(built, PREDICTIVE, "manifest.json").parent
-    encoded = csv(built, PREDICTIVE, "dataset_encoded.csv")
+    encoded = csv(built, PREDICTIVE, "dataset.csv")
     state = json.loads(artifact(built, PREDICTIVE, "encoding.json").read_text(encoding="utf-8"))
     # The package's target encoding is cross-fitted; the recipe applies the frozen means.
     crossfitted = {f["name"] for f in state["target_encoding"].get("columns", {}).values()}
@@ -523,7 +522,7 @@ def test_a_recipe_applied_to_the_cohort_reproduces_the_package(built):
 def test_every_encoded_column_belongs_to_exactly_one_explanation_group(built):
     for task in (PREDICTIVE, EXPLORATORY):
         groups = json.loads(artifact(built, task, "groups.json").read_text(encoding="utf-8"))
-        encoded = csv(built, task, "dataset_encoded.csv")
+        encoded = csv(built, task, "dataset.csv")
         columns = [c for g in groups.values() for c in g["columns"]]
         assert sorted(columns) == sorted(
             json.loads(artifact(built, task, "encoding.json").read_text(encoding="utf-8"))[

@@ -613,18 +613,29 @@ REQUIRED_ARTIFACTS = tuple(
 
 
 def _check(result: dataset.TaskResult, final: pd.DataFrame) -> None:
-    """The counts in the package have to be the same counts. Then it is complete."""
+    """The counts in the package have to be the same counts. Then it is complete.
+
+    ``final`` is the unencoded table; ``result.encoded`` is ``dataset.csv``.
+    """
     problems = []
     if len(final) != result.rows:
-        problems.append(f"the dataset has {len(final)} rows, the run recorded {result.rows}")
+        problems.append(
+            f"the unencoded dataset has {len(final)} rows, the run recorded {result.rows}"
+        )
+    if result.encoded is not None and len(result.encoded) != result.rows:
+        problems.append(
+            f"the dataset has {len(result.encoded)} rows, the run recorded {result.rows}"
+        )
     if len(result.columns) != final.shape[1]:
         problems.append(
             f"dataset_columns.csv has {len(result.columns)} rows for {final.shape[1]} "
-            "dataset columns"
+            "unencoded dataset columns"
         )
     exported = {row["Column"] for row in result.columns}
     if exported != set(final.columns):
-        problems.append("dataset_columns.csv and the dataset do not name the same columns")
+        problems.append(
+            "dataset_columns.csv and the unencoded dataset do not name the same columns"
+        )
     if result.cohort.funnel:
         left = result.cohort.funnel[-1]["Batches left"]
         if left != result.rows:
@@ -819,7 +830,8 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec) -> Path:
                     "batch_table_rows": result.cohort.raw_rows,
                     "cohort_rows": result.cohort.rows,
                     "dataset_rows": result.rows,
-                    "dataset_columns": int(final.shape[1]),
+                    "dataset_columns": int(result.encoded.shape[1]),
+                    "unencoded_columns": int(final.shape[1]),
                     "predictor_columns": result.feature_columns,
                     "encoded_columns": result.encoded_columns,
                     "candidates": len(result.candidates),
@@ -836,11 +848,12 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec) -> Path:
         raise
 
     log.facts(
-        f"Written — {result.rows:,} batches × {final.shape[1]:,} columns",
+        f"Written — {result.rows:,} batches × {result.encoded.shape[1]:,} columns",
         [
             ("Task folder", str(destination)),
             ("Report", str(destination / TASK_LAYOUT["report.html"])),
             ("Dataset", str(destination / TASK_LAYOUT["dataset.csv"])),
+            ("Unencoded dataset", str(destination / TASK_LAYOUT["dataset_unencoded.csv"])),
             ("Manifest", str(destination / package.MANIFEST)),
         ],
     )
@@ -852,7 +865,8 @@ def rerun(run: str | Path) -> Path:
     """Redo a finished run from its own folder into the same workspace, and compare.
 
     The run's ``config/task.yaml`` points at the inputs it copied, so nothing
-    outside the run folder is read. Says whether ``dataset.csv`` came out the same.
+    outside the run folder is read. Says whether ``dataset.csv`` and
+    ``dataset_unencoded.csv`` came out the same.
     """
     run = Path(run).expanduser().resolve()
     settings = run / TASK_LAYOUT["task.yaml"]
@@ -864,17 +878,18 @@ def rerun(run: str | Path) -> Path:
         workspace=str(run.parent.parent),
     )
     again = run_task(None, spec)
-    name = TASK_LAYOUT["dataset.csv"]
-    if (again / name).read_bytes() == (run / name).read_bytes():
-        log.success(MODULE, f"dataset.csv is identical to the one in {run.name}")
-    else:
-        log.warn(MODULE, f"dataset.csv differs from the one in {run.name}", str(again))
+    for name in ("dataset.csv", "dataset_unencoded.csv"):
+        path = TASK_LAYOUT[name]
+        if (again / path).read_bytes() == (run / path).read_bytes():
+            log.success(MODULE, f"{name} is identical to the one in {run.name}")
+        else:
+            log.warn(MODULE, f"{name} differs from the one in {run.name}", str(again))
     return again
 
 
 def _write_package(pkg: package.TaskPackage, result: dataset.TaskResult, final: pd.DataFrame):
-    pkg.write_csv(TASK_LAYOUT["dataset.csv"], final)
-    pkg.write_csv(TASK_LAYOUT["dataset_encoded.csv"], result.encoded)
+    pkg.write_csv(TASK_LAYOUT["dataset.csv"], result.encoded)
+    pkg.write_csv(TASK_LAYOUT["dataset_unencoded.csv"], final)
     pkg.write_csv(TASK_LAYOUT["dataset_columns.csv"], result.columns)
     pkg.write_csv(
         TASK_LAYOUT["encoded_columns.csv"],

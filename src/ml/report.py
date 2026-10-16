@@ -1190,8 +1190,8 @@ def _task_parameters(run: TaskRun) -> dict | None:
             f"Download dataset_columns.csv ({len(result.columns):,} columns)",
             "dataset_columns.csv",
             csv_text(result.columns),
-            note="One row per exported column, in output order, including the identifier, the "
-            "grouping column and the target.",
+            note="One row per column of dataset_unencoded.csv, in output order, including the "
+            "identifier, the grouping column and the target.",
         ),
         sortable(
             ["Parameter", "Decision", "Reason", "Stage"],
@@ -1219,7 +1219,8 @@ def _task_parameters(run: TaskRun) -> dict | None:
                     for r in result.dictionary
                 ]
             ),
-            note="The feature dictionary: every column the recipe produces, and its parameter.",
+            note="The feature dictionary: every predictor column of dataset.csv, and its "
+            "parameter.",
         ),
     ]
     if result.proxies:
@@ -1778,7 +1779,8 @@ def _number_or_none(value) -> float | None:
 
 def _task_dataset(run: TaskRun) -> dict | None:
     result, spec = run.result, run.spec
-    frame = run.dataset
+    # dataset.csv is the encoded table; run.dataset is dataset_unencoded.csv.
+    frame = result.encoded if result.encoded is not None else run.dataset
     rows = [
         ["Shape", f"{result.rows:,} batches × {frame.shape[1]:,} columns"],
         ["What this table is", esc(result.dataset_role)],
@@ -1791,10 +1793,19 @@ def _task_dataset(run: TaskRun) -> dict | None:
         rows.append(["Grouping column", esc(spec.roles.group)])
     rows.append(
         [
-            "Transformed view",
+            "Refitting",
             esc(
-                "data/dataset_encoded.csv: the recipe fitted on the whole cohort (target "
-                "encoding cross-fitted); refit encoding.json inside each fold you evaluate in"
+                "encoding.json was fitted on the whole cohort (target encoding cross-fitted); "
+                "refit it inside each fold you evaluate in"
+            ),
+        ]
+    )
+    rows.append(
+        [
+            "Unencoded view",
+            esc(
+                f"data/dataset_unencoded.csv: the same rows with the raw parameter values "
+                f"({run.dataset.shape[1]:,} columns)"
             ),
         ]
     )

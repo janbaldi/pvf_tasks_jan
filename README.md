@@ -164,21 +164,27 @@ Written to SharePoint — 70 batches × 221 columns
                          DEMO_DRIVE › Data/batch_data/
   report                 build_report.html
                          DEMO_DRIVE › Data/batch_data/
+  missingness report     missingness_report.html
+                         DEMO_DRIVE › Data/batch_data/
   manifest               batch_table_manifest.json
                          DEMO_DRIVE › Data/batch_data/
 ```
 
 The warning is the catalog check from a moment ago. `build_report.html` shows
 what came out: every parameter's source, each cleaning rule that changed
-something, and the derived features. Its **Missingness** sections, one per site
-over that site's batches, give every
-parameter a missingness pattern over the batches in date order (complete,
-introduced late, retired, measured in a window, gap in the middle, clumped,
-random gaps, regular skipping) with the statistics behind it, the condition it
-goes missing on (a depth-2 decision tree on the categorical parameters), and
-the groups of parameters missing on the same batches, each with its plots. Each
-section's `missingness_site_<n>.csv` has one row per parameter, to filter
-columns by and to show why.
+something, and the derived features.
+
+`missingness_report.html`, beside it, shows how every parameter goes missing,
+for each site on its own batches. On top is a pattern viewer: pick a site, then
+a group or rows of the parameter table, and their missing values are drawn one
+small cell per batch in date order. The strip scrolls sideways rather than
+squeezing a long history onto the page, and hovering a cell shows its batch id
+and date. Below it, per parameter: a missingness pattern (complete, introduced
+late, retired, measured in a window, gap in the middle, clumped, random gaps,
+regular skipping) with the statistics behind it, the condition it goes missing
+on (a depth-2 decision tree on the categorical parameters), and the groups of
+parameters missing on the same batches. Each site's `missingness_site_<n>.csv`
+has one row per parameter, to filter columns by and to show why.
 
 ### 3. Create a task
 
@@ -699,7 +705,7 @@ Global options come before the command: `uv run ml [--config FILE] [--debug] [--
 | `ml validate [--task T]` | Validate `config.yaml`, the vocabulary (naming any key it leaves out), the corrections table and the tasks against the batch table and catalog. Runs nothing. Inside a task workspace, also validates that task. |
 | `ml check-leaks [FOLDER]` | Search the git-tracked files of `FOLDER` (default: here) for any name the private vocabulary or its corrections hold. Exits 1 and lists every line when it finds one. Run it before pushing. |
 | `ml check-catalog` | Compare every source's columns with the catalog. Writes `catalog_report.html`, `catalog_manifest.json` and `new_parameters.csv` into the catalog's SharePoint folder. |
-| `ml build` | Build the batch table. Writes `batch_data.xlsx`, `batch_data.parquet`, `build_report.html` and `batch_table_manifest.json` into the batch table's SharePoint folder. |
+| `ml build` | Build the batch table. Writes `batch_data.xlsx`, `batch_data.parquet`, `build_report.html`, `missingness_report.html` and `batch_table_manifest.json` into the batch table's SharePoint folder. |
 | `ml task new FOLDER [--target COL] [--question TEXT] [--force]` | Create a task workspace with an annotated `task.yaml` linked to the current `config.yaml`. |
 | `ml task run [--task T]` | Run tasks. Without `--task`, runs the task in the current folder. |
 | `ml task rerun RUN_FOLDER` | Redo a finished run from its own folder and report whether `dataset.csv` is identical. |
@@ -819,7 +825,7 @@ fetches: their Databricks parameter ids are in `$DATABRICKS_AO_MAPPING` in `.env
 | Stage | Reads | Writes, into |
 |---|---|---|
 | `ml check-catalog` | vocabulary, catalog, both sites' batch records, the parameter mapping, investigations | `catalog_report.html`, `catalog_manifest.json`, `new_parameters.csv` → the catalog's folder |
-| `ml build` | vocabulary and its corrections, catalog, every source, the site maps, `catalog_manifest.json` | `batch_data.xlsx`, `batch_data.parquet`, `build_report.html`, `batch_table_manifest.json` → the batch table's folder |
+| `ml build` | vocabulary and its corrections, catalog, every source, the site maps, `catalog_manifest.json` | `batch_data.xlsx`, `batch_data.parquet`, `build_report.html`, `missingness_report.html`, `batch_table_manifest.json` → the batch table's folder |
 | `ml task run` | vocabulary, batch table, catalog, both manifests | the run folder in the task's workspace |
 
 Each command prints these lists — file name, drive, folder and sheet — before it

@@ -18,6 +18,7 @@ from pathlib import Path
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 
 # pandas is here for one reason: a sortable table is a Streamlit data grid, and
 # a data grid wants a DataFrame. Streamlit installs it into the runtime itself,
@@ -184,6 +185,130 @@ def render_table(block: dict, key: str) -> None:
         )
 
 
+# The pattern strip: a fixed size per batch, so a long history scrolls sideways
+# instead of being squeezed to the page. Drawn on a canvas in its own frame,
+# which keeps thousands of cells cheap and the hover immediate.
+CELL, ROW, LABELS = 5, 16, 280
+STRIP = """
+<style>
+  body { margin: 0; font: 12px system-ui, -apple-system, "Segoe UI", sans-serif; color: #7a828c; }
+  #wrap { display: flex; }
+  #names { flex: none; width: %(labels)dpx; }
+  #names div { height: %(row)dpx; line-height: %(row)dpx; margin-bottom: 2px; padding-right: 8px;
+               overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+  #scroll { overflow-x: auto; flex: 1; }
+  canvas { display: block; }
+  #tip { position: fixed; display: none; pointer-events: none; padding: 4px 7px; border-radius: 4px;
+         background: #1f2328; color: #fff; white-space: nowrap; font-size: 12px; }
+  #legend { margin: 0 0 6px %(labels)dpx; }
+  #legend b { display: inline-block; width: 10px; height: 10px; margin: 0 4px 0 10px;
+              vertical-align: -1px; border-radius: 2px; }
+</style>
+<div id="legend"><b style="background:#c3c9d0;margin-left:0"></b>measured
+  <b style="background:#e8692c"></b>missing &nbsp;·&nbsp; one cell per batch, oldest on the left
+</div>
+<div id="wrap"><div id="names"></div><div id="scroll"><canvas id="c"></canvas></div></div>
+<div id="tip"></div>
+<script>
+const D = %(data)s, W = %(cell)d, H = %(row)d, GAP = 2, AXIS = 22;
+const n = D.batches.length, step = W + 1, ratio = window.devicePixelRatio || 1;
+const canvas = document.getElementById("c"), ctx = canvas.getContext("2d");
+const width = n * step, height = D.rows.length * (H + GAP) + AXIS;
+canvas.width = width * ratio; canvas.height = height * ratio;
+canvas.style.width = width + "px"; canvas.style.height = height + "px";
+ctx.scale(ratio, ratio);
+const names = document.getElementById("names");
+D.rows.forEach((row, r) => {
+  const label = document.createElement("div");
+  label.textContent = row.name; label.title = row.name; names.appendChild(label);
+  for (let i = 0; i < n; i++) {
+    ctx.fillStyle = row.bits[i] === "1" ? "#e8692c" : "#c3c9d0";
+    ctx.fillRect(i * step, r * (H + GAP), W, H);
+  }
+});
+// A date under the strip wherever the month changes, with room between labels.
+ctx.fillStyle = "#7a828c"; ctx.font = "11px system-ui, sans-serif";
+let last = -1e9, month = "";
+D.dates.forEach((date, i) => {
+  const m = (date || "").slice(0, 7);
+  if (m && m !== month && i * step - last > 70) {
+    ctx.fillRect(i * step, D.rows.length * (H + GAP), 1, 4);
+    ctx.fillText(m, i * step + 2, D.rows.length * (H + GAP) + 15);
+    last = i * step;
+  }
+  if (m) month = m;
+});
+const tip = document.getElementById("tip");
+canvas.addEventListener("mousemove", (e) => {
+  const i = Math.floor(e.offsetX / step), r = Math.floor(e.offsetY / (H + GAP));
+  if (i < 0 || i >= n || r < 0 || r >= D.rows.length) { tip.style.display = "none"; return; }
+  const row = D.rows[r];
+  tip.textContent = D.batches[i] + (D.dates[i] ? " · " + D.dates[i] : "") + " · " + row.name +
+    ": " + (row.bits[i] === "1" ? "missing" : "measured");
+  tip.style.display = "block";
+  const left = e.clientX + 12;
+  tip.style.left = Math.min(left, window.innerWidth - tip.offsetWidth - 4) + "px";
+  tip.style.top = (e.clientY + 14) + "px";
+});
+canvas.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+</script>
+"""
+
+
+def render_missing_viewer(block: dict, key: str) -> None:
+    """The strip for the chosen parameters on top, the table to choose them from below."""
+    labels = [site["label"] for site in block["sites"]]
+    chosen = st.radio("Site", labels, horizontal=True, key=f"site{key}")
+    site = block["sites"][labels.index(chosen)]
+    top = st.container()
+    group = st.selectbox("Show a group", ["(none)", *site["groups"]], key=f"group{key}-{chosen}")
+
+    frame = pd.DataFrame(site["rows"], columns=site["headers"])
+    config = {}
+    for header, fmt in zip(site["headers"], site["formats"]):
+        if fmt:
+            config[header] = st.column_config.NumberColumn(header, format=fmt)
+            frame[header] = pd.to_numeric(frame[header], errors="coerce")
+    event = st.dataframe(
+        frame,
+        column_config=config,
+        hide_index=True,
+        width="stretch",
+        row_height=ROW_HEIGHT,
+        height=ROW_HEIGHT * (min(len(frame), MAX_GRID_ROWS) + 1) + GUTTER,
+        on_select="rerun",
+        selection_mode="multi-row",
+        key=f"rows{key}-{chosen}",
+    )
+    st.markdown(
+        '<p class="batch_table-caption">One row per parameter. Tick rows to draw them above; '
+        "sort by a column header, search with the magnifier at the table's top right.</p>",
+        unsafe_allow_html=True,
+    )
+
+    picked = list(site["groups"].get(group, []))
+    picked += [frame.iloc[i]["Parameter"] for i in event.selection.rows]
+    picked = list(dict.fromkeys(picked))
+    n = len(site["batches"])
+    with top:
+        if not picked:
+            st.info("Pick a group, or tick rows of the table below, to draw them here.")
+            return
+        data = {
+            "batches": site["batches"],
+            "dates": site["dates"],
+            # A parameter with no blank at this site has no pattern stored: all measured.
+            "rows": [{"name": p, "bits": site["patterns"].get(p, "0" * n)} for p in picked],
+        }
+        page = STRIP % {
+            "data": json.dumps(data).replace("<", "\\u003c"),
+            "cell": CELL,
+            "row": ROW,
+            "labels": LABELS,
+        }
+        components.html(page, height=len(picked) * (ROW + 2) + 22 + 40, scrolling=False)
+
+
 def render_block(block: dict, key: str) -> None:
     kind = block["kind"]
     if kind == "md":
@@ -233,6 +358,8 @@ def render_block(block: dict, key: str) -> None:
                     render_block(child, f"{key}-{i}")
             else:
                 st.caption("Nothing here is drawn until you ask for it.")
+    elif kind == "missing_viewer":
+        render_missing_viewer(block, key)
     elif kind == "chooser":
         labels = [option["label"] for option in block["options"]]
         chosen = st.selectbox(block["label"], labels, key=f"pick{key}")

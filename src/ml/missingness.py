@@ -145,6 +145,11 @@ class MissingnessReport:
     candidates: list[str] = field(default_factory=list)
     order: str = ""
     settings: dict = field(default_factory=dict)
+    #: Set by the build, for the pattern viewer: the batches in order, and per
+    #: column with any blank its missing (1) / present (0) string over them.
+    batches: list[str] = field(default_factory=list)
+    dates: list[str] = field(default_factory=list)
+    missing: dict[str, str] = field(default_factory=dict)
 
 
 def _jaccard(matrix: np.ndarray) -> np.ndarray:
@@ -533,9 +538,15 @@ def for_build(
         else pd.Series("", index=frame.index)
     )
     group_of = {member: group.name for group in report.groups for member in group.members}
+    report.batches = (
+        frame[id_column].astype(str).tolist() if id_column in frame.columns else []
+    ) or [f"row {i}" for i in frame.index]
+    report.dates = dates.fillna("").tolist()
     rows = []
     for column in frame.columns:
         missing = blank[column].to_numpy()
+        if missing.any():
+            report.missing[str(column)] = "".join(missing.astype(int).astype(str))
         found = tree.condition(missing, {column})
         measured = np.flatnonzero(~missing)
         rows.append(

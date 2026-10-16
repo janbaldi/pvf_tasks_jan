@@ -18,7 +18,6 @@ from conftest import (
     section,
     site_a,
     site_b,
-    table_with,
     tables,
 )
 from dummy_data import c, cs, v, vs
@@ -220,29 +219,51 @@ def test_gaps_at_random_are_called_random_and_counted_against_chance():
     assert abs(stats["Missing after missing %"] - 25) < 3
 
 
-def test_the_build_report_analyses_missingness_per_site(built):
-    payload = built["payloads"]["build"]
+def _missingness_payload(built) -> dict:
+    from conftest import shared
+
+    page = shared(built["directory"], built["config"], "batch_table", "missingness_report.html")
+    return stlite.read_payload(page.read_text(encoding="utf-8"))
+
+
+def test_the_missingness_report_analyses_each_site_on_its_own_batches(built):
+    payload = _missingness_payload(built)
+    assert payload["sections"][0]["id"] == "viewer", "the viewer is on top"
+    viewer = next(b for b in payload["sections"][0]["blocks"] if b["kind"] == "missing_viewer")
     batch_table = built["batch_table"]
-    for number, (site, batches) in enumerate(
-        [(names.site("a"), site_a(batch_table)), (names.site("b"), site_b(batch_table))], start=1
+    sites = {site["label"]: site for site in viewer["sites"]}
+    for name, batches in (
+        (names.site("a"), site_a(batch_table)),
+        (names.site("b"), site_b(batch_table)),
     ):
-        part = section(payload, f"missingness-{number}")
-        assert site in part["title"]
-        block = table_with({"sections": [part]}, "Missing after missing %")
-        rows = {row[0]: dict(zip(block["headers"], row)) for row in block["rows"]}
+        site = sites[name]
+        rows = {row[0]: dict(zip(site["headers"], row)) for row in site["rows"]}
         assert set(rows) == {str(column) for column in batch_table.columns}
         # Within one site the site is constant: it neither has gaps nor explains any.
         assert rows["Site Merged"]["Pattern"] == "Complete"
         assert not any("Site Merged" in row["Condition"] for row in rows.values())
-        # Rates over this site's batches only.
+        # Rates over this site's batches only, and the strip says the same batch by batch.
+        assert sorted(site["batches"]) == sorted(batches["Patient Lot/Batch #"].astype(str))
         for column in batch_table.columns:
             expected = 100 * batches[column].isna().mean()
             assert abs(rows[str(column)]["Missing %"] - expected) < 0.06, column
+            bits = site["patterns"].get(str(column), "0" * len(batches))
+            assert bits.count("1") == batches[column].isna().sum(), column
+        # Dates run oldest first.
+        dated = [d for d in site["dates"] if d]
+        assert dated == sorted(dated)
+        for group, members in site["groups"].items():
+            assert all(rows[m]["Group"] == group for m in members)
     # Only site B's re-manufacturing supplement fills it.
-    a = table_with({"sections": [section(payload, "missingness-1")]}, "Missing after missing %")
-    b = table_with({"sections": [section(payload, "missingness-2")]}, "Missing after missing %")
-    assert next(r for r in a["rows"] if r[0] == c("prior_lines"))[1] == "Never recorded"
-    assert next(r for r in b["rows"] if r[0] == c("prior_lines"))[1] == "Complete"
+    assert sites[names.site("a")]["patterns"][c("prior_lines")] == "1" * len(site_a(batch_table))
+    assert c("prior_lines") not in sites[names.site("b")]["patterns"]
+    titles = [section["title"] for section in payload["sections"]]
+    assert any(names.site("a") in t for t in titles) and any(names.site("b") in t for t in titles)
+
+
+def test_the_build_report_leaves_missingness_to_its_own_report(built):
+    ids = [section["id"] for section in built["payloads"]["build"]["sections"]]
+    assert not any(i.startswith("missingness") or i == "viewer" for i in ids)
 
 
 # ---------------------------------------------------------------------------
@@ -323,6 +344,7 @@ def test_the_build_writes_everything_into_the_batch_table_folder_on_sharepoint(b
         "batch_data.xlsx",
         "batch_data.parquet",
         "build_report.html",
+        "missingness_report.html",
         "batch_table_manifest.json",
     }
     record = json.loads((folder / "batch_table_manifest.json").read_text(encoding="utf-8"))
@@ -336,4 +358,5 @@ def test_the_build_writes_everything_into_the_batch_table_folder_on_sharepoint(b
         "batch_data.xlsx",
         "batch_data.parquet",
         "build_report.html",
+        "missingness_report.html",
     }

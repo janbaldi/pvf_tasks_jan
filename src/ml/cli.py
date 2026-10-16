@@ -104,6 +104,7 @@ CATALOG_OUTPUTS = {
 }
 BUILD_OUTPUTS = {
     "report": "build_report.html",
+    "missingness report": "missingness_report.html",
     "manifest": "batch_table_manifest.json",
 }
 
@@ -495,31 +496,34 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
                 files["batch table (Parquet)"] = parquet
 
         prov = _provenance(config, sources)
+        build_run = report.BuildRun(
+            result=result,
+            phf=phf,
+            site_shapes=site_shapes,
+            catalog_cols=catalog_cols,
+            catalog_mapping=catalog_mapping,
+            cleaning=cleaning_report,
+            features=feature_reports,
+            merge=merge_report,
+            missingness=missing_by_site,
+            events=log.since(mark),
+            params=params,
+            provenance=prov,
+            origins=origins,
+            lv_coa_coverage=lv_coa_coverage,
+            raw_material_columns=origins["Raw materials and consumables"],
+            unmapped_sites=unmapped_sites,
+            source_rows=source_rows,
+            run_start=run_start,
+        )
         with _preparing("the build report", staged / BUILD_OUTPUTS["report"], folder):
             files["report"] = report.write(
-                report.build_batch_table_payload(
-                    report.BuildRun(
-                        result=result,
-                        phf=phf,
-                        site_shapes=site_shapes,
-                        catalog_cols=catalog_cols,
-                        catalog_mapping=catalog_mapping,
-                        cleaning=cleaning_report,
-                        features=feature_reports,
-                        merge=merge_report,
-                        missingness=missing_by_site,
-                        events=log.since(mark),
-                        params=params,
-                        provenance=prov,
-                        origins=origins,
-                        lv_coa_coverage=lv_coa_coverage,
-                        raw_material_columns=origins["Raw materials and consumables"],
-                        unmapped_sites=unmapped_sites,
-                        source_rows=source_rows,
-                        run_start=run_start,
-                    )
-                ),
-                staged / BUILD_OUTPUTS["report"],
+                report.build_batch_table_payload(build_run), staged / BUILD_OUTPUTS["report"]
+            )
+        missing_report = staged / BUILD_OUTPUTS["missingness report"]
+        with _preparing("the missingness report", missing_report, folder):
+            files["missingness report"] = report.write(
+                report.build_missingness_payload(build_run), missing_report
             )
         warnings, errors = _events(mark)
         log.step(

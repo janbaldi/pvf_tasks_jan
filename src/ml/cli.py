@@ -324,6 +324,10 @@ BUILD_INPUTS = (
 )
 
 
+#: The vocabulary key of the date that puts the batches in order, unless build.date_column says.
+DATE_COLUMN = "incubator_in_d0"
+
+
 def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> share.Location:
     """Build the batch table from both sites, and write it with its report.
 
@@ -344,6 +348,7 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
     target_table = workspace.location(config, "batch_table")
     folder = target_table.folder
     write_parquet = (config.get("build") or {}).get("write_parquet", True)
+    date_column = (config.get("build") or {}).get("date_column", DATE_COLUMN)
     parquet_name = f"{Path(target_table.name).stem}.parquet"
     outputs = {"batch table": target_table.name}
     if write_parquet:
@@ -457,7 +462,7 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
         result,
         catalog_mapping,
         id_column="Patient Lot/Batch #",
-        order_column=names.col("incubator_in_d0"),
+        order_column=names.col(date_column),
         site_column="Site Merged",
     )
 
@@ -1008,6 +1013,7 @@ def _unknown_keys(config: dict[str, Any]) -> list[str]:
             (config.get("cleaning") or {}).get("yes_no_defaults") or {}
         ),
         "mapping.exclude": list((config.get("mapping") or {}).get("exclude") or []),
+        "build.date_column": [(config.get("build") or {}).get("date_column", DATE_COLUMN)],
     }
     return [
         f"{where}: '{key}' is not a column key of the vocabulary (see ml.names)"

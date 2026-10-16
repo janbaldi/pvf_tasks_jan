@@ -1165,7 +1165,7 @@ def write_config(
         "sources": {"databricks": False},
         "sharepoint": sharepoint,
         "catalog": {"write_new_parameters": True},
-        "build": {"write_parquet": True},
+        "build": {"write_parquet": True, "date_column": "incubator_in_d0"},
         "cleaning": {
             "censored": "limit",
             "censored_flags": False,

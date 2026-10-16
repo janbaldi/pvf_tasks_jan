@@ -99,6 +99,10 @@ def test_the_shipped_config_is_a_valid_config():
     assert workspace.batch_table_folder(config).path.endswith("/Data/batch_data/")
     # It names columns by key only, and the keys exist.
     assert cli._unknown_keys(config) == []
+    config["build"] = {"date_column": "no_such_key"}
+    assert cli._unknown_keys(config) == [
+        "build.date_column: 'no_such_key' is not a column key of the vocabulary (see ml.names)"
+    ]
 
 
 def _fake_io_sharepoint(monkeypatch) -> list:

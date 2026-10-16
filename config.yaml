@@ -56,6 +56,8 @@ catalog:
 
 build:
   write_parquet: true      # a batch_data.parquet beside batch_data.xlsx, which keeps column types
+  date_column: incubator_in_d0   # vocabulary key of the date that orders the batches for the
+                                 # report's missingness patterns (introduced late, retired, …)
 
 cleaning:
   disable: []                     # names of corrections to switch off

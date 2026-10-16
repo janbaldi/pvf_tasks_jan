@@ -787,7 +787,7 @@ sharepoint: {vocabulary: {path: …, drive_id: …}, catalog: {path: …, sheet:
              batch_table: {…}, phf_site_a: {…}, phf_site_b: {…}, …,
              site_maps: {folder: …, files: […], sheet: …, drive_id: …}}
 catalog:    {write_new_parameters: true}
-build:      {write_parquet: true}
+build:      {write_parquet: true, date_column: incubator_in_d0}
 cleaning:   {disable: [], censored: limit, censored_flags: false,
              duration_unit: minutes, yes_no_defaults: {pre_activation_clumps_yn: 'No'}}
 mapping:    {exclude: [excluded_mapping_row]}
@@ -796,8 +796,9 @@ lv_coa:     {ph_nominal: 7.2, osmo_nominal: 300.0}
 ```
 
 `sheet:` is optional: without it, a source's worksheet is the one the
-vocabulary's `sheet` rows give. `cleaning.yes_no_defaults` and `mapping.exclude`
-name columns by their vocabulary key, not by their name; a key the vocabulary
+vocabulary's `sheet` rows give. `build.date_column` is the date that orders the
+batches for the build report's missingness patterns. It, `cleaning.yes_no_defaults`
+and `mapping.exclude` name columns by their vocabulary key, not by their name; a key the vocabulary
 does not define is refused.
 
 Unknown keys, wrong types and incomplete SharePoint entries are refused before

@@ -249,7 +249,7 @@ def validate(config: dict[str, Any], source: str = "config") -> None:
         errors.append("sharepoint: every input is read from SharePoint; add a sharepoint: block")
 
     _mapping(config.get("catalog"), "catalog", ("write_new_parameters",), errors)
-    _mapping(config.get("build"), "build", ("write_parquet",), errors)
+    _mapping(config.get("build"), "build", ("write_parquet", "date_column"), errors)
     cleaning = _mapping(config.get("cleaning"), "cleaning", CLEANING_KEYS, errors)
     if cleaning.get("disable") is not None and not isinstance(cleaning["disable"], list):
         errors.append("cleaning.disable: expected a list of correction names")

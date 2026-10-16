@@ -36,7 +36,7 @@ and adds what an audit of a column filter asks for, per parameter:
    named by where they sit: at the start (introduced late), at the end
    (retired), at both ends (measured in a window), in one stretch (gap in the
    middle). More gaps than chance is regular skipping. See :data:`PATTERNS`.
-7. A depth-2 decision tree on the categorical parameters (the site included)
+7. A depth-2 decision tree on the categorical parameters
    names the batches the parameter is missing on, e.g. "Site = B". Its leaves
    are scored like an explainer in 4. A category whose own blanks track the
    pattern is not offered to the tree, for the reason given in 5. For a group,
@@ -457,7 +457,7 @@ class _Tree:
         self.x = np.column_stack(columns) if columns else np.zeros((len(frame), 0), bool)
         self.source = np.array([candidates.index(column) for column, _ in self.names], dtype=int)
         # Features that split the batches identically (or as each other's complement)
-        # share a twin id; the tree is offered the first, so ties go to the site.
+        # share a twin id; the tree is offered the first, and the others are its aliases.
         _, self.twin = np.unique((self.x ^ self.x[:1]).T, axis=0, return_inverse=True)
         self.blanks = frame[candidates].isna().to_numpy(np.float64)
 
@@ -510,7 +510,6 @@ def for_build(
     value_types: dict[str, str],
     id_column: str,
     order_column: str,
-    site_column: str,
 ) -> tuple[list[dict], MissingnessReport]:
     """Every batch table column's missingness, and the groups that go missing together.
 
@@ -520,14 +519,13 @@ def for_build(
     """
     settings = Missingness()
     frame, order = _ordered(frame, order_column)
-    types = {**value_types, site_column: "categorical"}
-    report = analyse(frame, types, settings, id_column=id_column, order_column=order_column)
+    report = analyse(frame, value_types, settings, id_column=id_column, order_column=order_column)
     undated = int(pd.to_datetime(frame.get(order_column), errors="coerce").isna().sum())
     if undated and order_column in frame.columns:
         report.order += f", the {undated:,} batches without one last"
     log.step(MODULE, f"Profiling the gaps of {frame.shape[1]:,} columns, {order}")
 
-    tree = _Tree(frame, sorted(report.candidates, key=lambda column: column != site_column))
+    tree = _Tree(frame, report.candidates)
     blank = frame.isna()
     dates = (
         pd.to_datetime(frame[order_column], errors="coerce").dt.strftime("%Y-%m-%d")

@@ -220,18 +220,29 @@ def test_gaps_at_random_are_called_random_and_counted_against_chance():
     assert abs(stats["Missing after missing %"] - 25) < 3
 
 
-def test_the_build_report_gives_every_column_its_missingness_and_condition(built):
-    block = table_with(built["payloads"]["build"], "Missing after missing %")
-    rows = {row[0]: dict(zip(block["headers"], row)) for row in block["rows"]}
-    assert set(rows) == {str(column) for column in built["batch_table"].columns}
-    # Only site B's re-manufacturing supplement fills it: missing on site A.
-    supplement = rows[c("prior_lines")]
-    assert supplement["Condition"].startswith(f"Site Merged = {names.site('a')} ")
-    assert supplement["Condition score"] == 1.0
-    # The demo has a column that splits the batches exactly as the site does: the
-    # site is named, and the other is listed beside it.
-    assert c("mycoplasma") in supplement["Same split as"]
-    assert rows["Site Merged"]["Pattern"] == "Complete"
+def test_the_build_report_analyses_missingness_per_site(built):
+    payload = built["payloads"]["build"]
+    batch_table = built["batch_table"]
+    for number, (site, batches) in enumerate(
+        [(names.site("a"), site_a(batch_table)), (names.site("b"), site_b(batch_table))], start=1
+    ):
+        part = section(payload, f"missingness-{number}")
+        assert site in part["title"]
+        block = table_with({"sections": [part]}, "Missing after missing %")
+        rows = {row[0]: dict(zip(block["headers"], row)) for row in block["rows"]}
+        assert set(rows) == {str(column) for column in batch_table.columns}
+        # Within one site the site is constant: it neither has gaps nor explains any.
+        assert rows["Site Merged"]["Pattern"] == "Complete"
+        assert not any("Site Merged" in row["Condition"] for row in rows.values())
+        # Rates over this site's batches only.
+        for column in batch_table.columns:
+            expected = 100 * batches[column].isna().mean()
+            assert abs(rows[str(column)]["Missing %"] - expected) < 0.06, column
+    # Only site B's re-manufacturing supplement fills it.
+    a = table_with({"sections": [section(payload, "missingness-1")]}, "Missing after missing %")
+    b = table_with({"sections": [section(payload, "missingness-2")]}, "Missing after missing %")
+    assert next(r for r in a["rows"] if r[0] == c("prior_lines"))[1] == "Never recorded"
+    assert next(r for r in b["rows"] if r[0] == c("prior_lines"))[1] == "Complete"
 
 
 # ---------------------------------------------------------------------------

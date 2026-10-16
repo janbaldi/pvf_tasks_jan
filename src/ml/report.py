@@ -397,9 +397,9 @@ _MISSING_FORMATS = {
 
 
 def _missing_viewer(run: BuildRun) -> dict | None:
-    """The pattern viewer: pick parameters, or a group, and see their blanks batch by batch."""
+    """The pattern viewer, with the group and parameter tables to pick what it draws."""
     sites = []
-    for site, (rows, analysis) in run.missingness.items():
+    for number, (site, (rows, analysis)) in enumerate(run.missingness.items(), start=1):
         if not rows:
             continue
         headers = list(rows[0])
@@ -410,34 +410,56 @@ def _missing_viewer(run: BuildRun) -> dict | None:
                 "dates": analysis.dates,
                 "patterns": analysis.missing,
                 "groups": {g.name: g.members for g in analysis.groups},
+                "group_headers": list(_GROUP_FORMATS),
+                "group_rows": [
+                    [
+                        g.name,
+                        len(g.members),
+                        round(100 * g.group_rate, 1),
+                        g.kind,
+                        g.condition,
+                        round(g.explainer.score, 2) if g.explainer else None,
+                    ]
+                    for g in analysis.groups
+                ],
+                "group_formats": list(_GROUP_FORMATS.values()),
                 "headers": headers,
                 "rows": [[row[h] for h in headers] for row in rows],
                 "formats": [_MISSING_FORMATS.get(h) for h in headers],
+                "csv_name": f"missingness_site_{number}.csv",
+                "csv": csv_text([{"Site": site, **row} for row in rows]),
             }
         )
-    return _section(
-        "viewer",
-        "Pattern viewer",
-        [
-            md(
-                "Pick a site, then a group or rows of the table (tick the box at a row's left): "
-                "their missing values are drawn above it, one cell per batch, oldest on the "
-                "left. Scroll the strip sideways; hover a cell for its batch."
-            ),
-            missing_viewer(sites),
-        ],
-    )
+    return _section("viewer", "Missingness pattern", [missing_viewer(sites)])
 
 
-def _missingness_method(run: BuildRun) -> dict | None:
-    """How every number in this report was decided, once for both sites."""
+#: The group table's columns, with their display formats.
+_GROUP_FORMATS = {
+    "Group": None,
+    "Members": "%d",
+    "Batches missing ≥1 member %": "%.1f",
+    "Pattern": None,
+    "Condition": None,
+    "Condition score": "%.2f",
+}
+
+
+def _missingness_help(run: BuildRun) -> dict | None:
+    """How every number in the report was decided: the help the sidebar opens."""
     if not run.missingness:
         return None
     settings = next(iter(run.missingness.values()))[1].settings
-    return _section(
-        "method",
-        "Method",
-        [
+    return {
+        "title": "Method",
+        "blocks": [
+            md(
+                "#### Reading the report\n\n"
+                "Pick a site. Tick a group in the group table to draw all its parameters, and "
+                "tick parameters in the parameter table to add them. Each row of the plot is a "
+                "parameter, each cell a batch in date order, newest on the right: scroll left "
+                "to go back in time, hover a cell for its batch id and date. Batches with no "
+                "date come last.\n\n#### How the numbers are decided"
+            ),
             md(
                 "Each site is analysed on its own batches, in date order. This is description "
                 "only: nothing here changes the batch table.\n\n"
@@ -461,97 +483,22 @@ def _missingness_method(run: BuildRun) -> dict | None:
                 "tree's first split does: the data cannot tell them apart.\n"
                 "- A parameter this site never records is *Never recorded* here."
             ),
+            md(
+                "#### Groups of parameters missing together\n\n"
+                f"Parameters missing on {settings['min_rate']:.0%} to "
+                f"{settings['max_rate']:.0%} of a site's batches take part. Two parameters group "
+                "when the share of batches missing either that miss both (Jaccard similarity) "
+                f"reaches {settings['threshold']}, by average linkage; a group has at least "
+                f"{settings['min_size']} members. A group's pattern and condition are those of "
+                "the batches missing at least one member."
+            ),
+            md("#### Patterns"),
             table(
                 ["Pattern", "Meaning"],
                 [[esc(kind), meaning] for kind, meaning in missingness.PATTERNS.items()],
             ),
         ],
-    )
-
-
-def _site_missingness(number: int, site: str, rows: list[dict], analysis) -> dict | None:
-    """One site's pattern counts, its groups and what explains them, and its table to download."""
-    if not rows:
-        return None
-    section_id, title = f"missingness-{number}", f"{site}: patterns and groups"
-    settings = analysis.settings
-    counts = {kind: sum(row["Pattern"] == kind for row in rows) for kind in missingness.PATTERNS}
-    by_name = {row["Parameter"]: row for row in rows}
-    blocks: list[Block | None] = [
-        md(f"{len(rows):,} parameters over {analysis.rows:,} batches, {analysis.order}."),
-        table(
-            ["Pattern", "Parameters"],
-            [[esc(kind), f"{counts[kind]:,}"] for kind in missingness.PATTERNS],
-        ),
-        download(
-            f"Download missingness_site_{number}.csv",
-            f"missingness_site_{number}.csv",
-            csv_text([{"Site": site, **row} for row in rows]),
-            note="Every row of the viewer's table for this site.",
-        ),
-    ]
-    if not analysis.groups:
-        blocks.append(md("No group of parameters goes missing together."))
-        return _section(section_id, title, blocks)
-    blocks += [
-        md(
-            f"#### {len(analysis.groups)} groups of parameters missing together\n\n"
-            f"{len(analysis.analysed):,} parameters missing on {settings['min_rate']:.0%} to "
-            f"{settings['max_rate']:.0%} of the batches take part. Two parameters group when "
-            "the share of batches missing either that miss both (Jaccard similarity) reaches "
-            f"{settings['threshold']}, by average linkage; a group has at least "
-            f"{settings['min_size']} members. A group's pattern and condition are those of the "
-            "batches missing at least one member. Pick a group in the viewer to see it "
-            "batch by batch."
-        ),
-        table(
-            ["Group", "Members", "Batches missing ≥1 member (%)", "Pattern", "Condition", "Score"],
-            [
-                [
-                    esc(g.name),
-                    str(len(g.members)),
-                    f"{100 * g.group_rate:.0f}",
-                    esc(g.kind),
-                    esc(g.condition or "—"),
-                    f"{g.explainer.score:.2f}" if g.explainer else "—",
-                ]
-                for g in analysis.groups
-            ],
-        ),
-        chooser(
-            "Group",
-            [
-                {
-                    "label": g.name,
-                    "blocks": [
-                        md(
-                            f"#### {g.name}: {esc(g.kind)}\n\n"
-                            + (
-                                f"Missing when {esc(g.condition)}."
-                                if g.condition
-                                else "No clear condition."
-                            )
-                        ),
-                        table(
-                            ["Parameter", "Missing %", "Pattern", "Condition"],
-                            [
-                                [
-                                    esc(m),
-                                    f"{by_name[m]['Missing %']:.1f}",
-                                    esc(by_name[m]["Pattern"]),
-                                    esc(by_name[m]["Condition"] or "—"),
-                                ]
-                                for m in g.members
-                            ],
-                        ),
-                        plots.missing_by_category(g),
-                    ],
-                }
-                for g in analysis.groups
-            ],
-        ),
-    ]
-    return _section(section_id, title, blocks)
+    }
 
 
 def _missing_reason(run: BuildRun, parameter: str) -> str:
@@ -933,16 +880,8 @@ def build_batch_table_payload(run: BuildRun) -> dict[str, Any]:
 
 
 def build_missingness_payload(run: BuildRun) -> dict[str, Any]:
-    """The build's missingness report: the viewer on top, then the method and each site."""
-    sections = [
-        _missing_viewer(run),
-        _missingness_method(run),
-        *[
-            _site_missingness(number, site, *found)
-            for number, (site, found) in enumerate(run.missingness.items(), start=1)
-        ],
-        _provenance(run),
-    ]
+    """The build's missingness report: the viewer, its provenance, and the method as help."""
+    sections = [_missing_viewer(run), _provenance(run)]
     stamp = run.run_start.strftime("%Y-%m-%d %H:%M")
     return {
         "title": "Batch table missingness",
@@ -951,6 +890,7 @@ def build_missingness_payload(run: BuildRun) -> dict[str, Any]:
         "parameters missing with it.",
         "subtitle": f"CAR-T manufacturing data · run {stamp}",
         "sections": [section for section in sections if section],
+        "help": _missingness_help(run),
     }
 
 

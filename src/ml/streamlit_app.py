@@ -205,7 +205,8 @@ STRIP = """
               vertical-align: -1px; border-radius: 2px; }
 </style>
 <div id="legend"><b style="background:#c3c9d0;margin-left:0"></b>measured
-  <b style="background:#e8692c"></b>missing &nbsp;·&nbsp; one cell per batch, oldest on the left
+  <b style="background:#e8692c"></b>missing &nbsp;·&nbsp; one cell per batch, newest on the right;
+  scroll left to go back in time
 </div>
 <div id="wrap"><div id="names"></div><div id="scroll"><canvas id="c"></canvas></div></div>
 <div id="tip"></div>
@@ -251,21 +252,18 @@ canvas.addEventListener("mousemove", (e) => {
   tip.style.top = (e.clientY + 14) + "px";
 });
 canvas.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+// Open on the most recent batches.
+const scroller = document.getElementById("scroll");
+scroller.scrollLeft = scroller.scrollWidth;
 </script>
 """
 
 
-def render_missing_viewer(block: dict, key: str) -> None:
-    """The strip for the chosen parameters on top, the table to choose them from below."""
-    labels = [site["label"] for site in block["sites"]]
-    chosen = st.radio("Site", labels, horizontal=True, key=f"site{key}")
-    site = block["sites"][labels.index(chosen)]
-    top = st.container()
-    group = st.selectbox("Show a group", ["(none)", *site["groups"]], key=f"group{key}-{chosen}")
-
-    frame = pd.DataFrame(site["rows"], columns=site["headers"])
+def _pick_table(headers, rows, formats, mode: str, key: str):
+    """A data grid whose rows the reader ticks; the frame and the ticked row numbers."""
+    frame = pd.DataFrame(rows, columns=headers)
     config = {}
-    for header, fmt in zip(site["headers"], site["formats"]):
+    for header, fmt in zip(headers, formats):
         if fmt:
             config[header] = st.column_config.NumberColumn(header, format=fmt)
             frame[header] = pd.to_numeric(frame[header], errors="coerce")
@@ -277,22 +275,61 @@ def render_missing_viewer(block: dict, key: str) -> None:
         row_height=ROW_HEIGHT,
         height=ROW_HEIGHT * (min(len(frame), MAX_GRID_ROWS) + 1) + GUTTER,
         on_select="rerun",
-        selection_mode="multi-row",
-        key=f"rows{key}-{chosen}",
+        selection_mode=mode,
+        key=key,
     )
-    st.markdown(
-        '<p class="batch_table-caption">One row per parameter. Tick rows to draw them above; '
-        "sort by a column header, search with the magnifier at the table's top right.</p>",
-        unsafe_allow_html=True,
-    )
+    return frame, event.selection.rows
 
-    picked = list(site["groups"].get(group, []))
-    picked += [frame.iloc[i]["Parameter"] for i in event.selection.rows]
+
+def render_missing_viewer(block: dict, key: str) -> None:
+    """The strip on top; below it the groups (one to draw) and the parameters (any to add)."""
+    labels = [site["label"] for site in block["sites"]]
+    chosen = st.radio("Site", labels, horizontal=True, key=f"site{key}")
+    site = block["sites"][labels.index(chosen)]
+    top = st.container()
+
+    picked: list[str] = []
+    with st.expander(
+        f"Groups of parameters missing together ({len(site['groups'])})", expanded=True
+    ):
+        if site["groups"]:
+            groups, ticked = _pick_table(
+                site["group_headers"],
+                site["group_rows"],
+                site["group_formats"],
+                "single-row",
+                f"groups{key}-{chosen}",
+            )
+            picked += [m for i in ticked for m in site["groups"][groups.iloc[i]["Group"]]]
+            st.markdown(
+                '<p class="batch_table-caption">Tick a group to draw all its parameters.</p>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.caption("No group of parameters goes missing together at this site.")
+    with st.expander(f"Parameters ({len(site['rows'])})", expanded=False):
+        frame, ticked = _pick_table(
+            site["headers"], site["rows"], site["formats"], "multi-row", f"rows{key}-{chosen}"
+        )
+        picked += [frame.iloc[i]["Parameter"] for i in ticked]
+        st.markdown(
+            '<p class="batch_table-caption">Tick parameters to add them to the plot. Sort by a '
+            "column header; search with the magnifier at the table's top right.</p>",
+            unsafe_allow_html=True,
+        )
+        st.download_button(
+            f"Download {site['csv_name']}",
+            data=site["csv"],
+            file_name=site["csv_name"],
+            mime="text/csv",
+            key=f"dl{key}-{chosen}",
+        )
+
     picked = list(dict.fromkeys(picked))
     n = len(site["batches"])
     with top:
         if not picked:
-            st.info("Pick a group, or tick rows of the table below, to draw them here.")
+            st.info("Tick a group or parameters in the tables below to draw them here.")
             return
         data = {
             "batches": site["batches"],
@@ -373,6 +410,13 @@ def render_block(block: dict, key: str) -> None:
         st.warning(f"Unrenderable block kind: {kind}")
 
 
+@st.dialog((PAYLOAD.get("help") or {}).get("title", "Help"), width="large")
+def show_help() -> None:
+    """The report's method, out of the way of the report itself."""
+    for i, block in enumerate(PAYLOAD["help"]["blocks"]):
+        render_block(block, f"help-{i}")
+
+
 st.set_page_config(page_title=PAYLOAD["title"], layout="wide")
 st.markdown(CSS, unsafe_allow_html=True)
 
@@ -384,6 +428,10 @@ with st.sidebar:
         for section in PAYLOAD["sections"]
     )
     st.markdown(f'<nav class="batch_table-nav">{links}</nav>', unsafe_allow_html=True)
+    if PAYLOAD.get("help"):
+        st.divider()
+        if st.button(f"Help: {PAYLOAD['help']['title']}", icon=":material/help:", key="help"):
+            show_help()
 
 st.title(PAYLOAD["title"])
 if PAYLOAD.get("lead"):

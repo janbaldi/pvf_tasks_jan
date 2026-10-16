@@ -257,8 +257,12 @@ def test_the_missingness_report_analyses_each_site_on_its_own_batches(built):
     # Only site B's re-manufacturing supplement fills it.
     assert sites[names.site("a")]["patterns"][c("prior_lines")] == "1" * len(site_a(batch_table))
     assert c("prior_lines") not in sites[names.site("b")]["patterns"]
-    titles = [section["title"] for section in payload["sections"]]
-    assert any(names.site("a") in t for t in titles) and any(names.site("b") in t for t in titles)
+    # The groups table lists every group, and the method is help, not a section.
+    for site in viewer["sites"]:
+        assert [row[0] for row in site["group_rows"]] == list(site["groups"])
+        assert site["csv"].startswith("Site,Parameter,")
+    assert [section["id"] for section in payload["sections"]] == ["viewer", "provenance"]
+    assert payload["help"]["title"] == "Method"
 
 
 def test_the_build_report_leaves_missingness_to_its_own_report(built):

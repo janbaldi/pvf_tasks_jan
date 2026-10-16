@@ -26,36 +26,53 @@ import streamlit.components.v1 as components
 
 PAYLOAD = json.loads(Path("payload.json").read_text(encoding="utf-8"))
 
-# Styling touches only this module's own markup. Streamlit's internal class names
-# move between runtime versions, and a report that renders differently after an
-# upgrade is not a record of anything. Colours are expressed against the text
-# colour the viewer's theme already set, so light and dark both work.
+# The look is the CAR-T manufacturing dashboard's (its dashboard-style skill): the
+# theme and fonts come from ml.stlite, the density rules below are the dashboard's
+# own, and the rest styles only this module's markup.
 CSS = """
 <style>
-.batch_table-nav { display: flex; flex-direction: column; gap: 0.15rem; margin-top: 0.5rem; }
-.batch_table-nav a {
-  display: block; padding: 0.4rem 0.7rem; border-radius: 8px;
-  text-decoration: none; color: inherit; font-size: 0.92rem; line-height: 1.3;
-  border: 1px solid transparent; transition: background 120ms, border-color 120ms;
-}
-.batch_table-nav a:hover {
-  background: color-mix(in srgb, currentColor 10%, transparent);
-  border-color: color-mix(in srgb, currentColor 22%, transparent);
-}
-.batch_table-nav a:active { background: color-mix(in srgb, currentColor 18%, transparent); }
-.batch_table-lead { font-size: 1.02rem; opacity: 0.85; margin-bottom: 0.2rem; }
-.batch_table-sub { font-size: 0.82rem; opacity: 0.6; }
-.batch_table-flag { color: #c0392b; font-weight: 600; }
-.batch_table-caption { font-size: 0.8rem; opacity: 0.65; margin-top: -0.4rem; }
-.batch_table-scroll { overflow-x: auto; max-width: 100%; margin-bottom: 0.9rem; }
-.batch_table-scroll table { border-collapse: collapse; font-size: 0.86rem; }
+[data-testid="stHeader"] {background: transparent; pointer-events: none;}
+[data-testid="stHeader"] button, [data-testid="stHeader"] a {pointer-events: auto;}
+[data-testid="stMainBlockContainer"] {padding: 0.75rem 3rem 1.5rem;}
+[data-testid="stSidebarHeader"] {height: 1.75rem; margin-bottom: 0; padding-top: 0.25rem;}
+[data-testid="stSidebarUserContent"] {padding: 0 1rem 1.5rem;}
+[data-testid="stVerticalBlock"] {gap: 0.6rem;}
+[data-testid="stSidebarUserContent"] [data-testid="stVerticalBlock"] {gap: 0.45rem;}
+[data-testid="stWidgetLabel"] {min-height: 1.1rem; margin-bottom: 0.1rem;}
+[data-testid="stWidgetLabel"] p {font-size: 0.85rem;}
+[data-testid^="stBaseButton"] {min-height: 1.9rem; padding: 0.1rem 0.7rem;}
+
+.batch_table-name {font-size: 1rem; font-weight: 600; line-height: 1.35; margin: .3rem 0 .2rem;}
+.batch_table-title {font-size: 1.25rem; font-weight: 600; line-height: 1.4; margin: .4rem 0 0;}
+.batch_table-lead {font-size: .9rem; line-height: 1.45; margin: 0;}
+.batch_table-sub {font-size: .8rem; opacity: .65; margin: 0;}
+.batch_table-flag {color: #0047ab; font-weight: 600;}
+.batch_table-caption {font-size: .8rem; opacity: .65; margin-top: -.4rem;}
+.batch_table-scroll {overflow-x: auto; max-width: 100%; margin-bottom: .6rem;}
+.batch_table-scroll table {border-collapse: collapse; font-size: .85rem; border: none;}
 .batch_table-scroll th, .batch_table-scroll td {
-  padding: 0.3rem 0.6rem; text-align: left; vertical-align: top;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
-  white-space: nowrap;
+  padding: .25rem .6rem; text-align: left; vertical-align: top; border: none;
+  border-bottom: 1px solid #dee2e6; white-space: nowrap;
 }
-.batch_table-scroll th { font-weight: 600; opacity: 0.75; }
-.batch_table-scroll a { color: inherit; }
+.batch_table-scroll th {font-weight: 600; font-size: .8rem; opacity: .75;
+                        border-bottom-color: #c3cad2;}
+.batch_table-scroll a {color: inherit;}
+
+/* Contents: the dashboard help page's docs-style navigation list. */
+.toc-head {font-size: .75rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+           opacity: .6; margin: .6rem 0 .3rem .6rem;}
+.toc {display: flex; flex-direction: column; gap: 1px;
+       border-left: 1px solid rgba(44, 62, 80, .15);}
+.toc a {display: block; text-decoration: none !important; color: inherit !important;
+        padding: .22rem .6rem; border-left: 2px solid transparent; margin-left: -1px;
+        border-radius: 0 .25rem .25rem 0; line-height: 1.3; font-size: .85rem;}
+.toc a:hover {background: rgba(0, 102, 204, .08); color: #0066cc !important;
+              border-left-color: #0066cc;}
+.toc a.toc-l2 {font-weight: 600; margin-top: .45rem;}
+.toc a.toc-l2:first-child {margin-top: 0;}
+.toc a.toc-l3 {font-size: .8rem; padding-left: 1.3rem; opacity: .8;}
+.toc a.toc-l3:hover {opacity: 1;}
+.toc-none {font-size: .8rem; opacity: .6; padding-left: .6rem;}
 </style>
 """
 
@@ -138,7 +155,7 @@ def render_sortable(block: dict, key: str) -> None:
     if flag.get("column") in frame.columns:
         data = frame.style.map(
             lambda v: (
-                "color: #c0392b; font-weight: 600"
+                "color: #0047ab; font-weight: 600"
                 if isinstance(v, (int, float)) and v == v and v < flag["below"]
                 else ""
             ),
@@ -191,7 +208,8 @@ def render_table(block: dict, key: str) -> None:
 CELL, ROW, LABELS = 5, 16, 280
 STRIP = """
 <style>
-  body { margin: 0; font: 12px system-ui, -apple-system, "Segoe UI", sans-serif; color: #7a828c; }
+  body { margin: 0; font: 12px "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+         color: #5d6d7e; }
   #wrap { display: flex; }
   #names { flex: none; width: %(labels)dpx; }
   #names div { height: %(row)dpx; line-height: %(row)dpx; margin-bottom: 2px; padding-right: 8px;
@@ -199,13 +217,13 @@ STRIP = """
   #scroll { overflow-x: auto; flex: 1; }
   canvas { display: block; }
   #tip { position: fixed; display: none; pointer-events: none; padding: 4px 7px; border-radius: 4px;
-         background: #1f2328; color: #fff; white-space: nowrap; font-size: 12px; }
+         background: #2c3e50; color: #fff; white-space: nowrap; font-size: 12px; }
   #legend { margin: 0 0 6px %(labels)dpx; }
   #legend b { display: inline-block; width: 10px; height: 10px; margin: 0 4px 0 10px;
               vertical-align: -1px; border-radius: 2px; }
 </style>
-<div id="legend"><b style="background:#c3c9d0;margin-left:0"></b>measured
-  <b style="background:#e8692c"></b>missing &nbsp;·&nbsp; one cell per batch, newest on the right;
+<div id="legend"><b style="background:#d3d2cc;margin-left:0"></b>measured
+  <b style="background:#0047ab"></b>missing &nbsp;·&nbsp; one cell per batch, newest on the right;
   scroll left to go back in time
 </div>
 <div id="wrap"><div id="names"></div><div id="scroll"><canvas id="c"></canvas></div></div>
@@ -223,12 +241,12 @@ D.rows.forEach((row, r) => {
   const label = document.createElement("div");
   label.textContent = row.name; label.title = row.name; names.appendChild(label);
   for (let i = 0; i < n; i++) {
-    ctx.fillStyle = row.bits[i] === "1" ? "#e8692c" : "#c3c9d0";
+    ctx.fillStyle = row.bits[i] === "1" ? "#0047ab" : "#d3d2cc";
     ctx.fillRect(i * step, r * (H + GAP), W, H);
   }
 });
 // A date under the strip wherever the month changes, with room between labels.
-ctx.fillStyle = "#7a828c"; ctx.font = "11px system-ui, sans-serif";
+ctx.fillStyle = "#5d6d7e"; ctx.font = "11px system-ui, sans-serif";
 let last = -1e9, month = "";
 D.dates.forEach((date, i) => {
   const m = (date || "").slice(0, 7);
@@ -410,39 +428,218 @@ def render_block(block: dict, key: str) -> None:
         st.warning(f"Unrenderable block kind: {kind}")
 
 
-@st.dialog((PAYLOAD.get("help") or {}).get("title", "Help"), width="large")
-def show_help() -> None:
-    """The report's method, out of the way of the report itself."""
-    for i, block in enumerate(PAYLOAD["help"]["blocks"]):
-        render_block(block, f"help-{i}")
+_HEADING = re.compile(r"^(#{2,4}) (.+)$")
 
 
-st.set_page_config(page_title=PAYLOAD["title"], layout="wide")
-st.markdown(CSS, unsafe_allow_html=True)
+def _anchor(title: str, used: set[str]) -> str:
+    anchor = base = "help-" + (re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-") or "section")
+    n = 1
+    while anchor in used:
+        n += 1
+        anchor = f"{base}-{n}"
+    used.add(anchor)
+    return anchor
+
+
+def help_sections(blocks: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Split the help blocks at their markdown headings: the intro, and the sections.
+
+    A section is ``{level, title, anchor, parent, blocks}``; ``level`` is 2 for the
+    shallowest heading the help uses and 3 for anything below it.
+    """
+    found = [
+        len(m.group(1))
+        for b in blocks
+        if b["kind"] == "md"
+        for m in map(_HEADING.match, b["text"].splitlines())
+        if m
+    ]
+    top = min(found, default=2)
+    intro: list[dict] = []
+    sections: list[dict] = []
+    parent, used = "", set()
+
+    def add(block: dict) -> None:
+        (sections[-1]["blocks"] if sections else intro).append(block)
+
+    for block in blocks:
+        if block["kind"] != "md":
+            add(block)
+            continue
+        lines: list[str] = []
+        for line in block["text"].splitlines():
+            match = _HEADING.match(line)
+            if not match:
+                lines.append(line)
+                continue
+            if "\n".join(lines).strip():
+                add({"kind": "md", "text": "\n".join(lines).strip()})
+            lines = []
+            level, title = (2 if len(match.group(1)) == top else 3), match.group(2).strip()
+            parent = title if level == 2 else parent
+            sections.append(
+                {
+                    "level": level,
+                    "title": title,
+                    "anchor": _anchor(title, used),
+                    "parent": parent if level == 3 else "",
+                    "blocks": [],
+                }
+            )
+        if "\n".join(lines).strip():
+            add({"kind": "md", "text": "\n".join(lines).strip()})
+    return intro, sections
+
+
+def _words(query: str) -> list[str]:
+    return query.lower().split()
+
+
+def _text_of(block: dict) -> str:
+    if block["kind"] == "md":
+        return block["text"]
+    if block["kind"] == "table":
+        return (
+            " ".join(map(str, block["headers"]))
+            + " "
+            + " ".join(str(c) for row in block["rows"] for c in row)
+        )
+    return ""
+
+
+def highlight(markdown: str, query: str) -> str:
+    """Wrap the query words in <mark>, leaving `code` spans alone."""
+    found = sorted(set(_words(query)), key=len, reverse=True)
+    if not found:
+        return markdown
+    pattern = re.compile("|".join(re.escape(w) for w in found), re.IGNORECASE)
+    parts = markdown.split("`")
+    for i in range(0, len(parts), 2):  # even parts are outside code spans
+        parts[i] = pattern.sub(lambda m: f"<mark>{m.group(0)}</mark>", parts[i])
+    return "`".join(parts)
+
+
+def contents(links: list[tuple[int, str, str]], head: str) -> None:
+    """The sidebar's docs-style table of contents: (level, title, anchor) per entry."""
+    items = (
+        "".join(
+            f"<a class='toc-l{level}' href='#{anchor}'>{html.escape(title)}</a>"
+            for level, title, anchor in links
+        )
+        or "<span class='toc-none'>Nothing matches.</span>"
+    )
+    st.markdown(
+        f"<div class='toc-head'>{head}</div><nav class='toc'>{items}</nav>",
+        unsafe_allow_html=True,
+    )
+
+
+def title_block(title: str) -> None:
+    st.markdown(
+        f'<div class="batch_table-title">{html.escape(title)}</div>', unsafe_allow_html=True
+    )
+
+
+def help_page() -> None:
+    """The report's method on a page of its own, searchable, as the dashboard's help is."""
+    help_ = PAYLOAD["help"]
+    intro, sections = help_sections(help_["blocks"])
+
+    query = st.text_input(
+        "Search the help",
+        placeholder="Type words to find",
+        key="help_search",
+        icon=":material/search:",
+    )
+    words = _words(query)
+    hits = [
+        s
+        for s in sections
+        if all(
+            w in " ".join([s["parent"], s["title"], *map(_text_of, s["blocks"])]).lower()
+            for w in words
+        )
+    ]
+
+    with st.sidebar:
+        st.button(
+            "Back to the report",
+            icon=":material/arrow_back:",
+            on_click=st.session_state.update,
+            kwargs={"page": "report"},
+            width="stretch",
+        )
+        count = f" · {len(hits)} matching" if words else ""
+        contents([(s["level"], s["title"], s["anchor"]) for s in hits], f"Contents{count}")
+
+    if not words:
+        title_block(f"Help · {help_['title']}")
+        for i, block in enumerate(intro):
+            render_block(block, f"help-intro-{i}")
+    elif hits:
+        st.caption(f"{len(hits)} of {len(sections)} sections contain every word of the search.")
+    else:
+        st.info("No section contains all these words. Try fewer or shorter words.")
+
+    for n, s in enumerate(hits):
+        if s["level"] == 2:
+            st.header(s["title"], anchor=s["anchor"])
+        else:
+            if words:
+                st.caption(s["parent"])
+            st.subheader(s["title"], anchor=s["anchor"])
+        for i, block in enumerate(s["blocks"]):
+            if block["kind"] == "md":
+                st.markdown(highlight(block["text"], query), unsafe_allow_html=True)
+            else:
+                render_block(block, f"help-{n}-{i}")
+
+
+def report_page() -> None:
+    with st.sidebar:
+        contents([(2, s["title"], s["id"]) for s in PAYLOAD["sections"]], "Contents")
+        if PAYLOAD.get("help"):
+            st.divider()
+            st.button(
+                f"Help: {PAYLOAD['help']['title']}",
+                icon=":material/help:",
+                key="help",
+                on_click=st.session_state.update,
+                kwargs={"page": "help"},
+                width="stretch",
+            )
+
+    title_block(PAYLOAD["title"])
+    if PAYLOAD.get("lead"):
+        st.markdown(
+            f'<p class="batch_table-lead">{html.escape(PAYLOAD["lead"])}</p>',
+            unsafe_allow_html=True,
+        )
+    st.markdown(
+        f'<p class="batch_table-sub">{html.escape(PAYLOAD["subtitle"])}</p>',
+        unsafe_allow_html=True,
+    )
+
+    # Each section in a bordered box, the dashboard's expander look; expanders
+    # themselves cannot hold the folded blocks a section may contain.
+    for section in PAYLOAD["sections"]:
+        with st.container(border=True):
+            st.subheader(section["title"], anchor=section["id"])
+            for i, block in enumerate(section["blocks"]):
+                render_block(block, f"{section['id']}-{i}")
+
+
+st.set_page_config(page_title=PAYLOAD["title"], layout="wide", initial_sidebar_state="expanded")
+st.html(CSS)
 
 with st.sidebar:
-    st.markdown(f"### {PAYLOAD['title']}")
-    st.caption(PAYLOAD["subtitle"])
-    links = "".join(
-        f'<a href="#{section["id"]}">{html.escape(section["title"])}</a>'
-        for section in PAYLOAD["sections"]
-    )
-    st.markdown(f'<nav class="batch_table-nav">{links}</nav>', unsafe_allow_html=True)
-    if PAYLOAD.get("help"):
-        st.divider()
-        if st.button(f"Help: {PAYLOAD['help']['title']}", icon=":material/help:", key="help"):
-            show_help()
-
-st.title(PAYLOAD["title"])
-if PAYLOAD.get("lead"):
     st.markdown(
-        f'<p class="batch_table-lead">{html.escape(PAYLOAD["lead"])}</p>', unsafe_allow_html=True
+        f'<div class="batch_table-name">{html.escape(PAYLOAD["title"])}</div>',
+        unsafe_allow_html=True,
     )
-st.markdown(
-    f'<p class="batch_table-sub">{html.escape(PAYLOAD["subtitle"])}</p>', unsafe_allow_html=True
-)
+    st.caption(PAYLOAD["subtitle"])
 
-for section in PAYLOAD["sections"]:
-    st.header(section["title"], anchor=section["id"], divider="gray")
-    for i, block in enumerate(section["blocks"]):
-        render_block(block, f"{section['id']}-{i}")
+if PAYLOAD.get("help") and st.session_state.get("page") == "help":
+    help_page()
+else:
+    report_page()

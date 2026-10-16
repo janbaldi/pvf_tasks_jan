@@ -175,16 +175,17 @@ what came out: every parameter's source, each cleaning rule that changed
 something, and the derived features.
 
 `missingness_report.html`, beside it, shows how every parameter goes missing,
-for each site on its own batches. On top is a pattern viewer: pick a site, then
-a group or rows of the parameter table, and their missing values are drawn one
-small cell per batch in date order. The strip scrolls sideways rather than
-squeezing a long history onto the page, and hovering a cell shows its batch id
-and date. Below it, per parameter: a missingness pattern (complete, introduced
-late, retired, measured in a window, gap in the middle, clumped, random gaps,
-regular skipping) with the statistics behind it, the condition it goes missing
-on (a depth-2 decision tree on the categorical parameters), and the groups of
-parameters missing on the same batches. Each site's `missingness_site_<n>.csv`
-has one row per parameter, to filter columns by and to show why.
+for each site on its own batches. On top is the pattern plot: one row per
+parameter, one small cell per batch in date order, opening on the newest
+batches; scroll left to go back in time, hover a cell for its batch id and
+date. Below it, a table of the groups of parameters missing together (tick one
+to draw all its parameters) and, collapsed, the table of every parameter (tick
+any to add them): its missingness pattern (complete, introduced late, retired,
+measured in a window, gap in the middle, clumped, random gaps, regular
+skipping) with the statistics behind it, and the condition it goes missing on
+(a depth-2 decision tree on the categorical parameters). The parameter table
+downloads as `missingness_site_<n>.csv`, to filter columns by and to show why.
+The method is behind the *Help* button in the sidebar.
 
 ### 3. Create a task
 

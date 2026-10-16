@@ -416,9 +416,10 @@ def current() -> Vocabulary:
 
 
 def _get(kind: str, key: str) -> Any:
-    if key not in _REGISTRIES[kind]:
-        raise KeyError(f"'{key}' is not a registered {kind} key (see ml.names)")
     entries = current().entries(kind)
+    # A key the workbook adds (one config.yaml names) is as good as a registered one.
+    if key not in _REGISTRIES[kind] and key not in entries:
+        raise KeyError(f"'{key}' is not a registered {kind} key (see ml.names)")
     if key not in entries:
         raise VocabularyError(f"The vocabulary has no {kind} '{key}'")
     return entries[key]

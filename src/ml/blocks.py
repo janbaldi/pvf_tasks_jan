@@ -146,6 +146,20 @@ def deferred(label: str, children: Sequence[Block | None], hint: str = "") -> Bl
     return {"kind": "deferred", "label": label, "hint": hint, "blocks": kept}
 
 
+def missing_viewer(sites: Sequence[dict[str, Any]]) -> Block | None:
+    """Missing values per batch over time, for the parameters the reader picks.
+
+    One entry per site: ``label``; ``batches`` and ``dates`` in time order;
+    ``patterns``, parameter → missing (1) / present (0) string over the batches,
+    for the parameters with any blank; ``groups``, name → members; and the
+    parameter table as ``headers``, ``rows`` and ``formats``, to pick rows from.
+    """
+    kept = [site for site in sites if site["batches"]]
+    if not kept:
+        return None
+    return {"kind": "missing_viewer", "sites": [dict(site) for site in kept]}
+
+
 def chooser(label: str, options: Sequence[dict[str, Any]]) -> Block | None:
     """One set of blocks out of many. Only the chosen one is rendered."""
     kept = [

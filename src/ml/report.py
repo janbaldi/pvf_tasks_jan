@@ -83,9 +83,8 @@ class BuildRun:
     unmapped_sites: list[str] = field(default_factory=list)
     source_rows: list[list[str]] = field(default_factory=list)
     run_start: datetime = field(default_factory=datetime.now)
-    #: :func:`ml.missingness.for_build`: one row per column, and the groups
-    missing_rows: list[dict] = field(default_factory=list)
-    missing_groups: Any = None
+    #: site → :func:`ml.missingness.for_build` over its batches: one row per column, the groups
+    missingness: dict[str, tuple[list[dict], Any]] = field(default_factory=dict)
 
 
 def _section(section_id: str, title: str, blocks: list[Block | None]) -> dict | None:
@@ -383,11 +382,11 @@ def _inventory(run: BuildRun) -> dict | None:
     )
 
 
-def _build_missingness(run: BuildRun) -> dict | None:
-    """Every parameter's gaps, the condition it goes missing on, and the groups."""
-    rows, analysis = run.missing_rows, run.missing_groups
-    if not rows or analysis is None:
+def _site_missingness(number: int, site: str, rows: list[dict], analysis) -> dict | None:
+    """One site's parameters: their gaps, the condition they go missing on, and the groups."""
+    if not rows:
         return None
+    section_id, title = f"missingness-{number}", f"Missingness · {site}"
     settings = analysis.settings
     counts = {kind: sum(row["Pattern"] == kind for row in rows) for kind in missingness.PATTERNS}
     by_name = {row["Parameter"]: row for row in rows}
@@ -405,7 +404,8 @@ def _build_missingness(run: BuildRun) -> dict | None:
     blocks: list[Block | None] = [
         md(
             f"How each of the {len(rows):,} parameters goes missing over the "
-            f"{analysis.rows:,} batches, {analysis.order}. This is description only: nothing "
+            f"{analysis.rows:,} batches of {esc(site)}, {analysis.order}. Each site is analysed "
+            "on its own batches. This is description only: nothing "
             "here changes the batch table.\n\n"
             "- **Pattern.** A gap is a run of consecutive missing batches. The runs test "
             "compares the number of gaps with what chance gives for that many missing batches "
@@ -416,8 +416,8 @@ def _build_missingness(run: BuildRun) -> dict | None:
             "before it is missing: near the missing rate is random, near 100% is long gaps, "
             "near 0% is regular skipping.\n"
             f"- **Condition.** A decision tree of depth {missingness.TREE_DEPTH} on the "
-            f"categorical parameters with 2 to {settings['max_categories']} categories, the "
-            f"site included, with at least {missingness.MIN_PER_CATEGORY} batches per leaf, "
+            f"categorical parameters with 2 to {settings['max_categories']} categories at "
+            f"this site, with at least {missingness.MIN_PER_CATEGORY} batches per leaf, "
             "names the batches a parameter is missing on. A category whose own blanks track "
             f"the parameter's (|phi| > {missingness.SELF_CORRELATION}) is not offered to it. "
             "The score is the mutual information between the tree's leaves and the missing "
@@ -425,8 +425,7 @@ def _build_missingness(run: BuildRun) -> dict | None:
             f"decides. It is given as the condition from {missingness.CONDITIONAL}. "
             "*Same split as* lists the parameters that split the batches exactly as the "
             "tree's first split does: the data cannot tell them apart.\n"
-            "- Read the pattern with the condition: a parameter one site never records "
-            "shows that site's batches as gaps in date order."
+            "- A parameter this site never records is *Never recorded* here."
         ),
         table(
             ["Pattern", "Parameters", "Meaning"],
@@ -442,11 +441,15 @@ def _build_missingness(run: BuildRun) -> dict | None:
             filter_column="Parameter",
             note="One row per batch table column. Click a column header to sort.",
         ),
-        download("Download missingness.csv", "missingness.csv", csv_text(rows)),
+        download(
+            f"Download missingness_site_{number}.csv",
+            f"missingness_site_{number}.csv",
+            csv_text([{"Site": site, **row} for row in rows]),
+        ),
     ]
     if not analysis.groups:
         blocks.append(md("No group of parameters goes missing together."))
-        return _section("missingness", "Missingness", blocks)
+        return _section(section_id, title, blocks)
     blocks += [
         md(
             f"#### {len(analysis.groups)} groups of parameters missing together\n\n"
@@ -505,7 +508,7 @@ def _build_missingness(run: BuildRun) -> dict | None:
             ],
         ),
     ]
-    return _section("missingness", "Missingness", blocks)
+    return _section(section_id, title, blocks)
 
 
 def _missing_reason(run: BuildRun, parameter: str) -> str:
@@ -869,7 +872,10 @@ def build_batch_table_payload(run: BuildRun) -> dict[str, Any]:
         _sources(run),
         _cleaning(run),
         _inventory(run),
-        _build_missingness(run),
+        *[
+            _site_missingness(number, site, *found)
+            for number, (site, found) in enumerate(run.missingness.items(), start=1)
+        ],
         _catalog_coverage(run),
         _features(run),
         _enrichment(run),

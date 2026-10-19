@@ -463,15 +463,16 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
     merge_report = merge.run_sanity_checks(result, phf, catalog_cols, catalog_mapping)
     origins["Merge"] = ["Site Merged"]
     # Per site: the sites record differently, and pooled they read as each other's gaps.
-    missing_by_site = {
-        site: missingness.for_build(
-            result[result["Site Merged"] == site],
+    missing_by_site = {}
+    for site in names.sites():
+        batches, cohort = _missingness_cohort(result[result["Site Merged"] == site], site, config)
+        missing_by_site[site] = missingness.for_build(
+            batches,
             catalog_mapping,
             id_column="Patient Lot/Batch #",
             order_column=names.col(date_column),
         )
-        for site in names.sites()
-    }
+        missing_by_site[site][1].cohort = cohort
 
     # ── Write ──────────────────────────────────────────────────────────────
     log.section("06 · Output")
@@ -1015,6 +1016,38 @@ def validate(config: dict[str, Any] | None, specs: list[TaskSpec]) -> list[str]:
     return problems
 
 
+def _missingness_cohort(
+    batches: pd.DataFrame, site: str, config: dict[str, Any]
+) -> tuple[pd.DataFrame, str]:
+    """The site's batches the missingness report describes, and how they were chosen.
+
+    ``build.missingness_cohort`` keeps the batches whose ``column`` holds ``value``
+    (both vocabulary keys; compared without case or surrounding spaces), except at
+    the sites in ``all_batches_at``, where every batch qualifies. Unset, every
+    batch is described.
+    """
+    rule = (config.get("build") or {}).get("missingness_cohort")
+    if not rule:
+        return batches, ""
+    wanted = names.value(rule["value"])
+    if site in {names.site(key) for key in rule.get("all_batches_at") or []}:
+        return batches, f"all {len(batches):,} batches (every {wanted} batch at this site)"
+    column = names.col(rule["column"])
+    if column not in batches.columns:
+        raise ValueError(
+            f"build.missingness_cohort: {site} has no '{column}' column to select "
+            f"{wanted} batches by"
+        )
+    recorded = batches[column].astype("string").str.strip().str.casefold()
+    kept = batches[recorded == wanted.strip().casefold()]
+    log.info(
+        MODULE,
+        f"[{site}] missingness report: {len(kept):,} of {len(batches):,} batches, "
+        f"{column} = {wanted}",
+    )
+    return kept, f"{len(kept):,} of {len(batches):,} batches: {column} = {wanted}"
+
+
 def _unknown_keys(config: dict[str, Any]) -> list[str]:
     """Settings that name a column by a key the loaded vocabulary does not define."""
     named = {
@@ -1024,12 +1057,30 @@ def _unknown_keys(config: dict[str, Any]) -> list[str]:
         "mapping.exclude": list((config.get("mapping") or {}).get("exclude") or []),
         "build.date_column": [(config.get("build") or {}).get("date_column", DATE_COLUMN)],
     }
-    return [
+    problems = [
         f"{where}: '{key}' is not a column key of the vocabulary (see ml.names)"
         for where, keys in named.items()
         for key in keys
         if str(key) not in names.current().columns
     ]
+    cohort = (config.get("build") or {}).get("missingness_cohort") or {}
+    if cohort:
+        if str(cohort.get("column")) not in names.current().columns:
+            problems.append(
+                f"build.missingness_cohort.column: '{cohort.get('column')}' is not a column "
+                "key of the vocabulary (see ml.names)"
+            )
+        if str(cohort.get("value")) not in names.current().values:
+            problems.append(
+                f"build.missingness_cohort.value: '{cohort.get('value')}' is not a value "
+                "key of the vocabulary (see ml.names)"
+            )
+        for key in cohort.get("all_batches_at") or []:
+            if str(key) not in names.current().sites:
+                problems.append(
+                    f"build.missingness_cohort.all_batches_at: '{key}' is not a site key (a or b)"
+                )
+    return problems
 
 
 def _check_task(config: dict[str, Any] | None, spec: TaskSpec) -> list[str]:

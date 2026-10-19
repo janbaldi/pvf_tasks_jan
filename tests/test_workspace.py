@@ -103,6 +103,18 @@ def test_the_shipped_config_is_a_valid_config():
     assert cli._unknown_keys(config) == [
         "build.date_column: 'no_such_key' is not a column key of the vocabulary (see ml.names)"
     ]
+    config["build"] = {
+        "missingness_cohort": {"column": "no_col", "value": "no_value", "all_batches_at": ["z"]}
+    }
+    problems = cli._unknown_keys(config)
+    for setting in ("cohort.column", "cohort.value", "cohort.all_batches_at"):
+        assert any(setting in p for p in problems), setting
+    config["build"] = {
+        "missingness_cohort": {"column": "no_col", "value": "no_value", "all_batches_at": ["z"]}
+    }
+    problems = cli._unknown_keys(config)
+    for setting in ("cohort.column", "cohort.value", "cohort.all_batches_at"):
+        assert any(setting in p for p in problems), setting
 
 
 def test_a_key_the_vocabulary_workbook_adds_can_be_named_in_config():
@@ -212,6 +224,10 @@ def test_the_env_file_beside_the_config_is_loaded_with_it(tmp_path, monkeypatch)
         ({"sharepoint": {"catalog": {"sheet": "x"}}}, "sharepoint.catalog.path"),
         ({"cleaning": {"censord": "half"}}, "cleaning.censord"),
         ({"features": {"co2": 5}}, "features.co2"),
+        ({"build": {"missingness_cohort": {"column": "batch_type"}}}, "missingness_cohort.value"),
+        ({"build": {"missingness_cohort": {"value": "x", "column": "y", "on": 1}}}, "cohort.on"),
+        ({"build": {"missingness_cohort": {"column": "batch_type"}}}, "missingness_cohort.value"),
+        ({"build": {"missingness_cohort": {"value": "x", "column": "y", "on": 1}}}, "cohort.on"),
         ({"tasks": {"target": "x"}}, "unknown setting"),
     ],
 )
@@ -597,3 +613,25 @@ def test_the_task_transformer_runs_inside_grouped_cross_validation(built):
     assert len(predictions) == len(y) and np.isfinite(predictions).all()
     # Nothing scaled to unit variance became a wild extrapolation.
     assert np.abs(predictions - y.mean()).max() < 10 * y.std()
+
+
+def test_the_missingness_cohort_keeps_every_batch_at_a_site_that_records_no_kind():
+    config = {
+        "build": {
+            "missingness_cohort": {
+                "column": "batch_type",
+                "value": "type_commercial",
+                "all_batches_at": ["b"],
+            }
+        }
+    }
+    kind = names.col("batch_type")
+    wanted = names.value("type_commercial")
+    first = pd.DataFrame({kind: [wanted, wanted.upper(), f" {wanted.lower()} ", "other", None]})
+    kept, why = cli._missingness_cohort(first, names.site("a"), config)
+    assert len(kept) == 3, "case and surrounding spaces do not matter"
+    assert "3 of 5 batches" in why
+    second = pd.DataFrame({kind: [None, None]})
+    kept, why = cli._missingness_cohort(second, names.site("b"), config)
+    assert len(kept) == 2, "a blank kind at an all-batches site still counts"
+    assert cli._missingness_cohort(first, names.site("a"), {})[0] is first

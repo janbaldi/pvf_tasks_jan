@@ -906,11 +906,17 @@ def build_missingness_payload(run: BuildRun) -> dict[str, Any]:
     """The build's missingness report: the viewer, its provenance, and the method as help."""
     sections = [_missing_viewer(run), _provenance(run)]
     stamp = run.run_start.strftime("%Y-%m-%d %H:%M")
+    cohorts = [
+        f"{site}: {analysis.cohort}"
+        for site, (_, analysis) in run.missingness.items()
+        if analysis.cohort
+    ]
     return {
         "title": "Batch table missingness",
         "lead": f"How each of the {run.merge.total_columns:,} parameters goes missing, per site, "
         "batch by batch: its pattern over time, the condition it goes missing on, and the "
-        "parameters missing with it.",
+        "parameters missing with it."
+        + (" Batches described — " + "; ".join(cohorts) + "." if cohorts else ""),
         "subtitle": f"CAR-T manufacturing data · run {stamp}",
         "sections": [section for section in sections if section],
         "help": _missingness_help(run),

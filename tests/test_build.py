@@ -248,6 +248,26 @@ def _missingness_payload(built) -> dict:
     return stlite.read_payload(page.read_text(encoding="utf-8"))
 
 
+def _commercial(batches: pd.DataFrame) -> pd.DataFrame:
+    return batches[batches[c("batch_type")] == v("type_commercial")]
+
+
+def test_the_missingness_report_describes_commercial_batches_only(built):
+    payload = _missingness_payload(built)
+    viewer = next(b for b in payload["sections"][0]["blocks"] if b["kind"] == "missing_viewer")
+    sites = {site["label"]: site for site in viewer["sites"]}
+    batch_table = built["batch_table"]
+    first, second = site_a(batch_table), site_b(batch_table)
+    # Site A records the batch kind and has non-commercial batches; they are left out.
+    assert len(_commercial(first)) < len(first)
+    assert sorted(sites[names.site("a")]["batches"]) == sorted(
+        _commercial(first)["Patient Lot/Batch #"].astype(str)
+    )
+    # Every site B batch counts, whatever its record says.
+    assert len(sites[names.site("b")]["batches"]) == len(second)
+    assert f"{len(_commercial(first))} of {len(first)} batches" in payload["lead"]
+
+
 def test_the_missingness_report_analyses_each_site_on_its_own_batches(built):
     payload = _missingness_payload(built)
     assert payload["sections"][0]["id"] == "viewer", "the viewer is on top"
@@ -255,7 +275,7 @@ def test_the_missingness_report_analyses_each_site_on_its_own_batches(built):
     batch_table = built["batch_table"]
     sites = {site["label"]: site for site in viewer["sites"]}
     for name, batches in (
-        (names.site("a"), site_a(batch_table)),
+        (names.site("a"), _commercial(site_a(batch_table))),
         (names.site("b"), site_b(batch_table)),
     ):
         site = sites[name]
@@ -277,7 +297,9 @@ def test_the_missingness_report_analyses_each_site_on_its_own_batches(built):
         for group, members in site["groups"].items():
             assert all(rows[m]["Group"] == group for m in members)
     # Only site B's re-manufacturing supplement fills it.
-    assert sites[names.site("a")]["patterns"][c("prior_lines")] == "1" * len(site_a(batch_table))
+    assert sites[names.site("a")]["patterns"][c("prior_lines")] == "1" * len(
+        _commercial(site_a(batch_table))
+    )
     assert c("prior_lines") not in sites[names.site("b")]["patterns"]
     # The groups table lists every group, and the method is help, not a section.
     for site in viewer["sites"]:

@@ -1,5 +1,6 @@
 Kind,Key,Name,What it is (demo name)
 column,date_start,Date of Manufacture Start,Start date
+column,batch_type,Type,Batch kind
 column,pt_cd4_pct,Post Thaw FLOW CD4+ (%),Thawed CD4 share (%)
 column,pt_cd8_pct,Post Thaw FLOW CD8+ (%),Thawed CD8 share (%)
 column,pt_cd3_pct,Post Thaw FLOW CD3+ (%),Thawed CD3 share (%)
@@ -234,6 +235,7 @@ value,growth_profile_classes,normal,slow / fast / typical
 value,cd4_profile_classes,low CD4,CD4 low / CD4 high / CD4 mid
 value,cd4_profile_classes,high CD4,CD4 low / CD4 high / CD4 mid
 value,cd4_profile_classes,medium CD4,CD4 low / CD4 high / CD4 mid
+value,type_commercial,Commercial,Routine
 value,dose_basis_classes,per kg,by weight / fixed count
 value,dose_basis_classes,flat,by weight / fixed count
 value,status_aliases,withdrawn|withdrawal,recalled|recall / halted|halt

@@ -56,7 +56,6 @@ DEMO_COLUMNS: dict[str, str] = {
     "mycoplasma": "Contaminant test",
     "oos_type": "Out-of-spec class",
     "nonconformance": "Deviation class",
-    "batch_type": "Batch kind",
     "disposition": "Outcome",
     "pt_cd4_cd8_ratio": "Thawed CD4 to CD8 ratio",
     "seeding_density_a": "Seeding density vessel A",
@@ -88,7 +87,6 @@ DEMO_VALUES: dict[str, str | tuple[str, ...]] = {
     "batch_prefix_b": "SB",
     "clinical_sites_a": ("Hill Clinic", "Lake Hospital\xa0", " River Centre", ""),
     "countries_a": ("Northland", "Westland"),
-    "type_commercial": "Routine",
     "type_clinical": "Trial",
     "released": "Accepted",
     "rejected": "Refused",
@@ -1178,7 +1176,16 @@ def write_config(
         "sources": {"databricks": False},
         "sharepoint": sharepoint,
         "catalog": {"write_new_parameters": True},
-        "build": {"write_parquet": True, "date_column": "incubator_in_d0"},
+        "build": {
+            "write_parquet": True,
+            "date_column": "incubator_in_d0",
+            # Commercial batches only; every batch at site B is one.
+            "missingness_cohort": {
+                "column": "batch_type",
+                "value": "type_commercial",
+                "all_batches_at": ["b"],
+            },
+        },
         "cleaning": {
             "censored": "limit",
             "censored_flags": False,

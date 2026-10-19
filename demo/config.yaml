@@ -44,6 +44,12 @@ catalog:
   write_new_parameters: true
 build:
   write_parquet: true
+  date_column: incubator_in_d0
+  missingness_cohort:
+    column: batch_type
+    value: type_commercial
+    all_batches_at:
+    - b
 cleaning:
   censored: limit
   censored_flags: false

@@ -249,7 +249,23 @@ def validate(config: dict[str, Any], source: str = "config") -> None:
         errors.append("sharepoint: every input is read from SharePoint; add a sharepoint: block")
 
     _mapping(config.get("catalog"), "catalog", ("write_new_parameters",), errors)
-    _mapping(config.get("build"), "build", ("write_parquet", "date_column"), errors)
+    build = _mapping(
+        config.get("build"), "build", ("write_parquet", "date_column", "missingness_cohort"), errors
+    )
+    cohort = _mapping(
+        build.get("missingness_cohort"),
+        "build.missingness_cohort",
+        ("column", "value", "all_batches_at"),
+        errors,
+    )
+    if cohort:
+        for key in ("column", "value"):
+            if not cohort.get(key):
+                errors.append(f"build.missingness_cohort.{key}: required (a vocabulary key)")
+        if cohort.get("all_batches_at") is not None and not isinstance(
+            cohort["all_batches_at"], list
+        ):
+            errors.append("build.missingness_cohort.all_batches_at: expected a list of site keys")
     cleaning = _mapping(config.get("cleaning"), "cleaning", CLEANING_KEYS, errors)
     if cleaning.get("disable") is not None and not isinstance(cleaning["disable"], list):
         errors.append("cleaning.disable: expected a list of correction names")

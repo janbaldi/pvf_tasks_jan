@@ -144,6 +144,8 @@ class MissingnessReport:
     singletons: list[str] = field(default_factory=list)
     candidates: list[str] = field(default_factory=list)
     order: str = ""
+    #: Which of the site's batches the analysis covers, when not all of them.
+    cohort: str = ""
     settings: dict = field(default_factory=dict)
     #: Set by the build, for the pattern viewer: the batches in order, and per
     #: column with any blank its missing (1) / present (0) string over them.

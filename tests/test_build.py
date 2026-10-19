@@ -281,9 +281,9 @@ def test_the_missingness_report_analyses_each_site_on_its_own_batches(built):
         site = sites[name]
         rows = {row[0]: dict(zip(site["headers"], row)) for row in site["rows"]}
         assert set(rows) == {str(column) for column in batch_table.columns}
-        # Within one site the site is constant: it neither has gaps nor explains any.
+        # Within one site the site is constant, and no condition column is reported.
         assert rows["Site Merged"]["Pattern"] == "Complete"
-        assert not any("Site Merged" in row["Condition"] for row in rows.values())
+        assert not {"Condition", "Condition score", "Same split as"} & set(site["headers"])
         # Rates over this site's batches only, and the strip says the same batch by batch.
         assert sorted(site["batches"]) == sorted(batches["Patient Lot/Batch #"].astype(str))
         for column in batch_table.columns:

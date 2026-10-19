@@ -182,8 +182,7 @@ date. Below it, a table of the groups of parameters missing together (tick one
 to draw all its parameters) and, collapsed, the table of every parameter (tick
 any to add them): its missingness pattern (complete, introduced late, retired,
 measured in a window, gap in the middle, clumped, random gaps, regular
-skipping) with the statistics behind it, and the condition it goes missing on
-(a depth-2 decision tree on the categorical parameters). The parameter table
+skipping) with the statistics behind it. The parameter table
 downloads as `missingness_site_<n>.csv`, to filter columns by and to show why.
 The method is behind the *Help* button in the sidebar.
 

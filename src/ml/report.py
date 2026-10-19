@@ -392,7 +392,6 @@ _MISSING_FORMATS = {
     "Longest gap": "%d",
     "Missing after missing %": "%.1f",
     f"Measured in last {missingness.RECENT} %": "%.0f",
-    "Condition score": "%.2f",
 }
 
 
@@ -417,8 +416,6 @@ def _missing_viewer(run: BuildRun) -> dict | None:
                         len(g.members),
                         round(100 * g.group_rate, 1),
                         g.kind,
-                        g.condition,
-                        round(g.explainer.score, 2) if g.explainer else None,
                     ]
                     for g in analysis.groups
                 ],
@@ -439,8 +436,6 @@ _GROUP_FORMATS = {
     "Members": "%d",
     "Batches missing ≥1 member %": "%.1f",
     "Pattern": None,
-    "Condition": None,
-    "Condition score": "%.2f",
 }
 
 
@@ -471,16 +466,6 @@ def _missingness_help(run: BuildRun) -> dict | None:
                 "- **Missing after missing** is the share of batches missing when the batch "
                 "before it is missing: near the missing rate is random, near 100% is long gaps, "
                 "near 0% is regular skipping.\n"
-                f"- **Condition.** A decision tree of depth {missingness.TREE_DEPTH} on the "
-                f"categorical parameters with 2 to {settings['max_categories']} categories at "
-                f"this site, with at least {missingness.MIN_PER_CATEGORY} batches per leaf, "
-                "names the batches a parameter is missing on. A category whose own blanks track "
-                f"the parameter's (|phi| > {missingness.SELF_CORRELATION}) is not offered to it. "
-                "The score is the mutual information between the tree's leaves and the missing "
-                "pattern over the pattern's entropy: 0 says nothing, 1 says the condition alone "
-                f"decides. It is given as the condition from {missingness.CONDITIONAL}. "
-                "*Same split as* lists the parameters that split the batches exactly as the "
-                "tree's first split does: the data cannot tell them apart.\n"
                 "- A parameter this site never records is *Never recorded* here."
             ),
             md(
@@ -489,7 +474,7 @@ def _missingness_help(run: BuildRun) -> dict | None:
                 f"{settings['max_rate']:.0%} of a site's batches take part. Two parameters group "
                 "when the share of batches missing either that miss both (Jaccard similarity) "
                 f"reaches {settings['threshold']}, by average linkage; a group has at least "
-                f"{settings['min_size']} members. A group's pattern and condition are those of "
+                f"{settings['min_size']} members. A group's pattern is that of "
                 "the batches missing at least one member."
             ),
             md("#### Patterns"),
@@ -914,8 +899,7 @@ def build_missingness_payload(run: BuildRun) -> dict[str, Any]:
     return {
         "title": "Batch table missingness",
         "lead": f"How each of the {run.merge.total_columns:,} parameters goes missing, per site, "
-        "batch by batch: its pattern over time, the condition it goes missing on, and the "
-        "parameters missing with it."
+        "batch by batch: its pattern over time and the parameters missing with it."
         + (" Batches described — " + "; ".join(cohorts) + "." if cohorts else ""),
         "subtitle": f"CAR-T manufacturing data · run {stamp}",
         "sections": [section for section in sections if section],

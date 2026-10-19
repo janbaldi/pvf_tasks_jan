@@ -41,6 +41,7 @@ SHAREPOINT_ENV = {
     "SHAREPOINT_LV_COA": "Team%20Site/Data/coa.xlsx",
     "SHAREPOINT_RAW_MATERIALS": "Team%20Site/Data/consumables.xlsx",
     "SHAREPOINT_INVESTIGATIONS": "Investigations/power_query.xlsx",
+    "SHAREPOINT_SCREENING": "Team%20Site/Data/catalog/parameter_screening.xlsx",
     "SHAREPOINT_SITE_MAPS_FOLDER": "Team%20Site/Data/mappings/",
     "SHAREPOINT_SITE_MAPS_FILES": "first.xlsx, second.xlsx,third.xlsx",
 }
@@ -306,6 +307,7 @@ def test_a_run_carries_its_inputs_and_can_be_redone_from_its_folder_alone(built)
     assert settings["inputs"] == {
         "batch_table": "../inputs/batch_table.xlsx",
         "catalog": "../inputs/catalog.xlsx",
+        "screening": "../inputs/screening.xlsx",
     }
 
     again = cli.rerun(run)

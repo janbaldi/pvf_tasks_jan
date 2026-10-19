@@ -39,7 +39,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from . import corrections, features, names
+from . import corrections, features, names, screening
 from .encode import sanitise
 
 SEED = 20260917
@@ -1055,6 +1055,7 @@ FILES = {
     "raw_materials": "raw_materials.xlsx",
     "investigations": "investigations_power_query.xlsx",
     "vocabulary": "vocabulary.xlsx",
+    "screening": "parameter_screening.xlsx",
 }
 SITE_MAP_FILES = ("site_map_first.xlsx", "site_map_second.xlsx")
 
@@ -1107,6 +1108,32 @@ def write_sources(directory: Path, seed: int = SEED) -> dict[str, object]:
     }
 
 
+def screened_parameter() -> str:
+    return c("mixing_cycles")  # screened out at site A: the expression task leaves it out
+
+
+def screening_decisions() -> list[screening.Decision]:
+    """The demo's register: one parameter excluded at site A, as `ml screening add` writes it."""
+    return [
+        screening.Decision(
+            id="S-0001",
+            date="2026-09-01",
+            author="Demo reviewer",
+            action=screening.EXCLUDE,
+            parameter=screened_parameter(),
+            site=names.site("a"),
+            group="",
+            reason="irregular",
+            rationale="recorded inconsistently between shifts",
+            missing="0.0",
+            pattern="Complete",
+            last_measured="",
+            batch_table="",
+            review_by="2026-12-01",
+        )
+    ]
+
+
 #: The drive the demo's stand-in share holds everything on.
 DRIVE = "DEMO_DRIVE"
 #: Where each demo file is on that drive, as config.yaml writes a SharePoint path.
@@ -1139,6 +1166,7 @@ def write_config(
     sources = write_sources(drive / FOLDERS["raw"], seed=seed)
     (drive / FOLDERS["catalog"]).mkdir(parents=True, exist_ok=True)
     Path(sources["catalog"]).replace(drive / FOLDERS["catalog"] / FILES["catalog"])
+    screening.write(screening_decisions(), drive / FOLDERS["catalog"] / FILES["screening"])
 
     def at(folder: str, name: str) -> dict[str, object]:
         return {"path": f"{FOLDERS[folder]}{name}", "drive_id": DRIVE}
@@ -1147,6 +1175,7 @@ def write_config(
         "vocabulary": at("raw", FILES["vocabulary"]),
         "catalog": at("catalog", FILES["catalog"]),
         "batch_table": at("batch_data", "batch_data.xlsx"),
+        "screening": at("catalog", FILES["screening"]),
         **{
             label: at("raw", FILES[label])
             for label in (

@@ -46,6 +46,7 @@ sharepoint:
   lv_coa:         {path: "${SHAREPOINT_LV_COA}", drive_id: "${SHAREPOINT_DRIVE_A}"}
   raw_materials:  {path: "${SHAREPOINT_RAW_MATERIALS}", drive_id: "${SHAREPOINT_DRIVE_A}"}
   investigations: {path: "${SHAREPOINT_INVESTIGATIONS}", drive_id: "${SHAREPOINT_DRIVE_A}"}
+  screening:      {path: "${SHAREPOINT_SCREENING}", drive_id: "${SHAREPOINT_DRIVE_A}"}  # ml screening
   site_maps:
     folder: "${SHAREPOINT_SITE_MAPS_FOLDER}"
     files: "${SHAREPOINT_SITE_MAPS_FILES}"     # comma-separated workbook names

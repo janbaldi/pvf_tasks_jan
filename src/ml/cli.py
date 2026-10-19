@@ -61,6 +61,7 @@ from . import (
     recipe,
     report,
     scaffold,
+    screening,
     share,
     taskconfig,
 )
@@ -86,6 +87,7 @@ USER_ERRORS = (
     TaskConfigError,
     dataset.TaskRefused,
     corrections.CorrectionsError,
+    screening.ScreeningError,
     FileNotFoundError,
     FileExistsError,
 )
@@ -105,6 +107,7 @@ CATALOG_OUTPUTS = {
 BUILD_OUTPUTS = {
     "report": "build_report.html",
     "missingness report": "missingness_report.html",
+    "missingness table": screening.EVIDENCE_FILE,
     "manifest": "batch_table_manifest.json",
 }
 
@@ -473,6 +476,7 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
             order_column=names.col(date_column),
         )
         missing_by_site[site][1].cohort = cohort
+    _mark_screened(missing_by_site, config)
 
     # ── Write ──────────────────────────────────────────────────────────────
     log.section("06 · Output")
@@ -524,6 +528,10 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
             files["report"] = report.write(
                 report.build_batch_table_payload(build_run), staged / BUILD_OUTPUTS["report"]
             )
+        evidence = staged / BUILD_OUTPUTS["missingness table"]
+        with _preparing("the missingness table", evidence, folder):
+            _write_evidence(evidence, missing_by_site, content_digest, run_start)
+            files["missingness table"] = evidence
         missing_report = staged / BUILD_OUTPUTS["missingness report"]
         with _preparing("the missingness report", missing_report, folder):
             files["missingness report"] = report.write(
@@ -575,6 +583,139 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
     )
     log.summary(mark)
     return dict(uploaded)["report"]
+
+
+def _register(config: dict[str, Any]) -> screening.Register | None:
+    """The screening register config.yaml points at, or None when it points at none."""
+    if not workspace.has(config, "screening"):
+        return None
+    return screening.read(workspace.location(config, "screening"), names.sites())
+
+
+def _mark_screened(missing_by_site: dict[str, tuple], config: dict[str, Any]) -> None:
+    """Add each parameter's standing screening decision to the missingness rows."""
+    try:
+        register = _register(config)
+    except Exception as exc:  # the report is still worth having without the column
+        log.warn(MODULE, f"The screening register could not be read: {exc}")
+        return
+    state = screening.current(register.decisions, names.sites()) if register else {}
+    for site, (rows, _) in missing_by_site.items():
+        for row in rows:
+            row["Screening"] = screening.note(state.get((row["Parameter"], site)))
+
+
+def _write_evidence(
+    path: Path, missing_by_site: dict[str, tuple], content_digest: str, run_start: datetime
+) -> Path:
+    """Every parameter's missingness per site, which `ml screening add` cites."""
+    with pd.ExcelWriter(path) as workbook:
+        screening.evidence_frame(
+            {site: rows for site, (rows, _) in missing_by_site.items()}
+        ).to_excel(workbook, sheet_name=screening.EVIDENCE_SHEET, index=False)
+        pd.DataFrame(
+            [
+                {"Item": "Batch table content digest", "Value": content_digest},
+                {"Item": "Built", "Value": run_start.strftime("%Y-%m-%d %H:%M")},
+                *(
+                    {"Item": f"Batches described at {site}", "Value": analysis.cohort or "all"}
+                    for site, (_, analysis) in missing_by_site.items()
+                ),
+            ]
+        ).to_excel(workbook, sheet_name=screening.ABOUT_SHEET, index=False)
+    return path
+
+
+def run_screening_add(
+    config: dict[str, Any], proposal: str | Path, author: str, new: bool = False
+) -> share.Location:
+    """Check a proposal against the latest build, and append it to the register."""
+    mark = log.mark()
+    log.stage("Screening: adding decisions")
+    workspace.require(config, ("vocabulary", "batch_table", "screening"))
+    workspace.load_vocabulary(config)
+    sites = names.sites()
+    where = workspace.location(config, "screening")
+    try:
+        register = screening.read(where, sites)
+    except screening.ScreeningError:
+        raise
+    except Exception as exc:
+        if not new:
+            raise FileNotFoundError(
+                f"The screening register could not be read from {where} ({exc}). "
+                "To start a new one, pass --new"
+            ) from exc
+        log.info(MODULE, "Starting a new screening register", str(where))
+        register = screening.Register([], str(where))
+    evidence, digest = _latest_evidence(config)
+    added = screening.add(
+        register.decisions, io.read_table(proposal), evidence, digest, author, sites
+    )
+    with tempfile.TemporaryDirectory(prefix="ml-screening-") as staging:
+        path = Path(staging) / where.name
+        screening.write(register.decisions + added, path)
+        share.upload({"screening register": path}, where.folder)
+    screening.log_added(added)
+    log.facts(
+        "Screening register updated",
+        [
+            ("Register", str(where)),
+            ("State", screening.status_line(register.decisions + added, sites)),
+            ("Next", "every task run from now on leaves these parameters out"),
+        ],
+    )
+    log.summary(mark)
+    return where
+
+
+def run_screening_status(config: dict[str, Any]) -> list[dict]:
+    """What the register excludes today, and which decisions the latest build questions."""
+    log.stage("Screening: status")
+    workspace.require(config, ("vocabulary", "batch_table", "screening"))
+    workspace.load_vocabulary(config)
+    sites = names.sites()
+    register = screening.read(workspace.location(config, "screening"), sites)
+    standing = screening.summary(register.decisions, sites)
+    log.facts(
+        "Screening register",
+        [("Where", register.where), ("State", screening.status_line(register.decisions, sites))],
+    )
+    log.names(
+        "Excluded today",
+        level="INFO",
+        names=[
+            f"{r.Parameter} @ {r.Site} — {r.Decision}, {r.Reason}" for r in standing.itertuples()
+        ],
+    )
+    evidence, _ = _latest_evidence(config)
+    findings = screening.review(register.decisions, evidence, sites)
+    log.names(
+        "Decisions to look at again",
+        [
+            f"{f['Decision']} {f['Parameter']} @ {f['Site']}: {f['Why look again']}"
+            for f in findings
+        ],
+        level="WARN",
+    )
+    if not findings:
+        log.success(MODULE, "The latest build gives no reason to revisit a decision")
+    return findings
+
+
+def _latest_evidence(config: dict[str, Any]) -> tuple[pd.DataFrame, str]:
+    """The latest build's missingness table, and the digest of the batch table it describes."""
+    where = workspace.batch_table_folder(config).file(screening.EVIDENCE_FILE)
+    try:
+        evidence = share.read_excel(where.with_sheet(screening.EVIDENCE_SHEET))
+        about = share.read_excel(where.with_sheet(screening.ABOUT_SHEET))
+    except Exception as exc:
+        raise FileNotFoundError(
+            f"The latest build's {screening.EVIDENCE_FILE} could not be read from {where} "
+            f"({exc}) — run `ml build` first"
+        ) from exc
+    items = dict(zip(about["Item"].astype(str), about["Value"].astype(str)))
+    return evidence, items.get("Batch table content digest", "")
 
 
 def _check_catalog_is_current(config: dict[str, Any]) -> None:
@@ -733,6 +874,26 @@ def _carry_upstream(
 
 #: The run's copy of the vocabulary it ran with, which a rerun reads.
 VOCABULARY_COPY = f"inputs/{workspace.RUN_VOCABULARY}"
+#: Where a run keeps the screening register it applied.
+SCREENING_COPY = "inputs/screening.xlsx"
+
+
+def _task_register(config: dict[str, Any] | None, spec: TaskSpec) -> screening.Register | None:
+    """The register a task applies: its run's own copy for a rerun, else SharePoint's."""
+    if spec.batch_table is not None:  # a rerun reads nothing but its own folder
+        if spec.screening is None:
+            return None
+        return screening.read_copy(spec.screening, names.sites())
+    register = _register(config) if config else None
+    if register is None:
+        log.info(MODULE, "No screening register is configured; no parameter is screened out")
+    else:
+        log.info(
+            MODULE,
+            "Applying the screening register",
+            screening.status_line(register.decisions, names.sites()),
+        )
+    return register
 
 
 def _input_name(source: io.Source, label: str) -> str:
@@ -786,6 +947,27 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec) -> Path:
             "batch_table": _input_name(batch_table_source, "batch_table"),
             "catalog": _input_name(catalog_source, "catalog"),
         }
+        batch_table = io.load_batch_table(batch_table_source)
+        catalog_frame = io.read_catalog(catalog_source)
+        _copy_input(pkg, batch_table_source, batch_table, inputs["batch_table"])
+        _copy_input(pkg, catalog_source, catalog_frame, inputs["catalog"])
+        names.to_frame(vocabulary).to_excel(pkg.path_for(VOCABULARY_COPY), index=False)
+        sources = [batch_table_source.record(batch_table), catalog_source.record(catalog_frame)]
+        register = _task_register(config, spec)
+        if register is not None:
+            screening.write(register.decisions, pkg.path_for(SCREENING_COPY))
+            inputs["screening"] = SCREENING_COPY
+            fields["screening"] = {
+                "register": register.where,
+                "digest": screening.digest(register.decisions),
+                "last_decision": register.decisions[-1].id if register.decisions else "",
+                "intact": register.intact,
+            }
+        prov = provenance.capture(
+            sources, seed=spec.seed, config_path=spec.source, config=spec.as_dict()
+        )
+        fields.update({"prov": prov, "sources": sources})
+
         settings = spec.as_dict()
         settings["inputs"] = {label: f"../{name}" for label, name in inputs.items()}
         pkg.write_text(
@@ -794,18 +976,17 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec) -> Path:
             "# copies this run read, so this file and ../inputs reproduce it.\n"
             + yaml.safe_dump(settings, sort_keys=False, allow_unicode=True),
         )
-        batch_table = io.load_batch_table(batch_table_source)
-        catalog_frame = io.read_catalog(catalog_source)
-        _copy_input(pkg, batch_table_source, batch_table, inputs["batch_table"])
-        _copy_input(pkg, catalog_source, catalog_frame, inputs["catalog"])
-        names.to_frame(vocabulary).to_excel(pkg.path_for(VOCABULARY_COPY), index=False)
-        sources = [batch_table_source.record(batch_table), catalog_source.record(catalog_frame)]
-        prov = provenance.capture(
-            sources, seed=spec.seed, config_path=spec.source, config=spec.as_dict()
+        screened = (
+            screening.excluded(register.decisions, names.sites(), spec.cohort.sites)
+            if register is not None
+            else {}
         )
-        fields.update({"prov": prov, "sources": sources})
-
-        final, result = dataset.build(batch_table, catalog_frame, spec)
+        final, result = dataset.build(
+            batch_table,
+            catalog_frame,
+            spec,
+            screened={p: d.label for p, d in screened.items()},
+        )
         _check(result, final)
         upstream = _carry_upstream(
             pkg,
@@ -1002,6 +1183,18 @@ def validate(config: dict[str, Any] | None, specs: list[TaskSpec]) -> list[str]:
         except corrections.CorrectionsError as exc:
             problems.append(str(exc))
         problems += _unknown_keys(config)
+        try:
+            register = _register(config)
+            if register is not None:
+                log.success(
+                    MODULE,
+                    "Screening register",
+                    screening.status_line(register.decisions, names.sites()),
+                )
+        except screening.ScreeningError as exc:
+            problems.append(str(exc))
+        except Exception as exc:  # not there yet is fine: `ml screening add --new` starts it
+            log.warn(MODULE, f"The screening register could not be read: {exc}")
         if (config.get("sources") or {}).get("databricks"):
             try:
                 enrich.ao_mapping()
@@ -1195,6 +1388,16 @@ def _parser() -> argparse.ArgumentParser:
     update = commands.add_parser("update", help="check-catalog, build, then the given tasks")
     update.add_argument("--task", action="append", help="a task workspace (repeatable)")
 
+    screen = commands.add_parser(
+        "screening", help="leave parameters out of every task, with a recorded reason"
+    )
+    steps = screen.add_subparsers(dest="action", required=True, metavar="action")
+    add = steps.add_parser("add", help="add the decisions in a proposal file to the register")
+    add.add_argument("proposal", help="a .csv or .xlsx with one decision per row")
+    add.add_argument("--author", required=True, help="who takes these decisions")
+    add.add_argument("--new", action="store_true", help="start the register if there is none")
+    steps.add_parser("status", help="what is excluded today, and what to look at again")
+
     task = commands.add_parser("task", help="create, run, rerun and encode with tasks")
     actions = task.add_subparsers(dest="action", required=True, metavar="action")
     new = actions.add_parser("new", help="create a task workspace with a task.yaml")
@@ -1270,6 +1473,14 @@ def _run(args) -> int:
         workspace.load_vocabulary(config)
         rows = io.load_batch_table(workspace.source(config, "batch_table"))
         encode_batches(args.run, rows, Path(args.out) if args.out else None)
+        return 0
+
+    if command == "screening add":
+        run_screening_add(_config(args), args.proposal, args.author, new=args.new)
+        return 0
+
+    if command == "screening status":
+        run_screening_status(_config(args))
         return 0
 
     if command == "check-leaks":

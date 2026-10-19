@@ -49,6 +49,7 @@ ARTEFACTS = {
     "report/report_payload.json": "report data",
     "inputs/catalog_manifest.json": "Catalog stage manifest",
     "inputs/batch_table_manifest.json": "build stage manifest",
+    "inputs/screening.xlsx": "screening register applied",
     "logs/run.log": "run log",
 }
 

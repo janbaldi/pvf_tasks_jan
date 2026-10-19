@@ -572,7 +572,11 @@ def _category_exclusions(catalog: pd.DataFrame, spec: TaskSpec) -> dict[str, str
 
 
 def candidate_predictors(
-    cohort: pd.DataFrame, catalog: pd.DataFrame, spec: TaskSpec, result: TaskResult
+    cohort: pd.DataFrame,
+    catalog: pd.DataFrame,
+    spec: TaskSpec,
+    result: TaskResult,
+    screened: dict[str, str] | None = None,
 ) -> list[str]:
     """The one predictor set every later step uses.
 
@@ -618,6 +622,8 @@ def candidate_predictors(
             refuse(parameter, dict(spec.predictors.exclude)[parameter], "task exclusion")
         elif parameter in excluded_category:
             refuse(parameter, excluded_category[parameter], "category exclusion")
+        elif parameter in (screened or {}):
+            refuse(parameter, f"screened out by {screened[parameter]}", "screening")
         elif parameter in descendants:
             refuse(
                 parameter, f"computed from the target: {descendants[parameter]}", "target lineage"
@@ -1188,14 +1194,18 @@ def split_groups(cohort: pd.DataFrame, labelled: pd.Index, spec: TaskSpec) -> pd
 # Building
 # ---------------------------------------------------------------------------
 def build(
-    batch_table: pd.DataFrame, catalog: pd.DataFrame, spec: TaskSpec
+    batch_table: pd.DataFrame,
+    catalog: pd.DataFrame,
+    spec: TaskSpec,
+    screened: dict[str, str] | None = None,
 ) -> tuple[pd.DataFrame, TaskResult]:
     """Run one task.
 
     Returns the dataset — the raw predictors the recipe uses, with the metadata
     and the target — and everything that was decided; the encoded view is
     ``result.encoded``. Every row is a training row: cross-validation
-    belongs to the tool that fits the models.
+    belongs to the tool that fits the models. ``screened`` is parameter → the
+    screening decision that leaves it out (:mod:`ml.screening`).
     """
     result = TaskResult(spec=spec)
     cohort = select_cohort(batch_table, spec, result)
@@ -1216,7 +1226,7 @@ def build(
             order_column=spec.cohort.date_column,
         )
 
-    predictors = candidate_predictors(cohort, catalog, spec, result)
+    predictors = candidate_predictors(cohort, catalog, spec, result, screened)
     reserved = {
         name
         for name in (spec.roles.id, spec.roles.group, spec.roles.patient, result.target_column)

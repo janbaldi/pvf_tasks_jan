@@ -13,6 +13,9 @@ sharepoint:
   batch_table:
     path: Data/batch_data/batch_data.xlsx
     drive_id: DEMO_DRIVE
+  screening:
+    path: Data/catalog/parameter_screening.xlsx
+    drive_id: DEMO_DRIVE
   phf_site_a:
     path: Data/raw/site_a_batch_records.xlsx
     drive_id: DEMO_DRIVE

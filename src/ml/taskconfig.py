@@ -182,6 +182,8 @@ class TaskSpec:
     #: A run's own copies (``ml task rerun``); None means SharePoint, via config.yaml.
     batch_table: Path | None = None
     catalog: Path | None = None
+    #: A rerun's copy of the screening register its original run applied, if any.
+    screening: Path | None = None
     output_root: Path = Path("runs")
     cohort: Cohort = field(default_factory=Cohort)
     target: Target = field(default_factory=Target)
@@ -220,6 +222,8 @@ class TaskSpec:
             if self.batch_table is not None
             else "SharePoint, as config.yaml locates them"
         )
+        if isinstance(inputs, dict) and self.screening is not None:
+            inputs["screening"] = str(self.screening)
         return {
             "task": {key: d[key] for key in ("name", "question", "seed")},
             "inputs": inputs,
@@ -602,7 +606,7 @@ def parse(
     name = _text(meta, "name", "task", errors, "task")
     seed = _number(meta, "seed", "task", errors, 0, low=0, integer=True)
 
-    inputs = _known(raw.get("inputs"), ("batch_table", "catalog"), "inputs", errors)
+    inputs = _known(raw.get("inputs"), ("batch_table", "catalog", "screening"), "inputs", errors)
 
     cohort_raw = _known(
         raw.get("cohort"),
@@ -734,7 +738,7 @@ def parse(
         if column in dict(predictors.exclude):
             errors.append(f"predictors.include: '{column}' is in predictors.exclude as well")
 
-    batch_table = catalog = None
+    batch_table = catalog = screened = None
     if frozen:
         for key in ("batch_table", "catalog"):
             if not _text(inputs, key, "inputs", errors).strip():
@@ -742,6 +746,8 @@ def parse(
         if not errors:
             batch_table = _resolve(str(inputs["batch_table"]), base)
             catalog = _resolve(str(inputs["catalog"]), base)
+            if inputs.get("screening"):
+                screened = _resolve(str(inputs["screening"]), base)
     elif raw.get("inputs") is not None:
         errors.append(
             "inputs: a task reads the batch table and catalog from SharePoint, where "
@@ -761,6 +767,7 @@ def parse(
         seed=seed,
         batch_table=batch_table,
         catalog=catalog,
+        screening=screened,
         output_root=base / "runs",
         cohort=cohort,
         target=target,

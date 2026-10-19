@@ -30,7 +30,7 @@ import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from . import config as workspace
-from . import dataset, io, taskconfig
+from . import dataset, io, names, screening, taskconfig
 from .dataset import Preprocessor, TaskResult, fit_preprocessing
 from .logger import log
 
@@ -94,7 +94,7 @@ class TaskTransformer(TransformerMixin, BaseEstimator):
         result = TaskResult(spec=self.spec)
         result.target_column = "__target__"
         predictors = list(self.predictors) or dataset.candidate_predictors(
-            X, catalog, self.spec, result
+            X, catalog, self.spec, result, task_screening(self.spec)
         )
         reserved = {
             name
@@ -145,6 +145,34 @@ def task_catalog(spec: taskconfig.TaskSpec, config: dict | None = None) -> pd.Da
         workspace.task_vocabulary(config, spec.catalog)
         _catalogs[key] = io.read_catalog(workspace.table_source(config, "catalog", spec.catalog))
     return _catalogs[key]
+
+
+_screenings: dict[str, dict[str, str]] = {}
+
+
+def task_screening(spec: taskconfig.TaskSpec, config: dict | None = None) -> dict[str, str]:
+    """Parameter → the screening decision a task leaves it out by, as ``ml task run`` does."""
+    key = str(spec.screening or spec.source)
+    if key not in _screenings:
+        if spec.batch_table is not None:  # a run's own folder: its own copy, or none
+            register = (
+                screening.read_copy(spec.screening, names.sites()) if spec.screening else None
+            )
+        else:
+            config = config or _task_config(spec.source)
+            register = (
+                screening.read(workspace.location(config, "screening"), names.sites())
+                if workspace.has(config, "screening")
+                else None
+            )
+        decisions = register.decisions if register else []
+        _screenings[key] = {
+            parameter: decision.label
+            for parameter, decision in screening.excluded(
+                decisions, names.sites(), spec.cohort.sites
+            ).items()
+        }
+    return _screenings[key]
 
 
 def task_data(

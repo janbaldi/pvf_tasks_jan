@@ -43,6 +43,7 @@ SHAREPOINT_SOURCES = (
     "raw_materials",
     "investigations",
     "site_maps",
+    "screening",
 )
 TOP_KEYS = (
     "seed",

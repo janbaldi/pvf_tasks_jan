@@ -77,4 +77,5 @@ def test_the_catalog_check_writes_into_the_catalog_folder_on_sharepoint(built):
         "catalog_report.html",
         "catalog_manifest.json",
         "new_parameters.csv",
+        "parameter_screening.xlsx",
     }

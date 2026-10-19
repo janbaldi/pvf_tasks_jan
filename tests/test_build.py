@@ -400,6 +400,7 @@ def test_the_build_writes_everything_into_the_batch_table_folder_on_sharepoint(b
         "batch_data.parquet",
         "build_report.html",
         "missingness_report.html",
+        "missingness.xlsx",
         "batch_table_manifest.json",
     }
     record = json.loads((folder / "batch_table_manifest.json").read_text(encoding="utf-8"))
@@ -414,4 +415,5 @@ def test_the_build_writes_everything_into_the_batch_table_folder_on_sharepoint(b
         "batch_data.parquet",
         "build_report.html",
         "missingness_report.html",
+        "missingness.xlsx",
     }

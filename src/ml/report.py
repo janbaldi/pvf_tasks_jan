@@ -673,13 +673,15 @@ def _features(run: BuildRun) -> dict | None:
         f"What each feature is for ({len({e['name'] for e in entries})})",
         [
             sortable(
-                ["Feature", "Group", "Day", "Type", "Inputs", "Why"],
+                ["Feature", "Group", "Kind", "Day", "Type", "Unit", "Inputs", "Why"],
                 [
                     [
                         entry["name"],
                         entry["group"],
+                        entry.get("kind", ""),
                         entry["process_day"],
                         entry["value_type"],
+                        entry.get("unit", ""),
                         entry["inputs"],
                         entry["rationale"],
                     ]
@@ -692,6 +694,27 @@ def _features(run: BuildRun) -> dict | None:
         ],
     )
     blocks.append(catalogue)
+
+    findings = [dict(f, site=site) for site, r in run.features.items() for f in r.checks]
+    if findings:
+        blocks.append(
+            sortable(
+                ["Site", "Check", "Batches", "What it means"],
+                [
+                    [
+                        f["site"],
+                        f["check"],
+                        "" if f["batches"] is None else f["batches"],
+                        f["detail"],
+                    ]
+                    for f in findings
+                ],
+                filter_column="Check",
+                note="Arithmetic the batch records should satisfy, and features the catalog "
+                "says are known before one of their inputs is. Data checks, not model inputs: "
+                "each names something to look at in the source or the catalog.",
+            )
+        )
 
     profiles = {site: report.profiles for site, report in run.features.items()}
     for column, order in (

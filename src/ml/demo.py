@@ -39,7 +39,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from . import corrections, names
+from . import corrections, features, names
 from .encode import sanitise
 
 SEED = 20260917
@@ -179,6 +179,7 @@ def target_column() -> str:
 # The catalog's value type and 'Available At' stage, by key. Everything not listed
 # is numeric; features and the keys under "" are left without a stage.
 DATETIME_KEYS = (
+    "date_start",
     "thaw_time",
     "incubator_in_d0",
     "incubator_out_d1",
@@ -219,6 +220,7 @@ CATEGORICAL_KEYS = (
 )
 STAGES = {
     "D0": (
+        "date_start",
         "patient_id",
         "vector_lot",
         "subject_weight",
@@ -333,8 +335,8 @@ FEATURE_KEYS = (
     "f_pt_cd4_share",
     "f_pt_cd4_cells",
     "f_pw_cd4_share",
+    "f_cd4_cd8_shift",
     "f_pw_cd8_share",
-    "f_harvest_lactate_norm",
 )
 FEATURE_KEYS_AFTER_METABOLITES = (
     "f_lactate_slope",
@@ -345,16 +347,16 @@ FEATURE_KEYS_AFTER_METABOLITES = (
 FEATURE_KEYS_REST = (
     "f_growth_profile",
     "f_cd4_profile",
-    "f_viability_drop_rel",
     "f_viability_drop_pts",
     "f_viability_d3_d10_rel",
-    "f_viability_expansion",
     "f_viability_d3_d10_pts",
     "f_viability_wash",
     "f_seeding_pct",
     "f_seeding_error",
     "f_seeding_within",
     "f_cells_per_bag",
+    "f_seeding_loss",
+    "f_dead_cells_d3",
 )
 FEATURE_KEYS_MOI = (
     "f_moi_a",
@@ -364,6 +366,7 @@ FEATURE_KEYS_MOI = (
     "f_moi_pool",
     "f_log_moi_pool",
     "f_moi_quality",
+    "f_moi_vs_target",
 )
 FEATURE_KEYS_LATE = (
     "f_incubation_d0_d1",
@@ -372,6 +375,7 @@ FEATURE_KEYS_LATE = (
     "f_incubation_d6_d8",
     "f_incubation_d8_d10",
     "f_incubation_total",
+    "f_thaw_to_incubator",
     "f_clump_count_reduction",
     "f_clump_size_reduction",
     "f_clump_burden_pre",
@@ -381,6 +385,7 @@ FEATURE_KEYS_LATE = (
     "f_d3_clumps",
     "f_clump_bag_count",
     "f_dose_all",
+    "f_dose_basis",
     "f_post_formulation_dose",
     "f_achievable_dose",
     "f_car_cells",
@@ -393,7 +398,10 @@ FEATURE_KEYS_LATE = (
     "f_cells_lost_formulation",
     "f_pct_lost_formulation",
     "f_cells_lost_wash",
+    "f_wash_recovery",
     "f_coa_impurity_index",
+    "f_coa_impurity_spec_index",
+    "f_vector_age",
     "f_il2_d6",
     "f_il2_d8",
 )
@@ -409,19 +417,23 @@ def temperature_reading() -> str:
 
 def feature_parameters() -> tuple[str, ...]:
     """The feature names the catalog lists, in the order the made-up catalog has them."""
-    statistics = ("mean", "min", "max", "std", "cv")
+    statistics = features.SPREAD_STATISTICS
     return (
         *(c(k) for k in FEATURE_KEYS),
         *cs("f_lactate_per_cell"),
         *cs("f_glucose_per_cell"),
         *(c(k) for k in FEATURE_KEYS_AFTER_METABOLITES),
+        *cs("f_lactate_increment"),
+        *cs("f_glucose_increment"),
         *(c("f_lactate_glucose_ratio", day=day) for day in (6, 8, 10)),
+        *(c("f_lactate_yield", day=day) for day in (6, 8, 10)),
         *(c(k) for k in FEATURE_KEYS_REST),
         *(c("f_seeded_spread", statistic=s) for s in statistics),
         *(c("f_vector_volume_spread", statistic=s) for s in statistics),
         *(c(k) for k in FEATURE_KEYS_MOI),
         *(name for pair in zip(cs("f_contact_deviation"), cs("f_contact_within")) for name in pair),
         *(c(k) for k in FEATURE_KEYS_LATE),
+        *cs("f_out_of_incubator"),
         f"{co2_reading()} dev_from_5.0pct",
         f"{temperature_reading()} dev_from_37.0C",
     )
@@ -528,6 +540,7 @@ def _site_frame(n: int, rng: np.random.Generator) -> pd.DataFrame:
             c("dose_per_kg"): (size * 2.4e6).round(0),
             c("dose_cells"): (size * 2.6e8).round(0),
             # Timing
+            c("date_start"): _timestamps(n, 0, 7),
             c("thaw_time"): [f"{8 + i % 6:02d}:{(i * 13) % 60:02d}" for i in range(n)],
             c("incubator_in_d0"): _timestamps(n, 0, 9),
             c("incubator_out_d1"): _timestamps(n, 1, 10),
@@ -866,7 +879,7 @@ def _value_type(parameter: str) -> str:
     # the catalog says "this is a rank, not a set of labels".
     if parameter == c("ordinal_parameter"):
         return "[" + ", ".join(ORDINAL_ORDER) + "]"
-    if parameter in {c(key) for key in DATETIME_KEYS}:
+    if parameter in {c(key) for key in DATETIME_KEYS} | {c("coa_prefix") + c("coa_made")}:
         return "datetime"
     if parameter in {c(key) for key in DURATION_KEYS}:
         return "duration"
@@ -909,7 +922,7 @@ def catalog(first: pd.DataFrame, second: pd.DataFrame) -> pd.DataFrame:
     to_first = {theirs: ours for ours, theirs in site_b_names().items()}
     to_first[c("site_b_country")] = c("country")
     mapped = dict.fromkeys(to_first.get(column, column) for column in second.columns)
-    dropped = (c("coa_available"), c("coa_titer_unadjusted"), c("coa_made"))
+    dropped = (c("coa_available"), c("coa_titer_unadjusted"))
     certificates = [
         c("coa_prefix") + column for column in coa_columns()[2:] if column not in dropped
     ]
@@ -1185,6 +1198,16 @@ def write_config(
             "lactate_high": 30.0,
             "cd4_low": 40.0,
             "cd4_high": 60.0,
+            "seeding_target_per_vessel": 50_000_000.0,
+            "shift_cutoff": "11:59",
+            # Process facts the made-up product has, so the features that need
+            # them are built rather than blocked.
+            "moi_target": 0.5,
+            "medium_glucose": 4.5,
+            "medium_lactate": 0.1,
+            "impurity_spec_limits": [5.0, 10.0, 5.0, 3.0, 3.0],
+            "availability_column": "Available At",
+            "availability_order": list(STAGES),
         },
         # Spec midpoints for the made-up product, so the two-sided deviation
         # features are built rather than skipped.

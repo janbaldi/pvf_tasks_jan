@@ -10,6 +10,7 @@ column,pw_cd3_pct,Post Wash POS FLOW CD3+ (%),Selected CD3 share (%)
 column,pw_viability,Post Wash POS Viability (%),Selected viability (%)
 column,f_log_pt_cd4_cd8,Log (PT CD4:CD8),Thawed CD4/CD8 log ratio
 column,f_log_pw_cd4_cd8,Log (PE CD4:CD8),Selected CD4/CD8 log ratio
+column,f_cd4_cd8_shift,Log_CD4_CD8_shift_PE_to_PT,CD4/CD8 log ratio shift
 column,f_pt_cd3_cells,PT Total  CD3+ (Viable Cells),Thawed CD3 cells
 column,f_pt_cd4_share,PT CD3+CD4+ (%),Thawed CD3+CD4 share (%)
 column,f_pt_cd4_cells,PT Total CD4+ (Viable Cells),Thawed CD4 cells
@@ -37,16 +38,19 @@ column,f_lactate_auc,Lactate_perE6_AUC_D6_D10,Lactate per cell area D6-D10
 column,f_glucose_slope,Glucose_perE6_slope_D6_D10,Glucose per cell slope D6-D10
 column,f_glucose_auc,Glucose_perE6_AUC_D6_D10,Glucose per cell area D6-D10
 column,f_lactate_glucose_ratio,Lactate_to_Glucose_perE6_ratio_D{day},Lactate to glucose ratio D{day}
+column,f_lactate_increment,Lactate_perE6_increment_D6_D8,Lactate per cell rise D6-D8 / Lactate per cell rise D8-D10
+column,f_lactate_increment,Lactate_perE6_increment_D8_D10,Lactate per cell rise D6-D8 / Lactate per cell rise D8-D10
+column,f_glucose_increment,Glucose_perE6_increment_D6_D8,Glucose per cell change D6-D8 / Glucose per cell change D8-D10
+column,f_glucose_increment,Glucose_perE6_increment_D8_D10,Glucose per cell change D6-D8 / Glucose per cell change D8-D10
+column,f_lactate_yield,Lactate_yield_on_glucose_D{day},Lactate yield on glucose D{day}
 column,cpdl,cPDL (D3 to D10),Doublings D3-D10
 column,f_growth_profile,growth profile,Growth class
 column,f_cd4_profile,CD4 profile,CD4 class
 column,d3_viability,Day 3 Average of Pooled Viability (%),Day 3 viability (%)
 column,harvest_viability,Harvest Pre-Wash Cell Viability (%),Day 10 viability before wash (%)
 column,washed_viability,Harvest Post Wash Viability Average (%),Day 10 viability after wash (%)
-column,f_viability_drop_rel,Drop viability D3 vs D0 (%),Viability change D0-D3 (%)
 column,f_viability_drop_pts,Viability_drop_D3_vs_D0_pct,Viability change D0-D3 (points)
 column,f_viability_d3_d10_rel,D3-D10 viability change (%),Viability loss D3-D10 (%)
-column,f_viability_expansion,Viability change during expansion,Viability gain D3-D10 (%)
 column,f_viability_d3_d10_pts,Viability_change_D3_to_D10_pct,Viability change D3-D10 (points)
 column,f_viability_wash,D10 harvest - D10 wash viability change (%),Viability change in wash (%)
 column,vessel_count,Day 3 Number of G-Rex to seed,Day 3 vessels seeded
@@ -59,6 +63,8 @@ column,f_seeding_pct,D3 % cells seeded / target,D3 seeding vs target (%)
 column,f_seeding_error,D3_seeding_error_pct,D3 seeding error (%)
 column,f_seeding_within,D3_seeding_within_5pct,D3 seeding within tolerance
 column,f_cells_per_bag,Avg_cells_per_bag_D3,D3 cells per bag
+column,f_seeding_loss,D3_seeding_loss_fraction,D3 seeding shortfall
+column,f_dead_cells_d3,D3_dead_cells_at_seeding,D3 dead cells carried
 column,f_seeded_spread,Seeded_cells_{statistic}_AB,Seeded cells {statistic} A-B
 column,f_vector_volume_spread,Vector_volume_{statistic}_AB_mL,Vector volume {statistic} A-B (mL)
 column,vector_titer,Vector Titer (IU/mL),Vector titer (IU/mL)
@@ -72,6 +78,7 @@ column,f_moi_pool,MOI_eff_pool,MOI pooled
 column,f_log_moi_pool,log_MOI_eff_pool,MOI pooled (log)
 column,f_moi_quality,MOI_eff_quality_adjusted,"MOI pooled, quality adjusted"
 column,f_moi_per_cd3,MOI_per_CD3_pool,MOI per CD3 cell
+column,f_moi_vs_target,MOI_eff_pool_vs_target,MOI against plan
 column,contact_time,Day 3 Incubation Time (120min+/-30 min),Day 3 contact time (min)
 column,contact_time_a,Amount of Time G-Rex A in Incubator (120min+/-30 min),Day 3 contact time vessel A (min)
 column,contact_time_b,Amount of Time G-Rex B in Incubator (120min+/-30 min),Day 3 contact time vessel B (min)
@@ -97,6 +104,10 @@ column,f_incubation_d3_d6,Incubation D3-D6 (min),Incubator time days 3-6 (min)
 column,f_incubation_d6_d8,Incubation D6-D8 (min),Incubator time days 6-8 (min)
 column,f_incubation_d8_d10,Incubation D8-D10 (min),Incubator time days 8-10 (min)
 column,f_incubation_total,Incubation_total_D3_to_D10_min,Incubator time days 3-10 (min)
+column,f_thaw_to_incubator,Thaw_to_incubator_D0_min,Thaw to incubator (min)
+column,f_out_of_incubator,Out_of_incubator_D3_min,Outside incubator D3 (min) / Outside incubator D6 (min) / Outside incubator D8 (min)
+column,f_out_of_incubator,Out_of_incubator_D6_min,Outside incubator D3 (min) / Outside incubator D6 (min) / Outside incubator D8 (min)
+column,f_out_of_incubator,Out_of_incubator_D8_min,Outside incubator D3 (min) / Outside incubator D6 (min) / Outside incubator D8 (min)
 column,clumps_pre_count,Pre-Activation Clumps: # of Clumps before massage,Day 1 clumps before mixing (count)
 column,clumps_pre_size,Pre-Activation Clumps: Size of Clumps before massage,Day 1 clumps before mixing (size)
 column,clumps_post_count,Post-Massaging: # of Clumps,Day 1 clumps after mixing (count)
@@ -134,6 +145,7 @@ column,formulation_medium_volume,Volume CS5 Used for Formulation (mL),Medium vol
 column,fp_car_pct,FP Flow CAR+ (%),Product CAR expression (%)
 column,vcn,Provirus Vector Copy Number (copies/transduced cell),Vector copies per transduced cell
 column,f_dose_all,Dose (CAR+ viable cells/kg) all weights,"Dose per kg, all batches"
+column,f_dose_basis,Dose_basis,Dose kind
 column,f_post_formulation_dose,Post formulation dose,Dose from formulation
 column,f_achievable_dose,D10 Achievable Dose (E6 CAR+ viable T-cells),D10 achievable dose
 column,f_car_cells,D10 Total CAR+ viable T-cells achieved,D10 CAR cells
@@ -146,6 +158,7 @@ column,f_cells_out_of_formulation,total viable cells in formulated suspension,Ce
 column,f_cells_lost_formulation,number of viable cells lost during formulation,Cells lost in formulation
 column,f_pct_lost_formulation,% cells lost during formulation,Share lost in formulation (%)
 column,f_cells_lost_wash,total cells lost during LOVO wash (cells),Cells lost in wash
+column,f_wash_recovery,LOVO_wash_recovery_fraction,Wash return share
 column,il2_activity_d6,Day 6 Activity of IL-2 (IU/mg),Day 6 cytokine activity (IU/mg)
 column,il2_content_d6,Day 6 IL-2 Protein Content (µg/vial),Day 6 cytokine content (ug/vial)
 column,il2_activity_d8,Day 8 Activity of IL-2 (IU/mg),Day 8 cytokine activity (IU/mg)
@@ -186,6 +199,8 @@ column,coa_titer_adjustment,Titer Adjustment Factor,Titer correction factor
 column,coa_specific_infectivity,Specific Infectivity,Infectivity per particle
 column,coa_last_dna_fraction,E1b Fraction of Total DNA,Residual DNA 2 share
 column,f_coa_impurity_index,LVCoA_Impurity_Index_zsum,Vector impurity index
+column,f_coa_impurity_spec_index,LVCoA_Impurity_Index_spec,Vector impurity index vs spec
+column,f_vector_age,LV_age_at_use_days,Vector age at use (days)
 column,vector_lot,Vector Lot,Vector lot
 column,patient_id,Patient ID,Patient code
 column,clinical_site,Clinical Site,Treatment centre
@@ -219,6 +234,8 @@ value,growth_profile_classes,normal,slow / fast / typical
 value,cd4_profile_classes,low CD4,CD4 low / CD4 high / CD4 mid
 value,cd4_profile_classes,high CD4,CD4 low / CD4 high / CD4 mid
 value,cd4_profile_classes,medium CD4,CD4 low / CD4 high / CD4 mid
+value,dose_basis_classes,per kg,by weight / fixed count
+value,dose_basis_classes,flat,by weight / fixed count
 value,status_aliases,withdrawn|withdrawal,recalled|recall / halted|halt
 value,status_aliases,withdrawl|withdrawal,recalled|recall / halted|halt
 value,status_aliases,terminated|termination,recalled|recall / halted|halt

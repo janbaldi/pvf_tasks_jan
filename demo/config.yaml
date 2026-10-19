@@ -65,6 +65,32 @@ features:
   lactate_high: 30.0
   cd4_low: 40.0
   cd4_high: 60.0
+  seeding_target_per_vessel: 50000000.0
+  shift_cutoff: '11:59'
+  moi_target: 0.5
+  medium_glucose: 4.5
+  medium_lactate: 0.1
+  impurity_spec_limits:
+  - 5.0
+  - 10.0
+  - 5.0
+  - 3.0
+  - 3.0
+  availability_column: Available At
+  availability_order:
+  - D0
+  - D1
+  - D3
+  - D6
+  - D8
+  - D10
+  - Harvest
+  - Post-thaw
+  - Wash
+  - Formulation
+  - Final product
+  - Release
+  - Post-release
 lv_coa:
   ph_nominal: 7.2
   osmo_nominal: 300.0

@@ -621,7 +621,7 @@ def fit(
             fitted = summary(numeric, members, representative, params.cluster_corr_method)
             output = f"{label or representative} group"
             if output in outputs:
-                output = f"{output} {number:02d}"
+                output = f"{label or representative} {number:02d} group"
             outputs.add(output)
             fitted["output"] = output
             cluster.summary = fitted

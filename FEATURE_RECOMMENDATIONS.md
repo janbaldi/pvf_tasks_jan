@@ -7,6 +7,30 @@ in `vocabulary.csv` and the two demo tasks.
 Names are the real parameter names from `vocabulary.csv`. Feature names in *italics*
 are proposals; pick the final name in the vocabulary.
 
+> **Status: implemented.** Everything below is in the code on `main`, except where noted
+> here. `CALCULATED_FEATURES.md` describes the result feature by feature, with a change log,
+> and `catalog.xlsx` carries it (new `Calculated` and `Calculated By` columns).
+>
+> Differences from the plan, found while implementing:
+>
+> - **Some new features overlap source columns.** The batch records already deliver
+>   `Day 0 Processing Time (aph thaw to inc in)`, `Day 3/6/8 Processing Time (inc out to inc in)`
+>   and `LOVO Step Yield (%)`. The thaw-to-incubator, out-of-incubator and wash-recovery features
+>   are therefore in the catalog as non-representative members of those columns' redundancy
+>   groups: compare before using either.
+> - **Tier 2 features that need process facts** (MOI target, fresh-medium glucose and lactate,
+>   impurity spec limits) are in the registry but blocked until `config.yaml` sets them, so the
+>   build report says what each one is waiting for.
+> - **The spec-limit impurity index is added next to the z-score index**, not instead of it.
+>   The z-score index stays exploratory-only, as before.
+> - **The availability check found three real catalog errors:** `VCN/cell` and
+>   `Flow accuracy (effective)` were marked known at day 10 but use final-product results
+>   (day 11), and `Shift` at day −1 but uses the day-0 thaw time. All three are corrected.
+> - **The certificate's censoring now follows `cleaning.censored`.** With the shipped `limit`
+>   setting, a `<x` impurity becomes x instead of x/2.
+> - **The task-level harvest CAR% point (§5.4)** is advice for whoever runs the expression task,
+>   so it isn't a code change.
+
 ---
 
 ## 0. What the recommendations are judged against

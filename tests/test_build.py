@@ -152,11 +152,33 @@ def test_the_country_correction_survives_harmonisation(built):
 def test_features_are_computed_including_ones_built_on_other_features(built):
     batch_table = built["batch_table"]
     assert set(batch_table[c("f_growth_profile")].dropna()) <= set(vs("growth_profile_classes"))
-    assert batch_table[c("f_harvest_lactate_norm")].notna().any()
+    assert batch_table[cs("f_lactate_per_cell")[2]].notna().any()
+    assert c("f_harvest_lactate_norm") not in batch_table.columns  # a duplicate, not rebuilt
     # MOI needs the titer from the certificate, so this proves the join fed it.
     assert batch_table[c("f_moi_pool")].notna().any()
     # The slope has two of its three days at both sites, and is computed anyway.
     assert batch_table[c("f_glucose_slope")].notna().any()
+
+
+def test_the_new_features_reach_the_batch_table(built):
+    batch_table = built["batch_table"]
+    for name in (
+        c("f_seeding_loss"),
+        c("f_dead_cells_d3"),
+        c("f_thaw_to_incubator"),
+        *cs("f_out_of_incubator"),
+        cs("f_glucose_increment")[0],  # D8 lactate B is absent by design
+        c("f_moi_vs_target"),
+        c("f_dose_basis"),
+        c("f_wash_recovery"),
+        c("f_coa_impurity_spec_index"),
+        c("f_vector_age"),
+        c("f_lactate_yield", day=6),
+    ):
+        assert batch_table[name].notna().any(), name
+    assert set(batch_table[c("f_dose_basis")].dropna()) <= set(vs("dose_basis_classes"))
+    spread = {c("f_seeded_spread", statistic=s) for s in ("min", "max", "std", "cv")}
+    assert not spread & set(batch_table.columns)
 
 
 def test_a_feature_missing_an_input_is_reported_and_not_invented(built):

@@ -381,6 +381,7 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
         catalog_cols,
         ph_nominal=lv_coa.get("ph_nominal"),
         osmo_nominal=lv_coa.get("osmo_nominal"),
+        censored=(config.get("cleaning") or {}).get("censored", "limit"),
     )
     df_raw = io.load_raw_materials(src["raw_materials"], catalog_cols)
 
@@ -450,8 +451,10 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
 
     # ── Features: calculated from the parameters above ────────────────────
     log.section("04 · Derived features")
+    known = features.availability(catalog_frame, params)
     feature_reports = {
-        site: features.apply(df, catalog_cols, params, site=site) for site, df in phf.items()
+        site: features.apply(df, catalog_cols, params, site=site, known=known)
+        for site, df in phf.items()
     }
 
     # ── Merge ──────────────────────────────────────────────────────────────

@@ -799,7 +799,8 @@ build:      {write_parquet: true, date_column: incubator_in_d0}
 cleaning:   {disable: [], censored: limit, censored_flags: false,
              duration_unit: minutes, yes_no_defaults: {pre_activation_clumps_yn: 'No'}}
 mapping:    {exclude: [excluded_mapping_row]}
-features:   {co2_target: 5.0, temp_target: 37.0, …}
+features:   {co2_target: 5.0, temp_target: 37.0, …, moi_target: null, medium_glucose: null,
+             impurity_spec_limits: null, availability_column: Available From Day}
 lv_coa:     {ph_nominal: 7.2, osmo_nominal: 300.0}
 ```
 
@@ -1032,7 +1033,14 @@ runs are generated, not committed: only `demo/config.yaml` and the two
 **Adding a derived feature:** append one `Feature(…)` entry to the registry in
 `src/ml/features.py`. It is built only when the catalog lists its name and all
 its inputs are present, and it never overwrites a source column. Its `requires` tuple
-is what lets a task find, and leave out, features computed from the target.
+is what lets a task find, and leave out, features computed from the target. Give it a
+`unit` and a `kind` (`Engineered` or `Normalization`, the catalog's `Calculated` column),
+and a `setting` when it needs a `features:` value that has no safe default: it is then
+reported as blocked until config sets it. The build checks it against the catalog's
+`Available From Day` (`features.availability_column`): a feature the catalog says is
+known before one of its inputs is listed in the build report. `CALCULATED_FEATURES.md`
+describes every calculated column, and `tests/test_features.py` holds one
+hand-computed case per formula.
 
 ```
 src/ml/

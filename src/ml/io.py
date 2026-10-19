@@ -384,6 +384,7 @@ def load_lv_coa(
     catalog_cols: list[str],
     ph_nominal: float | None = None,
     osmo_nominal: float | None = None,
+    censored: str = "limit",
 ) -> pd.DataFrame:
     """
     Load the vector certificates of analysis and engineer lot-level features for
@@ -391,6 +392,11 @@ def load_lv_coa(
 
     Parameters
     ----------
+    censored : str
+        What an impurity below its limit of quantification (``<0.5``) becomes:
+        ``limit`` (0.5), ``half`` (0.25) or ``missing``. The same setting as
+        ``cleaning.censored``, so a censored value means one thing whichever
+        source it came from; the ``below LOQ`` flag records it either way.
     ph_nominal, osmo_nominal : float | None
         Release-spec MIDPOINT for the two-sided |deviation| features (Block 2).
         PRODUCT-SPECIFIC — pass from spec, never a data mean (a data-derived
@@ -465,10 +471,10 @@ def load_lv_coa(
 
     # ================================================================== #
     # BLOCK 4a — left-censored impurities ("<LOQ"), detected BEFORE coercion.
-    # Below-LOQ means LOW, not UNKNOWN. Left as NaN it lands in XGBoost's
-    # "missing" default branch and destroys the "clean = low" ordering, so we
-    # (i) flag it and (ii) substitute LOQ/2 as a low sentinel. Concentration
-    # columns only (that's where LOQ censoring lives).
+    # Below-LOQ means LOW, not UNKNOWN, so it is (i) flagged and (ii) rewritten
+    # by the run's one censoring policy (cleaning.censored): the limit itself,
+    # half of it, or missing. Concentration columns only (that's where LOQ
+    # censoring lives).
     # ================================================================== #
     conc_impurity = [c for c in (find(name) for name in impurities) if c is not None]
 
@@ -478,8 +484,12 @@ def load_lv_coa(
         below = loq.notna()
         if below.any():
             add(f"{c} below LOQ", below.astype("int8"), c)
-            loq_num = pd.to_numeric(loq.str.replace(",", ".", regex=False), errors="coerce") / 2.0
-            df[c] = raw.where(~below, loq_num.astype("string"))  # LOQ/2 sentinel
+            loq_num = pd.to_numeric(loq.str.replace(",", ".", regex=False), errors="coerce")
+            if censored == "half":
+                loq_num = loq_num / 2.0
+            elif censored == "missing":
+                loq_num = loq_num * np.nan
+            df[c] = raw.where(~below, loq_num.astype("string"))
 
     # Delivered-mass impurity columns — kept as features (see header note).
     calc_impurity = [
@@ -655,7 +665,8 @@ def load_lv_coa(
     # ------------------------------------------------------------------ #
     # Drop identifiers / consumed raw columns, then namespace.
     # ------------------------------------------------------------------ #
-    for c in [col("coa_available"), col("coa_lot_number"), col("coa_made"), titer_unadj]:
+    # The manufacture date stays: the vector's age at use is computed from it.
+    for c in [col("coa_available"), col("coa_lot_number"), titer_unadj]:
         if c and c in df.columns:
             df.drop(columns=c, inplace=True)
 

@@ -1,0 +1,236 @@
+Kind,Key,Name,What it is (demo name)
+column,date_start,Date of Manufacture Start,Start date
+column,pt_cd4_pct,Post Thaw FLOW CD4+ (%),Thawed CD4 share (%)
+column,pt_cd8_pct,Post Thaw FLOW CD8+ (%),Thawed CD8 share (%)
+column,pt_cd3_pct,Post Thaw FLOW CD3+ (%),Thawed CD3 share (%)
+column,pt_viable_cells,Post Thaw Viable Cell Count after sampling(cells),Thawed viable cells (cells)
+column,pw_cd4_pct,Post Wash POS FLOW CD4+ (%),Selected CD4 share (%)
+column,pw_cd8_pct,Post Wash POS FLOW CD8+ (%),Selected CD8 share (%)
+column,pw_cd3_pct,Post Wash POS FLOW CD3+ (%),Selected CD3 share (%)
+column,pw_viability,Post Wash POS Viability (%),Selected viability (%)
+column,f_log_pt_cd4_cd8,Log (PT CD4:CD8),Thawed CD4/CD8 log ratio
+column,f_log_pw_cd4_cd8,Log (PE CD4:CD8),Selected CD4/CD8 log ratio
+column,f_pt_cd3_cells,PT Total  CD3+ (Viable Cells),Thawed CD3 cells
+column,f_pt_cd4_share,PT CD3+CD4+ (%),Thawed CD3+CD4 share (%)
+column,f_pt_cd4_cells,PT Total CD4+ (Viable Cells),Thawed CD4 cells
+column,f_pw_cd4_share,PE CD3+CD4+ (%),Selected CD3+CD4 share (%)
+column,f_pw_cd8_share,PE CD3+CD8+ (%),Selected CD3+CD8 share (%)
+column,harvest_lactate,Harvest Lactate (g/L),Day 10 lactate (g/L)
+column,harvest_glucose,Harvest Glucose (g/L),Day 10 glucose (g/L)
+column,d6_lactate_a,Day 6 Lactate G-Rex A (g/L),Day 6 lactate vessel A (g/L)
+column,d6_lactate_b,Day 6 Lactate G-Rex B (g/L),Day 6 lactate vessel B (g/L)
+column,d8_lactate_a,Day 8 Lactate G-Rex A (g/L),Day 8 lactate vessel A (g/L)
+column,d8_lactate_b,Day 8 Lactate G-Rex B (g/L),Day 8 lactate vessel B (g/L)
+column,d6_glucose_a,Day 6 Glucose G-Rex A (g/L),Day 6 glucose vessel A (g/L)
+column,d6_glucose_b,Day 6 Glucose G-Rex B (g/L),Day 6 glucose vessel B (g/L)
+column,d8_glucose_a,Day 8 Glucose G-Rex A (g/L),Day 8 glucose vessel A (g/L)
+column,d8_glucose_b,Day 8 Glucose G-Rex B (g/L),Day 8 glucose vessel B (g/L)
+column,f_harvest_lactate_norm,Harvest Lactate Normalized,Day 10 lactate per seeded cell
+column,f_lactate_per_cell,D6 Lact / E6 cells,D6 lactate per E6 cells / D8 lactate per E6 cells / D10 lactate per E6 cells
+column,f_lactate_per_cell,D8 Lact / E6 cells,D6 lactate per E6 cells / D8 lactate per E6 cells / D10 lactate per E6 cells
+column,f_lactate_per_cell,D10 Lact / E6 cells,D6 lactate per E6 cells / D8 lactate per E6 cells / D10 lactate per E6 cells
+column,f_glucose_per_cell,D6 Glucose / E6 cells,D6 glucose per E6 cells / D8 glucose per E6 cells / D10 glucose per E6 cells
+column,f_glucose_per_cell,D8 Glucose / E6 cells,D6 glucose per E6 cells / D8 glucose per E6 cells / D10 glucose per E6 cells
+column,f_glucose_per_cell,D10 Glucose / E6 cells,D6 glucose per E6 cells / D8 glucose per E6 cells / D10 glucose per E6 cells
+column,f_lactate_slope,Lactate_perE6_slope_D6_D10,Lactate per cell slope D6-D10
+column,f_lactate_auc,Lactate_perE6_AUC_D6_D10,Lactate per cell area D6-D10
+column,f_glucose_slope,Glucose_perE6_slope_D6_D10,Glucose per cell slope D6-D10
+column,f_glucose_auc,Glucose_perE6_AUC_D6_D10,Glucose per cell area D6-D10
+column,f_lactate_glucose_ratio,Lactate_to_Glucose_perE6_ratio_D{day},Lactate to glucose ratio D{day}
+column,cpdl,cPDL (D3 to D10),Doublings D3-D10
+column,f_growth_profile,growth profile,Growth class
+column,f_cd4_profile,CD4 profile,CD4 class
+column,d3_viability,Day 3 Average of Pooled Viability (%),Day 3 viability (%)
+column,harvest_viability,Harvest Pre-Wash Cell Viability (%),Day 10 viability before wash (%)
+column,washed_viability,Harvest Post Wash Viability Average (%),Day 10 viability after wash (%)
+column,f_viability_drop_rel,Drop viability D3 vs D0 (%),Viability change D0-D3 (%)
+column,f_viability_drop_pts,Viability_drop_D3_vs_D0_pct,Viability change D0-D3 (points)
+column,f_viability_d3_d10_rel,D3-D10 viability change (%),Viability loss D3-D10 (%)
+column,f_viability_expansion,Viability change during expansion,Viability gain D3-D10 (%)
+column,f_viability_d3_d10_pts,Viability_change_D3_to_D10_pct,Viability change D3-D10 (points)
+column,f_viability_wash,D10 harvest - D10 wash viability change (%),Viability change in wash (%)
+column,vessel_count,Day 3 Number of G-Rex to seed,Day 3 vessels seeded
+column,vsvg_cells,Total Viable Cells for Expansion after VSVg Sampling (cells),Cells for expansion (cells)
+column,cells_available,Day 3 Total Viable Cells Available for Seeding G-Rex (cells),Day 3 cells available (cells)
+column,cells_seeded_a,Day 3 Actual Viable Cells Seeded G-Rex A,Day 3 cells seeded vessel A
+column,cells_seeded_b,Day 3 Actual Viable Cells Seeded G-Rex B,Day 3 cells seeded vessel B
+column,culture_bags,# of Culture Bags,Culture bags
+column,f_seeding_pct,D3 % cells seeded / target,D3 seeding vs target (%)
+column,f_seeding_error,D3_seeding_error_pct,D3 seeding error (%)
+column,f_seeding_within,D3_seeding_within_5pct,D3 seeding within tolerance
+column,f_cells_per_bag,Avg_cells_per_bag_D3,D3 cells per bag
+column,f_seeded_spread,Seeded_cells_{statistic}_AB,Seeded cells {statistic} A-B
+column,f_vector_volume_spread,Vector_volume_{statistic}_AB_mL,Vector volume {statistic} A-B (mL)
+column,vector_titer,Vector Titer (IU/mL),Vector titer (IU/mL)
+column,vector_volume_a,Volume Vector Added to G-Rex A (mL),Vector volume vessel A (mL)
+column,vector_volume_b,Volume Vector Added to G-Rex B (mL),Vector volume vessel B (mL)
+column,f_moi_a,MOI_eff_G-Rex_A,MOI vessel A
+column,f_log_moi_a,log_MOI_eff_G-Rex_A,MOI vessel A (log)
+column,f_moi_b,MOI_eff_G-Rex_B,MOI vessel B
+column,f_log_moi_b,log_MOI_eff_G-Rex_B,MOI vessel B (log)
+column,f_moi_pool,MOI_eff_pool,MOI pooled
+column,f_log_moi_pool,log_MOI_eff_pool,MOI pooled (log)
+column,f_moi_quality,MOI_eff_quality_adjusted,"MOI pooled, quality adjusted"
+column,f_moi_per_cd3,MOI_per_CD3_pool,MOI per CD3 cell
+column,contact_time,Day 3 Incubation Time (120min+/-30 min),Day 3 contact time (min)
+column,contact_time_a,Amount of Time G-Rex A in Incubator (120min+/-30 min),Day 3 contact time vessel A (min)
+column,contact_time_b,Amount of Time G-Rex B in Incubator (120min+/-30 min),Day 3 contact time vessel B (min)
+column,f_contact_deviation,D3_contact_time_deviation,D3 contact deviation / D3 contact deviation A / D3 contact deviation B
+column,f_contact_deviation,D3_contact_time_deviation_G-Rex_A,D3 contact deviation / D3 contact deviation A / D3 contact deviation B
+column,f_contact_deviation,D3_contact_time_deviation_G-Rex_B,D3 contact deviation / D3 contact deviation A / D3 contact deviation B
+column,f_contact_within,D3_contact_time_within_window,D3 contact within window / D3 contact within window A / D3 contact within window B
+column,f_contact_within,D3_contact_time_within_window_G-Rex_A,D3 contact within window / D3 contact within window A / D3 contact within window B
+column,f_contact_within,D3_contact_time_within_window_G-Rex_B,D3 contact within window / D3 contact within window A / D3 contact within window B
+column,incubator_in_d0,Date and Time Cells placed in Incubator Day 0,Day 0 incubator in
+column,incubator_in_d1,Date and Time Cells placed in Incubator Day 1,Day 1 incubator in
+column,incubator_out_d1,Date and Time Cells Removed From Incubator Day 1,Day 1 incubator out
+column,incubator_out_d3,Date and Time Cells Removed From Incubator Day 3,Day 3 incubator out
+column,incubator_out_d6,Date and Time Cells Removed From Incubator Day 6,Day 6 incubator out
+column,incubator_out_d8,Date and Time Cells Removed From Incubator Day 8,Day 8 incubator out
+column,incubator_out_d10,Date and Time Cells Removed From Incubator Day 10,Day 10 incubator out
+column,incubator_back_d3,Day 3 Date and Time G-Rex A Returned to Incubator,Day 3 incubator back
+column,incubator_back_d6,Day 6 Date and Time G-Rex A Returned to Incubator,Day 6 incubator back
+column,incubator_back_d8,Day 8 Date and Time G-Rex A Returned to Incubator,Day 8 incubator back
+column,f_incubation_d0_d1,Incubation D0-D1 (min),Incubator time days 0-1 (min)
+column,f_incubation_d1_d3,Incubation D1-D3,Incubator time days 1-3 (min)
+column,f_incubation_d3_d6,Incubation D3-D6 (min),Incubator time days 3-6 (min)
+column,f_incubation_d6_d8,Incubation D6-D8 (min),Incubator time days 6-8 (min)
+column,f_incubation_d8_d10,Incubation D8-D10 (min),Incubator time days 8-10 (min)
+column,f_incubation_total,Incubation_total_D3_to_D10_min,Incubator time days 3-10 (min)
+column,clumps_pre_count,Pre-Activation Clumps: # of Clumps before massage,Day 1 clumps before mixing (count)
+column,clumps_pre_size,Pre-Activation Clumps: Size of Clumps before massage,Day 1 clumps before mixing (size)
+column,clumps_post_count,Post-Massaging: # of Clumps,Day 1 clumps after mixing (count)
+column,clumps_post_size,Post-Massaging: Size of Clumps,Day 1 clumps after mixing (size)
+column,clumps_mix_count,Post-Mixing Clumps: # of Clumps,Day 1 clumps after cycles (count)
+column,clumps_mix_size,Post-Mixing Clumps: Size of Clumps,Day 1 clumps after cycles (size)
+column,mixing_cycles,Day 1 Number of Mixing Cycles Post Activation,Day 1 mixing cycles
+column,d3_clump_pattern,day 3 clump pattern,Day 3 clump observation
+column,clump_bags,Day 10 Clump Present Bag 1,Day 10 clumps in bag 1 / Day 10 clumps in bag 2 / Day 10 clumps in bag 3 / Day 10 clumps in bag 4 / Day 10 clumps in bag 5 / Day 10 clumps in bag 6
+column,clump_bags,Day 10 Clump Present Bag 2,Day 10 clumps in bag 1 / Day 10 clumps in bag 2 / Day 10 clumps in bag 3 / Day 10 clumps in bag 4 / Day 10 clumps in bag 5 / Day 10 clumps in bag 6
+column,clump_bags,Day 10 Clump Present Bag 3,Day 10 clumps in bag 1 / Day 10 clumps in bag 2 / Day 10 clumps in bag 3 / Day 10 clumps in bag 4 / Day 10 clumps in bag 5 / Day 10 clumps in bag 6
+column,clump_bags,Day 10 Clump Present Bag 4,Day 10 clumps in bag 1 / Day 10 clumps in bag 2 / Day 10 clumps in bag 3 / Day 10 clumps in bag 4 / Day 10 clumps in bag 5 / Day 10 clumps in bag 6
+column,clump_bags,Day 10 Clump Present Bag 5,Day 10 clumps in bag 1 / Day 10 clumps in bag 2 / Day 10 clumps in bag 3 / Day 10 clumps in bag 4 / Day 10 clumps in bag 5 / Day 10 clumps in bag 6
+column,clump_bags,Day 10 Clump Present Bag 6,Day 10 clumps in bag 1 / Day 10 clumps in bag 2 / Day 10 clumps in bag 3 / Day 10 clumps in bag 4 / Day 10 clumps in bag 5 / Day 10 clumps in bag 6
+column,f_clump_count_reduction,Clump_count_reduction_fraction,Clump count reduction
+column,f_clump_size_reduction,Clump_size_reduction_fraction,Clump size reduction
+column,f_clump_burden_pre,Clump_burden_weighted_pre,Clump burden before mixing
+column,f_clump_burden_post,Clump_burden_weighted_post_massage,Clump burden after mixing
+column,f_clump_burden_mix,Clump_burden_weighted_post_mixing,Clump burden after cycles
+column,f_mixing_x_clumps,Mixing_cycles_x_pre_activation_clump_count,Mixing cycles x clumps
+column,f_d3_clumps,D3_clumps_flag,D3 clumps present
+column,f_clump_bag_count,D10_clump_bag_count,D10 bags with clumps
+column,dose_per_kg,Dose (CAR+ viable cells/kg),Dose per kg (cells/kg)
+column,dose_cells,Dose: Number of CAR+ Viable T-Cells (cells),Dose (cells)
+column,formulated_concentration,Final Formulation CS5 Viable Cell Concentration Average (cells/mL),Formulated viable concentration (cells/mL)
+column,formulated_viability,Final Formulation CS5 Viability Average (%),Formulated viability (%)
+column,bag_volume,Volume per Bag (mL),Bag volume (mL)
+column,harvest_car_pct,Harvest Pre-Wash Flow CAR+ Expression (%),Day 10 CAR expression (%)
+column,subject_weight,Subject Weight (kg),Patient weight (kg)
+column,washed_cells,Harvest Post Wash Viable Cell Count (cells),Day 10 cells after wash (cells)
+column,harvest_cells,Harvest Pre-Wash Viable Cell Count after Sampling (cells),Day 10 cells before wash (cells)
+column,washed_concentration,Harvest Post Wash Viable Cell Concentration Average (cells/mL),Day 10 concentration after wash (cells/mL)
+column,formulation_cell_volume,Volume of Cells Used for Formulation (mL),Cell volume formulated (mL)
+column,formulation_medium_volume,Volume CS5 Used for Formulation (mL),Medium volume formulated (mL)
+column,fp_car_pct,FP Flow CAR+ (%),Product CAR expression (%)
+column,vcn,Provirus Vector Copy Number (copies/transduced cell),Vector copies per transduced cell
+column,f_dose_all,Dose (CAR+ viable cells/kg) all weights,"Dose per kg, all batches"
+column,f_post_formulation_dose,Post formulation dose,Dose from formulation
+column,f_achievable_dose,D10 Achievable Dose (E6 CAR+ viable T-cells),D10 achievable dose
+column,f_car_cells,D10 Total CAR+ viable T-cells achieved,D10 CAR cells
+column,f_car_yield,CAR T produced per cell engaged D3,CAR yield per seeded cell
+column,f_vcn_per_cell,VCN/cell,Vector copies per cell
+column,f_flow_accuracy,Flow accuracy (effective),Product vs harvest CAR
+column,f_formulated_total_concentration,Total CS5 cell concentration (E6 cells/mL),Formulated total concentration (E6/mL)
+column,f_cells_into_formulation,total viable cells used for formulation,Cells into formulation
+column,f_cells_out_of_formulation,total viable cells in formulated suspension,Cells out of formulation
+column,f_cells_lost_formulation,number of viable cells lost during formulation,Cells lost in formulation
+column,f_pct_lost_formulation,% cells lost during formulation,Share lost in formulation (%)
+column,f_cells_lost_wash,total cells lost during LOVO wash (cells),Cells lost in wash
+column,il2_activity_d6,Day 6 Activity of IL-2 (IU/mg),Day 6 cytokine activity (IU/mg)
+column,il2_content_d6,Day 6 IL-2 Protein Content (µg/vial),Day 6 cytokine content (ug/vial)
+column,il2_activity_d8,Day 8 Activity of IL-2 (IU/mg),Day 8 cytokine activity (IU/mg)
+column,il2_content_d8,Day 8 IL-2 Protein Content (µg/vial),Day 8 cytokine content (ug/vial)
+column,f_il2_d6,IL2_IU_total_D6,D6 cytokine units
+column,f_il2_d8,IL2_IU_total_D8,D8 cytokine units
+column,thaw_time,Thaw Start Time,Thaw start
+column,f_shift,Shift,Thaw shift
+column,co2_marker,CO2 Saturation (%),CO2 (%)
+column,temperature_marker,Temperature (°C),Temperature (C)
+column,coa_prefix,LV CoA ,Vector 
+column,coa_lot,LV Batch,Certificate lot
+column,coa_lot_number,LV Batch #,Vector lot number
+column,coa_available,CoA Available,Certificate available
+column,coa_made,MFG Date,Made on
+column,coa_titer,LV Titer,Titer
+column,coa_titer_unadjusted,LV Titer (unadjusted),Titer raw
+column,coa_p24,Physical Titer p24 ELISA,Physical titer
+column,coa_pi_ratio,PI Ratio,Particle ratio
+column,coa_car_metric,CAR%,Expression
+column,coa_ifng_metric,IFNg,Activity
+column,coa_donor,{metric} - Donor {donor},{metric} donor {donor}
+column,coa_donor_average,{metric} - Average,{metric} mean
+column,coa_ph,pH,Acidity
+column,coa_osmolality,Osmolality,Osmolarity
+column,coa_volume,Volume,Fill volume
+column,coa_dna_size,DNA size,Insert size
+column,coa_impurities,HCP,Host protein / Plasmid DNA / Residual DNA / Residual DNA 1 / Residual DNA 2
+column,coa_impurities,pDNA,Host protein / Plasmid DNA / Residual DNA / Residual DNA 1 / Residual DNA 2
+column,coa_impurities,cDNA,Host protein / Plasmid DNA / Residual DNA / Residual DNA 1 / Residual DNA 2
+column,coa_impurities,E1a cDNA,Host protein / Plasmid DNA / Residual DNA / Residual DNA 1 / Residual DNA 2
+column,coa_impurities,E1b cDNA,Host protein / Plasmid DNA / Residual DNA / Residual DNA 1 / Residual DNA 2
+column,coa_calc_prefix,Calc ,Delivered 
+column,coa_site_format,Site/Format,Site and fill
+column,coa_delivered_dose,Delivered Dose per GRex,Delivered dose per vessel
+column,coa_delivered_dose_fallback,Delivered Dose used adj titer,Delivered dose used adjusted titer
+column,coa_titer_adjustment,Titer Adjustment Factor,Titer correction factor
+column,coa_specific_infectivity,Specific Infectivity,Infectivity per particle
+column,coa_last_dna_fraction,E1b Fraction of Total DNA,Residual DNA 2 share
+column,f_coa_impurity_index,LVCoA_Impurity_Index_zsum,Vector impurity index
+column,vector_lot,Vector Lot,Vector lot
+column,patient_id,Patient ID,Patient code
+column,clinical_site,Clinical Site,Treatment centre
+column,clinical_site_id,Clinical Site ID,Treatment centre code
+column,country,Country,Nation
+column,site_map_acronym,Acronym,Short name
+column,site_map_institution,Institution,Centre full name
+column,map_site_a_name,Parameter Name Ghent (PHF),Name at Northfield
+column,map_site_b_name,Parameter Name Raritan (CMD),Name at Southbank
+column,remfg_batch_keys,Atlas Batch Number,Tracking number / Patient Lot/Batch # / Lot number
+column,remfg_batch_keys,Patient Lot/Batch #,Tracking number / Patient Lot/Batch # / Lot number
+column,remfg_batch_keys,Batch Number,Tracking number / Patient Lot/Batch # / Lot number
+column,prior_lines_source,Number of Prior Lines of Therapy (LGN),Prior therapies (source)
+column,prior_lines,Number of Prior Lines of Therapy,Prior therapies
+column,raw_materials_batch,targetbatchnumber,lotref
+column,raw_materials_batch_keys,Patient Lot/Batch #,Patient Lot/Batch # / Lot / Lot number / Tracking number
+column,raw_materials_batch_keys,Batch,Patient Lot/Batch # / Lot / Lot number / Tracking number
+column,raw_materials_batch_keys,Batch Number,Patient Lot/Batch # / Lot / Lot number / Tracking number
+column,raw_materials_batch_keys,Atlas Batch Number,Patient Lot/Batch # / Lot / Lot number / Tracking number
+column,endotoxin,Endotoxin (EU/mL),Endotoxin level
+column,pre_activation_clumps_yn,Pre-Activation Clumps: Y/N?,Day 1 clumps seen?
+column,excluded_mapping_row,Non-Conformance Type Calc.,Deviation class (derived)
+value,coa_available_yes,Yes,Yes
+value,endotoxin_unit, EU/mL, U/mL
+value,patient_id_site_prefix,EU-,NF-
+value,country_to_harmonise,United States,Southland
+value,country_harmonised,United States of America,Republic of Southland
+value,growth_profile_classes,undergrowth,slow / fast / typical
+value,growth_profile_classes,overgrowth,slow / fast / typical
+value,growth_profile_classes,normal,slow / fast / typical
+value,cd4_profile_classes,low CD4,CD4 low / CD4 high / CD4 mid
+value,cd4_profile_classes,high CD4,CD4 low / CD4 high / CD4 mid
+value,cd4_profile_classes,medium CD4,CD4 low / CD4 high / CD4 mid
+value,status_aliases,withdrawn|withdrawal,recalled|recall / halted|halt
+value,status_aliases,withdrawl|withdrawal,recalled|recall / halted|halt
+value,status_aliases,terminated|termination,recalled|recall / halted|halt
+site,a,Ghent,Northfield
+site,b,Raritan,Southbank
+sheet,catalog,Catalogue,Catalog
+sheet,batch_table,Sheet1,Sheet1
+sheet,phf_site_a,BR Data,Batch Records
+sheet,phf_site_b,BR Data,Batch Records
+sheet,param_mapping,Overall,Mapping
+sheet,remfg,Treatment Line Data,Treatment Lines
+sheet,lv_coa,CoA extracts,Certificates
+sheet,raw_materials,Consumables raw materials and e,Materials
+sheet,investigations,Master Query ALL COM,Investigations
+sheet,site_maps,Sheet1,Sheet1

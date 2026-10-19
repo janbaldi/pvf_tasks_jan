@@ -10,9 +10,10 @@ vector certificate columns), `src/ml/clean.py` (censored flags),
 
 **Conventions**
 
-- Names in backticks are *vocabulary keys* (e.g. `pt_cd4_pct`), not the real column
-  names. The real names live in the private vocabulary workbook; `vocabulary.csv` in
-  the repo shows the display names for most keys. Feature keys start with `f_`.
+- Column names in backticks are the real parameter names from the `Name` column of
+  `vocabulary.csv` (e.g. `Post Thaw FLOW CD4+ (%)`). Config settings such as
+  `contact_target` are config keys, not columns. Where one feature expands into several
+  columns (per day or per vessel) the entry shows the pattern.
 - "Process day" is the day the feature is attached to in the registry (D0, D1, D3, D6, D8, D10).
 - A feature is only created if its name is a catalog parameter and all of its inputs
   exist for that site. Otherwise it is reported as *not in catalog*, *blocked*, or
@@ -49,67 +50,67 @@ vector certificate columns), `src/ml/clean.py` (censored flags),
 
 ## 1. Flow cytometry and phenotype (D0)
 
-| Feature (key) | Formula | Description |
+| Feature | Formula | Description |
 |---|---|---|
-| `f_log_pt_cd4_cd8` | `log10(pt_cd4_pct / pt_cd8_pct)` | CD4:CD8 balance of the incoming (post-thaw, "PT") material on a log scale, so a 2-fold shift reads the same in either direction. NaN/inf if CD8 is 0. |
-| `f_log_pw_cd4_cd8` | `log10(pw_cd4_pct / pw_cd8_pct)` | Same, after enrichment/selection ("PW"/"PE"). |
-| `f_pt_cd3_cells` | `pt_viable_cells × pt_cd3_pct` | Absolute CD3+ cells post thaw. **Not sure** whether `pt_cd3_pct` is stored as a fraction (0–1) or as a percentage (0–100): the code multiplies without `/100`, unlike the rows below. |
-| `f_pt_cd4_share` | `pt_cd4_pct × pt_cd3_pct / 100` | CD4+ as a share of *all* cells rather than of the CD3+ gate (post thaw). |
-| `f_pt_cd4_cells` | `f_pt_cd4_share × pt_viable_cells` | Absolute CD3+CD4+ cells post thaw. Depends on `f_pt_cd4_share`. **Not sure** about the % vs. fraction units (the share is in % here). |
-| `f_pw_cd4_share` | `pw_cd4_pct × pw_cd3_pct / 100` | CD4+ as a share of all cells after enrichment. |
-| `f_pw_cd8_share` | `pw_cd8_pct × pw_cd3_pct / 100` | CD8+ as a share of all cells after enrichment. |
+| `Log (PT CD4:CD8)` | `log10(Post Thaw FLOW CD4+ (%) / Post Thaw FLOW CD8+ (%))` | CD4:CD8 balance of the incoming (post-thaw, "PT") material on a log scale, so a 2-fold shift reads the same in either direction. NaN/inf if CD8 is 0. |
+| `Log (PE CD4:CD8)` | `log10(Post Wash POS FLOW CD4+ (%) / Post Wash POS FLOW CD8+ (%))` | Same, after enrichment/selection ("PW"/"PE"). |
+| `PT Total  CD3+ (Viable Cells)` | `Post Thaw Viable Cell Count after sampling(cells) × Post Thaw FLOW CD3+ (%)` | Absolute CD3+ cells post thaw. **Not sure** whether `Post Thaw FLOW CD3+ (%)` is stored as a fraction (0–1) or as a percentage (0–100): the code multiplies without `/100`, unlike the rows below. |
+| `PT CD3+CD4+ (%)` | `Post Thaw FLOW CD4+ (%) × Post Thaw FLOW CD3+ (%) / 100` | CD4+ as a share of *all* cells rather than of the CD3+ gate (post thaw). |
+| `PT Total CD4+ (Viable Cells)` | `PT CD3+CD4+ (%) × Post Thaw Viable Cell Count after sampling(cells)` | Absolute CD3+CD4+ cells post thaw. Depends on `PT CD3+CD4+ (%)`. **Not sure** about the % vs. fraction units (the share is in % here). |
+| `PE CD3+CD4+ (%)` | `Post Wash POS FLOW CD4+ (%) × Post Wash POS FLOW CD3+ (%) / 100` | CD4+ as a share of all cells after enrichment. |
+| `PE CD3+CD8+ (%)` | `Post Wash POS FLOW CD8+ (%) × Post Wash POS FLOW CD3+ (%) / 100` | CD8+ as a share of all cells after enrichment. |
 
 ## 2. Metabolites (lactate and glucose)
 
-`vessel_count` is the number of G-Rex vessels seeded (1 or 2). `vsvg_cells` is the
+`Day 3 Number of G-Rex to seed` is the number of G-Rex vessels seeded (1 or 2). `Total Viable Cells for Expansion after VSVg Sampling (cells)` is the
 number of cells used for expansion (cells). `1e9` is applied to convert the
 concentration (g/L) and the cell count (cells) to "per million (E6) cells".
 **Not sure** about the exact unit logic of the `1e9` factor (it is `1e3` mL→L
 style scaling × `1e6` for "per E6"); the code does not document it.
 
-| Feature (key) | Formula | Description |
+| Feature | Formula | Description |
 |---|---|---|
-| `f_harvest_lactate_norm` | `(harvest_lactate × 1e9) × vessel_count / vsvg_cells` | Harvest (D10) lactate per cell seeded, so batches seeded into one or two G-Rex can be compared. |
-| `f_lactate_per_cell` (D6) | 1 vessel: `d6_lactate_a × 1e9 / vsvg_cells`<br>2 vessels: `(d6_lactate_a + d6_lactate_b) × 1e9 / vsvg_cells` | Lactate per E6 cells seeded at D6, summed over the vessels in use. Any other `vessel_count` falls into the 2-vessel branch (**not sure** that is intended). |
-| `f_lactate_per_cell` (D8) | same with `d8_lactate_a/b` | Same at D8. |
-| `f_lactate_per_cell` (D10) | 1 vessel: `harvest_lactate × 1e9 / vsvg_cells`<br>otherwise: `harvest_lactate × 2e9 / vsvg_cells` | D10 version; the harvest is sampled once, so the value is counted twice for two vessels. |
-| `f_glucose_per_cell` (D6) | 1 vessel: `d6_glucose_a × 1e9 / vsvg_cells`<br>2 vessels: `(d6_glucose_a + d6_glucose_b) × 1e9 / vsvg_cells` | Glucose remaining per E6 cells seeded at D6. |
-| `f_glucose_per_cell` (D8) | same with `d8_glucose_a/b` | Same at D8. |
-| `f_glucose_per_cell` (D10) | 1 vessel: `harvest_glucose × 1e9 / vsvg_cells`<br>otherwise: `harvest_glucose × 2 × 1e9 / vsvg_cells` | Same at D10. |
-| `f_lactate_slope` | least-squares slope of `f_lactate_per_cell` (D6, D8, D10) against day (6, 8, 10) | How fast normalised lactate climbs across expansion. Needs ≥ 2 readings, otherwise NaN. |
-| `f_lactate_auc` | trapezoidal area under `f_lactate_per_cell` over days 6/8/10 | Total normalised lactate exposure. A gap is bridged, not treated as 0. |
-| `f_glucose_slope` | least-squares slope of `f_glucose_per_cell` over days 6/8/10 | How fast normalised glucose falls. |
-| `f_glucose_auc` | trapezoidal area under `f_glucose_per_cell` over days 6/8/10 | Total normalised glucose exposure. |
-| `f_lactate_glucose_ratio` (day = 6, 8, 10) | `safe_div(f_lactate_per_cell[day], f_glucose_per_cell[day])` | Lactate against glucose on the same day; separates cells burning sugar fast from cells simply fed more. |
+| `Harvest Lactate Normalized` | `(Harvest Lactate (g/L) × 1e9) × Day 3 Number of G-Rex to seed / Total Viable Cells for Expansion after VSVg Sampling (cells)` | Harvest (D10) lactate per cell seeded, so batches seeded into one or two G-Rex can be compared. |
+| `D{6,8,10} Lact / E6 cells` (D6) | 1 vessel: `Day 6 Lactate G-Rex A (g/L) × 1e9 / Total Viable Cells for Expansion after VSVg Sampling (cells)`<br>2 vessels: `(Day 6 Lactate G-Rex A (g/L) + Day 6 Lactate G-Rex B (g/L)) × 1e9 / Total Viable Cells for Expansion after VSVg Sampling (cells)` | Lactate per E6 cells seeded at D6, summed over the vessels in use. Any other `Day 3 Number of G-Rex to seed` falls into the 2-vessel branch (**not sure** that is intended). |
+| `D{6,8,10} Lact / E6 cells` (D8) | same with `Day 8 Lactate G-Rex A (g/L)/b` | Same at D8. |
+| `D{6,8,10} Lact / E6 cells` (D10) | 1 vessel: `Harvest Lactate (g/L) × 1e9 / Total Viable Cells for Expansion after VSVg Sampling (cells)`<br>otherwise: `Harvest Lactate (g/L) × 2e9 / Total Viable Cells for Expansion after VSVg Sampling (cells)` | D10 version; the harvest is sampled once, so the value is counted twice for two vessels. |
+| `D{6,8,10} Glucose / E6 cells` (D6) | 1 vessel: `Day 6 Glucose G-Rex A (g/L) × 1e9 / Total Viable Cells for Expansion after VSVg Sampling (cells)`<br>2 vessels: `(Day 6 Glucose G-Rex A (g/L) + Day 6 Glucose G-Rex B (g/L)) × 1e9 / Total Viable Cells for Expansion after VSVg Sampling (cells)` | Glucose remaining per E6 cells seeded at D6. |
+| `D{6,8,10} Glucose / E6 cells` (D8) | same with `Day 8 Glucose G-Rex A (g/L)/b` | Same at D8. |
+| `D{6,8,10} Glucose / E6 cells` (D10) | 1 vessel: `Harvest Glucose (g/L) × 1e9 / Total Viable Cells for Expansion after VSVg Sampling (cells)`<br>otherwise: `Harvest Glucose (g/L) × 2 × 1e9 / Total Viable Cells for Expansion after VSVg Sampling (cells)` | Same at D10. |
+| `Lactate_perE6_slope_D6_D10` | least-squares slope of `D{6,8,10} Lact / E6 cells` (D6, D8, D10) against day (6, 8, 10) | How fast normalised lactate climbs across expansion. Needs ≥ 2 readings, otherwise NaN. |
+| `Lactate_perE6_AUC_D6_D10` | trapezoidal area under `D{6,8,10} Lact / E6 cells` over days 6/8/10 | Total normalised lactate exposure. A gap is bridged, not treated as 0. |
+| `Glucose_perE6_slope_D6_D10` | least-squares slope of `D{6,8,10} Glucose / E6 cells` over days 6/8/10 | How fast normalised glucose falls. |
+| `Glucose_perE6_AUC_D6_D10` | trapezoidal area under `D{6,8,10} Glucose / E6 cells` over days 6/8/10 | Total normalised glucose exposure. |
+| `Lactate_to_Glucose_perE6_ratio_D{day}` (day = 6, 8, 10) | `safe_div(D{6,8,10} Lact / E6 cells[day], D{6,8,10} Glucose / E6 cells[day])` | Lactate against glucose on the same day; separates cells burning sugar fast from cells simply fed more. |
 
 ## 3. Profiles (categorical classes)
 
-| Feature (key) | Formula | Description |
+| Feature | Formula | Description |
 |---|---|---|
-| `f_growth_profile` | `class 1` if `cpdl < cpdl_low [4.0]` **or** `f_harvest_lactate_norm < lactate_low [12.5]`<br>`class 2` if `cpdl > cpdl_high [5.0]` **and** `f_harvest_lactate_norm > lactate_high [30.0]`<br>else `class 3` | Below / above / within expected growth. Class labels come from the vocabulary (`growth_profile_classes`; the notes in the vocabulary suggest slow / fast / typical). **Not sure** how rows with a missing `cpdl` or lactate are classed: comparisons against NaN are False, so they fall into the default "typical" class. |
-| `f_cd4_profile` | `class 1` if `pt_cd4_pct ≤ cd4_low [40]`<br>`class 2` if `pt_cd4_pct ≥ cd4_high [60]`<br>else `class 3`; NaN if `pt_cd4_pct` is missing | CD4 share of the incoming material in three bands (low / high / mid). A missing reading gets no profile. |
+| `growth profile` | `class 1` if `cPDL (D3 to D10) < cpdl_low [4.0]` **or** `Harvest Lactate Normalized < lactate_low [12.5]`<br>`class 2` if `cPDL (D3 to D10) > cpdl_high [5.0]` **and** `Harvest Lactate Normalized > lactate_high [30.0]`<br>else `class 3` | Below / above / within expected growth. Class labels come from the vocabulary (`growth_profile_classes`; the notes in the vocabulary suggest slow / fast / typical). **Not sure** how rows with a missing `cPDL (D3 to D10)` or lactate are classed: comparisons against NaN are False, so they fall into the default "typical" class. |
+| `CD4 profile` | `class 1` if `Post Thaw FLOW CD4+ (%) ≤ cd4_low [40]`<br>`class 2` if `Post Thaw FLOW CD4+ (%) ≥ cd4_high [60]`<br>else `class 3`; NaN if `Post Thaw FLOW CD4+ (%)` is missing | CD4 share of the incoming material in three bands (low / high / mid). A missing reading gets no profile. |
 
 ## 4. Viability changes
 
-| Feature (key) | Formula | Description |
+| Feature | Formula | Description |
 |---|---|---|
-| `f_viability_drop_rel` | `(d3_viability − pw_viability) / pw_viability × 100` | Relative viability change over activation (D0→D3), %. |
-| `f_viability_drop_pts` | `d3_viability − pw_viability` | Same, in percentage points. |
-| `f_viability_d3_d10_rel` | `(d3_viability − harvest_viability) / d3_viability × 100` | Relative viability *lost* between D3 and harvest, %. |
-| `f_viability_expansion` | `(harvest_viability − d3_viability) / d3_viability × 100` | Same comparison with the opposite sign (viability *gain*), matching the Power Query investigation. It is exactly `−f_viability_d3_d10_rel`. |
-| `f_viability_d3_d10_pts` | `washed_viability − d3_viability` | Net viability change D3 → washed harvest, percentage points. Note it uses the *washed* viability, not `harvest_viability`. |
-| `f_viability_wash` | `(washed_viability − harvest_viability) / harvest_viability × 100` | Effect of the LOVO wash on viability, %. |
+| `Drop viability D3 vs D0 (%)` | `(Day 3 Average of Pooled Viability (%) − Post Wash POS Viability (%)) / Post Wash POS Viability (%) × 100` | Relative viability change over activation (D0→D3), %. |
+| `Viability_drop_D3_vs_D0_pct` | `Day 3 Average of Pooled Viability (%) − Post Wash POS Viability (%)` | Same, in percentage points. |
+| `D3-D10 viability change (%)` | `(Day 3 Average of Pooled Viability (%) − Harvest Pre-Wash Cell Viability (%)) / Day 3 Average of Pooled Viability (%) × 100` | Relative viability *lost* between D3 and harvest, %. |
+| `Viability change during expansion` | `(Harvest Pre-Wash Cell Viability (%) − Day 3 Average of Pooled Viability (%)) / Day 3 Average of Pooled Viability (%) × 100` | Same comparison with the opposite sign (viability *gain*), matching the Power Query investigation. It is exactly `−D3-D10 viability change (%)`. |
+| `Viability_change_D3_to_D10_pct` | `Harvest Post Wash Viability Average (%) − Day 3 Average of Pooled Viability (%)` | Net viability change D3 → washed harvest, percentage points. Note it uses the *washed* viability, not `Harvest Pre-Wash Cell Viability (%)`. |
+| `D10 harvest - D10 wash viability change (%)` | `(Harvest Post Wash Viability Average (%) − Harvest Pre-Wash Cell Viability (%)) / Harvest Pre-Wash Cell Viability (%) × 100` | Effect of the LOVO wash on viability, %. |
 
 ## 5. Seeding and vessel balance (D3)
 
-| Feature (key) | Formula | Description |
+| Feature | Formula | Description |
 |---|---|---|
-| `f_seeding_pct` | 1 vessel: `vsvg_cells / 500 000`<br>2 vessels: `vsvg_cells / 1 000 000`<br>otherwise NaN | Cells seeded against the target for the number of vessels. The result is a ratio where 1.0 = on target; the next two features compare it with `100.0`. **Not sure** whether this is a bug (ratio vs. percentage) or whether the factor of 100 is applied elsewhere. |
-| `f_seeding_error` | `abs(f_seeding_pct − 100)` | Distance from target seeding in either direction. (Same unit caveat as above.) |
-| `f_seeding_within` | `1.0 if abs(f_seeding_pct − 100) ≤ seeding_tolerance [5]` else `0.0` | Whether seeding landed within ±5 % of target. (Same unit caveat.) |
-| `f_cells_per_bag` | `safe_div(cells_available, culture_bags)` | Cells per culture bag — the density the cells see. |
-| `f_seeded_spread` (`statistic` = mean, min, max, std, cv) | over the pair (`cells_seeded_a`, `cells_seeded_b`):<br>`mean`, `min`, `max`, `std(ddof=0)`, `cv = std / mean` | Vessel balance of seeded viable cells. 5 columns, A–B. |
-| `f_vector_volume_spread` (`statistic` = mean, min, max, std, cv) | same over (`vector_volume_a`, `vector_volume_b`) | Vessel balance of the vector volume added. 5 columns, A–B. |
+| `D3 % cells seeded / target` | 1 vessel: `Total Viable Cells for Expansion after VSVg Sampling (cells) / 500 000`<br>2 vessels: `Total Viable Cells for Expansion after VSVg Sampling (cells) / 1 000 000`<br>otherwise NaN | Cells seeded against the target for the number of vessels. The result is a ratio where 1.0 = on target; the next two features compare it with `100.0`. **Not sure** whether this is a bug (ratio vs. percentage) or whether the factor of 100 is applied elsewhere. |
+| `D3_seeding_error_pct` | `abs(D3 % cells seeded / target − 100)` | Distance from target seeding in either direction. (Same unit caveat as above.) |
+| `D3_seeding_within_5pct` | `1.0 if abs(D3 % cells seeded / target − 100) ≤ seeding_tolerance [5]` else `0.0` | Whether seeding landed within ±5 % of target. (Same unit caveat.) |
+| `Avg_cells_per_bag_D3` | `safe_div(Day 3 Total Viable Cells Available for Seeding G-Rex (cells), # of Culture Bags)` | Cells per culture bag — the density the cells see. |
+| `Seeded_cells_{statistic}_AB` (`statistic` = mean, min, max, std, cv) | over the pair (`Day 3 Actual Viable Cells Seeded G-Rex A`, `Day 3 Actual Viable Cells Seeded G-Rex B`):<br>`mean`, `min`, `max`, `std(ddof=0)`, `cv = std / mean` | Vessel balance of seeded viable cells. 5 columns, A–B. |
+| `Vector_volume_{statistic}_AB_mL` (`statistic` = mean, min, max, std, cv) | same over (`Volume Vector Added to G-Rex A (mL)`, `Volume Vector Added to G-Rex B (mL)`) | Vessel balance of the vector volume added. 5 columns, A–B. |
 
 For the spread families a missing vessel is skipped by pandas (so one vessel gives
 mean = min = max, std = 0). **Not sure** that this is the desired meaning for a
@@ -118,37 +119,37 @@ single-vessel batch.
 ## 6. MOI (multiplicity of infection) (D3)
 
 `titer` = the measured vector titer: the certificate's titer if present
-(`coa_prefix + coa_titer`), otherwise the batch record's `vector_titer`.
-`pooled_volume` = `vector_volume_a + vector_volume_b` (a missing vessel counts as 0 as
-long as the other has a value). `pooled_cells` = `cells_available` if the column exists,
-otherwise `cells_seeded_a + cells_seeded_b`.
+(`LV CoA  + LV Titer`), otherwise the batch record's `Vector Titer (IU/mL)`.
+`pooled_volume` = `Volume Vector Added to G-Rex A (mL) + Volume Vector Added to G-Rex B (mL)` (a missing vessel counts as 0 as
+long as the other has a value). `pooled_cells` = `Day 3 Total Viable Cells Available for Seeding G-Rex (cells)` if the column exists,
+otherwise `Day 3 Actual Viable Cells Seeded G-Rex A + Day 3 Actual Viable Cells Seeded G-Rex B`.
 
-| Feature (key) | Formula | Description |
+| Feature | Formula | Description |
 |---|---|---|
-| `f_moi_a` | `titer × vector_volume_a / cells_seeded_a` | Infectious units per seeded cell in vessel A. |
-| `f_log_moi_a` | `log1p(f_moi_a)` = `ln(1 + MOI_A)` | Vessel A MOI on a log scale. |
-| `f_moi_b` | `titer × vector_volume_b / cells_seeded_b` | Same, vessel B. |
-| `f_log_moi_b` | `log1p(f_moi_b)` | Vessel B MOI on a log scale. |
-| `f_moi_pool` | `titer × pooled_volume / pooled_cells` | MOI over the whole batch. |
-| `f_log_moi_pool` | `log1p(f_moi_pool)` | Pooled MOI on a log scale. |
-| `f_moi_quality` | `f_moi_pool × coa_pi_ratio` (certificate column) | Pooled MOI weighted by the particle (PI) ratio. **Not sure** about the direction: the code comment says "weighted by how many particles in the lot are infectious", but a PI *ratio* is normally particles/infectious unit, which would be the inverse. Check with the vector team. |
-| `f_moi_per_cd3` | `titer × pooled_volume / f_pt_cd3_cells` | Infectious units per CD3+ cell (the actual target cells). Inherits the unit caveat of `f_pt_cd3_cells`. |
+| `MOI_eff_G-Rex_A` | `titer × Volume Vector Added to G-Rex A (mL) / Day 3 Actual Viable Cells Seeded G-Rex A` | Infectious units per seeded cell in vessel A. |
+| `log_MOI_eff_G-Rex_A` | `log1p(MOI_eff_G-Rex_A)` = `ln(1 + MOI_A)` | Vessel A MOI on a log scale. |
+| `MOI_eff_G-Rex_B` | `titer × Volume Vector Added to G-Rex B (mL) / Day 3 Actual Viable Cells Seeded G-Rex B` | Same, vessel B. |
+| `log_MOI_eff_G-Rex_B` | `log1p(MOI_eff_G-Rex_B)` | Vessel B MOI on a log scale. |
+| `MOI_eff_pool` | `titer × pooled_volume / pooled_cells` | MOI over the whole batch. |
+| `log_MOI_eff_pool` | `log1p(MOI_eff_pool)` | Pooled MOI on a log scale. |
+| `MOI_eff_quality_adjusted` | `MOI_eff_pool × PI Ratio` (certificate column) | Pooled MOI weighted by the particle (PI) ratio. **Not sure** about the direction: the code comment says "weighted by how many particles in the lot are infectious", but a PI *ratio* is normally particles/infectious unit, which would be the inverse. Check with the vector team. |
+| `MOI_per_CD3_pool` | `titer × pooled_volume / PT Total  CD3+ (Viable Cells)` | Infectious units per CD3+ cell (the actual target cells). Inherits the unit caveat of `PT Total  CD3+ (Viable Cells)`. |
 
 ## 7. Contact time (D3)
 
-Three variants of the same pair of features: the batch's own reading (`contact_time`)
-and vessels A and B (`contact_time_a`, `contact_time_b`). `target` = `contact_target [120]` min,
+Three variants of the same pair of features: the batch's own reading (`Day 3 Incubation Time (120min+/-30 min)`)
+and vessels A and B (`Amount of Time G-Rex A in Incubator (120min+/-30 min)`, `Amount of Time G-Rex B in Incubator (120min+/-30 min)`). `target` = `contact_target [120]` min,
 `tolerance` = `contact_tolerance [30]` min.
 
-| Feature (key) | Formula | Description |
+| Feature | Formula | Description |
 |---|---|---|
-| `f_contact_deviation` (batch / A / B) | `abs(contact_time[_a/_b] − 120)` | Minutes away from the transduction contact-time target. |
-| `f_contact_within` (batch / A / B) | `1.0 if 90 ≤ contact_time[_a/_b] ≤ 150` else `0.0` | Whether the contact time stayed within target ± tolerance. NaN input gives 0.0 (False), not NaN — **not sure** if intended. |
+| `D3_contact_time_deviation[_G-Rex_A/_G-Rex_B]` (batch / A / B) | `abs(<contact time> − 120)`, with `<contact time>` = the batch reading or vessel A / B reading above | Minutes away from the transduction contact-time target. |
+| `D3_contact_time_within_window[_G-Rex_A/_G-Rex_B]` (batch / A / B) | `1.0 if 90 ≤ <contact time> ≤ 150` else `0.0` | Whether the contact time stayed within target ± tolerance. NaN input gives 0.0 (False), not NaN — **not sure** if intended. |
 
 ## 8. Environment (CO₂ and temperature setpoints)
 
 Expanded dynamically: one feature for every column of the frame whose name contains the
-vocabulary marker `co2_marker` ("CO2 Saturation (%)") or `temperature_marker`
+vocabulary marker `CO2 Saturation (%)` ("CO2 Saturation (%)") or `Temperature (°C)`
 ("Temperature (°C)"). The set therefore differs between sites. Process day is read
 from the column name (`Day N` → `DN`, or a D0/D1/D3/D6/D8/D10 tag, else "Context").
 
@@ -161,68 +162,68 @@ from the column name (`Day N` → `DN`, or a D0/D1/D3/D6/D8/D10 tag, else "Conte
 
 Minutes between two timestamps: `(later − earlier).total_seconds() / 60`.
 
-| Feature (key) | Formula | Description |
+| Feature | Formula | Description |
 |---|---|---|
-| `f_incubation_d0_d1` | `incubator_out_d1 − incubator_in_d0` | Minutes in the incubator D0→D1. |
-| `f_incubation_d1_d3` | `incubator_out_d3 − incubator_in_d1` | D1→D3. |
-| `f_incubation_d3_d6` | `incubator_out_d6 − incubator_back_d3` | D3→D6. |
-| `f_incubation_d6_d8` | `incubator_out_d8 − incubator_back_d6` | D6→D8. |
-| `f_incubation_d8_d10` | `incubator_out_d10 − incubator_back_d8` | D8→D10. |
-| `f_incubation_total` | `f_incubation_d3_d6 + f_incubation_d6_d8 + f_incubation_d8_d10` | Total incubator time D3–D10. Plain `+`, so one missing interval makes the total NaN. |
+| `Incubation D0-D1 (min)` | `Date and Time Cells Removed From Incubator Day 1 − Date and Time Cells placed in Incubator Day 0` | Minutes in the incubator D0→D1. |
+| `Incubation D1-D3` | `Date and Time Cells Removed From Incubator Day 3 − Date and Time Cells placed in Incubator Day 1` | D1→D3. |
+| `Incubation D3-D6 (min)` | `Date and Time Cells Removed From Incubator Day 6 − Day 3 Date and Time G-Rex A Returned to Incubator` | D3→D6. |
+| `Incubation D6-D8 (min)` | `Date and Time Cells Removed From Incubator Day 8 − Day 6 Date and Time G-Rex A Returned to Incubator` | D6→D8. |
+| `Incubation D8-D10 (min)` | `Date and Time Cells Removed From Incubator Day 10 − Day 8 Date and Time G-Rex A Returned to Incubator` | D8→D10. |
+| `Incubation_total_D3_to_D10_min` | `Incubation D3-D6 (min) + Incubation D6-D8 (min) + Incubation D8-D10 (min)` | Total incubator time D3–D10. Plain `+`, so one missing interval makes the total NaN. |
 
 ## 10. Clumps
 
-| Feature (key) | Formula | Description |
+| Feature | Formula | Description |
 |---|---|---|
-| `f_clump_count_reduction` | `1 − clumps_post_count / clumps_pre_count` | Share of clumps removed by massaging. |
-| `f_clump_size_reduction` | `1 − clumps_post_size / clumps_pre_size` | Share of clump size removed. |
-| `f_clump_burden_pre` | `clumps_pre_count × clumps_pre_size` | Size-weighted clump burden before massaging. |
-| `f_clump_burden_post` | `clumps_post_count × clumps_post_size` | Burden after massaging. |
-| `f_clump_burden_mix` | `clumps_mix_count × clumps_mix_size` | Burden after mixing. |
-| `f_mixing_x_clumps` | `mixing_cycles × clumps_pre_count` | Interaction: mixing effort × the burden it was applied to. |
-| `f_d3_clumps` | `yn_to_bool(d3_clump_pattern)` | 1 if clumps were recorded at D3. Any present text other than n/no/false/f/0/none/no clumps/absent counts as 1; NaN stays NaN. |
-| `f_clump_bag_count` | `Σ yn_to_bool(c)` over the harvest-bag clump columns (`clump_bags`) that exist | Number of harvest bags with clumps. Unfilled bags (NaN) add nothing. |
+| `Clump_count_reduction_fraction` | `1 − Post-Massaging: # of Clumps / Pre-Activation Clumps: # of Clumps before massage` | Share of clumps removed by massaging. |
+| `Clump_size_reduction_fraction` | `1 − Post-Massaging: Size of Clumps / Pre-Activation Clumps: Size of Clumps before massage` | Share of clump size removed. |
+| `Clump_burden_weighted_pre` | `Pre-Activation Clumps: # of Clumps before massage × Pre-Activation Clumps: Size of Clumps before massage` | Size-weighted clump burden before massaging. |
+| `Clump_burden_weighted_post_massage` | `Post-Massaging: # of Clumps × Post-Massaging: Size of Clumps` | Burden after massaging. |
+| `Clump_burden_weighted_post_mixing` | `Post-Mixing Clumps: # of Clumps × Post-Mixing Clumps: Size of Clumps` | Burden after mixing. |
+| `Mixing_cycles_x_pre_activation_clump_count` | `Day 1 Number of Mixing Cycles Post Activation × Pre-Activation Clumps: # of Clumps before massage` | Interaction: mixing effort × the burden it was applied to. |
+| `D3_clumps_flag` | `yn_to_bool(day 3 clump pattern)` | 1 if clumps were recorded at D3. Any present text other than n/no/false/f/0/none/no clumps/absent counts as 1; NaN stays NaN. |
+| `D10_clump_bag_count` | `Σ yn_to_bool(c)` over the harvest-bag clump columns (`Day 10 Clump Present Bag 1–6`) that exist | Number of harvest bags with clumps. Unfilled bags (NaN) add nothing. |
 
 ## 11. Dose and CAR
 
-| Feature (key) | Formula | Description |
+| Feature | Formula | Description |
 |---|---|---|
-| `f_dose_all` | `dose_per_kg / 1e6` if present, else `dose_cells / 1e8`, else NaN | One dose column for every batch. **Not sure**: the two branches use different scalings (per-kg dose in millions/kg, absolute dose in units of 100 million cells), so the mixed column may not be on a single scale. |
-| `f_post_formulation_dose` | `formulated_concentration / 1e6 × bag_volume × harvest_car_pct / 100 / subject_weight` | Dose per kg implied by what went into the bag (E6 CAR+ cells/kg). Uses harvest CAR% as the CAR fraction. |
-| `f_achievable_dose` | `harvest_car_pct / 100 × washed_cells / (subject_weight × 1e6)` | Dose per kg the harvest could support (E6 CAR+ cells/kg). |
-| `f_car_cells` | `harvest_car_pct × washed_cells / 100` | Absolute CAR+ cells at harvest (after wash). |
-| `f_car_yield` | `harvest_car_pct / 100 × 2^cpdl` | CAR+ cells returned per cell seeded: transduction fraction × expansion (2^doublings). |
-| `f_vcn_per_cell` | `fp_car_pct × vcn / 100` | Vector copies per cell across the final product (VCN is per transduced cell). |
-| `f_flow_accuracy` | `fp_car_pct / harvest_car_pct` | Final-product CAR+% against the harvest reading; far from 1 points at the assay. |
+| `Dose (CAR+ viable cells/kg) all weights` | `Dose (CAR+ viable cells/kg) / 1e6` if present, else `Dose: Number of CAR+ Viable T-Cells (cells) / 1e8`, else NaN | One dose column for every batch. **Not sure**: the two branches use different scalings (per-kg dose in millions/kg, absolute dose in units of 100 million cells), so the mixed column may not be on a single scale. |
+| `Post formulation dose` | `Final Formulation CS5 Viable Cell Concentration Average (cells/mL) / 1e6 × Volume per Bag (mL) × Harvest Pre-Wash Flow CAR+ Expression (%) / 100 / Subject Weight (kg)` | Dose per kg implied by what went into the bag (E6 CAR+ cells/kg). Uses harvest CAR% as the CAR fraction. |
+| `D10 Achievable Dose (E6 CAR+ viable T-cells)` | `Harvest Pre-Wash Flow CAR+ Expression (%) / 100 × Harvest Post Wash Viable Cell Count (cells) / (Subject Weight (kg) × 1e6)` | Dose per kg the harvest could support (E6 CAR+ cells/kg). |
+| `D10 Total CAR+ viable T-cells achieved` | `Harvest Pre-Wash Flow CAR+ Expression (%) × Harvest Post Wash Viable Cell Count (cells) / 100` | Absolute CAR+ cells at harvest (after wash). |
+| `CAR T produced per cell engaged D3` | `Harvest Pre-Wash Flow CAR+ Expression (%) / 100 × 2^cPDL (D3 to D10)` | CAR+ cells returned per cell seeded: transduction fraction × expansion (2^doublings). |
+| `VCN/cell` | `FP Flow CAR+ (%) × Provirus Vector Copy Number (copies/transduced cell) / 100` | Vector copies per cell across the final product (VCN is per transduced cell). |
+| `Flow accuracy (effective)` | `FP Flow CAR+ (%) / Harvest Pre-Wash Flow CAR+ Expression (%)` | Final-product CAR+% against the harvest reading; far from 1 points at the assay. |
 
 ## 12. Formulation and wash
 
-| Feature (key) | Formula | Description |
+| Feature | Formula | Description |
 |---|---|---|
-| `f_formulated_total_concentration` | `formulated_concentration / (formulated_viability / 100) / 1e6` | Total (live + dead) cell concentration of the formulated suspension, E6 cells/mL. |
-| `f_cells_into_formulation` | `washed_concentration × formulation_cell_volume` | Viable cells that went into formulation. |
-| `f_cells_out_of_formulation` | `formulated_concentration × formulation_medium_volume` | Viable cells in the formulated suspension. |
-| `f_cells_lost_formulation` | `f_cells_into_formulation − f_cells_out_of_formulation` | Viable cells lost during formulation. |
-| `f_pct_lost_formulation` | `f_cells_lost_formulation / f_cells_into_formulation × 100` | The same loss as a percentage. |
-| `f_cells_lost_wash` | `harvest_cells − washed_cells` | Cells the LOVO wash did not return. |
+| `Total CS5 cell concentration (E6 cells/mL)` | `Final Formulation CS5 Viable Cell Concentration Average (cells/mL) / (Final Formulation CS5 Viability Average (%) / 100) / 1e6` | Total (live + dead) cell concentration of the formulated suspension, E6 cells/mL. |
+| `total viable cells used for formulation` | `Harvest Post Wash Viable Cell Concentration Average (cells/mL) × Volume of Cells Used for Formulation (mL)` | Viable cells that went into formulation. |
+| `total viable cells in formulated suspension` | `Final Formulation CS5 Viable Cell Concentration Average (cells/mL) × Volume CS5 Used for Formulation (mL)` | Viable cells in the formulated suspension. |
+| `number of viable cells lost during formulation` | `total viable cells used for formulation − total viable cells in formulated suspension` | Viable cells lost during formulation. |
+| `% cells lost during formulation` | `number of viable cells lost during formulation / total viable cells used for formulation × 100` | The same loss as a percentage. |
+| `total cells lost during LOVO wash (cells)` | `Harvest Pre-Wash Viable Cell Count after Sampling (cells) − Harvest Post Wash Viable Cell Count (cells)` | Cells the LOVO wash did not return. |
 
 ## 13. IL-2
 
-| Feature (key) | Formula | Description |
+| Feature | Formula | Description |
 |---|---|---|
-| `f_il2_d6` | `il2_activity_d6 × il2_content_d6 / 1000` | IL-2 units fed at D6: activity (IU/mg) × protein content (µg/vial) / 1000 = IU per vial. |
-| `f_il2_d8` | `il2_activity_d8 × il2_content_d8 / 1000` | Same at D8. |
+| `IL2_IU_total_D6` | `Day 6 Activity of IL-2 (IU/mg) × Day 6 IL-2 Protein Content (µg/vial) / 1000` | IL-2 units fed at D6: activity (IU/mg) × protein content (µg/vial) / 1000 = IU per vial. |
+| `IL2_IU_total_D8` | `Day 8 Activity of IL-2 (IU/mg) × Day 8 IL-2 Protein Content (µg/vial) / 1000` | Same at D8. |
 
 ## 14. Context
 
-| Feature (key) | Formula | Description |
+| Feature | Formula | Description |
 |---|---|---|
-| `f_shift` | `"Morning"` if `thaw_time < 11:59:00` else `"Afternoon"` | Which shift started the batch. **Not sure**: the cut-off is hard-coded at 11:59, and a missing thaw time probably falls over (the registry would then mark the feature *errored*). |
+| `Shift` | `"Morning"` if `Thaw Start Time < 11:59:00` else `"Afternoon"` | Which shift started the batch. **Not sure**: the cut-off is hard-coded at 11:59, and a missing thaw time probably falls over (the registry would then mark the feature *errored*). |
 
 ## 15. Vector certificate of analysis (CoA)
 
 These columns are built while the certificate workbook is loaded
-(`ml.io.load_lv_coa`) and carry the prefix `coa_prefix` (display: "LV CoA "). Their
+(`ml.io.load_lv_coa`) and carry the prefix `LV CoA ` (display: "LV CoA "). Their
 lineage is declared in `features.coa_lineage()` so the task stage can check for
 descent from the target.
 
@@ -230,18 +231,18 @@ descent from the target.
 
 | Column (key) | Formula | Description |
 |---|---|---|
-| `coa_delivered_dose` | `dose_titer × coa_volume`, where `dose_titer = coa_titer_unadjusted` if present, else `coa_titer` (adjusted) | Delivered functional dose per G-Rex (titer × volume added). If no unadjusted column exists at all, the adjusted titer is used for every row (with a warning). **Not sure** whether `coa_volume` is the volume *added* to the G-Rex or the fill volume of the lot (the vocabulary calls it "Fill volume"). |
-| `coa_delivered_dose_fallback` | `1 if coa_titer_unadjusted is missing else 0` | Flag: rows where the delivered dose fell back to the adjusted titer (possible potency back-channel). Only created when at least one row falls back. |
-| `coa_titer_adjustment` | `coa_titer / coa_titer_unadjusted` (0 → NaN) | How hard the release titer was corrected; large values may flag assay drift. |
-| `coa_specific_infectivity` | `coa_titer / coa_p24` (0 → NaN) | Infectious titer per physical (p24) particle. |
+| `Delivered Dose per GRex` | `dose_titer × Volume`, where `dose_titer = LV Titer (unadjusted)` if present, else `LV Titer` (adjusted) | Delivered functional dose per G-Rex (titer × volume added). If no unadjusted column exists at all, the adjusted titer is used for every row (with a warning). **Not sure** whether `Volume` is the volume *added* to the G-Rex or the fill volume of the lot (the vocabulary calls it "Fill volume"). |
+| `Delivered Dose used adj titer` | `1 if LV Titer (unadjusted) is missing else 0` | Flag: rows where the delivered dose fell back to the adjusted titer (possible potency back-channel). Only created when at least one row falls back. |
+| `Titer Adjustment Factor` | `LV Titer / LV Titer (unadjusted)` (0 → NaN) | How hard the release titer was corrected; large values may flag assay drift. |
+| `Specific Infectivity` | `LV Titer / Physical Titer p24 ELISA` (0 → NaN) | Infectious titer per physical (p24) particle. |
 
 ### 15.2 Impurities
 
 | Column (key) | Formula | Description |
 |---|---|---|
 | `<impurity> below LOQ` (one per concentration impurity that has `<x` entries) | `1` if the raw cell starts with `<`, else `0` | Left-censoring flag. The numeric value is also replaced by `LOQ / 2` (a low sentinel) in the source column; that replacement is a transformation, not a new column. |
-| `coa_last_dna_fraction` | `last impurity (E1b) / Σ(impurities[1:])`, sum with `min_count=1`, 0 → NaN | Last residual-DNA species as a fraction of total residual DNA. Flagged in the code as a lot-fingerprint **leakage risk** (it may encode vector-lot identity). |
-| `f_coa_impurity_index` | `Σ zscore(impurity)` across the certificate impurity columns that exist (z-score `ddof=0`, within the site frame) | Residual impurities on one scale, summed. **Site-relative**: standardised within one site's batches, so values are not comparable between sites and cannot be recomputed for a single new batch. Listed in `site_relative()` → exploration only. |
+| `E1b Fraction of Total DNA` | `last impurity (E1b) / Σ(impurities[1:])`, sum with `min_count=1`, 0 → NaN | Last residual-DNA species as a fraction of total residual DNA. Flagged in the code as a lot-fingerprint **leakage risk** (it may encode vector-lot identity). |
+| `LVCoA_Impurity_Index_zsum` | `Σ zscore(impurity)` across the certificate impurity columns that exist (z-score `ddof=0`, within the site frame) | Residual impurities on one scale, summed. **Site-relative**: standardised within one site's batches, so values are not comparable between sites and cannot be recomputed for a single new batch. Listed in `site_relative()` → exploration only. |
 
 ### 15.3 Spec deviations
 
@@ -252,7 +253,7 @@ descent from the target.
 
 ### 15.4 Reference-donor summaries
 
-Done for each metric: CAR% (`coa_car_metric`) and IFNγ (`coa_ifng_metric`), using
+Done for each metric: CAR% (`CAR%`) and IFNγ (`IFNg`), using
 Donor 1 (`d1`) and Donor 2 (`d2`). Only created if both donor columns exist.
 
 | Column | Formula | Description |
@@ -294,15 +295,15 @@ completeness; formulas are from the module docstrings and code.
 
 ## 18. Open questions / "not sure" summary
 
-1. **Unit of `pt_cd3_pct` / `pw_cd3_pct`** — `f_pt_cd3_cells` multiplies by the percentage without `/100`; the `*_share` features divide by 100. One of the two is probably off.
+1. **Unit of `Post Thaw FLOW CD3+ (%)` / `Post Wash POS FLOW CD3+ (%)`** — `PT Total  CD3+ (Viable Cells)` multiplies by the percentage without `/100`; the `*_share` features divide by 100. One of the two is probably off.
 2. **`1e9` factor** in lactate/glucose per cell — exact unit conversion not documented.
-3. **`vessel_count` other than 1** (for example 3 or NaN) is treated as two vessels in the lactate/glucose per-cell features, but gives NaN in `f_seeding_pct`.
-4. **`f_seeding_pct`** — ratio (1.0 = on target) vs. percentage, and the downstream `-100` comparisons.
-5. **`f_dose_all`** — two branches on different scalings (`/1e6` vs `/1e8`).
-6. **`f_moi_quality`** — multiplying by the PI ratio vs. dividing.
-7. **`coa_delivered_dose`** — which "volume" (`coa_volume`) is meant.
-8. **`f_shift`** — fixed cut-off at 11:59 and handling of missing times.
+3. **`Day 3 Number of G-Rex to seed` other than 1** (for example 3 or NaN) is treated as two vessels in the lactate/glucose per-cell features, but gives NaN in `D3 % cells seeded / target`.
+4. **`D3 % cells seeded / target`** — ratio (1.0 = on target) vs. percentage, and the downstream `-100` comparisons.
+5. **`Dose (CAR+ viable cells/kg) all weights`** — two branches on different scalings (`/1e6` vs `/1e8`).
+6. **`MOI_eff_quality_adjusted`** — multiplying by the PI ratio vs. dividing.
+7. **`Delivered Dose per GRex`** — which "volume" (`Volume`) is meant.
+8. **`Shift`** — fixed cut-off at 11:59 and handling of missing times.
 9. **Spread features and single-vessel batches** — one vessel gives std = 0 and mean = min = max.
-10. **`f_contact_within`** — missing contact time gives 0, not NaN.
+10. **`D3_contact_time_within_window[_G-Rex_A/_G-Rex_B]`** — missing contact time gives 0, not NaN.
 11. **"Calc " impurity columns** — read from the certificate, not computed here.
-12. **Real column names** — only vocabulary keys are visible in the repo; the true names are in the private vocabulary workbook.
+12. **Certificate columns** — in the batch table they carry the prefix `LV CoA ` (vocabulary `coa_prefix`), which is not repeated in every entry.

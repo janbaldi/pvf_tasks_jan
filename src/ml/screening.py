@@ -344,7 +344,7 @@ def add(
         who = fields["Author"] or author.strip()
         if not who:
             problems.append("say who decides: fill in Author, or pass --author")
-        if fields["Group"] and site == ALL:
+        if fields["Group"] and not fields["Parameter"] and site == ALL:
             problems.append("a Group is numbered per site: name the site")
         if problems:
             errors += [f"{where}: {p}" for p in problems]
@@ -355,8 +355,10 @@ def add(
             at_site = evidence[evidence["Site"] == site]
             named = at_site[
                 [c for c in ("Group", CORRELATION_GROUP, SHIFT_GROUP) if c in at_site.columns]
-            ].astype(str)
-            members = at_site[(named == fields["Group"]).any(axis=1)]["Parameter"].tolist()
+            ]
+            # A cell may name several groups (one per plant), joined by "; ".
+            hit = named.map(lambda cell: fields["Group"] in _text(cell).split("; ")).any(axis=1)
+            members = at_site[hit]["Parameter"].tolist()
             if not members:
                 errors.append(
                     f"{where}: the latest build has no group '{fields['Group']}' at {site}"
@@ -380,8 +382,13 @@ def add(
                 continue
         if action == EXCLUDE and reason in REPRESENTED and not fields["Represented by"]:
             found = evidence[evidence["Parameter"].isin(members) & evidence["Site"].isin(covered)]
-            column = REPRESENTED[reason][1]
-            suggested = set(found.get(column, pd.Series(dtype=str)).dropna().astype(str))
+            group_column, column = REPRESENTED[reason]
+            suggested = set()
+            for _, row in found.iterrows():
+                groups = _text(row.get(group_column)).split("; ")
+                for group, suggestion in zip(groups, _text(row.get(column)).split("; ")):
+                    if not fields["Group"] or group == fields["Group"]:
+                        suggested.add(suggestion)
             if len(suggested - {""}) != 1:
                 errors.append(f"{where}: name the parameter that represents it in Represented by")
                 continue

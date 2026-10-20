@@ -486,7 +486,7 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
         missing_by_site[site][1].cohort = "; ".join(filter(None, (cohort, counted)))
     standing = _mark_screened(missing_by_site, config)
     # Over the same batches, without what the register already leaves out.
-    correlated_by_site, shifted_by_site = {}, {}
+    correlated_by_site = {}
     for site, (batches, analysed) in cohorts.items():
         screened = missing_by_site[site][1].screened
         rows, analysis = correlation.for_build(
@@ -500,16 +500,7 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
         analysis.cohort = missing_by_site[site][1].cohort
         analysis.screened = {p: d for p, d in screened.items() if d["Reason"] == correlation.REASON}
         correlated_by_site[site] = rows, analysis
-        rows, found = shifts.for_build(
-            batches,
-            id_column="Patient Lot/Batch #",
-            order_column=names.col(date_column),
-            analysed=analysed,
-            screened_out={p: d["Reason"] for p, d in screened.items()},
-        )
-        found.cohort = analysis.cohort
-        found.screened = {p: d for p, d in screened.items() if d["Reason"] == shifts.REASON}
-        shifted_by_site[site] = rows, found
+    shifted_by_site = _shifts_by_plant(cohorts, missing_by_site, names.col(date_column))
 
     # ── Write ──────────────────────────────────────────────────────────────
     log.section("06 · Output")
@@ -569,8 +560,19 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
                 evidence,
                 missing_by_site,
                 {
-                    (screening.CORRELATION_GROUP, screening.SUGGESTED): correlated_by_site,
-                    (screening.SHIFT_GROUP, screening.SHIFT_SUGGESTED): shifted_by_site,
+                    (screening.CORRELATION_GROUP, screening.SUGGESTED): {
+                        site: analysis.groups for site, (_, analysis) in correlated_by_site.items()
+                    },
+                    # A plant's groups are evidence at each data source its batches come from.
+                    (screening.SHIFT_GROUP, screening.SHIFT_SUGGESTED): {
+                        site: [
+                            g
+                            for _, found in shifted_by_site.values()
+                            if site in found.sources
+                            for g in found.groups
+                        ]
+                        for site in names.sites()
+                    },
                 },
                 content_digest,
                 run_start,
@@ -647,6 +649,58 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
     return dict(uploaded)["report"]
 
 
+def _shifts_by_plant(
+    cohorts: dict[str, tuple[pd.DataFrame, pd.Series | None]],
+    missing_by_site: dict[str, tuple],
+    order_column: str,
+) -> dict[str, tuple[list[dict], Any]]:
+    """The shifts analysis per manufacturing site, over the missingness report's batches.
+
+    Time, and the lots, run per plant rather than per data source. A plant's
+    decisions go to the register site its batches come from, or to ``all`` when
+    they come from both; it leaves out what the register excludes at any of them.
+    Without the column, each data source counts as one plant.
+    """
+    every = pd.concat([batches for batches, _ in cohorts.values()])
+    counted = pd.concat(
+        [
+            pd.Series(True, index=batches.index) if analysed is None else analysed
+            for batches, analysed in cohorts.values()
+        ]
+    )
+    source = pd.concat([pd.Series(site, index=b.index) for site, (b, _) in cohorts.items()])
+    column = names.col("manufacturing_site")
+    if column in every.columns:
+        plant = every[column].astype("string").str.strip()
+    else:
+        log.warn(MODULE, f"No '{column}' column: the shifts report splits by data source instead")
+        plant = source
+    if plant.isna().any():
+        log.warn(MODULE, f"{int(plant.isna().sum()):,} batches have no {column}: not in the shifts")
+    out = {}
+    for name in sorted(plant.dropna().unique()):
+        here = (plant == name).fillna(False).astype(bool)
+        sources = sorted(set(source[here]))
+        screened: dict[str, dict] = {}
+        for site in sources:
+            for parameter, decision in missing_by_site[site][1].screened.items():
+                screened.setdefault(parameter, decision)
+        rows, found = shifts.for_build(
+            every[here],
+            id_column="Patient Lot/Batch #",
+            order_column=order_column,
+            analysed=counted[here],
+            screened_out={p: d["Reason"] for p, d in screened.items()},
+            label=str(name),
+        )
+        found.sources = sources
+        found.register_site = sources[0] if len(sources) == 1 else screening.ALL
+        found.cohort = f"{int(counted[here].sum()):,} batches from {', '.join(sources)}"
+        found.screened = {p: d for p, d in screened.items() if d["Reason"] == shifts.REASON}
+        out[str(name)] = rows, found
+    return out
+
+
 def _register(config: dict[str, Any]) -> screening.Register | None:
     """The screening register config.yaml points at, or None when it points at none."""
     if not workspace.has(config, "screening"):
@@ -681,22 +735,22 @@ def _mark_screened(missing_by_site: dict[str, tuple], config: dict[str, Any]) ->
 def _write_evidence(
     path: Path,
     missing_by_site: dict[str, tuple],
-    grouped_by_site: dict[tuple[str, str], dict[str, tuple]],
+    grouped_by_site: dict[tuple[str, str], dict[str, list]],
     content_digest: str,
     run_start: datetime,
 ) -> Path:
     """Each parameter's missingness, and its correlation and shift group with their suggested
     representative: what `ml screening add` cites. ``grouped_by_site`` maps the two evidence
-    columns to the analysis per site that fills them."""
+    columns to the groups per site that fill them. A parameter in several groups at a
+    site (one per plant) has them all, joined by "; ", each suggestion in its place."""
     cited = {}
     for site, (rows, _) in missing_by_site.items():
         cited[site] = [dict(row) for row in rows]
-        for (group_column, suggested_column), results in grouped_by_site.items():
-            group_of = {m: g for g in results[site][1].groups for m in g.members}
+        for (group_column, suggested_column), groups in grouped_by_site.items():
             for row in cited[site]:
-                group = group_of.get(row["Parameter"])
-                row[group_column] = group.name if group else ""
-                row[suggested_column] = group.representative if group else ""
+                found = [g for g in groups.get(site, []) if row["Parameter"] in g.members]
+                row[group_column] = "; ".join(g.name for g in found)
+                row[suggested_column] = "; ".join(g.representative for g in found)
     with pd.ExcelWriter(path) as workbook:
         screening.evidence_frame(cited).to_excel(
             workbook, sheet_name=screening.EVIDENCE_SHEET, index=False

@@ -424,7 +424,7 @@ def render_proposal(form: dict, site: dict, picked: list, key: str) -> None:
             picked,
             group_of,
             site["screened"],
-            site["label"],
+            site.get("register_site") or site["label"],
             action,
             reason,
             rationale,
@@ -479,7 +479,9 @@ def render_missing_viewer(block: dict, key: str) -> None:
     }[mode]
     labels = [site["label"] for site in block["sites"]]
     with SLOTS.get("site") or st.sidebar:
-        chosen = st.radio("Site", labels, horizontal=True, key=f"site{key}")
+        chosen = st.radio(
+            block.get("site_label") or "Site", labels, horizontal=True, key=f"site{key}"
+        )
     site = block["sites"][labels.index(chosen)]
     screened = site.get("screened") or {}
     top = st.container()

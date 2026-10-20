@@ -200,10 +200,10 @@ The `Check` sheet holds the digest the register was last written with. Reasons:
 
 | File | Contents |
 |---|---|
-| `missingness.xlsx` | Per site and parameter: missing %, pattern, gaps, last measured, missingness group, *Correlation group* and *Suggested representative*, *Shift group* and *Suggested shift representative*, and the standing screening decision. What `ml screening add` checks a proposal against and cites as evidence. |
+| `missingness.xlsx` | Per site and parameter: missing %, pattern, gaps, last measured, missingness group, *Correlation group* and *Suggested representative*, *Shift group* and *Suggested shift representative* (several, joined by `; `, when a source has several plants), and the standing screening decision. What `ml screening add` checks a proposal against and cites as evidence. |
 | `task_catalog.xlsx` | The catalog rows for the batch table's parameters that the register (as the build read it) leaves usable at some site, with *Usable at* (sites) and *Represents* (what each representative stands for, per site). |
 | `correlation_report.html` | Per site: numerical parameters grouped by Spearman \|ρ\| (average linkage, mean ≥ 0.8; pairs need 20 shared batches), each group with a suggested representative and BH-adjusted q. |
-| `shifts_report.html` | Per site: parameters whose values fall into level groups over time (groups ≥ 3 batches on average, jumps ≥ 4× the spread within, no drift within, permutation p ≤ 0.01), grouped by the adjusted Rand index of their level groups (mean ≥ 0.8, q < 0.05). |
+| `shifts_report.html` | Per manufacturing site (the `Manufacturing Site` column; decisions go to the plant's data source, or `all`): parameters whose values fall into level groups over time (groups ≥ 3 batches on average, jumps ≥ 4× the spread within, no drift within, permutation p ≤ 0.01), grouped by the adjusted Rand index of their level groups (mean ≥ 0.8, q < 0.05). |
 
 The Help page of each report gives the method in full.
 

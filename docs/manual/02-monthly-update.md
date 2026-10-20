@@ -166,8 +166,10 @@ so to a tree the members of a group are interchangeable.
 
 ### The shifts report
 
-Open `shifts_report.html`. It works like the correlation report, over the same
-batches, for parameters of **any type** whose batches, in date order, fall into
+Open `shifts_report.html`. It works like the correlation report, but **per
+manufacturing site** (the `Manufacturing Site` column) rather than per data
+source: time, and the lots, run per plant. It uses the batches the missingness
+report counts in its statistics, split by plant, for parameters of **any type** whose batches, in date order, fall into
 **level groups**: stretches of consecutive batches where the value is very
 nearly the same, followed by a jump to another level. A raw material or
 consumable lot does this, and with it the lot's certificate values, its expiry
@@ -190,7 +192,10 @@ every batch, nor a parameter that merely leans with the lot.
   their mean length, the median jump and the spread within groups (in the
   parameter's own unit), the drift within groups, and the permutation p.
 - **The group table, screening and the proposal** as in the correlation report,
-  with the reason `shifts with group`.
+  with the reason `shifts with group`. Group names end with the plant
+  (`Shifting 01 @ …`). The register records decisions per data source, so a
+  proposal names the source the plant's batches come from, or `all` when they
+  come from both.
 
 Parameters screened out for any other reason (missingness, correlation) are left
 out, so a parameter already represented elsewhere is not counted twice.

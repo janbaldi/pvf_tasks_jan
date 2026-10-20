@@ -101,6 +101,11 @@ def test_the_build_writes_the_shifts_report_and_finds_the_demo_lots(built):
     payload = stlite.read_payload(page.read_text(encoding="utf-8"))
     viewer = payload["sections"][0]["blocks"][0]
     assert viewer["kind"] == "shift_viewer" and viewer["proposal"]["reason"] == shifts.REASON
+    # One per manufacturing site; a proposal names the data source its batches come from.
+    assert viewer["site_label"] == "Manufacturing site"
+    assert {(s["label"], s["register_site"]) for s in viewer["sites"]} == {
+        (f"{names.site(k)} plant", names.site(k)) for k in "ab"
+    }
     for site in viewer["sites"]:
         # The medium and cytokine lots change on the same batches at both sites.
         assert {c("media_lot"), c("cytokine_lot")} in [set(g) for g in site["groups"].values()]
@@ -112,3 +117,62 @@ def test_the_build_writes_the_shifts_report_and_finds_the_demo_lots(built):
     evidence = pd.read_excel(path, sheet_name=screening.EVIDENCE_SHEET)
     at_a = evidence[evidence["Site"] == names.site("a")].set_index("Parameter")
     assert at_a.loc[c("media_lot"), screening.SHIFT_GROUP].startswith("Shifting")
+
+
+def test_the_shifts_run_per_manufacturing_site():
+    from types import SimpleNamespace
+
+    from ml import cli
+
+    plant = names.col("manufacturing_site")
+    frame = _lots().rename(columns={"id": "Patient Lot/Batch #"})
+    north, south = frame.iloc[:100].copy(), frame.iloc[100:].copy()
+    north[plant] = ["P1"] * 60 + ["P2"] * 40
+    south[plant] = "P2"
+    cohorts = {"North": (north, None), "South": (south, None)}
+    missing = {
+        "North": (None, SimpleNamespace(screened={"lot": {"Reason": "retired"}})),
+        "South": (None, SimpleNamespace(screened={})),
+    }
+    found = cli._shifts_by_plant(cohorts, missing, "date")
+    assert set(found) == {"P1", "P2"}
+    p1, p2 = found["P1"][1], found["P2"][1]
+    # P2 makes batches for both sources: its decisions are for both.
+    assert (p1.register_site, p2.register_site) == ("North", screening.ALL)
+    assert p2.sources == ["North", "South"] and len(p2.batches) == 140
+    # Screened out at North, so left out of every plant North's batches come from.
+    assert "lot" in p1.left_out and "lot" in p2.left_out
+    assert all(g.name.endswith(" @ P2") for g in p2.groups)
+    # Without the column, each data source is one plant.
+    found = cli._shifts_by_plant(
+        {s: (b.drop(columns=plant), a) for s, (b, a) in cohorts.items()}, missing, "date"
+    )
+    assert set(found) == {"North", "South"}
+
+
+def test_evidence_with_a_group_per_plant_still_names_the_members_and_the_suggestion():
+    evidence = pd.DataFrame(
+        {
+            "Site": ["North"] * 3,
+            "Parameter": ["Lot", "Titre", "Expiry"],
+            "Missing %": [0.0] * 3,
+            "Pattern": ["Complete"] * 3,
+            "Last measured": [""] * 3,
+            "Group": [None] * 3,
+            screening.SHIFT_GROUP: ["Shifting 01 @ P1; Shifting 02 @ P2"] * 2
+            + ["Shifting 02 @ P2"],
+            screening.SHIFT_SUGGESTED: ["Lot; Expiry"] * 2 + ["Expiry"],
+        }
+    )
+    row = {"Action": "exclude", "Site": "North", "Reason": shifts.REASON, "Rationale": "lots"}
+    added = screening.add(
+        [], pd.DataFrame([row | {"Group": "Shifting 02 @ P2"}]), evidence, "", "A", ("North",)
+    )
+    assert [(d.parameter, d.represented_by) for d in added] == [
+        ("Lot", "Expiry"),
+        ("Titre", "Expiry"),
+    ]
+    added = screening.add(
+        [], pd.DataFrame([row | {"Group": "Shifting 01 @ P1"}]), evidence, "", "A", ("North",)
+    )
+    assert [(d.parameter, d.represented_by) for d in added] == [("Titre", "Lot")]

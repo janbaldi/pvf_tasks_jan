@@ -194,6 +194,7 @@ DURATION_KEYS = ("contact_time", "contact_time_a", "contact_time_b")
 RATIO_KEYS = ("pt_cd4_cd8_ratio",)
 CATEGORICAL_KEYS = (
     "manufacturing_completed",
+    "manufacturing_site",
     "patient_id",
     "vector_lot",
     "clinical_site",
@@ -221,6 +222,7 @@ STAGES = {
     "D0": (
         "date_start",
         "manufacturing_completed",
+        "manufacturing_site",
         "patient_id",
         "vector_lot",
         "subject_weight",
@@ -618,6 +620,7 @@ def site_a_phf(rng: np.random.Generator, n: int = SITE_A_BATCHES) -> pd.DataFram
     df[c("clinical_site")] = _cycle(vs("clinical_sites_a"), n)
     df[c("country")] = _cycle(vs("countries_a"), n)
     df[c("batch_type")] = _cycle([v("type_commercial")] * 9 + [v("type_clinical")], n)
+    df[c("manufacturing_site")] = f"{names.site('a')} plant"  # the shifts report's split
     df[c("disposition")] = _cycle([v("released"), v("rejected")], n)
     df[c("pre_activation_clumps_yn")] = _cycle(["Yes", "No", None, "Yes"], n)
     df[c("seeding_density_a")] = rng.uniform(4e11, 6e11, n).round(0)
@@ -662,6 +665,7 @@ def site_b_phf(rng: np.random.Generator, n: int = SITE_B_BATCHES) -> pd.DataFram
     df[c("site_b_country")] = v("site_b_country_short")
     df[c("site_b_site_code")] = v("site_b_site_code_value")  # mapped to nothing: dropped
     df[c("batch_type")] = v("type_clinical")  # a correction forces this to the commercial type
+    df[c("manufacturing_site")] = f"{names.site('b')} plant"
     df[c("disposition")] = _cycle([v("released"), v("discarded")], n)  # a level A never uses
     df[c("pre_activation_clumps_yn")] = _cycle(["Y", "N", None], n)
     df[c("cells_per_bag")] = rng.uniform(3e12, 7e12, n).round(0)

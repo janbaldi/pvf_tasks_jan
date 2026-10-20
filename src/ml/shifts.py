@@ -5,8 +5,9 @@ titre: over the batches in date order, each holds (very nearly) one value for as
 long as a lot lasts, then jumps to another. Its batches fall into *level groups*:
 stretches of consecutive batches with very nearly the same value. Parameters
 whose level groups cover the same batches carry the same information, which lot
-a batch was made with. This module finds them, per site, over the same batches
-as the missingness report:
+a batch was made with. This module finds them per manufacturing site (time, and
+the lots, run per plant rather than per data source), over the batches the
+missingness report counts in its statistics:
 
 1. Every parameter (any type) with at least :data:`MIN_BATCHES` values and two
    distinct ones is tested, unless the screening register excludes it at the
@@ -88,6 +89,10 @@ class ShiftReport:
     #: The parameters that move in level groups, and how many were tested.
     analysed: list[str] = field(default_factory=list)
     tested: int = 0
+    #: The data sources (register sites) the batches come from, and the register
+    #: site a decision about them takes: the one source, or ``all``.
+    sources: list[str] = field(default_factory=list)
+    register_site: str = ""
     groups: list[CorrelationGroup] = field(default_factory=list)
     #: The batches compared, in date order; per parameter, its level group's level
     #: per batch as one base-36 digit (the rank among its groups, "." for no value),
@@ -153,10 +158,13 @@ def for_build(
     order_column: str,
     analysed: pd.Series | None = None,
     screened_out: dict[str, str] | None = None,
+    label: str = "",
 ) -> tuple[list[dict], ShiftReport]:
     """Groups of parameters whose level groups cover the same batches; one row per parameter.
 
     ``analysed`` and ``screened_out`` as for :func:`ml.correlation.for_build`.
+    ``label`` (the manufacturing site) ends each group's name, so names stay unique
+    when one register site holds several plants.
     """
     frame, _ = _ordered(frame, order_column)
     if analysed is not None:
@@ -269,6 +277,8 @@ def for_build(
     report.similarity = [[int(round(100 * v)) for v in row] for row in similarity]
     supported = np.where(np.eye(p, dtype=bool) | (q < ALPHA), similarity, 0.0)
     report.groups = grouped(supported.clip(min=0), n, q, report.analysed, THRESHOLD, "Shifting")
+    for group in report.groups:
+        group.name += f" @ {label}" if label else ""
     group_of = {m: g for g in report.groups for m in g.members}
 
     rows = []

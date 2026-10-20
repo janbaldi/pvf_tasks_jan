@@ -96,7 +96,7 @@ You can also write the file by hand, in Excel or a text editor:
 | `Action` | `exclude` or `reinstate` |
 | `Parameter` | The parameter's exact name, as in the report |
 | `Group` | A group from a report's group table, such as `Missing 05`, `Correlated 02` or `Shifting 01`. With no `Parameter`, the row stands for every member of the group at that site; with one, it is context |
-| `Site` | A site's name, or `all` (not with a group: groups are found per site) |
+| `Site` | A site's name, or `all` (not with a group and no `Parameter`: groups are found per site). The shifts report finds groups per manufacturing site and names the plant's data source, or `all` |
 | `Reason` | One of the reasons in the table above |
 | `Rationale` | Why, in a sentence. Required |
 | `Review by` | Optional date (`YYYY-MM-DD`) to look at it again; empty means three months from today |

@@ -47,6 +47,7 @@ COLUMNS: dict[str, str | tuple[str, ...]] = {
     "date_start": "Start date",
     "batch_type": "Batch kind",
     "manufacturing_completed": "Manufacturing finished?",
+    "manufacturing_site": "Plant",
     "pt_cd4_pct": "Thawed CD4 share (%)",
     "pt_cd8_pct": "Thawed CD8 share (%)",
     "pt_cd3_pct": "Thawed CD3 share (%)",

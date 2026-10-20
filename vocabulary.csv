@@ -2,6 +2,7 @@ Kind,Key,Name,What it is (demo name)
 column,date_start,Date of Manufacture Start,Start date
 column,batch_type,Type,Batch kind
 column,manufacturing_completed,Manufacturing Completed?,Manufacturing finished?
+column,manufacturing_site,Manufacturing Site,Plant
 column,pt_cd4_pct,Post Thaw FLOW CD4+ (%),Thawed CD4 share (%)
 column,pt_cd8_pct,Post Thaw FLOW CD8+ (%),Thawed CD8 share (%)
 column,pt_cd3_pct,Post Thaw FLOW CD3+ (%),Thawed CD3 share (%)

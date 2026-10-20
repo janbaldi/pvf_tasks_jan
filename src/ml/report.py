@@ -557,6 +557,8 @@ def _grouped_viewer(
         sites.append(
             {
                 "label": site,
+                # The register site a proposal names: a plant's data source, or "all".
+                "register_site": getattr(analysis, "register_site", "") or site,
                 "batches": analysis.batches,
                 "dates": analysis.dates,
                 "patterns": analysis.ranks if ranked else analysis.levels,
@@ -594,6 +596,7 @@ def _grouped_viewer(
     block = missing_viewer(sites, kind=kind)
     if block is not None:
         block["levels"] = correlation.LEVELS
+        block["site_label"] = "Site" if kind == "rank_viewer" else "Manufacturing site"
         block["proposal"] = {
             "columns": list(screening.PROPOSAL_COLUMNS),
             "actions": list(screening.ACTIONS),
@@ -691,11 +694,15 @@ def _shifts_help(run: BuildRun) -> dict | None:
             ),
             md(
                 "#### How the numbers are decided\n\n"
-                "Each site is analysed on its own batches: the batches the missingness report "
-                "counts in its statistics, in date order, blanks skipped.\n\n"
+                "Each manufacturing site is analysed on its own batches, in date order, blanks "
+                "skipped: time, and the lots, run per plant rather than per data source. They "
+                "are the batches the missingness report counts in its statistics, split by "
+                "the *Manufacturing Site* column. A proposal names the data source the plant's "
+                "batches come from, or *all* when they come from both.\n\n"
                 f"- **Parameters.** Any parameter with at least {shifts.MIN_BATCHES} values and "
                 "two distinct ones is tested. A parameter the screening register excludes at "
-                f"the site is left out, unless the reason is *{shifts.REASON}*: those stay, "
+                "the plant's data source is left out, unless the reason is "
+                f"*{shifts.REASON}*: those stay, "
                 "marked ⊘, so they can be reinstated.\n"
                 "- **Level groups.** A new group starts where the value moves from the batch "
                 f"before by more than {shifts.TOLERANCE:g} times the median batch-to-batch "
@@ -1216,7 +1223,7 @@ def build_shifts_payload(run: BuildRun) -> dict[str, Any]:
         "Batch table shifts",
         "Which parameters hold very nearly one value for a stretch of batches and then jump to "
         "another, as a lot does, and which have their level groups on the same batches, per "
-        f"site. Parameters that move in level groups — {tested}.",
+        f"manufacturing site. Parameters that move in level groups — {tested}.",
         _shifts_help(run),
     )
 

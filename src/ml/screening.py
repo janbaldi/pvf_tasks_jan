@@ -36,6 +36,8 @@ CHECK_SHEET = "Check"
 #: The build's evidence workbook: every parameter's missingness per site, and the build.
 EVIDENCE_FILE = "missingness.xlsx"
 EVIDENCE_SHEET = "Parameters"
+#: The evidence column naming a parameter's group in the correlation report.
+CORRELATION_GROUP = "Correlation group"
 ABOUT_SHEET = "About"
 
 #: The register's columns, in order.
@@ -78,6 +80,7 @@ REASONS = (
     "too sparse",
     "irregular",
     "missing with group",
+    "correlated with group",
     "data quality",
     "other",
 )
@@ -311,8 +314,10 @@ def add(
             continue
         covered = sites if site == ALL else (site,)
         if fields["Group"] and not fields["Parameter"]:
-            members = evidence[
-                (evidence["Site"] == site) & (evidence["Group"].astype(str) == fields["Group"])
+            at_site = evidence[evidence["Site"] == site]
+            members = at_site[
+                (at_site["Group"].astype(str) == fields["Group"])
+                | (at_site.get(CORRELATION_GROUP, at_site["Group"]).astype(str) == fields["Group"])
             ]["Parameter"].tolist()
             if not members:
                 errors.append(

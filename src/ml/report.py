@@ -25,7 +25,7 @@ from typing import Any
 import pandas as pd
 import yaml
 
-from . import decorrelate, missingness, plots, screening, stlite
+from . import correlation, decorrelate, missingness, plots, screening, stlite
 from .blocks import (
     Block,
     bold,
@@ -86,6 +86,8 @@ class BuildRun:
     run_start: datetime = field(default_factory=datetime.now)
     #: site → :func:`ml.missingness.for_build` over its batches: one row per column, the groups
     missingness: dict[str, tuple[list[dict], Any]] = field(default_factory=dict)
+    #: site → :func:`ml.correlation.for_build` over the same batches
+    correlation: dict[str, tuple[list[dict], Any]] = field(default_factory=dict)
 
 
 def _section(section_id: str, title: str, blocks: list[Block | None]) -> dict | None:
@@ -496,6 +498,125 @@ def _missingness_help(run: BuildRun) -> dict | None:
             table(
                 ["Pattern", "Meaning"],
                 [[esc(kind), meaning] for kind, meaning in missingness.PATTERNS.items()],
+            ),
+        ],
+    }
+
+
+#: The correlation report's parameter and group tables, with their display formats.
+_RANK_FORMATS = {
+    "Batches with a value": "%d",
+    "Distinct values": "%d",
+    "|ρ| with it": "%.3f",
+    "Batches in common": "%d",
+    "q": "%.2g",
+}
+_RANK_GROUP_FORMATS = {
+    "Group": None,
+    "Members": "%d",
+    "Mean |ρ|": "%.3f",
+    "Weakest |ρ|": "%.3f",
+    "Fewest batches in common": "%d",
+    "Weakest pair q": "%.2g",
+    "Screened members": "%d",
+}
+
+
+def _rank_viewer(run: BuildRun) -> dict | None:
+    """The rank strip, with the group and parameter tables to pick what it draws."""
+    sites = []
+    for number, (site, (rows, analysis)) in enumerate(run.correlation.items(), start=1):
+        if not rows:
+            continue
+        headers = list(rows[0])
+        sites.append(
+            {
+                "label": site,
+                "batches": analysis.batches,
+                "dates": analysis.dates,
+                "patterns": analysis.ranks,
+                "screened": analysis.screened,
+                "rho": {"parameters": analysis.analysed, "values": analysis.rho},
+                "groups": {g.name: g.members for g in analysis.groups},
+                "group_headers": list(_RANK_GROUP_FORMATS),
+                "group_rows": [
+                    [
+                        g.name,
+                        len(g.members),
+                        round(g.mean_rho, 3),
+                        round(g.min_rho, 3),
+                        g.min_batches,
+                        float(f"{g.max_q:.3g}"),
+                        sum(m in analysis.screened for m in g.members),
+                    ]
+                    for g in analysis.groups
+                ],
+                "group_formats": list(_RANK_GROUP_FORMATS.values()),
+                "headers": headers,
+                "rows": [[row[h] for h in headers] for row in rows],
+                "formats": [_RANK_FORMATS.get(h) for h in headers],
+                "csv_name": f"correlation_site_{number}.csv",
+                "csv": csv_text([{"Site": site, **row} for row in rows]),
+            }
+        )
+    block = missing_viewer(sites, kind="rank_viewer")
+    if block is not None:
+        block["levels"] = correlation.LEVELS
+        block["proposal"] = {
+            "columns": list(screening.PROPOSAL_COLUMNS),
+            "actions": list(screening.ACTIONS),
+            "reasons": list(screening.REASONS),
+            "review_days": screening.REVIEW_AFTER.days,
+        }
+    return _section("viewer", "Rank correlation", [block])
+
+
+def _correlation_help(run: BuildRun) -> dict | None:
+    if not run.correlation:
+        return None
+    return {
+        "title": "Method",
+        "blocks": [
+            md(
+                "#### Reading the report\n\n"
+                "Pick a site. Tick a group to draw its parameters, and tick parameters to add "
+                "them. Each row of the plot is a parameter, each cell a batch, coloured by the "
+                "parameter's percentile rank at this site: light is its lowest value, dark its "
+                "highest, grey no value. By default the batches are ordered by the first "
+                "parameter's value, so its row runs light to dark; a parameter that ranks the "
+                "batches alike runs light to dark with it, one that ranks them in reverse runs "
+                "dark to light. Each row is labelled with its Spearman ρ to the first.\n\n"
+                "#### Why rank correlation\n\n"
+                "A decision tree splits on the order of a parameter's values, not on the values: "
+                "two parameters that order the batches alike offer it the same splits, and it "
+                "picks one by chance, which splits the importance between them. Rank correlation "
+                "(Spearman's ρ) measures exactly that, unchanged by any monotone transform, and "
+                "a negative ρ is as redundant to a tree as a positive one, so groups use |ρ|."
+            ),
+            md(
+                "#### How the numbers are decided\n\n"
+                "Each site is analysed on its own batches: the batches the missingness report "
+                "counts in its statistics. Batches it only draws are left out here.\n\n"
+                "- **Parameters.** Every parameter the catalog types as "
+                f"{', '.join(correlation.NUMERIC_TYPES)}, with at least "
+                f"{correlation.MIN_BATCHES} values and two distinct ones. A parameter the "
+                "screening register excludes at the site is left out, unless the reason is "
+                f"*{correlation.REASON}*: those stay, marked ⊘, so they can be reinstated.\n"
+                "- **ρ** of a pair is computed over the batches where both have a value, and "
+                f"needs {correlation.MIN_BATCHES} of them (*Batches in common*).\n"
+                "- **q** is the p-value of ρ (t-test on n-2 degrees of freedom), "
+                "Benjamini-Hochberg adjusted over every pair compared at the site.\n"
+                "- **Groups.** Average linkage on 1-|ρ|: two parameters or groups join while "
+                f"the mean |ρ| between them is at least {correlation.THRESHOLD}. A pair with "
+                "too few batches in common counts as unrelated. *Weakest |ρ|* and *Weakest pair "
+                "q* are the group's least related pair: a group is only as tight as that.\n"
+                "- **Closest parameter** is the one with the highest |ρ| to it, in a group or not."
+            ),
+            md(
+                "#### Screening\n\n"
+                "To keep one parameter of a group, tick the group, open *Propose a screening "
+                "decision*, leave the one to keep out of the proposal, and exclude the rest with "
+                f"the reason *{correlation.REASON}*."
             ),
         ],
     }
@@ -920,6 +1041,33 @@ def build_missingness_payload(run: BuildRun) -> dict[str, Any]:
         "sections": [section for section in sections if section],
         "help": _missingness_help(run),
         # Opens on the plot, with the site and this lead in the sidebar.
+        "compact": True,
+    }
+
+
+def build_correlation_payload(run: BuildRun) -> dict[str, Any]:
+    """The build's correlation report, laid out as the missingness report is."""
+    sections = [_rank_viewer(run), _provenance(run)]
+    stamp = run.run_start.strftime("%Y-%m-%d %H:%M")
+    cohorts = [
+        f"{site}: {analysis.cohort}"
+        for site, (_, analysis) in run.correlation.items()
+        if analysis.cohort
+    ]
+    left_out = [
+        f"{site} {len(analysis.left_out):,}"
+        for site, (_, analysis) in run.correlation.items()
+        if analysis.left_out
+    ]
+    return {
+        "title": "Batch table rank correlation",
+        "lead": "Which numerical parameters put the batches in the same order, per site: "
+        "redundant to a decision tree."
+        + (" Batches compared — " + "; ".join(cohorts) + "." if cohorts else "")
+        + (" Screened out, so left out — " + ", ".join(left_out) + "." if left_out else ""),
+        "subtitle": f"CAR-T manufacturing data · run {stamp}",
+        "sections": [section for section in sections if section],
+        "help": _correlation_help(run),
         "compact": True,
     }
 

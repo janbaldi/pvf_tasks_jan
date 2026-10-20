@@ -203,6 +203,17 @@ def render_table(block: dict, key: str) -> None:
         )
 
 
+MISSING_LEGEND = """<b style="background:#d3d2cc;margin-left:0"></b>measured
+  <b style="background:#0047ab"></b>missing
+  <b style="background:#2e8b57"></b>missing, batch not in the statistics
+  &nbsp;·&nbsp; one cell per batch, newest on the right; scroll left to go back in time;
+  ⊘ marks a parameter screened out at this site"""
+RANK_LEGEND = """<b style="background:#d3d2cc;margin-left:0"></b>no value
+  <b style="background:hsl(216,100%%,92%%)"></b>lowest
+  <b style="background:hsl(216,100%%,34%%)"></b>highest value of the parameter at this site
+  &nbsp;·&nbsp; one cell per batch, %s; rows that darken in step rank the batches alike;
+  ⊘ marks a parameter screened out at this site"""
+
 # The pattern strip: a fixed size per batch, so a long history scrolls sideways
 # instead of being squeezed to the page. Drawn on a canvas in its own frame,
 # which keeps thousands of cells cheap and the hover immediate.
@@ -223,18 +234,22 @@ STRIP = """
   #legend b { display: inline-block; width: 10px; height: 10px; margin: 0 4px 0 10px;
               vertical-align: -1px; border-radius: 2px; }
 </style>
-<div id="legend"><b style="background:#d3d2cc;margin-left:0"></b>measured
-  <b style="background:#0047ab"></b>missing
-  <b style="background:#2e8b57"></b>missing, batch not in the statistics
-  &nbsp;·&nbsp; one cell per batch, newest on the right; scroll left to go back in time;
-  ⊘ marks a parameter screened out at this site
-</div>
+<div id="legend">%(legend)s</div>
 <div id="wrap"><div id="names"></div><div id="scroll"><canvas id="c"></canvas></div></div>
 <div id="tip"></div>
 <script>
 const D = %(data)s, W = %(cell)d, H = %(row)d, GAP = 2, AXIS = 22;
 const n = D.batches.length, step = W + 1, ratio = window.devicePixelRatio || 1;
 const canvas = document.getElementById("c"), ctx = canvas.getContext("2d");
+// A rank is one base-36 digit, "." for no value; a missing pattern is "1" for missing.
+const level = (c) => parseInt(c, 36) / (D.levels - 1);
+const fill = (c, i) => D.levels
+  ? (c === "." ? "#d3d2cc" : "hsl(216, 100%%, " + (92 - 58 * level(c)) + "%%)")
+  : c !== "1" ? "#d3d2cc" : !D.analysed || D.analysed[i] === "1" ? "#0047ab" : "#2e8b57";
+const state = (c, i) => D.levels
+  ? (c === "." ? "no value" : "percentile " + Math.round(100 * level(c)))
+  : (c === "1" ? "missing" : "measured") +
+    (D.analysed && D.analysed[i] !== "1" ? " (not in the statistics)" : "");
 const width = n * step, height = D.rows.length * (H + GAP) + AXIS;
 canvas.width = width * ratio; canvas.height = height * ratio;
 canvas.style.width = width + "px"; canvas.style.height = height + "px";
@@ -244,15 +259,14 @@ D.rows.forEach((row, r) => {
   const label = document.createElement("div");
   label.textContent = row.name; label.title = row.name; names.appendChild(label);
   for (let i = 0; i < n; i++) {
-    const counted = !D.analysed || D.analysed[i] === "1";
-    ctx.fillStyle = row.bits[i] !== "1" ? "#d3d2cc" : counted ? "#0047ab" : "#2e8b57";
+    ctx.fillStyle = fill(row.bits[i], i);
     ctx.fillRect(i * step, r * (H + GAP), W, H);
   }
 });
 // A date under the strip wherever the month changes, with room between labels.
 ctx.fillStyle = "#5d6d7e"; ctx.font = "11px system-ui, sans-serif";
 let last = -1e9, month = "";
-D.dates.forEach((date, i) => {
+if (D.axis) D.dates.forEach((date, i) => {
   const m = (date || "").slice(0, 7);
   if (m && m !== month && i * step - last > 70) {
     ctx.fillRect(i * step, D.rows.length * (H + GAP), 1, 4);
@@ -267,8 +281,7 @@ canvas.addEventListener("mousemove", (e) => {
   if (i < 0 || i >= n || r < 0 || r >= D.rows.length) { tip.style.display = "none"; return; }
   const row = D.rows[r];
   tip.textContent = D.batches[i] + (D.dates[i] ? " · " + D.dates[i] : "") + " · " + row.name +
-    ": " + (row.bits[i] === "1" ? "missing" : "measured") +
-    (D.analysed && D.analysed[i] !== "1" ? " (not in the statistics)" : "");
+    ": " + state(row.bits[i], i);
   tip.style.display = "block";
   const left = e.clientX + 12;
   tip.style.left = Math.min(left, window.innerWidth - tip.offsetWidth - 4) + "px";
@@ -277,7 +290,7 @@ canvas.addEventListener("mousemove", (e) => {
 canvas.addEventListener("mouseleave", () => { tip.style.display = "none"; });
 // Open on the most recent batches.
 const scroller = document.getElementById("scroll");
-scroller.scrollLeft = scroller.scrollWidth;
+if (D.axis) scroller.scrollLeft = scroller.scrollWidth;
 </script>
 """
 
@@ -352,6 +365,9 @@ def render_proposal(form: dict, site: dict, picked: list, key: str) -> None:
                 "proposal is about."
             )
             return
+        # A correlated group keeps one representative: the reader leaves it out here.
+        kept = st.multiselect("Leave out of the proposal", picked, key=f"keep{key}")
+        picked = [p for p in picked if p not in kept]
         left, right = st.columns(2)
         action = left.radio("Action", form["actions"], horizontal=True, key=f"act{key}")
         reason = right.selectbox("Reason", form["reasons"], key=f"why{key}")
@@ -406,7 +422,13 @@ def render_proposal(form: dict, site: dict, picked: list, key: str) -> None:
 
 
 def render_missing_viewer(block: dict, key: str) -> None:
-    """The strip on top; below it the groups (one to draw) and the parameters (any to add)."""
+    """The strip on top; below it the groups (one to draw) and the parameters (any to add).
+
+    In a ``rank_viewer`` each site's ``patterns`` are percentile ranks rather than
+    missing flags, and the strip can order the batches by the first parameter drawn.
+    """
+    ranks = block["kind"] == "rank_viewer"
+    together = "that rank the batches alike" if ranks else "missing together"
     labels = [site["label"] for site in block["sites"]]
     with SLOTS.get("site") or st.sidebar:
         chosen = st.radio("Site", labels, horizontal=True, key=f"site{key}")
@@ -415,9 +437,7 @@ def render_missing_viewer(block: dict, key: str) -> None:
     top = st.container()
 
     picked: list[str] = []
-    with st.expander(
-        f"Groups of parameters missing together ({len(site['groups'])})", expanded=True
-    ):
+    with st.expander(f"Groups of parameters {together} ({len(site['groups'])})", expanded=True):
         if site["groups"]:
             groups, ticked = _pick_table(
                 site["group_headers"],
@@ -433,7 +453,7 @@ def render_missing_viewer(block: dict, key: str) -> None:
                 unsafe_allow_html=True,
             )
         else:
-            st.caption("No group of parameters goes missing together at this site.")
+            st.caption(f"No group of parameters {together} at this site.")
     with st.expander(f"Screened out at this site ({len(screened)})", expanded=bool(screened)):
         if screened:
             headers = ["Parameter", *next(iter(screened.values()))]
@@ -472,6 +492,7 @@ def render_missing_viewer(block: dict, key: str) -> None:
     if block.get("proposal"):
         render_proposal(block["proposal"], site, picked, f"{key}-{chosen}")
     n = len(site["batches"])
+    by_value = False
     with top:
         drawn = picked
         if not picked:
@@ -486,20 +507,48 @@ def render_missing_viewer(block: dict, key: str) -> None:
             )
             if not drawn:
                 return
+        # A parameter with no blank at this site has no pattern stored: all measured.
+        bits = [site["patterns"].get(p, ("." if ranks else "0") * n) for p in drawn]
+        names = [("⊘ " if p in screened else "") + p for p in drawn]
+        legend = MISSING_LEGEND
+        if ranks:
+            by_value = (
+                st.radio(
+                    "Batches",
+                    ["by the first parameter's value", "by date"],
+                    horizontal=True,
+                    key=f"order{key}-{chosen}",
+                )
+                != "by date"
+            )
+            legend = RANK_LEGEND % (
+                f"lowest to highest {drawn[0]}" if by_value else "newest on the right"
+            )
+            # Each row labelled with its ρ to the first, the reason it is in a group with it.
+            index = {p: i for i, p in enumerate(site["rho"]["parameters"])}
+            reference = site["rho"]["values"][index[drawn[0]]] if drawn[0] in index else []
+            names = [
+                name
+                if i == 0 or p not in index or reference[index[p]] is None
+                else f"ρ {reference[index[p]] / 100:+.2f} · {name}"
+                for i, (p, name) in enumerate(zip(drawn, names))
+            ]
+        order = list(range(n))
+        if by_value:
+            first = bits[0]
+            order.sort(key=lambda i: (first[i] == ".", int(first[i], 36) if first[i] != "." else 0))
         data = {
-            "batches": site["batches"],
-            "dates": site["dates"],
+            "batches": [site["batches"][i] for i in order],
+            "dates": [site["dates"][i] for i in order],
             "analysed": site.get("in_statistics") or "",
-            # A parameter with no blank at this site has no pattern stored: all measured.
+            "levels": block.get("levels") or 0,
+            "axis": not by_value,
             "rows": [
-                {
-                    "name": ("⊘ " if p in screened else "") + p,
-                    "bits": site["patterns"].get(p, "0" * n),
-                }
-                for p in drawn
+                {"name": name, "bits": "".join(b[i] for i in order)} for name, b in zip(names, bits)
             ],
         }
         page = STRIP % {
+            "legend": legend,
             "data": json.dumps(data).replace("<", "\\u003c"),
             "cell": CELL,
             "row": ROW,
@@ -557,7 +606,7 @@ def render_block(block: dict, key: str) -> None:
                     render_block(child, f"{key}-{i}")
             else:
                 st.caption("Nothing here is drawn until you ask for it.")
-    elif kind == "missing_viewer":
+    elif kind in ("missing_viewer", "rank_viewer"):
         render_missing_viewer(block, key)
     elif kind == "chooser":
         labels = [option["label"] for option in block["options"]]

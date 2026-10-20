@@ -29,7 +29,8 @@ written down, until you decide otherwise.
 
 ## Deciding: what to look at
 
-Open the latest `missingness_report.html` ([chapter 2](02-monthly-update.md#5-read-the-missingness-report)).
+Open the latest `missingness_report.html` and `correlation_report.html`
+([chapter 2](02-monthly-update.md#5-read-the-missingness-report)).
 Good candidates for screening:
 
 | What you see | Reason to record |
@@ -40,6 +41,7 @@ Good candidates for screening:
 | Mostly missing, or a value in too few batches to learn from | `too sparse` |
 | *Regular skipping*, *Clumped*, *Gap in the middle* with no process reason | `irregular` |
 | A group that goes missing together, explained by one of the above | `missing with group` |
+| One of a group in the correlation report: it ranks the batches as the member you keep | `correlated with group` |
 | Values you know to be wrong or incomparable | `data quality` |
 | Anything else | `other`, and say why |
 
@@ -78,7 +80,7 @@ You can also write the file by hand, in Excel or a text editor:
 |---|---|
 | `Action` | `exclude` or `reinstate` |
 | `Parameter` | The parameter's exact name, as in the report |
-| `Group` | A group from the report's group table, such as `Missing 05`. With no `Parameter`, the row stands for every member of the group at that site; with one, it is context |
+| `Group` | A group from a report's group table, such as `Missing 05` or `Correlated 02`. With no `Parameter`, the row stands for every member of the group at that site; with one, it is context |
 | `Site` | A site's name, or `all` (not with a group: groups are found per site) |
 | `Reason` | One of the reasons in the table above |
 | `Rationale` | Why, in a sentence. Required |

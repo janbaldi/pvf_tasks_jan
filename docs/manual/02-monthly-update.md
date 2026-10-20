@@ -8,9 +8,9 @@ Allow an hour the first time and a quarter of an hour after that.
 
 1. `ml validate`: the setup still works.
 2. `ml check-catalog`: the sources record nothing the catalog doesn't know about, or you add it.
-3. `ml build`: the batch table, the build report and the missingness report.
+3. `ml build`: the batch table, the build report, the missingness report and the correlation report.
 4. Read the build report.
-5. Read the missingness report, and record any screening decision ([chapter 3](03-screening.md)).
+5. Read the missingness report, then the correlation report, and record any screening decision ([chapter 3](03-screening.md)).
 6. `ml screening status`: no standing decision is contradicted by the new data.
 7. Rerun the tasks you maintain ([chapter 4](04-tasks.md)).
 
@@ -60,6 +60,7 @@ Written to SharePoint — 70 batches × 230 columns
   report                 build_report.html
   missingness table      missingness.xlsx
   missingness report     missingness_report.html
+  correlation report     correlation_report.html
   manifest               batch_table_manifest.json
 ```
 
@@ -132,6 +133,28 @@ for both sites.
 
 When you decide that a parameter or a group should not be used by any task,
 record it now: [chapter 3](03-screening.md).
+
+### The correlation report
+
+Open `correlation_report.html` next. It looks and works like the missingness
+report, over the same batches, for the **numerical** parameters (catalog
+`Value Type` numeric, duration or ratio) that are not already screened out at
+the site. It groups the parameters that **put the batches in the same order**
+(Spearman rank correlation, sign ignored): a decision tree only uses that order,
+so to a tree the members of a group are interchangeable.
+
+- **The rank plot.** One row per parameter, one cell per batch, coloured by the
+  parameter's percentile rank at that site: light is low, dark is high, grey is
+  no value. The batches are ordered by the first parameter's value, so rows that
+  darken in step are the reason for the group; each row says its ρ to the first.
+  Switch to *by date* to see them over time.
+- **The group table.** Members, mean and weakest |ρ|, the fewest batches a pair
+  shares, and the weakest pair's q (Benjamini-Hochberg adjusted p-value).
+- **Screened out at this site, the parameter table and the proposal** work as in
+  the missingness report. To keep one parameter of a group, tick the group, put
+  the one to keep under *Leave out of the proposal*, and exclude the rest with the
+  reason `correlated with group`. Those stay in the report, marked ⊘, so they can
+  be reinstated; a parameter screened out for any other reason is left out.
 
 ## 6. Check the standing decisions
 

@@ -47,6 +47,7 @@ from . import (
     catalog,
     clean,
     corrections,
+    correlation,
     dataset,
     decorrelate,
     enrich,
@@ -108,6 +109,7 @@ BUILD_OUTPUTS = {
     "report": "build_report.html",
     "missingness report": "missingness_report.html",
     "missingness table": screening.EVIDENCE_FILE,
+    "correlation report": "correlation_report.html",
     "manifest": "batch_table_manifest.json",
 }
 
@@ -466,10 +468,11 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
     merge_report = merge.run_sanity_checks(result, phf, catalog_cols, catalog_mapping)
     origins["Merge"] = ["Site Merged"]
     # Per site: the sites record differently, and pooled they read as each other's gaps.
-    missing_by_site = {}
+    missing_by_site, cohorts = {}, {}
     for site in names.sites():
         batches, cohort = _missingness_cohort(result[result["Site Merged"] == site], site, config)
         analysed, counted = _analysed_batches(batches, site, config)
+        cohorts[site] = batches, analysed
         missing_by_site[site] = missingness.for_build(
             batches,
             catalog_mapping,
@@ -479,6 +482,21 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
         )
         missing_by_site[site][1].cohort = "; ".join(filter(None, (cohort, counted)))
     _mark_screened(missing_by_site, config)
+    # Over the same batches, without what the register already leaves out.
+    correlated_by_site = {}
+    for site, (batches, analysed) in cohorts.items():
+        screened = missing_by_site[site][1].screened
+        rows, analysis = correlation.for_build(
+            batches,
+            catalog_mapping,
+            id_column="Patient Lot/Batch #",
+            order_column=names.col(date_column),
+            analysed=analysed,
+            screened_out={p: d["Reason"] for p, d in screened.items()},
+        )
+        analysis.cohort = missing_by_site[site][1].cohort
+        analysis.screened = {p: d for p, d in screened.items() if d["Reason"] == correlation.REASON}
+        correlated_by_site[site] = rows, analysis
 
     # ── Write ──────────────────────────────────────────────────────────────
     log.section("06 · Output")
@@ -516,6 +534,7 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
             features=feature_reports,
             merge=merge_report,
             missingness=missing_by_site,
+            correlation=correlated_by_site,
             events=log.since(mark),
             params=params,
             provenance=prov,
@@ -532,12 +551,19 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
             )
         evidence = staged / BUILD_OUTPUTS["missingness table"]
         with _preparing("the missingness table", evidence, folder):
-            _write_evidence(evidence, missing_by_site, content_digest, run_start)
+            _write_evidence(
+                evidence, missing_by_site, correlated_by_site, content_digest, run_start
+            )
             files["missingness table"] = evidence
         missing_report = staged / BUILD_OUTPUTS["missingness report"]
         with _preparing("the missingness report", missing_report, folder):
             files["missingness report"] = report.write(
                 report.build_missingness_payload(build_run), missing_report
+            )
+        correlation_report = staged / BUILD_OUTPUTS["correlation report"]
+        with _preparing("the correlation report", correlation_report, folder):
+            files["correlation report"] = report.write(
+                report.build_correlation_payload(build_run), correlation_report
             )
         warnings, errors = _events(mark)
         log.step(
@@ -617,13 +643,23 @@ def _mark_screened(missing_by_site: dict[str, tuple], config: dict[str, Any]) ->
 
 
 def _write_evidence(
-    path: Path, missing_by_site: dict[str, tuple], content_digest: str, run_start: datetime
+    path: Path,
+    missing_by_site: dict[str, tuple],
+    correlated_by_site: dict[str, tuple],
+    content_digest: str,
+    run_start: datetime,
 ) -> Path:
-    """Every parameter's missingness per site, which `ml screening add` cites."""
+    """Missingness and correlation group of each parameter, which `ml screening add` cites."""
+    cited = {}
+    for site, (rows, _) in missing_by_site.items():
+        group_of = {m: g.name for g in correlated_by_site[site][1].groups for m in g.members}
+        cited[site] = [
+            {**row, screening.CORRELATION_GROUP: group_of.get(row["Parameter"], "")} for row in rows
+        ]
     with pd.ExcelWriter(path) as workbook:
-        screening.evidence_frame(
-            {site: rows for site, (rows, _) in missing_by_site.items()}
-        ).to_excel(workbook, sheet_name=screening.EVIDENCE_SHEET, index=False)
+        screening.evidence_frame(cited).to_excel(
+            workbook, sheet_name=screening.EVIDENCE_SHEET, index=False
+        )
         pd.DataFrame(
             [
                 {"Item": "Batch table content digest", "Value": content_digest},

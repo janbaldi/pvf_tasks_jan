@@ -509,11 +509,14 @@ def _missingness_help(run: BuildRun) -> dict | None:
 _GROUPED_FORMATS = {
     "Batches with a value": "%d",
     "Distinct values": "%d",
-    "Runs": "%d",
-    "Mean run length": "%.1f",
-    "Runs test z": "%.2f",
+    "Level groups": "%d",
+    "Mean group length": "%.1f",
+    "Median jump": "%.4g",
+    "SD within groups": "%.4g",
+    "Drift within groups": "%.2f",
+    "Permutation p": "%.3f",
     "|ρ| with it": "%.3f",
-    "Jaccard with it": "%.3f",
+    "ARI with it": "%.3f",
     "Batches in common": "%d",
     "q": "%.2g",
 }
@@ -554,9 +557,9 @@ def _grouped_viewer(
                 "label": site,
                 "batches": analysis.batches,
                 "dates": analysis.dates,
-                "patterns": analysis.ranks if ranked else analysis.runs,
-                # Each run's value, for the shifts strip's hover.
-                "values": {} if ranked else analysis.values,
+                "patterns": analysis.ranks if ranked else analysis.levels,
+                # Each level group's first batch and value, for the shifts strip.
+                "segments": {} if ranked else analysis.segments,
                 "screened": analysis.screened,
                 "similarity": {
                     "parameters": analysis.analysed,
@@ -670,16 +673,19 @@ def _shifts_help(run: BuildRun) -> dict | None:
                 "#### Reading the report\n\n"
                 "Pick a site. Tick a group to draw its parameters, and tick parameters to add "
                 "them. Each row of the plot is a parameter, each cell a batch in date order, "
-                "newest on the right. A run of batches with the same value is one colour; the "
-                "colour flips where the value changes, grey is no value. Parameters that shift "
-                "on the same batches flip in the same places. Hover a cell for its value. Each "
-                "row is labelled with the Jaccard similarity of its shifts to the first row.\n\n"
-                "#### What a shift is\n\n"
+                "newest on the right. A dark line starts a new *level group*: a stretch of "
+                "batches whose values are very close to the same. Each level group is one "
+                "shade, light for the parameter's lowest level, dark for its highest; grey is no "
+                "value. Parameters in one group have their lines in the same places. Hover a "
+                "cell for its level group's value. Each row is labelled with the adjusted Rand "
+                "index (ARI) of its level groups and the first row's.\n\n"
+                "#### What a level group is\n\n"
                 "A raw material or consumable lot, its certificate values, a vector lot and "
-                "its titre are the same on every batch made with that lot and change when "
-                "the lot does: a step function of time, not a trend. Every parameter that "
-                "steps on the same batches says the same thing, which lot a batch was made "
-                "with, so to a model one of them is enough."
+                "its titre each hold (very nearly) one value for as long as a lot lasts, then "
+                "jump to another: the batches fall into level groups. Not a trend: a trend "
+                "drifts, it doesn't hold a level. Parameters whose level groups cover the same "
+                "batches say the same thing, which lot a batch was made with, so to a model one "
+                "of them is enough."
             ),
             md(
                 "#### How the numbers are decided\n\n"
@@ -689,23 +695,36 @@ def _shifts_help(run: BuildRun) -> dict | None:
                 "two distinct ones is tested. A parameter the screening register excludes at "
                 f"the site is left out, unless the reason is *{shifts.REASON}*: those stay, "
                 "marked ⊘, so they can be reinstated.\n"
-                "- **Runs.** A run is a stretch of consecutive batches with exactly the same "
-                f"value. A parameter shifts in steps when its runs average at least "
-                f"{shifts.MIN_RUN} batches (*Mean run length*) and it has fewer runs than "
-                "chance would give for its values: the runs test for any number of values "
-                f"(Barton and David), z < -{missingness.RUNS_Z} (p < 0.01).\n"
-                "- **Jaccard** of a pair: over the batches where both have a value, the share "
-                "of batches where either shifts that both shift on. It needs "
+                "- **Level groups.** A new group starts where the value moves from the batch "
+                f"before by more than {shifts.TOLERANCE:g} times the median batch-to-batch "
+                "change (within a group most changes are noise, so the median is the noise; "
+                "0 when values repeat exactly). For a category, any change starts a group.\n"
+                "- A parameter **moves in level groups** when its groups average at least "
+                f"{shifts.MIN_RUN} batches (*Mean group length*); the *Median jump* from one "
+                f"group's level to the next is at least {shifts.SEPARATION:g} times the *SD "
+                "within groups*, so within a group the values are very close to the same and a "
+                "trend, whose groups are no further apart than its drift, is not caught; its "
+                "values do not drift within a group: the correlation of value and batch "
+                "position within the groups (*Drift within groups*) is below "
+                f"{shifts.MAX_DRIFT:g} in size, so a date that advances with every batch is not "
+                "caught either; and it "
+                f"has fewer groups than chance: in at most {shifts.P_MAX:g} of "
+                f"{shifts.PERMUTATIONS} shuffles of its values do as few come out "
+                "(*Permutation p*).\n"
+                "- **ARI** of a pair: over the batches where both have a value, the adjusted "
+                "Rand index of their level groups: 1 when they split those batches into the "
+                "same groups, about 0 when no more alike than chance. It needs "
                 f"{shifts.MIN_BATCHES} batches in common.\n"
-                "- **q** is the chance of sharing that many shifts at random (hypergeometric), "
-                "Benjamini-Hochberg adjusted over every pair compared at the site.\n"
-                "- **Groups.** Average linkage on 1-Jaccard: parameters or groups join while "
-                f"the mean Jaccard between them is at least {shifts.THRESHOLD}. A pair with q "
-                f"of {shifts.ALPHA} or more counts as unrelated: one shared shift is easily "
-                "chance.\n"
+                "- **q** is the chance of their groups starting on that many of the same batches "
+                "at random (hypergeometric), Benjamini-Hochberg adjusted over every pair "
+                "compared at the site.\n"
+                "- **Groups.** Average linkage on 1-ARI: parameters or groups join while the "
+                f"mean ARI between them is at least {shifts.THRESHOLD}. A pair with q of "
+                f"{shifts.ALPHA} or more counts as unrelated: a boundary or two in common is "
+                "easily chance.\n"
                 "- **Suggested representative** as in the correlation report: the highest mean "
-                "Jaccard to the other members, weighted by the share of their batches it has "
-                "a value on."
+                "ARI to the other members, weighted by the share of their batches it has a "
+                "value on."
             ),
             md(
                 "#### Screening\n\n"
@@ -1183,7 +1202,7 @@ def build_correlation_payload(run: BuildRun) -> dict[str, Any]:
 def build_shifts_payload(run: BuildRun) -> dict[str, Any]:
     """The build's shifts report."""
     viewer = _grouped_viewer(
-        run.shifts, "shift_viewer", "Shifts in steps", "shifts", "Jaccard", shifts.REASON
+        run.shifts, "shift_viewer", "Level groups", "shifts", "ARI", shifts.REASON
     )
     tested = ", ".join(
         f"{site} {len(a.analysed):,} of {a.tested:,}" for site, (_, a) in run.shifts.items()
@@ -1193,9 +1212,9 @@ def build_shifts_payload(run: BuildRun) -> dict[str, Any]:
         run.shifts,
         viewer,
         "Batch table shifts",
-        "Which parameters hold one value for a run of batches and then shift to another, as a "
-        "lot does, and which shift on the same batches, per site. Parameters that shift in "
-        f"steps — {tested}.",
+        "Which parameters hold very nearly one value for a stretch of batches and then jump to "
+        "another, as a lot does, and which have their level groups on the same batches, per "
+        f"site. Parameters that move in level groups — {tested}.",
         _shifts_help(run),
     )
 

@@ -167,19 +167,28 @@ so to a tree the members of a group are interchangeable.
 ### The shifts report
 
 Open `shifts_report.html`. It works like the correlation report, over the same
-batches, for parameters of **any type** that hold one value for a run of
-batches and then **shift to another**, as a raw material or consumable lot does,
-and with it the lot's certificate values, its expiry date, or anything else
-recorded per lot. Trends don't count: a trend changes on almost every batch.
-Parameters that shift **on the same batches** are grouped, since they all say
-which lot a batch was made with.
+batches, for parameters of **any type** whose batches, in date order, fall into
+**level groups**: stretches of consecutive batches where the value is very
+nearly the same, followed by a jump to another level. A raw material or
+consumable lot does this, and with it the lot's certificate values, its expiry
+date, or anything measured per lot with little noise. Parameters whose level
+groups cover **the same batches** are grouped, since they all say which lot a
+batch was made with.
 
-- **The shift plot.** One row per parameter, one cell per batch in date order.
-  Each run of the same value is one colour, and the colour flips where the value
-  changes. Rows that flip in the same places shift together; hover a cell for
-  its value. Each row says the Jaccard similarity of its shifts to the first.
-- **The parameter table.** Every parameter that shifts in steps: its runs, the
-  mean run length, and the runs test's z (how much fewer runs than chance).
+A parameter only counts when, in its level groups, the values are very close to
+the same (the jump between groups is at least four times the spread within
+them) and do not drift. So a trend is not caught, nor a date that advances with
+every batch, nor a parameter that merely leans with the lot.
+
+- **The plot.** One row per parameter, one cell per batch in date order. A dark
+  line starts a new level group; each level group is one shade, light for the
+  parameter's lowest level and dark for its highest. Rows with their lines in
+  the same places have the same level groups. Hover a cell for its group's
+  value. Each row says the adjusted Rand index (ARI, 1 = the same groups) of its
+  level groups and the first row's.
+- **The parameter table.** Every parameter that moves in level groups: how many,
+  their mean length, the median jump and the spread within groups (in the
+  parameter's own unit), the drift within groups, and the permutation p.
 - **The group table, screening and the proposal** as in the correlation report,
   with the reason `shifts with group`.
 

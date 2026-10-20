@@ -28,7 +28,7 @@ table, and the means to refit the preprocessing inside every fold.
 | **batch table** | `batch_data.xlsx` on SharePoint: one row per batch, both sites, cleaned, with calculated features |
 | **missingness report** | `missingness_report.html`: how every parameter goes missing, per site, batch by batch |
 | **correlation report** | `correlation_report.html`: which numerical parameters rank the batches alike, per site, and which one could represent each group |
-| **shifts report** | `shifts_report.html`: which parameters hold a value for runs of batches and shift to another, as a lot does, and which shift together, per site |
+| **shifts report** | `shifts_report.html`: which parameters fall into level groups over time, as a lot does, and which have the same level groups, per site |
 | **task catalog** | `task_catalog.xlsx`, next to the batch table: the catalog parameters a task can still use after screening |
 | **screening register** | `parameter_screening.xlsx` on SharePoint: the log of parameters you decided to leave out of every task, and why |
 | **task** | one question, written as a `task.yaml` in a folder of its own |

@@ -10,9 +10,11 @@ way.
 Each stage answers the question it is for. The catalog report: what do the sources
 record that the schema has never been told about. The build report: what came
 out, what the data needed doing to it, where every parameter came from, and which
-catalog parameters the batch table still does not have. The tasks report: which batches
-are in the cohort, what each parameter became, and what every column of the dataset
-means.
+catalog parameters the batch table still does not have. The build's missingness,
+correlation and shifts reports: which parameters go missing together, rank the
+batches alike, or fall into the same level groups over time, and what to screen.
+The tasks report: which batches are in the cohort, what each parameter became,
+and what every column of the dataset means.
 """
 
 from __future__ import annotations

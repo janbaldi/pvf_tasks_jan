@@ -15,11 +15,13 @@ table, and the means to refit the preprocessing inside every fold.
  ─────────────────────────────────────                      ────────────────────────────
  ml check-catalog   is the catalog still complete?
  ml build           every batch, both sites, in one table   ml task new <folder>
-        │           + build report, missingness report      ml task run
-        ▼                                                          │
- ml screening add   leave unusable parameters out of        reads the batch table,
- ml screening status   every task, with a recorded reason   applies the screening,
-                                                            writes a run folder
+        │           + build report, missingness,            ml task run
+        │             correlation and shifts reports,              │
+        │             task catalog                          reads the batch table,
+        ▼                                                   applies the screening,
+ ml screening add   leave unusable or redundant parameters  writes a run folder
+ ml screening status   out of every task, with a recorded
+                       reason (and representative)
 ```
 
 | Word | What it is |
@@ -69,7 +71,8 @@ Then open, in a browser:
 - `sharepoint/DEMO_DRIVE/Data/batch_data/build_report.html`: where every column came from and what cleaning changed.
 - `sharepoint/DEMO_DRIVE/Data/batch_data/missingness_report.html`: how each parameter goes missing.
 - `sharepoint/DEMO_DRIVE/Data/batch_data/correlation_report.html`: which numerical parameters rank the batches alike.
-- `sharepoint/DEMO_DRIVE/Data/batch_data/shifts_report.html`: which parameters shift in steps together, as the lots do.
+- `sharepoint/DEMO_DRIVE/Data/batch_data/shifts_report.html`: which parameters have the same level groups over time, as the lots do.
+- `sharepoint/DEMO_DRIVE/Data/batch_data/task_catalog.xlsx`: the parameters a task can still use.
 - `tasks/expression/runs/<run id>/report/report.html`: the training dataset and every decision behind it.
 
 ## The manual

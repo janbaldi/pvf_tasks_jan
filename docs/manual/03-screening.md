@@ -2,8 +2,11 @@
 
 Some parameters are not fit to predict with: a site never records them, they
 were retired, or they are recorded so irregularly that a model would learn the
-gaps. **Screening** leaves such a parameter out of every task, with the reason
-written down, until you decide otherwise.
+gaps. Others are redundant: they rank the batches as another parameter does
+(the correlation report), or fall into the same level groups over time, as a lot
+and its certificate values do (the shifts report). **Screening** leaves such a
+parameter out of every task, with the reason written down (and, for a redundant
+one, the parameter that represents it), until you decide otherwise.
 
 ## How it works
 
@@ -25,7 +28,8 @@ written down, until you decide otherwise.
   the copy, so a rerun applies exactly the same decisions however the register
   has changed since.
 - **Nothing is deleted.** The batch table and the reports keep every parameter.
-  Screening only decides what a task may use.
+  Screening only decides what a task may use. `task_catalog.xlsx`, written by
+  every build, lists what is left.
 
 ## Deciding: what to look at
 
@@ -52,8 +56,9 @@ batches lose it.
 
 ## Recording a decision
 
-**1. Write the proposal from the report.** In `missingness_report.html`, pick the
-site and tick what the decision is about: a group in the group table,
+**1. Write the proposal from the report.** In the report (`missingness_report.html`,
+`correlation_report.html` or `shifts_report.html`), pick the site and tick what
+the decision is about: a group in the group table,
 parameters in the parameter table, or (to reinstate them) rows of *Screened out
 at this site*. Open **Propose a screening decision** below the tables and fill in:
 
@@ -61,15 +66,19 @@ at this site*. Open **Propose a screening decision** below the tables and fill i
 - **Reason**: one of the list above;
 - **Rationale**: why, in a sentence;
 - **Review by**: three months from today unless you change it;
-- **Author**: your name.
+- **Author**: your name;
+- **Represented by** (correlation and shifts reports, exclude only): the member
+  that stays, starting on the report's suggestion;
+- **Leave out of the proposal**: ticked parameters the proposal should skip.
 
 The form shows the rows it will write, and **Download proposal.csv** saves them,
 one row per parameter with every column filled in:
 
 ```
-Action,Parameter,Group,Site,Reason,Rationale,Review by,Author
-exclude,Day 3 clump observation,Missing 05,Northfield,missing with group,clump observations recorded on some batches only,2027-01-19,S. Degroeve
-exclude,D3 clumps present,Missing 05,Northfield,missing with group,clump observations recorded on some batches only,2027-01-19,S. Degroeve
+Action,Parameter,Group,Site,Reason,Rationale,Review by,Author,Represented by
+exclude,Day 3 clump observation,Missing 05,Northfield,missing with group,clump observations recorded on some batches only,2027-01-19,S. Degroeve,
+exclude,D3 clumps present,Missing 05,Northfield,missing with group,clump observations recorded on some batches only,2027-01-19,S. Degroeve,
+exclude,Cytokine lot,Shifting 01,Northfield,shifts with group,changes with the medium lot,2027-01-19,S. Degroeve,Medium lot
 ```
 
 Only parameters that are screened out at that site can be reinstated; the form
@@ -159,8 +168,15 @@ records that in its manifest.
 
 ## Good practice
 
-- **Decide on the commercial cohort** the missingness report describes, not on a
+- **Decide on the commercial cohort** the build's reports describe, not on a
   single task's cohort, so the decision holds for every task.
+- **Work through the reports in order:** missingness, then correlation, then
+  shifts. Each leaves out what is already screened out for another reason, so
+  after a missingness decision, the correlation and shifts groups of the next
+  build are the ones to decide on.
+- **Check the representative.** The suggestion is the member that carries most
+  of the others' information; prefer a parameter you can explain, or that a
+  task needs, if it is nearly as good.
 - **One reason per decision, in words someone else understands in a year.** "Not
   recorded since the new batch record template" beats "sparse".
 - **Use review dates.** Three months is the default; use a shorter one for

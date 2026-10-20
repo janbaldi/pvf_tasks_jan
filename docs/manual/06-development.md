@@ -43,7 +43,8 @@ src/ml/
   scaffold.py     ml task new; templates/ holds the task.yaml it writes
   screening.py    the screening register: reading, replaying, adding, reviewing
   catalog.py io.py clean.py corrections.py enrich.py features.py merge.py   check-catalog, build
-  dataset.py encode.py decorrelate.py missingness.py recipe.py         ml task run
+  missingness.py correlation.py shifts.py                              the build's screening reports
+  dataset.py encode.py decorrelate.py recipe.py                         ml task run
   package.py manifest.py provenance.py logger.py                       run folders, provenance
   report.py plots.py blocks.py streamlit_app.py stlite.py              the reports
   share.py        SharePoint (and the demo's stand-in folder)

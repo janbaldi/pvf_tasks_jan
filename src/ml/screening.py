@@ -1,7 +1,9 @@
 """The screening register: parameters left out of every task, and why.
 
-The missingness report shows how each parameter goes missing. Deciding that a
-parameter (or a group of them) is not fit to predict with is a judgement, and
+The build's missingness, correlation and shifts reports show how each parameter
+goes missing, which rank the batches alike, and which move in the same level
+groups. Deciding that a parameter (or a group of them) is not fit to predict
+with, or is represented by another, is a judgement, and
 this module keeps those judgements in one place, the register: a workbook on
 SharePoint next to the catalog (``sharepoint.screening`` in config.yaml).
 

@@ -221,7 +221,8 @@ OK  The latest build gives no reason to revisit a decision
 It compares every standing exclusion with the new build. It lists a decision
 when the parameter is measured again after being *retired* or *never recorded*,
 when its missing rate moved by 20 points or more, when it is no longer in the
-batch table, or when its review date has passed. Nothing changes until you
+batch table, when the parameter that represents it is screened out too, or when
+its review date has passed. Nothing changes until you
 decide: see [Changing your mind](03-screening.md#changing-your-mind).
 
 ## 7. Rerun your tasks

@@ -49,8 +49,8 @@ sharepoint:
 
 The catalog's folder is where `ml check-catalog` writes, and the batch table's
 folder is where `ml build` writes. The rest of `config.yaml` holds the settings
-of the build (cleaning rules, feature thresholds, which batches the missingness
-report describes). [The reference](05-reference.md#configyaml) lists them all.
+of the build (cleaning rules, feature thresholds, which batches the missingness,
+correlation and shifts reports describe). [The reference](05-reference.md#configyaml) lists them all.
 
 ## Step 3: the vocabulary
 

@@ -32,7 +32,7 @@ The config is found in this order: `--config`, the `config:` line of the task,
 |---|---|---|
 | `ml check-catalog` | vocabulary, catalog, both sites' batch records, parameter mapping, investigations | the catalog's folder |
 | `ml build` | vocabulary and corrections, catalog, every source, site maps, the catalog manifest, the screening register (for the report) | the batch table's folder |
-| `ml screening add` | vocabulary, screening register, the latest `missingness.xlsx` | the screening register |
+| `ml screening add` | vocabulary, screening register, the latest `missingness.xlsx` (with each parameter's correlation and shift group) | the screening register |
 | `ml task run` | vocabulary, batch table, catalog, both manifests, screening register | the run folder |
 
 Every command lists what it will read and write before it starts, and where each
@@ -62,8 +62,8 @@ lv_coa:     {ph_nominal: 7.2, osmo_nominal: 300.0}
 | Setting | Meaning |
 |---|---|
 | `sharepoint.<input>` | Where each input is: `path`, `drive_id`, optional `sheet`. Values come from `.env` as `${NAME}`. `screening` is optional: without it, no parameter is screened out. |
-| `build.date_column` | The vocabulary key of the date that orders batches in the missingness report. |
-| `build.missingness_cohort` | Which batches the missingness report describes: those whose `column` holds `value` (vocabulary keys, case ignored), and every batch at the sites in `all_batches_at`. Leave it out to describe every batch. |
+| `build.date_column` | The vocabulary key of the date that orders batches in the missingness, correlation and shifts reports. |
+| `build.missingness_cohort` | Which batches the missingness report describes (the correlation and shifts reports compare the analysed ones): those whose `column` holds `value` (vocabulary keys, case ignored), and every batch at the sites in `all_batches_at`. Leave it out to describe every batch. |
 | `build.missingness_cohort.analyse_only` | Of those, the batches the statistics and groups are computed over: `column` holds `value`. The others are drawn in the plot, their missing cells in green. A site without the column has all its batches analysed. |
 | `cleaning.censored` | What `<0.5` becomes: `limit` (0.5), `half` (0.25) or `missing`. Applies to every source, the vector certificates included. |
 | `cleaning.censored_flags` | Also add a `<column> censored` 0/1 column. |
@@ -189,10 +189,23 @@ parameter:
 | `Missing %`, `Pattern`, `Last measured` | tool | The evidence, from the latest build |
 | `Batch table` | tool | Digest of the batch table the decision was made on |
 | `Review by` | you, or three months on | When to look again |
+| `Represented by` | you, or the report's suggestion | The parameter that stands in for this one; required with `correlated with group` and `shifts with group`. Registers from before this column read as before |
 
 The `Check` sheet holds the digest the register was last written with. Reasons:
 `never recorded`, `retired`, `introduced late`, `too sparse`, `irregular`,
-`missing with group`, `data quality`, `other`.
+`missing with group`, `correlated with group`, `shifts with group`,
+`data quality`, `other`.
+
+## Build outputs for screening
+
+| File | Contents |
+|---|---|
+| `missingness.xlsx` | Per site and parameter: missing %, pattern, gaps, last measured, missingness group, *Correlation group* and *Suggested representative*, *Shift group* and *Suggested shift representative*, and the standing screening decision. What `ml screening add` checks a proposal against and cites as evidence. |
+| `task_catalog.xlsx` | The catalog rows for the batch table's parameters that the register (as the build read it) leaves usable at some site, with *Usable at* (sites) and *Represents* (what each representative stands for, per site). |
+| `correlation_report.html` | Per site: numerical parameters grouped by Spearman \|ρ\| (average linkage, mean ≥ 0.8; pairs need 20 shared batches), each group with a suggested representative and BH-adjusted q. |
+| `shifts_report.html` | Per site: parameters whose values fall into level groups over time (groups ≥ 3 batches on average, jumps ≥ 4× the spread within, no drift within, permutation p ≤ 0.01), grouped by the adjusted Rand index of their level groups (mean ≥ 0.8, q < 0.05). |
+
+The Help page of each report gives the method in full.
 
 ## Troubleshooting
 
@@ -205,6 +218,8 @@ The `Check` sheet holds the digest the register was last written with. Reasons:
 | `The vocabulary … leaves out N names the code needs` | Add a `Names` row for each key listed; `src/ml/names.py` says what each is. |
 | `The catalog changed after the batch table was built` | Run `ml build`, then the task again. |
 | `The proposal was not added: …` | Fix each listed row; nothing was added. |
+| `… name the parameter that represents it in Represented by` | The build has no single suggestion for these parameters (or the site is `all`): fill in `Represented by`. |
+| `Represented by: '…' is screened out at …` | A representative must stay usable: pick another, or reinstate it first. |
 | `The screening register could not be read … pass --new` | The first time: `ml screening add … --new`. Otherwise check `sharepoint.screening`. |
 | `The screening register was changed outside ml screening` | Someone edited the register by hand. Find out what changed (the run folders keep copies), and restore it. |
 | `The latest build's missingness.xlsx could not be read` | Run `ml build` first. |

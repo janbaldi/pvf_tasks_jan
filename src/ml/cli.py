@@ -1327,7 +1327,7 @@ def validate(config: dict[str, Any] | None, specs: list[TaskSpec]) -> list[str]:
 def _missingness_cohort(
     batches: pd.DataFrame, site: str, config: dict[str, Any]
 ) -> tuple[pd.DataFrame, str]:
-    """The site's batches the missingness report describes, and how they were chosen.
+    """The site's batches the missingness, correlation and shifts reports describe, and how.
 
     ``build.missingness_cohort`` keeps the batches whose ``column`` holds ``value``
     (both vocabulary keys; compared without case or surrounding spaces), except at

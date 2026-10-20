@@ -8,9 +8,9 @@ Allow an hour the first time and a quarter of an hour after that.
 
 1. `ml validate`: the setup still works.
 2. `ml check-catalog`: the sources record nothing the catalog doesn't know about, or you add it.
-3. `ml build`: the batch table, the build report, the missingness report and the correlation report.
+3. `ml build`: the batch table, the build report, and the missingness, correlation and shifts reports.
 4. Read the build report.
-5. Read the missingness report, then the correlation report, and record any screening decision ([chapter 3](03-screening.md)).
+5. Read the missingness report, then the correlation and shifts reports, and record any screening decision ([chapter 3](03-screening.md)).
 6. `ml screening status`: no standing decision is contradicted by the new data.
 7. Rerun the tasks you maintain ([chapter 4](04-tasks.md)).
 
@@ -61,6 +61,7 @@ Written to SharePoint — 70 batches × 230 columns
   missingness table      missingness.xlsx
   missingness report     missingness_report.html
   correlation report     correlation_report.html
+  shifts report          shifts_report.html
   task catalog           task_catalog.xlsx
   manifest               batch_table_manifest.json
 ```
@@ -162,6 +163,28 @@ so to a tree the members of a group are interchangeable.
   representative stays usable. Excluded members stay in this report, marked ⊘,
   so they can be reinstated; a parameter screened out for any other reason is
   left out.
+
+### The shifts report
+
+Open `shifts_report.html`. It works like the correlation report, over the same
+batches, for parameters of **any type** that hold one value for a run of
+batches and then **shift to another**, as a raw material or consumable lot does,
+and with it the lot's certificate values, its expiry date, or anything else
+recorded per lot. Trends don't count: a trend changes on almost every batch.
+Parameters that shift **on the same batches** are grouped, since they all say
+which lot a batch was made with.
+
+- **The shift plot.** One row per parameter, one cell per batch in date order.
+  Each run of the same value is one colour, and the colour flips where the value
+  changes. Rows that flip in the same places shift together; hover a cell for
+  its value. Each row says the Jaccard similarity of its shifts to the first.
+- **The parameter table.** Every parameter that shifts in steps: its runs, the
+  mean run length, and the runs test's z (how much fewer runs than chance).
+- **The group table, screening and the proposal** as in the correlation report,
+  with the reason `shifts with group`.
+
+Parameters screened out for any other reason (missingness, correlation) are left
+out, so a parameter already represented elsewhere is not counted twice.
 
 ### The task catalog
 

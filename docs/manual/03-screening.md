@@ -29,7 +29,7 @@ written down, until you decide otherwise.
 
 ## Deciding: what to look at
 
-Open the latest `missingness_report.html` and `correlation_report.html`
+Open the latest `missingness_report.html`, `correlation_report.html` and `shifts_report.html`
 ([chapter 2](02-monthly-update.md#5-read-the-missingness-report)).
 Good candidates for screening:
 
@@ -42,6 +42,7 @@ Good candidates for screening:
 | *Regular skipping*, *Clumped*, *Gap in the middle* with no process reason | `irregular` |
 | A group that goes missing together, explained by one of the above | `missing with group` |
 | A member of a group in the correlation report, represented by another member | `correlated with group`, with `Represented by` |
+| A member of a group in the shifts report, represented by another member | `shifts with group`, with `Represented by` |
 | Values you know to be wrong or incomparable | `data quality` |
 | Anything else | `other`, and say why |
 
@@ -74,7 +75,7 @@ exclude,D3 clumps present,Missing 05,Northfield,missing with group,clump observa
 Only parameters that are screened out at that site can be reinstated; the form
 says which ticked ones it leaves out, and why.
 
-From the correlation report, a ticked group becomes an exclusion of every member
+From the correlation or shifts report, a ticked group becomes an exclusion of every member
 but its representative, with the representative in the `Represented by` column.
 `ml screening status` lists such an exclusion again when its representative is
 screened out later, since the group would then have no parameter left.
@@ -85,13 +86,13 @@ You can also write the file by hand, in Excel or a text editor:
 |---|---|
 | `Action` | `exclude` or `reinstate` |
 | `Parameter` | The parameter's exact name, as in the report |
-| `Group` | A group from a report's group table, such as `Missing 05` or `Correlated 02`. With no `Parameter`, the row stands for every member of the group at that site; with one, it is context |
+| `Group` | A group from a report's group table, such as `Missing 05`, `Correlated 02` or `Shifting 01`. With no `Parameter`, the row stands for every member of the group at that site; with one, it is context |
 | `Site` | A site's name, or `all` (not with a group: groups are found per site) |
 | `Reason` | One of the reasons in the table above |
 | `Rationale` | Why, in a sentence. Required |
 | `Review by` | Optional date (`YYYY-MM-DD`) to look at it again; empty means three months from today |
 | `Author` | Who decides; or leave it empty and pass `--author` |
-| `Represented by` | The parameter that stands in for the excluded ones; it is never excluded itself and must be usable at the site. Required with `correlated with group`: left empty, it is the correlation report's suggestion for the group |
+| `Represented by` | The parameter that stands in for the excluded ones; it is never excluded itself and must be usable at the site. Required with `correlated with group` and `shifts with group`: left empty, it is that report's suggestion for the group |
 
 **2. Add it.**
 

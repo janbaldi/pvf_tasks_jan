@@ -28,6 +28,7 @@ table, and the means to refit the preprocessing inside every fold.
 | **batch table** | `batch_data.xlsx` on SharePoint: one row per batch, both sites, cleaned, with calculated features |
 | **missingness report** | `missingness_report.html`: how every parameter goes missing, per site, batch by batch |
 | **correlation report** | `correlation_report.html`: which numerical parameters rank the batches alike, per site, and which one could represent each group |
+| **shifts report** | `shifts_report.html`: which parameters hold a value for runs of batches and shift to another, as a lot does, and which shift together, per site |
 | **task catalog** | `task_catalog.xlsx`, next to the batch table: the catalog parameters a task can still use after screening |
 | **screening register** | `parameter_screening.xlsx` on SharePoint: the log of parameters you decided to leave out of every task, and why |
 | **task** | one question, written as a `task.yaml` in a folder of its own |
@@ -68,6 +69,7 @@ Then open, in a browser:
 - `sharepoint/DEMO_DRIVE/Data/batch_data/build_report.html`: where every column came from and what cleaning changed.
 - `sharepoint/DEMO_DRIVE/Data/batch_data/missingness_report.html`: how each parameter goes missing.
 - `sharepoint/DEMO_DRIVE/Data/batch_data/correlation_report.html`: which numerical parameters rank the batches alike.
+- `sharepoint/DEMO_DRIVE/Data/batch_data/shifts_report.html`: which parameters shift in steps together, as the lots do.
 - `tasks/expression/runs/<run id>/report/report.html`: the training dataset and every decision behind it.
 
 ## The manual
@@ -76,7 +78,7 @@ Then open, in a browser:
 |---|---|
 | [1. Setting up](docs/manual/01-setup.md) | You connect `ml` to the real SharePoint data: `.env`, `config.yaml`, the vocabulary, corrections. |
 | [2. The monthly update](docs/manual/02-monthly-update.md) | New batches are in: check the catalog, build, read the reports. A checklist. |
-| [3. Screening parameters](docs/manual/03-screening.md) | The missingness or correlation report shows parameters you don't want in any task. |
+| [3. Screening parameters](docs/manual/03-screening.md) | The missingness, correlation or shifts report shows parameters you don't want in any task. |
 | [4. Tasks](docs/manual/04-tasks.md) | You have a question: create a task, narrow it, fit and explain a model, reproduce a run. |
 | [5. Reference](docs/manual/05-reference.md) | You need the exact meaning of a command, a setting or an output file. |
 | [6. Development](docs/manual/06-development.md) | You change the code: tests, adding a calculated feature, the code layout. |

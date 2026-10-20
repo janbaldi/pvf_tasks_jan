@@ -840,11 +840,18 @@ def raw_materials(first: int = SITE_A_BATCHES, second: int = SITE_B_BATCHES) -> 
     a, b = v("batch_prefix_a"), v("batch_prefix_b")
     batches = [f"{a}{i:03d}" for i in range(first)] + [f"{b}{i:03d}" for i in range(second)]
     batches[0] = v("bad_lot")
+    # A lot lasts six batches in date order, and both lots change on the same ones:
+    # what the shifts report groups. Dated as _timestamps dates them.
+    place = [
+        sorted(range(n), key=lambda i: (i % 2, i % 20, i % 60)).index(i)
+        for n in (first, second)
+        for i in range(n)
+    ]
     return pd.DataFrame(
         {
             cs("raw_materials_batch_keys")[1]: batches,
-            f"Query[{c('media_lot')}]": [f"MED-{100 + i % 4}" for i in range(len(batches))],
-            f"Query[{c('cytokine_lot')}]": [f"IL2-{200 + i % 3}" for i in range(len(batches))],
+            f"Query[{c('media_lot')}]": [f"MED-{100 + k // 6 % 4}" for k in place],
+            f"Query[{c('cytokine_lot')}]": [f"IL2-{200 + k // 6 % 3}" for k in place],
         }
     )
 

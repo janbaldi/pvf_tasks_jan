@@ -33,7 +33,7 @@ def test_parameters_that_rank_the_batches_alike_group_whatever_the_transform():
     )
     (group,) = report.groups
     assert sorted(group.members) == ["a", "b", "c", "f"]
-    assert group.min_rho > 0.99 and group.max_q < 1e-6 and group.min_batches == 89
+    assert group.weakest > 0.99 and group.max_q < 1e-6 and group.min_batches == 89
     assert report.left_out == ["e"] and "e" not in report.ranks
     # The representative carries the others where they were measured: not b, with gaps.
     assert group.members[0] == group.representative != "b" and group.score > 0.9
@@ -157,7 +157,7 @@ def test_the_build_writes_the_correlation_report_over_the_missingness_batches(bu
     for site in viewer["sites"]:
         # The same batches as the missingness statistics, and only numerical parameters.
         assert sorted(site["batches"]) == sorted(counted[site["label"]])
-        assert set(site["patterns"]) == set(site["rho"]["parameters"])
+        assert set(site["patterns"]) == set(site["similarity"]["parameters"])
         assert all(len(bits) == len(site["batches"]) for bits in site["patterns"].values())
         for group, members in site["groups"].items():
             assert len(members) >= 2 and set(members) <= set(site["patterns"])

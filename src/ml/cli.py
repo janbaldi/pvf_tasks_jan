@@ -64,6 +64,7 @@ from . import (
     scaffold,
     screening,
     share,
+    shifts,
     taskconfig,
 )
 from . import config as workspace
@@ -110,6 +111,7 @@ BUILD_OUTPUTS = {
     "missingness report": "missingness_report.html",
     "missingness table": screening.EVIDENCE_FILE,
     "correlation report": "correlation_report.html",
+    "shifts report": "shifts_report.html",
     "task catalog": "task_catalog.xlsx",
     "manifest": "batch_table_manifest.json",
 }
@@ -484,7 +486,7 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
         missing_by_site[site][1].cohort = "; ".join(filter(None, (cohort, counted)))
     standing = _mark_screened(missing_by_site, config)
     # Over the same batches, without what the register already leaves out.
-    correlated_by_site = {}
+    correlated_by_site, shifted_by_site = {}, {}
     for site, (batches, analysed) in cohorts.items():
         screened = missing_by_site[site][1].screened
         rows, analysis = correlation.for_build(
@@ -498,6 +500,16 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
         analysis.cohort = missing_by_site[site][1].cohort
         analysis.screened = {p: d for p, d in screened.items() if d["Reason"] == correlation.REASON}
         correlated_by_site[site] = rows, analysis
+        rows, found = shifts.for_build(
+            batches,
+            id_column="Patient Lot/Batch #",
+            order_column=names.col(date_column),
+            analysed=analysed,
+            screened_out={p: d["Reason"] for p, d in screened.items()},
+        )
+        found.cohort = analysis.cohort
+        found.screened = {p: d for p, d in screened.items() if d["Reason"] == shifts.REASON}
+        shifted_by_site[site] = rows, found
 
     # ── Write ──────────────────────────────────────────────────────────────
     log.section("06 · Output")
@@ -536,6 +548,7 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
             merge=merge_report,
             missingness=missing_by_site,
             correlation=correlated_by_site,
+            shifts=shifted_by_site,
             events=log.since(mark),
             params=params,
             provenance=prov,
@@ -553,7 +566,14 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
         evidence = staged / BUILD_OUTPUTS["missingness table"]
         with _preparing("the missingness table", evidence, folder):
             _write_evidence(
-                evidence, missing_by_site, correlated_by_site, content_digest, run_start
+                evidence,
+                missing_by_site,
+                {
+                    (screening.CORRELATION_GROUP, screening.SUGGESTED): correlated_by_site,
+                    (screening.SHIFT_GROUP, screening.SHIFT_SUGGESTED): shifted_by_site,
+                },
+                content_digest,
+                run_start,
             )
             files["missingness table"] = evidence
         missing_report = staged / BUILD_OUTPUTS["missingness report"]
@@ -569,6 +589,11 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
                 catalog_for_tasks, index=False
             )
             files["task catalog"] = catalog_for_tasks
+        shifts_report = staged / BUILD_OUTPUTS["shifts report"]
+        with _preparing("the shifts report", shifts_report, folder):
+            files["shifts report"] = report.write(
+                report.build_shifts_payload(build_run), shifts_report
+            )
         correlation_report = staged / BUILD_OUTPUTS["correlation report"]
         with _preparing("the correlation report", correlation_report, folder):
             files["correlation report"] = report.write(
@@ -656,22 +681,22 @@ def _mark_screened(missing_by_site: dict[str, tuple], config: dict[str, Any]) ->
 def _write_evidence(
     path: Path,
     missing_by_site: dict[str, tuple],
-    correlated_by_site: dict[str, tuple],
+    grouped_by_site: dict[tuple[str, str], dict[str, tuple]],
     content_digest: str,
     run_start: datetime,
 ) -> Path:
-    """Missingness and correlation group of each parameter, which `ml screening add` cites."""
+    """Each parameter's missingness, and its correlation and shift group with their suggested
+    representative: what `ml screening add` cites. ``grouped_by_site`` maps the two evidence
+    columns to the analysis per site that fills them."""
     cited = {}
     for site, (rows, _) in missing_by_site.items():
-        group_of = {m: g for g in correlated_by_site[site][1].groups for m in g.members}
-        cited[site] = [
-            {
-                **row,
-                screening.CORRELATION_GROUP: getattr(group_of.get(row["Parameter"]), "name", ""),
-                screening.SUGGESTED: getattr(group_of.get(row["Parameter"]), "representative", ""),
-            }
-            for row in rows
-        ]
+        cited[site] = [dict(row) for row in rows]
+        for (group_column, suggested_column), results in grouped_by_site.items():
+            group_of = {m: g for g in results[site][1].groups for m in g.members}
+            for row in cited[site]:
+                group = group_of.get(row["Parameter"])
+                row[group_column] = group.name if group else ""
+                row[suggested_column] = group.representative if group else ""
     with pd.ExcelWriter(path) as workbook:
         screening.evidence_frame(cited).to_excel(
             workbook, sheet_name=screening.EVIDENCE_SHEET, index=False

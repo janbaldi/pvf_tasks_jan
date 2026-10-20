@@ -213,6 +213,11 @@ RANK_LEGEND = """<b style="background:#d3d2cc;margin-left:0"></b>no value
   <b style="background:hsl(216,100%%,34%%)"></b>highest value of the parameter at this site
   &nbsp;·&nbsp; one cell per batch, %s; rows that darken in step rank the batches alike;
   ⊘ marks a parameter screened out at this site"""
+SHIFT_LEGEND = """<b style="background:#d3d2cc;margin-left:0"></b>no value
+  <b style="background:#0047ab"></b><b style="background:#8fb3e8;margin-left:0"></b>one value
+  per run of batches, the colour flips where it changes
+  &nbsp;·&nbsp; one cell per batch, newest on the right; rows that flip in the same places
+  shift together; ⊘ marks a parameter screened out at this site"""
 
 # The pattern strip: a fixed size per batch, so a long history scrolls sideways
 # instead of being squeezed to the page. Drawn on a canvas in its own frame,
@@ -241,15 +246,28 @@ STRIP = """
 const D = %(data)s, W = %(cell)d, H = %(row)d, GAP = 2, AXIS = 22;
 const n = D.batches.length, step = W + 1, ratio = window.devicePixelRatio || 1;
 const canvas = document.getElementById("c"), ctx = canvas.getContext("2d");
-// A rank is one base-36 digit, "." for no value; a missing pattern is "1" for missing.
+// "." is no value. A rank is one base-36 digit; a run of a shift is "0" or "1",
+// flipping where the value changes; a missing pattern is "1" for missing.
 const level = (c) => parseInt(c, 36) / (D.levels - 1);
-const fill = (c, i) => D.levels
+const fill = (c, i) => D.mode === "rank"
   ? (c === "." ? "#d3d2cc" : "hsl(216, 100%%, " + (92 - 58 * level(c)) + "%%)")
+  : D.mode === "shift" ? (c === "." ? "#d3d2cc" : c === "0" ? "#0047ab" : "#8fb3e8")
   : c !== "1" ? "#d3d2cc" : !D.analysed || D.analysed[i] === "1" ? "#0047ab" : "#2e8b57";
-const state = (c, i) => D.levels
-  ? (c === "." ? "no value" : "percentile " + Math.round(100 * level(c)))
-  : (c === "1" ? "missing" : "measured") +
+// The run a cell is in: the flips before it, among the cells with a value.
+const run = (bits, i) => {
+  let k = -1, previous = "";
+  for (let j = 0; j <= i; j++) {
+    if (bits[j] !== "." && bits[j] !== previous) { k++; previous = bits[j]; }
+  }
+  return k;
+};
+const state = (row, i) => {
+  const c = row.bits[i];
+  if (D.mode === "rank") return c === "." ? "no value" : "percentile " + Math.round(100 * level(c));
+  if (D.mode === "shift") return c === "." ? "no value" : String(row.values[run(row.bits, i)]);
+  return (c === "1" ? "missing" : "measured") +
     (D.analysed && D.analysed[i] !== "1" ? " (not in the statistics)" : "");
+};
 const width = n * step, height = D.rows.length * (H + GAP) + AXIS;
 canvas.width = width * ratio; canvas.height = height * ratio;
 canvas.style.width = width + "px"; canvas.style.height = height + "px";
@@ -281,7 +299,7 @@ canvas.addEventListener("mousemove", (e) => {
   if (i < 0 || i >= n || r < 0 || r >= D.rows.length) { tip.style.display = "none"; return; }
   const row = D.rows[r];
   tip.textContent = D.batches[i] + (D.dates[i] ? " · " + D.dates[i] : "") + " · " + row.name +
-    ": " + state(row.bits[i], i);
+    ": " + state(row, i);
   tip.style.display = "block";
   const left = e.clientX + 12;
   tip.style.left = Math.min(left, window.innerWidth - tip.offsetWidth - 4) + "px";
@@ -446,9 +464,15 @@ def render_missing_viewer(block: dict, key: str) -> None:
 
     In a ``rank_viewer`` each site's ``patterns`` are percentile ranks rather than
     missing flags, and the strip can order the batches by the first parameter drawn.
+    In a ``shift_viewer`` they are runs of one value, with each run's value in ``values``.
     """
-    ranks = block["kind"] == "rank_viewer"
-    together = "that rank the batches alike" if ranks else "missing together"
+    mode = {"rank_viewer": "rank", "shift_viewer": "shift"}.get(block["kind"], "missing")
+    ranks = mode == "rank"
+    together = {
+        "rank": "that rank the batches alike",
+        "shift": "that shift together",
+        "missing": "missing together",
+    }[mode]
     labels = [site["label"] for site in block["sites"]]
     with SLOTS.get("site") or st.sidebar:
         chosen = st.radio("Site", labels, horizontal=True, key=f"site{key}")
@@ -528,9 +552,21 @@ def render_missing_viewer(block: dict, key: str) -> None:
             if not drawn:
                 return
         # A parameter with no blank at this site has no pattern stored: all measured.
-        bits = [site["patterns"].get(p, ("." if ranks else "0") * n) for p in drawn]
+        bits = [site["patterns"].get(p, ("0" if mode == "missing" else ".") * n) for p in drawn]
         names = [("⊘ " if p in screened else "") + p for p in drawn]
-        legend = MISSING_LEGEND
+        legend = SHIFT_LEGEND if mode == "shift" else MISSING_LEGEND
+        if mode != "missing":
+            # Each row labelled with its similarity to the first: why it is in a group with it.
+            index = {p: i for i, p in enumerate(site["similarity"]["parameters"])}
+            reference = site["similarity"]["values"][index[drawn[0]]] if drawn[0] in index else []
+            names = [
+                name
+                if i == 0 or p not in index or reference[index[p]] is None
+                else f"ρ {reference[index[p]] / 100:+.2f} · {name}"
+                if ranks
+                else f"J {reference[index[p]] / 100:.2f} · {name}"
+                for i, (p, name) in enumerate(zip(drawn, names))
+            ]
         if ranks:
             by_value = (
                 st.radio(
@@ -544,15 +580,6 @@ def render_missing_viewer(block: dict, key: str) -> None:
             legend = RANK_LEGEND % (
                 f"lowest to highest {drawn[0]}" if by_value else "newest on the right"
             )
-            # Each row labelled with its ρ to the first, the reason it is in a group with it.
-            index = {p: i for i, p in enumerate(site["rho"]["parameters"])}
-            reference = site["rho"]["values"][index[drawn[0]]] if drawn[0] in index else []
-            names = [
-                name
-                if i == 0 or p not in index or reference[index[p]] is None
-                else f"ρ {reference[index[p]] / 100:+.2f} · {name}"
-                for i, (p, name) in enumerate(zip(drawn, names))
-            ]
         order = list(range(n))
         if by_value:
             first = bits[0]
@@ -562,9 +589,15 @@ def render_missing_viewer(block: dict, key: str) -> None:
             "dates": [site["dates"][i] for i in order],
             "analysed": site.get("in_statistics") or "",
             "levels": block.get("levels") or 0,
+            "mode": mode,
             "axis": not by_value,
             "rows": [
-                {"name": name, "bits": "".join(b[i] for i in order)} for name, b in zip(names, bits)
+                {
+                    "name": name,
+                    "bits": "".join(b[i] for i in order),
+                    "values": (site.get("values") or {}).get(p, []),
+                }
+                for p, name, b in zip(drawn, names, bits)
             ],
         }
         page = STRIP % {
@@ -626,7 +659,7 @@ def render_block(block: dict, key: str) -> None:
                     render_block(child, f"{key}-{i}")
             else:
                 st.caption("Nothing here is drawn until you ask for it.")
-    elif kind in ("missing_viewer", "rank_viewer"):
+    elif kind in ("missing_viewer", "rank_viewer", "shift_viewer"):
         render_missing_viewer(block, key)
     elif kind == "chooser":
         labels = [option["label"] for option in block["options"]]

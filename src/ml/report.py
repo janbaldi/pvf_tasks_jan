@@ -25,7 +25,7 @@ from typing import Any
 import pandas as pd
 import yaml
 
-from . import correlation, decorrelate, missingness, plots, screening, stlite
+from . import correlation, decorrelate, missingness, plots, screening, shifts, stlite
 from .blocks import (
     Block,
     bold,
@@ -88,6 +88,8 @@ class BuildRun:
     missingness: dict[str, tuple[list[dict], Any]] = field(default_factory=dict)
     #: site → :func:`ml.correlation.for_build` over the same batches
     correlation: dict[str, tuple[list[dict], Any]] = field(default_factory=dict)
+    #: site → :func:`ml.shifts.for_build` over the same batches
+    shifts: dict[str, tuple[list[dict], Any]] = field(default_factory=dict)
 
 
 def _section(section_id: str, title: str, blocks: list[Block | None]) -> dict | None:
@@ -503,67 +505,88 @@ def _missingness_help(run: BuildRun) -> dict | None:
     }
 
 
-#: The correlation report's parameter and group tables, with their display formats.
-_RANK_FORMATS = {
+#: The correlation and shifts reports' parameter tables, with their display formats.
+_GROUPED_FORMATS = {
     "Batches with a value": "%d",
     "Distinct values": "%d",
+    "Runs": "%d",
+    "Mean run length": "%.1f",
+    "Runs test z": "%.2f",
     "|ρ| with it": "%.3f",
+    "Jaccard with it": "%.3f",
     "Batches in common": "%d",
     "q": "%.2g",
 }
-_RANK_GROUP_FORMATS = {
-    "Group": None,
-    "Members": "%d",
-    "Suggested representative": None,
-    "Representative score": "%.3f",
-    "Mean |ρ|": "%.3f",
-    "Weakest |ρ|": "%.3f",
-    "Fewest batches in common": "%d",
-    "Weakest pair q": "%.2g",
-    "Screened members": "%d",
-}
 
 
-def _rank_viewer(run: BuildRun) -> dict | None:
-    """The rank strip, with the group and parameter tables to pick what it draws."""
+def _grouped_viewer(
+    results: dict[str, tuple[list[dict], Any]],
+    kind: str,
+    title: str,
+    stem: str,
+    measure: str,
+    reason: str,
+) -> dict | None:
+    """The strip, with the group and parameter tables to pick what it draws.
+
+    For the correlation (``rank_viewer``) and shifts (``shift_viewer``) reports:
+    ``measure`` names the similarity the groups are made of, as in *Mean |ρ|*.
+    """
+    group_formats = {
+        "Group": None,
+        "Members": "%d",
+        "Suggested representative": None,
+        "Representative score": "%.3f",
+        f"Mean {measure}": "%.3f",
+        f"Weakest {measure}": "%.3f",
+        "Fewest batches in common": "%d",
+        "Weakest pair q": "%.2g",
+        "Screened members": "%d",
+    }
     sites = []
-    for number, (site, (rows, analysis)) in enumerate(run.correlation.items(), start=1):
+    for number, (site, (rows, analysis)) in enumerate(results.items(), start=1):
         if not rows:
             continue
         headers = list(rows[0])
+        ranked = kind == "rank_viewer"
         sites.append(
             {
                 "label": site,
                 "batches": analysis.batches,
                 "dates": analysis.dates,
-                "patterns": analysis.ranks,
+                "patterns": analysis.ranks if ranked else analysis.runs,
+                # Each run's value, for the shifts strip's hover.
+                "values": {} if ranked else analysis.values,
                 "screened": analysis.screened,
-                "rho": {"parameters": analysis.analysed, "values": analysis.rho},
+                "similarity": {
+                    "parameters": analysis.analysed,
+                    "values": analysis.rho if ranked else analysis.similarity,
+                },
                 "groups": {g.name: g.members for g in analysis.groups},
-                "group_headers": list(_RANK_GROUP_FORMATS),
+                "group_headers": list(group_formats),
                 "group_rows": [
                     [
                         g.name,
                         len(g.members),
                         g.representative,
                         round(g.score, 3),
-                        round(g.mean_rho, 3),
-                        round(g.min_rho, 3),
+                        round(g.mean, 3),
+                        round(g.weakest, 3),
                         g.min_batches,
                         float(f"{g.max_q:.3g}"),
                         sum(m in analysis.screened for m in g.members),
                     ]
                     for g in analysis.groups
                 ],
-                "group_formats": list(_RANK_GROUP_FORMATS.values()),
+                "group_formats": list(group_formats.values()),
                 "headers": headers,
                 "rows": [[row[h] for h in headers] for row in rows],
-                "formats": [_RANK_FORMATS.get(h) for h in headers],
-                "csv_name": f"correlation_site_{number}.csv",
+                "formats": [_GROUPED_FORMATS.get(h) for h in headers],
+                "csv_name": f"{stem}_site_{number}.csv",
                 "csv": csv_text([{"Site": site, **row} for row in rows]),
             }
         )
-    block = missing_viewer(sites, kind="rank_viewer")
+    block = missing_viewer(sites, kind=kind)
     if block is not None:
         block["levels"] = correlation.LEVELS
         block["proposal"] = {
@@ -572,10 +595,10 @@ def _rank_viewer(run: BuildRun) -> dict | None:
             "reasons": list(screening.REASONS),
             "review_days": screening.REVIEW_AFTER.days,
             # A group is represented by one member rather than excluded whole.
-            "reason": correlation.REASON,
+            "reason": reason,
             "represent": True,
         }
-    return _section("viewer", "Rank correlation", [block])
+    return _section("viewer", title, [block])
 
 
 def _correlation_help(run: BuildRun) -> dict | None:
@@ -632,6 +655,63 @@ def _correlation_help(run: BuildRun) -> dict | None:
                 f"*{correlation.REASON}* and records the representative in the register, which "
                 "stays usable in every task. The build's *task_catalog.xlsx* lists what a task "
                 "can still use, and what each representative stands for."
+            ),
+        ],
+    }
+
+
+def _shifts_help(run: BuildRun) -> dict | None:
+    if not run.shifts:
+        return None
+    return {
+        "title": "Method",
+        "blocks": [
+            md(
+                "#### Reading the report\n\n"
+                "Pick a site. Tick a group to draw its parameters, and tick parameters to add "
+                "them. Each row of the plot is a parameter, each cell a batch in date order, "
+                "newest on the right. A run of batches with the same value is one colour; the "
+                "colour flips where the value changes, grey is no value. Parameters that shift "
+                "on the same batches flip in the same places. Hover a cell for its value. Each "
+                "row is labelled with the Jaccard similarity of its shifts to the first row.\n\n"
+                "#### What a shift is\n\n"
+                "A raw material or consumable lot, its certificate values, a vector lot and "
+                "its titre are the same on every batch made with that lot and change when "
+                "the lot does: a step function of time, not a trend. Every parameter that "
+                "steps on the same batches says the same thing, which lot a batch was made "
+                "with, so to a model one of them is enough."
+            ),
+            md(
+                "#### How the numbers are decided\n\n"
+                "Each site is analysed on its own batches: the batches the missingness report "
+                "counts in its statistics, in date order, blanks skipped.\n\n"
+                f"- **Parameters.** Any parameter with at least {shifts.MIN_BATCHES} values and "
+                "two distinct ones is tested. A parameter the screening register excludes at "
+                f"the site is left out, unless the reason is *{shifts.REASON}*: those stay, "
+                "marked ⊘, so they can be reinstated.\n"
+                "- **Runs.** A run is a stretch of consecutive batches with exactly the same "
+                f"value. A parameter shifts in steps when its runs average at least "
+                f"{shifts.MIN_RUN} batches (*Mean run length*) and it has fewer runs than "
+                "chance would give for its values: the runs test for any number of values "
+                f"(Barton and David), z < -{missingness.RUNS_Z} (p < 0.01).\n"
+                "- **Jaccard** of a pair: over the batches where both have a value, the share "
+                "of batches where either shifts that both shift on. It needs "
+                f"{shifts.MIN_BATCHES} batches in common.\n"
+                "- **q** is the chance of sharing that many shifts at random (hypergeometric), "
+                "Benjamini-Hochberg adjusted over every pair compared at the site.\n"
+                "- **Groups.** Average linkage on 1-Jaccard: parameters or groups join while "
+                f"the mean Jaccard between them is at least {shifts.THRESHOLD}. A pair with q "
+                f"of {shifts.ALPHA} or more counts as unrelated: one shared shift is easily "
+                "chance.\n"
+                "- **Suggested representative** as in the correlation report: the highest mean "
+                "Jaccard to the other members, weighted by the share of their batches it has "
+                "a value on."
+            ),
+            md(
+                "#### Screening\n\n"
+                "Tick a group and open *Propose a screening decision*: *Represented by* starts "
+                "on the suggested representative, and the proposal excludes every other member "
+                f"with the reason *{shifts.REASON}*. The representative stays usable."
             ),
         ],
     }
@@ -1060,31 +1140,64 @@ def build_missingness_payload(run: BuildRun) -> dict[str, Any]:
     }
 
 
-def build_correlation_payload(run: BuildRun) -> dict[str, Any]:
-    """The build's correlation report, laid out as the missingness report is."""
-    sections = [_rank_viewer(run), _provenance(run)]
-    stamp = run.run_start.strftime("%Y-%m-%d %H:%M")
-    cohorts = [
-        f"{site}: {analysis.cohort}"
-        for site, (_, analysis) in run.correlation.items()
-        if analysis.cohort
-    ]
-    left_out = [
-        f"{site} {len(analysis.left_out):,}"
-        for site, (_, analysis) in run.correlation.items()
-        if analysis.left_out
-    ]
+def _grouped_payload(
+    run: BuildRun,
+    results: dict[str, tuple[list[dict], Any]],
+    viewer: dict | None,
+    title: str,
+    lead: str,
+    help_: dict | None,
+) -> dict[str, Any]:
+    """The correlation or shifts report, laid out as the missingness report is."""
+    sections = [viewer, _provenance(run)]
+    cohorts = [f"{site}: {a.cohort}" for site, (_, a) in results.items() if a.cohort]
+    left_out = [f"{site} {len(a.left_out):,}" for site, (_, a) in results.items() if a.left_out]
     return {
-        "title": "Batch table rank correlation",
-        "lead": "Which numerical parameters put the batches in the same order, per site: "
-        "redundant to a decision tree."
+        "title": title,
+        "lead": lead
         + (" Batches compared — " + "; ".join(cohorts) + "." if cohorts else "")
         + (" Screened out, so left out — " + ", ".join(left_out) + "." if left_out else ""),
-        "subtitle": f"CAR-T manufacturing data · run {stamp}",
+        "subtitle": f"CAR-T manufacturing data · run {run.run_start.strftime('%Y-%m-%d %H:%M')}",
         "sections": [section for section in sections if section],
-        "help": _correlation_help(run),
+        "help": help_,
         "compact": True,
     }
+
+
+def build_correlation_payload(run: BuildRun) -> dict[str, Any]:
+    """The build's correlation report."""
+    viewer = _grouped_viewer(
+        run.correlation, "rank_viewer", "Rank correlation", "correlation", "|ρ|", correlation.REASON
+    )
+    return _grouped_payload(
+        run,
+        run.correlation,
+        viewer,
+        "Batch table rank correlation",
+        "Which numerical parameters put the batches in the same order, per site: "
+        "redundant to a decision tree.",
+        _correlation_help(run),
+    )
+
+
+def build_shifts_payload(run: BuildRun) -> dict[str, Any]:
+    """The build's shifts report."""
+    viewer = _grouped_viewer(
+        run.shifts, "shift_viewer", "Shifts in steps", "shifts", "Jaccard", shifts.REASON
+    )
+    tested = ", ".join(
+        f"{site} {len(a.analysed):,} of {a.tested:,}" for site, (_, a) in run.shifts.items()
+    )
+    return _grouped_payload(
+        run,
+        run.shifts,
+        viewer,
+        "Batch table shifts",
+        "Which parameters hold one value for a run of batches and then shift to another, as a "
+        "lot does, and which shift on the same batches, per site. Parameters that shift in "
+        f"steps — {tested}.",
+        _shifts_help(run),
+    )
 
 
 def write(payload: dict[str, Any], output_path: str | Path) -> Path:

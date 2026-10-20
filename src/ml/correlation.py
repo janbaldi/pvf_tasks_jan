@@ -58,8 +58,9 @@ LEVELS = 36
 class CorrelationGroup:
     name: str
     members: list[str]
-    mean_rho: float
-    min_rho: float
+    #: The mean and the lowest similarity (|ρ|, or the Jaccard of shifts) between members.
+    mean: float
+    weakest: float
     min_batches: int
     max_q: float
     representative: str = ""
@@ -100,6 +101,55 @@ def _rank_text(values: pd.Series) -> str:
     spread = (values.rank() - 1) / max(values.notna().sum() - 1, 1)
     level = (spread * (LEVELS - 1)).round()
     return "".join("." if pd.isna(v) else np.base_repr(int(v), 36).lower() for v in level)
+
+
+def grouped(
+    similarity: np.ndarray,
+    n: np.ndarray,
+    q: np.ndarray,
+    names: list[str],
+    threshold: float,
+    prefix: str,
+) -> list[CorrelationGroup]:
+    """Average-linkage groups on ``1 - similarity``, cut at ``1 - threshold``, with their stats.
+
+    ``n`` holds the batches each pair shares (its diagonal: each parameter's), ``q``
+    each pair's adjusted p-value. Each group's suggested representative comes first.
+    """
+    groups: list[list[int]] = []
+    if len(names) >= 2:
+        distance = squareform(1.0 - similarity, checks=False)
+        cut = fcluster(linkage(distance, method="average"), t=1.0 - threshold, criterion="distance")
+        members_of: dict[int, list[int]] = {}
+        for index, label in enumerate(cut):
+            members_of.setdefault(int(label), []).append(index)
+        groups = [idx for idx in members_of.values() if len(idx) >= 2]
+    # Largest first, then the tightest; the name is the tie-break, as in missingness.
+    groups.sort(key=lambda idx: (-len(idx), -similarity[np.ix_(idx, idx)].mean(), names[idx[0]]))
+    out = []
+    for number, idx in enumerate(groups, start=1):
+        sub_n = n[np.ix_(idx, idx)]
+        carried = similarity[np.ix_(idx, idx)] * sub_n / np.diag(sub_n)[None, :]
+        np.fill_diagonal(carried, 0.0)
+        scores = carried.sum(axis=1) / (len(idx) - 1)
+        best = max(range(len(idx)), key=lambda k: (scores[k], sub_n[k, k]))
+        # The representative first: the viewer draws the group from it and labels each row to it.
+        idx = [idx[best]] + [i for k, i in enumerate(idx) if k != best]
+        off = ~np.eye(len(idx), dtype=bool)
+        sub, qs = similarity[np.ix_(idx, idx)][off], q[np.ix_(idx, idx)][off]
+        out.append(
+            CorrelationGroup(
+                name=f"{prefix} {number:02d}",
+                members=[names[i] for i in idx],
+                mean=float(sub.mean()),
+                weakest=float(sub.min()),
+                min_batches=int(n[np.ix_(idx, idx)][off].min()),
+                max_q=float(np.nanmax(qs)) if np.isfinite(qs).any() else float("nan"),
+                representative=names[idx[0]],
+                score=float(scores[best]),
+            )
+        )
+    return out
 
 
 def for_build(
@@ -166,51 +216,14 @@ def for_build(
         q[tuple(i[pairs] for i in upper)] = _bh(2 * stats.t.sf(r * np.sqrt(df / (1 - r**2)), df))
         q = np.fmin(q, q.T)
 
-    rows_of: dict[str, dict] = {}
     similarity = np.nan_to_num(np.abs(rho))
     np.fill_diagonal(similarity, 1.0)
-    groups: list[list[int]] = []
-    if p >= 2:
-        distance = squareform(1.0 - similarity, checks=False)
-        cut = fcluster(linkage(distance, method="average"), t=1.0 - THRESHOLD, criterion="distance")
-        members_of: dict[int, list[int]] = {}
-        for index, label in enumerate(cut):
-            members_of.setdefault(int(label), []).append(index)
-        groups = [idx for idx in members_of.values() if len(idx) >= 2]
-    # Largest first, then the tightest; the name is the tie-break, as in missingness.
-    groups.sort(
-        key=lambda idx: (
-            -len(idx),
-            -similarity[np.ix_(idx, idx)].mean(),
-            report.analysed[idx[0]],
-        )
-    )
-    for number, idx in enumerate(groups, start=1):
-        sub_n = n[np.ix_(idx, idx)]
-        carried = similarity[np.ix_(idx, idx)] * sub_n / np.diag(sub_n)[None, :]
-        np.fill_diagonal(carried, 0.0)
-        scores = carried.sum(axis=1) / (len(idx) - 1)
-        best = max(range(len(idx)), key=lambda k: (scores[k], sub_n[k, k]))
-        # The representative first: the viewer orders the batches by it and labels ρ to it.
-        idx = [idx[best]] + [i for k, i in enumerate(idx) if k != best]
-        off = ~np.eye(len(idx), dtype=bool)
-        sub, qs = similarity[np.ix_(idx, idx)][off], q[np.ix_(idx, idx)][off]
-        group = CorrelationGroup(
-            name=f"Correlated {number:02d}",
-            members=[report.analysed[i] for i in idx],
-            mean_rho=float(sub.mean()),
-            min_rho=float(sub.min()),
-            min_batches=int(n[np.ix_(idx, idx)][off].min()),
-            max_q=float(np.nanmax(qs)) if np.isfinite(qs).any() else float("nan"),
-            representative=report.analysed[idx[0]],
-            score=float(scores[best]),
-        )
-        report.groups.append(group)
-        for i in idx:
-            rows_of[report.analysed[i]] = {
-                "Group": group.name,
-                "Suggested representative": group.representative,
-            }
+    report.groups = grouped(similarity, n, q, report.analysed, THRESHOLD, "Correlated")
+    rows_of = {
+        m: {"Group": g.name, "Suggested representative": g.representative}
+        for g in report.groups
+        for m in g.members
+    }
 
     rows = []
     for i, column in enumerate(report.analysed):

@@ -42,6 +42,9 @@ EVIDENCE_SHEET = "Parameters"
 CORRELATION_GROUP = "Correlation group"
 #: The evidence column naming the member the correlation report suggests for its group.
 SUGGESTED = "Suggested representative"
+#: The same two for the shifts report.
+SHIFT_GROUP = "Shift group"
+SHIFT_SUGGESTED = "Suggested shift representative"
 ABOUT_SHEET = "About"
 
 #: The register's columns, in order.
@@ -82,6 +85,10 @@ ACTIONS = (EXCLUDE, REINSTATE)
 ALL = "all"
 #: The reason of a correlated group's members, each represented by another member.
 CORRELATED = "correlated with group"
+#: The reason of the members of a group that shifts value together, likewise.
+SHIFTED = "shifts with group"
+#: The reasons whose exclusions need a representative: its evidence group and suggestion columns.
+REPRESENTED = {CORRELATED: (CORRELATION_GROUP, SUGGESTED), SHIFTED: (SHIFT_GROUP, SHIFT_SUGGESTED)}
 #: Why a parameter is left out. Fixed, so decisions can be counted and compared.
 REASONS = (
     "never recorded",
@@ -91,6 +98,7 @@ REASONS = (
     "irregular",
     "missing with group",
     CORRELATED,
+    SHIFTED,
     "data quality",
     "other",
 )
@@ -299,8 +307,8 @@ def add(
 
     A ``Represented by`` names the parameter that stands in for the excluded ones:
     it is never excluded itself, and must be usable at the site. An exclusion for
-    :data:`CORRELATED` needs one; left empty, it is the build's suggestion for
-    the members' group.
+    a reason in :data:`REPRESENTED` needs one; left empty, it is the build's
+    suggestion for the members' group in that report.
 
     The author is the proposal's ``Author`` column, or ``author`` where it is empty.
     """
@@ -343,10 +351,10 @@ def add(
         known = set(evidence.loc[evidence["Site"].isin(covered), "Parameter"])
         if fields["Group"] and not fields["Parameter"]:
             at_site = evidence[evidence["Site"] == site]
-            members = at_site[
-                (at_site["Group"].astype(str) == fields["Group"])
-                | (at_site.get(CORRELATION_GROUP, at_site["Group"]).astype(str) == fields["Group"])
-            ]["Parameter"].tolist()
+            named = at_site[
+                [c for c in ("Group", CORRELATION_GROUP, SHIFT_GROUP) if c in at_site.columns]
+            ].astype(str)
+            members = at_site[(named == fields["Group"]).any(axis=1)]["Parameter"].tolist()
             if not members:
                 errors.append(
                     f"{where}: the latest build has no group '{fields['Group']}' at {site}"
@@ -368,9 +376,10 @@ def add(
             if idle:
                 errors.append(f"{where}: nothing to reinstate, not excluded: {', '.join(idle)}")
                 continue
-        if action == EXCLUDE and reason == CORRELATED and not fields["Represented by"]:
+        if action == EXCLUDE and reason in REPRESENTED and not fields["Represented by"]:
             found = evidence[evidence["Parameter"].isin(members) & evidence["Site"].isin(covered)]
-            suggested = set(found.get(SUGGESTED, pd.Series(dtype=str)).dropna().astype(str))
+            column = REPRESENTED[reason][1]
+            suggested = set(found.get(column, pd.Series(dtype=str)).dropna().astype(str))
             if len(suggested - {""}) != 1:
                 errors.append(f"{where}: name the parameter that represents it in Represented by")
                 continue

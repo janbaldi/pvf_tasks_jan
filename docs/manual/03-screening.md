@@ -41,7 +41,7 @@ Good candidates for screening:
 | Mostly missing, or a value in too few batches to learn from | `too sparse` |
 | *Regular skipping*, *Clumped*, *Gap in the middle* with no process reason | `irregular` |
 | A group that goes missing together, explained by one of the above | `missing with group` |
-| One of a group in the correlation report: it ranks the batches as the member you keep | `correlated with group` |
+| A member of a group in the correlation report, represented by another member | `correlated with group`, with `Represented by` |
 | Values you know to be wrong or incomparable | `data quality` |
 | Anything else | `other`, and say why |
 
@@ -74,6 +74,11 @@ exclude,D3 clumps present,Missing 05,Northfield,missing with group,clump observa
 Only parameters that are screened out at that site can be reinstated; the form
 says which ticked ones it leaves out, and why.
 
+From the correlation report, a ticked group becomes an exclusion of every member
+but its representative, with the representative in the `Represented by` column.
+`ml screening status` lists such an exclusion again when its representative is
+screened out later, since the group would then have no parameter left.
+
 You can also write the file by hand, in Excel or a text editor:
 
 | Column | Fill in |
@@ -86,6 +91,7 @@ You can also write the file by hand, in Excel or a text editor:
 | `Rationale` | Why, in a sentence. Required |
 | `Review by` | Optional date (`YYYY-MM-DD`) to look at it again; empty means three months from today |
 | `Author` | Who decides; or leave it empty and pass `--author` |
+| `Represented by` | The parameter that stands in for the excluded ones; it is never excluded itself and must be usable at the site. Required with `correlated with group`: left empty, it is the correlation report's suggestion for the group |
 
 **2. Add it.**
 

@@ -8,7 +8,7 @@ Run as `uv run ml [--config FILE] [--debug] [--quiet] COMMAND …`.
 |---|---|
 | `ml validate [--task T]` | Check `config.yaml`, the vocabulary, the corrections, the screening register and the given tasks. Writes nothing. Inside a task folder, also checks that task. |
 | `ml check-catalog` | Compare every source's columns with the catalog. Writes `catalog_report.html`, `catalog_manifest.json` and `new_parameters.csv` into the catalog's folder. |
-| `ml build` | Build the batch table. Writes `batch_data.xlsx`, `batch_data.parquet`, `build_report.html`, `missingness_report.html`, `missingness.xlsx`, `correlation_report.html` and `batch_table_manifest.json` into the batch table's folder. |
+| `ml build` | Build the batch table. Writes `batch_data.xlsx`, `batch_data.parquet`, `build_report.html`, `missingness_report.html`, `missingness.xlsx`, `correlation_report.html`, `task_catalog.xlsx` and `batch_table_manifest.json` into the batch table's folder. |
 | `ml screening add PROPOSAL [--author NAME] [--new]` | Check a proposal (written by the missingness or correlation report, or by hand) against the latest build and add its decisions to the screening register. `--author` fills an empty `Author` column. `--new` starts the register when there is none. |
 | `ml screening status` | List what the register excludes today, and the decisions the latest build gives a reason to look at again. |
 | `ml task new FOLDER [--target COL] [--question TEXT] [--force]` | Create a task folder with an annotated `task.yaml`. |

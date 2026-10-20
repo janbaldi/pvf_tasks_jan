@@ -514,6 +514,8 @@ _RANK_FORMATS = {
 _RANK_GROUP_FORMATS = {
     "Group": None,
     "Members": "%d",
+    "Suggested representative": None,
+    "Representative score": "%.3f",
     "Mean |ρ|": "%.3f",
     "Weakest |ρ|": "%.3f",
     "Fewest batches in common": "%d",
@@ -543,6 +545,8 @@ def _rank_viewer(run: BuildRun) -> dict | None:
                     [
                         g.name,
                         len(g.members),
+                        g.representative,
+                        round(g.score, 3),
                         round(g.mean_rho, 3),
                         round(g.min_rho, 3),
                         g.min_batches,
@@ -567,6 +571,9 @@ def _rank_viewer(run: BuildRun) -> dict | None:
             "actions": list(screening.ACTIONS),
             "reasons": list(screening.REASONS),
             "review_days": screening.REVIEW_AFTER.days,
+            # A group is represented by one member rather than excluded whole.
+            "reason": correlation.REASON,
+            "represent": True,
         }
     return _section("viewer", "Rank correlation", [block])
 
@@ -610,13 +617,21 @@ def _correlation_help(run: BuildRun) -> dict | None:
                 f"the mean |ρ| between them is at least {correlation.THRESHOLD}. A pair with "
                 "too few batches in common counts as unrelated. *Weakest |ρ|* and *Weakest pair "
                 "q* are the group's least related pair: a group is only as tight as that.\n"
-                "- **Closest parameter** is the one with the highest |ρ| to it, in a group or not."
+                "- **Closest parameter** has the highest |ρ| to it, in a group or not.\n"
+                "- **Suggested representative** is the member that carries most of the others' "
+                "information: the highest *representative score*, the mean over the other "
+                "members of |ρ| × the share of that member's batches the candidate has a value "
+                "on too, since it stands in for another only where it was measured. Ties go to "
+                "the most batches with a value. It is drawn first, so the plot is ordered by it."
             ),
             md(
                 "#### Screening\n\n"
-                "To keep one parameter of a group, tick the group, open *Propose a screening "
-                "decision*, leave the one to keep out of the proposal, and exclude the rest with "
-                f"the reason *{correlation.REASON}*."
+                "To represent a group by one parameter, tick the group and open *Propose a "
+                "screening decision*: *Represented by* starts on the suggested representative. "
+                "The proposal excludes every other member with the reason "
+                f"*{correlation.REASON}* and records the representative in the register, which "
+                "stays usable in every task. The build's *task_catalog.xlsx* lists what a task "
+                "can still use, and what each representative stands for."
             ),
         ],
     }

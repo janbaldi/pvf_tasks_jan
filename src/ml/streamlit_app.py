@@ -327,15 +327,20 @@ def proposal_rows(
     rationale: str,
     review_by: str,
     author: str,
+    represented_by: str = "",
 ) -> tuple:
     """The proposal rows for the ticked parameters, and the ones that cannot be in it.
 
     One row per parameter, with its group as context, in the columns
     ``ml screening add`` reads. Only a parameter screened out at this site can
-    be reinstated; the others are returned as skipped.
+    be reinstated; the others are returned as skipped. An exclusion with
+    ``represented_by`` leaves that parameter out of it: it stays, for the others.
     """
+    represented_by = represented_by if action == "exclude" else ""
     rows, skipped = [], []
     for parameter in picked:
+        if parameter == represented_by:
+            continue
         if action == "reinstate" and parameter not in screened:
             skipped.append(parameter)
             continue
@@ -349,6 +354,7 @@ def proposal_rows(
                 "Rationale": rationale.strip(),
                 "Review by": review_by if action == "exclude" else "",
                 "Author": author.strip(),
+                "Represented by": represented_by,
             }
         )
     return rows, skipped
@@ -370,7 +376,20 @@ def render_proposal(form: dict, site: dict, picked: list, key: str) -> None:
         picked = [p for p in picked if p not in kept]
         left, right = st.columns(2)
         action = left.radio("Action", form["actions"], horizontal=True, key=f"act{key}")
-        reason = right.selectbox("Reason", form["reasons"], key=f"why{key}")
+        reason = right.selectbox(
+            "Reason",
+            form["reasons"],
+            index=form["reasons"].index(form["reason"]) if form.get("reason") else 0,
+            key=f"why{key}",
+        )
+        instead = ""
+        if form.get("represent") and action == "exclude" and picked:
+            # Ticking a group puts its suggested representative first.
+            instead = st.selectbox(
+                "Represented by: stays usable, the others are excluded",
+                picked,
+                key=f"rep{key}",
+            )
         rationale = st.text_area("Rationale: why, in words", key=f"text{key}")
         left, right = st.columns(2)
         review = left.date_input(
@@ -390,6 +409,7 @@ def render_proposal(form: dict, site: dict, picked: list, key: str) -> None:
             rationale,
             review.isoformat(),
             author,
+            instead,
         )
         if skipped:
             st.warning(

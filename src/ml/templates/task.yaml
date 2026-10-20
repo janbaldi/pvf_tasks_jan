@@ -42,7 +42,8 @@ roles:
   # group: <column>               # grouping column, for grouped cross-validation later
   # patient: <column>             # joins a patient's batches into one group
 
-# Which other batch table columns may be predictors.
+# Which other batch table columns may be predictors. task_catalog.xlsx, next to
+# the batch table, lists the ones still usable, per site, after screening.
 predictors:
   # include: []                   # an explicit predictor list, if you have one
   exclude: []                     # single columns: [{column: ..., reason: ...}]

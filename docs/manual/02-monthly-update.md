@@ -61,6 +61,7 @@ Written to SharePoint — 70 batches × 230 columns
   missingness table      missingness.xlsx
   missingness report     missingness_report.html
   correlation report     correlation_report.html
+  task catalog           task_catalog.xlsx
   manifest               batch_table_manifest.json
 ```
 
@@ -148,13 +149,28 @@ so to a tree the members of a group are interchangeable.
   no value. The batches are ordered by the first parameter's value, so rows that
   darken in step are the reason for the group; each row says its ρ to the first.
   Switch to *by date* to see them over time.
-- **The group table.** Members, mean and weakest |ρ|, the fewest batches a pair
-  shares, and the weakest pair's q (Benjamini-Hochberg adjusted p-value).
+- **The group table.** Members, the **suggested representative** (the member
+  that carries most of the others' information: the highest mean |ρ| to the other
+  members, weighted by how many of their batches it has a value on), mean and
+  weakest |ρ|, the fewest batches a pair shares, and the weakest pair's q
+  (Benjamini-Hochberg adjusted p-value). A group is drawn from its representative.
 - **Screened out at this site, the parameter table and the proposal** work as in
-  the missingness report. To keep one parameter of a group, tick the group, put
-  the one to keep under *Leave out of the proposal*, and exclude the rest with the
-  reason `correlated with group`. Those stay in the report, marked ⊘, so they can
-  be reinstated; a parameter screened out for any other reason is left out.
+  the missingness report. To **represent a group by one parameter**, tick the
+  group: the proposal form sets the reason `correlated with group` and *Represented
+  by* to the suggestion (change it if you know better). The proposal excludes
+  every other member and records the representative in the register; the
+  representative stays usable. Excluded members stay in this report, marked ⊘,
+  so they can be reinstated; a parameter screened out for any other reason is
+  left out.
+
+### The task catalog
+
+`task_catalog.xlsx` is the catalog cut down to what a task can still use: every
+catalog parameter in the batch table that the screening register (as this build
+read it) does not exclude at every site. *Usable at* names the sites that allow
+it (a task over both sites needs both), and *Represents* the parameters it stands
+in for. Pick predictors from it when you write a task. A decision added after the
+build shows in it from the next build.
 
 ## 6. Check the standing decisions
 

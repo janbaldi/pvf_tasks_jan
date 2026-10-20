@@ -30,6 +30,12 @@ predictors:
     - {column: "Day 1 mixing cycles", reason: "screened out by S-0001: irregular (Northfield)"}
 ```
 
+To see what is still usable, open `task_catalog.xlsx` next to the batch table:
+the catalog minus what the register excludes, per site, with what each
+representative of a correlated group stands for. A parameter excluded as
+`correlated with group` says its representative in the line above, so use that
+one instead.
+
 Every run applies the register anyway; the lines make it visible in the task
 itself. If a decision is later reinstated, the run warns that the task still
 excludes the parameter: delete the line to use it again. A line for a site your

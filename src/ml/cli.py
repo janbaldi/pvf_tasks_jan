@@ -110,6 +110,7 @@ BUILD_OUTPUTS = {
     "missingness report": "missingness_report.html",
     "missingness table": screening.EVIDENCE_FILE,
     "correlation report": "correlation_report.html",
+    "task catalog": "task_catalog.xlsx",
     "manifest": "batch_table_manifest.json",
 }
 
@@ -481,7 +482,7 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
             analysed=analysed,
         )
         missing_by_site[site][1].cohort = "; ".join(filter(None, (cohort, counted)))
-    _mark_screened(missing_by_site, config)
+    standing = _mark_screened(missing_by_site, config)
     # Over the same batches, without what the register already leaves out.
     correlated_by_site = {}
     for site, (batches, analysed) in cohorts.items():
@@ -560,6 +561,14 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
             files["missingness report"] = report.write(
                 report.build_missingness_payload(build_run), missing_report
             )
+        catalog_for_tasks = staged / BUILD_OUTPUTS["task catalog"]
+        with _preparing("the task catalog", catalog_for_tasks, folder):
+            # shortcut: the register as this build read it; a later `ml screening add`
+            # shows in it only after the next build.
+            screening.task_catalog(catalog_frame, result.columns, standing, names.sites()).to_excel(
+                catalog_for_tasks, index=False
+            )
+            files["task catalog"] = catalog_for_tasks
         correlation_report = staged / BUILD_OUTPUTS["correlation report"]
         with _preparing("the correlation report", correlation_report, folder):
             files["correlation report"] = report.write(
@@ -620,13 +629,13 @@ def _register(config: dict[str, Any]) -> screening.Register | None:
     return screening.read(workspace.location(config, "screening"), names.sites())
 
 
-def _mark_screened(missing_by_site: dict[str, tuple], config: dict[str, Any]) -> None:
-    """Add each parameter's standing screening decision to the missingness rows."""
+def _mark_screened(missing_by_site: dict[str, tuple], config: dict[str, Any]) -> dict:
+    """Add each parameter's standing screening decision to the missingness rows; the state."""
     try:
         register = _register(config)
     except Exception as exc:  # the report is still worth having without the column
         log.warn(MODULE, f"The screening register could not be read: {exc}")
-        return
+        return {}
     state = screening.current(register.decisions, names.sites()) if register else {}
     for site, (rows, analysis) in missing_by_site.items():
         for row in rows:
@@ -639,7 +648,9 @@ def _mark_screened(missing_by_site: dict[str, tuple], config: dict[str, Any]) ->
                     "Reason": decision.reason,
                     "Rationale": decision.rationale,
                     "Review by": decision.review_by,
+                    "Represented by": decision.represented_by,
                 }
+    return state
 
 
 def _write_evidence(
@@ -652,9 +663,14 @@ def _write_evidence(
     """Missingness and correlation group of each parameter, which `ml screening add` cites."""
     cited = {}
     for site, (rows, _) in missing_by_site.items():
-        group_of = {m: g.name for g in correlated_by_site[site][1].groups for m in g.members}
+        group_of = {m: g for g in correlated_by_site[site][1].groups for m in g.members}
         cited[site] = [
-            {**row, screening.CORRELATION_GROUP: group_of.get(row["Parameter"], "")} for row in rows
+            {
+                **row,
+                screening.CORRELATION_GROUP: getattr(group_of.get(row["Parameter"]), "name", ""),
+                screening.SUGGESTED: getattr(group_of.get(row["Parameter"]), "representative", ""),
+            }
+            for row in rows
         ]
     with pd.ExcelWriter(path) as workbook:
         screening.evidence_frame(cited).to_excel(

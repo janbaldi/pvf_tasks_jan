@@ -18,6 +18,10 @@ over the same batches as the missingness report:
 4. Per pair a p-value from ``t = ρ √((n-2)/(1-ρ²))`` on n-2 degrees of freedom,
    Benjamini-Hochberg adjusted over every pair compared at the site (q). A group
    reports its weakest pair: the lowest |ρ|, and the highest q.
+5. Each group suggests the member that carries most of the others' information:
+   the highest mean, over the other members, of |ρ| times the share of that
+   member's batches the candidate has a value on too (a parameter only stands in
+   for another where it was measured). Ties go to the most batches with a value.
 
 This is description only. Nothing here changes the batch table.
 """
@@ -34,6 +38,7 @@ from scipy.spatial.distance import squareform
 
 from .logger import log
 from .missingness import _ordered
+from .screening import CORRELATED
 
 MODULE = "correlation"
 
@@ -44,7 +49,7 @@ THRESHOLD = 0.8
 #: Values a parameter needs, and batches in common a pair needs, to be compared.
 MIN_BATCHES = 20
 #: The screening reason that leaves this analysis's own decisions in it.
-REASON = "correlated with group"
+REASON = CORRELATED
 #: Levels a value's percentile rank is drawn in: one base-36 digit per batch.
 LEVELS = 36
 
@@ -57,6 +62,9 @@ class CorrelationGroup:
     min_rho: float
     min_batches: int
     max_q: float
+    representative: str = ""
+    #: The representative's mean |ρ| × shared coverage over the other members.
+    score: float = 0.0
 
 
 @dataclass
@@ -178,6 +186,13 @@ def for_build(
         )
     )
     for number, idx in enumerate(groups, start=1):
+        sub_n = n[np.ix_(idx, idx)]
+        carried = similarity[np.ix_(idx, idx)] * sub_n / np.diag(sub_n)[None, :]
+        np.fill_diagonal(carried, 0.0)
+        scores = carried.sum(axis=1) / (len(idx) - 1)
+        best = max(range(len(idx)), key=lambda k: (scores[k], sub_n[k, k]))
+        # The representative first: the viewer orders the batches by it and labels ρ to it.
+        idx = [idx[best]] + [i for k, i in enumerate(idx) if k != best]
         off = ~np.eye(len(idx), dtype=bool)
         sub, qs = similarity[np.ix_(idx, idx)][off], q[np.ix_(idx, idx)][off]
         group = CorrelationGroup(
@@ -187,10 +202,15 @@ def for_build(
             min_rho=float(sub.min()),
             min_batches=int(n[np.ix_(idx, idx)][off].min()),
             max_q=float(np.nanmax(qs)) if np.isfinite(qs).any() else float("nan"),
+            representative=report.analysed[idx[0]],
+            score=float(scores[best]),
         )
         report.groups.append(group)
         for i in idx:
-            rows_of[report.analysed[i]] = {"Group": group.name}
+            rows_of[report.analysed[i]] = {
+                "Group": group.name,
+                "Suggested representative": group.representative,
+            }
 
     rows = []
     for i, column in enumerate(report.analysed):
@@ -207,6 +227,9 @@ def for_build(
                 "Batches in common": int(n[i, best]) if best != i else None,
                 "q": float(f"{q[i, best]:.3g}") if best != i and not np.isnan(q[i, best]) else None,
                 "Group": rows_of.get(column, {}).get("Group", ""),
+                "Suggested representative": rows_of.get(column, {}).get(
+                    "Suggested representative", ""
+                ),
             }
         )
     log.success(

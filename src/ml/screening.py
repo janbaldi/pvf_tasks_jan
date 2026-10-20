@@ -56,7 +56,16 @@ COLUMNS = (
     "Review by",
 )
 #: What a proposal holds; ``ml screening add`` fills in the rest.
-PROPOSAL_COLUMNS = ("Action", "Parameter", "Group", "Site", "Reason", "Rationale", "Review by")
+PROPOSAL_COLUMNS = (
+    "Action",
+    "Parameter",
+    "Group",
+    "Site",
+    "Reason",
+    "Rationale",
+    "Review by",
+    "Author",
+)
 
 EXCLUDE, REINSTATE = "exclude", "reinstate"
 ACTIONS = (EXCLUDE, REINSTATE)
@@ -256,14 +265,16 @@ def add(
 ) -> list[Decision]:
     """The decisions a proposal makes, checked against the latest build's evidence.
 
-    One proposal row is one decision ID. A row naming a ``Group`` instead of a
+    One proposal row is one decision ID. A row naming a ``Group`` and no
     ``Parameter`` becomes one decision row per member of that group at that
     site, as the build that wrote ``evidence`` grouped them; the group's label
     is kept as context, since a group's number can change with the next build.
+    Rows naming a ``Parameter`` and a ``Group`` (as the missingness report writes
+    a group) are one decision when everything else about them is the same.
+
+    The author is the proposal's ``Author`` column, or ``author`` where it is empty.
     """
     today = today or date.today()
-    if not author.strip():
-        raise ScreeningError("Say who decides: --author is required")
     missing = [c for c in ("Action", "Site", "Reason", "Rationale") if c not in proposal.columns]
     if missing:
         raise ScreeningError(f"The proposal has no {', '.join(missing)} column")
@@ -272,6 +283,7 @@ def add(
     state = current(decisions, sites)
     errors: list[str] = []
     added: list[Decision] = []
+    shared: dict[tuple, str] = {}
     for number, row in enumerate(proposal.to_dict("records"), start=2):
         fields = {c: _text(row.get(c)) for c in PROPOSAL_COLUMNS}
         if not any(fields.values()):
@@ -287,15 +299,18 @@ def add(
             problems.append(f"Reason '{reason}' is not one of: {', '.join(REASONS)}")
         if not fields["Rationale"]:
             problems.append("Rationale is empty: say why, in words")
-        if bool(fields["Parameter"]) == bool(fields["Group"]):
-            problems.append("give a Parameter or a Group, not both and not neither")
+        if not fields["Parameter"] and not fields["Group"]:
+            problems.append("give a Parameter, a Group, or both")
+        who = fields["Author"] or author.strip()
+        if not who:
+            problems.append("say who decides: fill in Author, or pass --author")
         if fields["Group"] and site == ALL:
             problems.append("a Group is numbered per site: name the site")
         if problems:
             errors += [f"{where}: {p}" for p in problems]
             continue
         covered = sites if site == ALL else (site,)
-        if fields["Group"]:
+        if fields["Group"] and not fields["Parameter"]:
             members = evidence[
                 (evidence["Site"] == site) & (evidence["Group"].astype(str) == fields["Group"])
             ]["Parameter"].tolist()
@@ -321,15 +336,20 @@ def add(
             if idle:
                 errors.append(f"{where}: nothing to reinstate, not excluded: {', '.join(idle)}")
                 continue
-        identifier = f"S-{next_number:04d}"
-        next_number += 1
+        together = tuple(fields[c] for c in PROPOSAL_COLUMNS if c != "Parameter")
+        if fields["Group"] and together in shared:
+            identifier = shared[together]
+        else:
+            identifier = f"S-{next_number:04d}"
+            next_number += 1
+            shared[together] = identifier
         review = fields["Review by"] or (today + REVIEW_AFTER).isoformat()
         for member in members:
             added.append(
                 Decision(
                     id=identifier,
                     date=today.isoformat(),
-                    author=author.strip(),
+                    author=who,
                     action=action,
                     parameter=member,
                     site=site,

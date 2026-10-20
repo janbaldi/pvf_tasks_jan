@@ -193,6 +193,7 @@ DATETIME_KEYS = (
 DURATION_KEYS = ("contact_time", "contact_time_a", "contact_time_b")
 RATIO_KEYS = ("pt_cd4_cd8_ratio",)
 CATEGORICAL_KEYS = (
+    "manufacturing_completed",
     "patient_id",
     "vector_lot",
     "clinical_site",
@@ -219,6 +220,7 @@ CATEGORICAL_KEYS = (
 STAGES = {
     "D0": (
         "date_start",
+        "manufacturing_completed",
         "patient_id",
         "vector_lot",
         "subject_weight",
@@ -539,6 +541,8 @@ def _site_frame(n: int, rng: np.random.Generator) -> pd.DataFrame:
             c("dose_cells"): (size * 2.6e8).round(0),
             # Timing
             c("date_start"): _timestamps(n, 0, 7),
+            # Three batches are still in production: drawn, not analysed.
+            c("manufacturing_completed"): ["N" if i >= n - 3 else "Y" for i in range(n)],
             c("thaw_time"): [f"{8 + i % 6:02d}:{(i * 13) % 60:02d}" for i in range(n)],
             c("incubator_in_d0"): _timestamps(n, 0, 9),
             c("incubator_out_d1"): _timestamps(n, 1, 10),
@@ -1213,6 +1217,7 @@ def write_config(
                 "column": "batch_type",
                 "value": "type_commercial",
                 "all_batches_at": ["b"],
+                "analyse_only": {"column": "manufacturing_completed", "value": "completed_yes"},
             },
         },
         "cleaning": {

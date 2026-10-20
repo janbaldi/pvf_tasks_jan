@@ -469,13 +469,15 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
     missing_by_site = {}
     for site in names.sites():
         batches, cohort = _missingness_cohort(result[result["Site Merged"] == site], site, config)
+        analysed, counted = _analysed_batches(batches, site, config)
         missing_by_site[site] = missingness.for_build(
             batches,
             catalog_mapping,
             id_column="Patient Lot/Batch #",
             order_column=names.col(date_column),
+            analysed=analysed,
         )
-        missing_by_site[site][1].cohort = cohort
+        missing_by_site[site][1].cohort = "; ".join(filter(None, (cohort, counted)))
     _mark_screened(missing_by_site, config)
 
     # ── Write ──────────────────────────────────────────────────────────────
@@ -600,9 +602,18 @@ def _mark_screened(missing_by_site: dict[str, tuple], config: dict[str, Any]) ->
         log.warn(MODULE, f"The screening register could not be read: {exc}")
         return
     state = screening.current(register.decisions, names.sites()) if register else {}
-    for site, (rows, _) in missing_by_site.items():
+    for site, (rows, analysis) in missing_by_site.items():
         for row in rows:
-            row["Screening"] = screening.note(state.get((row["Parameter"], site)))
+            decision = state.get((row["Parameter"], site))
+            row["Screening"] = screening.note(decision)
+            if decision is not None and decision.action == screening.EXCLUDE:
+                analysis.screened[row["Parameter"]] = {
+                    "Decision": decision.id,
+                    "Date": decision.date,
+                    "Reason": decision.reason,
+                    "Rationale": decision.rationale,
+                    "Review by": decision.review_by,
+                }
 
 
 def _write_evidence(
@@ -1241,6 +1252,39 @@ def _missingness_cohort(
     return kept, f"{len(kept):,} of {len(batches):,} batches: {column} = {wanted}"
 
 
+def _analysed_batches(
+    batches: pd.DataFrame, site: str, config: dict[str, Any]
+) -> tuple[pd.Series | None, str]:
+    """Which of the described batches the missingness statistics are computed over.
+
+    ``build.missingness_cohort.analyse_only`` keeps the batches whose ``column``
+    holds ``value`` (vocabulary keys, compared without case); the others are drawn
+    in the plot but left out of every statistic and group. A blank counts as not
+    holding the value. A site without the column has all its batches analysed.
+    """
+    rule = ((config.get("build") or {}).get("missingness_cohort") or {}).get("analyse_only")
+    if not rule:
+        return None, ""
+    column, wanted = names.col(rule["column"]), names.value(rule["value"])
+    if column not in batches.columns:
+        log.warn(
+            MODULE,
+            f"[{site}] missingness report: no '{column}' column, so every batch is analysed",
+        )
+        return None, f"no {column} column: all analysed"
+    recorded = batches[column].astype("string").str.strip().str.casefold()
+    analysed = (recorded == wanted.strip().casefold()).fillna(False)
+    log.info(
+        MODULE,
+        f"[{site}] missingness statistics over {int(analysed.sum()):,} of {len(batches):,} "
+        f"batches, {column} = {wanted}; the others are drawn only",
+    )
+    return analysed, (
+        f"statistics over the {int(analysed.sum()):,} with {column} = {wanted}, "
+        f"the other {int((~analysed).sum()):,} drawn only"
+    )
+
+
 def _unknown_keys(config: dict[str, Any]) -> list[str]:
     """Settings that name a column by a key the loaded vocabulary does not define."""
     named = {
@@ -1267,6 +1311,17 @@ def _unknown_keys(config: dict[str, Any]) -> list[str]:
             problems.append(
                 f"build.missingness_cohort.value: '{cohort.get('value')}' is not a value "
                 "key of the vocabulary (see ml.names)"
+            )
+        only = cohort.get("analyse_only") or {}
+        if only and str(only.get("column")) not in names.current().columns:
+            problems.append(
+                f"build.missingness_cohort.analyse_only.column: '{only.get('column')}' is not "
+                "a column key of the vocabulary (see ml.names)"
+            )
+        if only and str(only.get("value")) not in names.current().values:
+            problems.append(
+                f"build.missingness_cohort.analyse_only.value: '{only.get('value')}' is not "
+                "a value key of the vocabulary (see ml.names)"
             )
         for key in cohort.get("all_batches_at") or []:
             if str(key) not in names.current().sites:
@@ -1394,7 +1449,9 @@ def _parser() -> argparse.ArgumentParser:
     steps = screen.add_subparsers(dest="action", required=True, metavar="action")
     add = steps.add_parser("add", help="add the decisions in a proposal file to the register")
     add.add_argument("proposal", help="a .csv or .xlsx with one decision per row")
-    add.add_argument("--author", required=True, help="who takes these decisions")
+    add.add_argument(
+        "--author", default="", help="who takes these decisions, where the proposal has no Author"
+    )
     add.add_argument("--new", action="store_true", help="start the register if there is none")
     steps.add_parser("status", help="what is excluded today, and what to look at again")
 

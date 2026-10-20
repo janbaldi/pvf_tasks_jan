@@ -63,6 +63,9 @@ build:
     column: batch_type             # vocabulary key of the column to select by
     value: type_commercial         # vocabulary key of the value to keep
     all_batches_at: [b]            # sites where every batch qualifies
+    analyse_only:                  # statistics and groups over these batches only;
+      column: manufacturing_completed  # the others are drawn in the plot, in green
+      value: completed_yes
 
 cleaning:
   disable: []                     # names of corrections to switch off

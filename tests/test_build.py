@@ -268,6 +268,22 @@ def test_the_missingness_report_describes_commercial_batches_only(built):
     assert f"{len(_commercial(first))} of {len(first)} batches" in payload["lead"]
 
 
+def test_batches_still_in_production_are_drawn_but_not_counted(built):
+    viewer = next(
+        b
+        for b in _missingness_payload(built)["sections"][0]["blocks"]
+        if b["kind"] == "missing_viewer"
+    )
+    first = {site["label"]: site for site in viewer["sites"]}[names.site("a")]
+    batches = _commercial(site_a(built["batch_table"])).set_index("Patient Lot/Batch #")
+    flags = batches[c("manufacturing_completed")]
+    assert (flags != v("completed_yes")).any(), "the demo has batches still in production"
+    shown = dict(zip(first["batches"], first["in_statistics"]))
+    assert {b for b, bit in shown.items() if bit == "0"} == set(
+        flags[flags != v("completed_yes")].index.astype(str)
+    )
+
+
 def test_the_missingness_report_analyses_each_site_on_its_own_batches(built):
     payload = _missingness_payload(built)
     assert payload["sections"][0]["id"] == "viewer", "the viewer is on top"
@@ -284,10 +300,11 @@ def test_the_missingness_report_analyses_each_site_on_its_own_batches(built):
         # Within one site the site is constant, and no condition column is reported.
         assert rows["Site Merged"]["Pattern"] == "Complete"
         assert not {"Condition", "Condition score", "Same split as"} & set(site["headers"])
-        # Rates over this site's batches only, and the strip says the same batch by batch.
+        # Rates over this site's completed batches only; the strip draws every batch.
         assert sorted(site["batches"]) == sorted(batches["Patient Lot/Batch #"].astype(str))
+        completed = batches[batches[c("manufacturing_completed")] == v("completed_yes")]
         for column in batch_table.columns:
-            expected = 100 * batches[column].isna().mean()
+            expected = 100 * completed[column].isna().mean()
             assert abs(rows[str(column)]["Missing %"] - expected) < 0.06, column
             bits = site["patterns"].get(str(column), "0" * len(batches))
             assert bits.count("1") == batches[column].isna().sum(), column

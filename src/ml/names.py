@@ -46,6 +46,7 @@ class VocabularyError(ValueError):
 COLUMNS: dict[str, str | tuple[str, ...]] = {
     "date_start": "Start date",
     "batch_type": "Batch kind",
+    "manufacturing_completed": "Manufacturing finished?",
     "pt_cd4_pct": "Thawed CD4 share (%)",
     "pt_cd8_pct": "Thawed CD8 share (%)",
     "pt_cd3_pct": "Thawed CD3 share (%)",
@@ -288,6 +289,7 @@ VALUES: dict[str, str | tuple[str, ...]] = {
     "cd4_profile_classes": ("CD4 low", "CD4 high", "CD4 mid"),
     "dose_basis_classes": ("by weight", "fixed count"),
     "type_commercial": "Routine",
+    "completed_yes": "Y",
     "status_aliases": ("recalled|recall", "halted|halt"),
 }
 

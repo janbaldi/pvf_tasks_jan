@@ -10,6 +10,7 @@ Every number was decided before this file ran. All it does is walk the block
 tree and hand each block to Streamlit.
 """
 
+import datetime
 import html
 import json
 import re
@@ -223,8 +224,10 @@ STRIP = """
               vertical-align: -1px; border-radius: 2px; }
 </style>
 <div id="legend"><b style="background:#d3d2cc;margin-left:0"></b>measured
-  <b style="background:#0047ab"></b>missing &nbsp;·&nbsp; one cell per batch, newest on the right;
-  scroll left to go back in time
+  <b style="background:#0047ab"></b>missing
+  <b style="background:#2e8b57"></b>missing, batch not in the statistics
+  &nbsp;·&nbsp; one cell per batch, newest on the right; scroll left to go back in time;
+  ⊘ marks a parameter screened out at this site
 </div>
 <div id="wrap"><div id="names"></div><div id="scroll"><canvas id="c"></canvas></div></div>
 <div id="tip"></div>
@@ -241,7 +244,8 @@ D.rows.forEach((row, r) => {
   const label = document.createElement("div");
   label.textContent = row.name; label.title = row.name; names.appendChild(label);
   for (let i = 0; i < n; i++) {
-    ctx.fillStyle = row.bits[i] === "1" ? "#0047ab" : "#d3d2cc";
+    const counted = !D.analysed || D.analysed[i] === "1";
+    ctx.fillStyle = row.bits[i] !== "1" ? "#d3d2cc" : counted ? "#0047ab" : "#2e8b57";
     ctx.fillRect(i * step, r * (H + GAP), W, H);
   }
 });
@@ -263,7 +267,8 @@ canvas.addEventListener("mousemove", (e) => {
   if (i < 0 || i >= n || r < 0 || r >= D.rows.length) { tip.style.display = "none"; return; }
   const row = D.rows[r];
   tip.textContent = D.batches[i] + (D.dates[i] ? " · " + D.dates[i] : "") + " · " + row.name +
-    ": " + (row.bits[i] === "1" ? "missing" : "measured");
+    ": " + (row.bits[i] === "1" ? "missing" : "measured") +
+    (D.analysed && D.analysed[i] !== "1" ? " (not in the statistics)" : "");
   tip.style.display = "block";
   const left = e.clientX + 12;
   tip.style.left = Math.min(left, window.innerWidth - tip.offsetWidth - 4) + "px";
@@ -299,11 +304,113 @@ def _pick_table(headers, rows, formats, mode: str, key: str):
     return frame, event.selection.rows
 
 
+def proposal_rows(
+    picked: list,
+    group_of: dict,
+    screened: dict,
+    site: str,
+    action: str,
+    reason: str,
+    rationale: str,
+    review_by: str,
+    author: str,
+) -> tuple:
+    """The proposal rows for the ticked parameters, and the ones that cannot be in it.
+
+    One row per parameter, with its group as context, in the columns
+    ``ml screening add`` reads. Only a parameter screened out at this site can
+    be reinstated; the others are returned as skipped.
+    """
+    rows, skipped = [], []
+    for parameter in picked:
+        if action == "reinstate" and parameter not in screened:
+            skipped.append(parameter)
+            continue
+        rows.append(
+            {
+                "Action": action,
+                "Parameter": parameter,
+                "Group": group_of.get(parameter, ""),
+                "Site": site,
+                "Reason": reason,
+                "Rationale": rationale.strip(),
+                "Review by": review_by if action == "exclude" else "",
+                "Author": author.strip(),
+            }
+        )
+    return rows, skipped
+
+
+def render_proposal(form: dict, site: dict, picked: list, key: str) -> None:
+    """Turn the ticked parameters into a proposal.csv for `ml screening add`."""
+    name, group = site["headers"].index("Parameter"), site["headers"].index("Group")
+    group_of = {row[name]: row[group] or "" for row in site["rows"]}
+    with st.expander(f"Propose a screening decision ({len(picked)} ticked)", expanded=False):
+        if not picked:
+            st.caption(
+                "Tick a group, parameters, or screened parameters above; they are what the "
+                "proposal is about."
+            )
+            return
+        left, right = st.columns(2)
+        action = left.radio("Action", form["actions"], horizontal=True, key=f"act{key}")
+        reason = right.selectbox("Reason", form["reasons"], key=f"why{key}")
+        rationale = st.text_area("Rationale: why, in words", key=f"text{key}")
+        left, right = st.columns(2)
+        review = left.date_input(
+            "Review by",
+            datetime.date.today() + datetime.timedelta(days=form["review_days"]),
+            key=f"when{key}",
+            disabled=action != "exclude",
+        )
+        author = right.text_input("Author", key=f"who{key}")
+        rows, skipped = proposal_rows(
+            picked,
+            group_of,
+            site["screened"],
+            site["label"],
+            action,
+            reason,
+            rationale,
+            review.isoformat(),
+            author,
+        )
+        if skipped:
+            st.warning(
+                f"Not screened out at this site, so nothing to reinstate: {', '.join(skipped)}"
+            )
+        missing = [
+            name
+            for name, value in (("a rationale", rationale), ("an author", author))
+            if not value.strip()
+        ]
+        if missing:
+            st.info(f"Fill in {' and '.join(missing)} to write the proposal.")
+            return
+        if not rows:
+            return
+        frame = pd.DataFrame(rows, columns=form["columns"])
+        st.dataframe(frame, hide_index=True, width="stretch")
+        st.download_button(
+            f"Download proposal.csv ({len(rows)} rows)",
+            data=frame.to_csv(index=False),
+            file_name="proposal.csv",
+            mime="text/csv",
+            key=f"prop{key}",
+        )
+        st.markdown(
+            '<p class="batch_table-caption">Then: <code>uv run ml screening add proposal.csv'
+            "</code>. It checks every row against the latest build before it adds any.</p>",
+            unsafe_allow_html=True,
+        )
+
+
 def render_missing_viewer(block: dict, key: str) -> None:
     """The strip on top; below it the groups (one to draw) and the parameters (any to add)."""
     labels = [site["label"] for site in block["sites"]]
     chosen = st.radio("Site", labels, horizontal=True, key=f"site{key}")
     site = block["sites"][labels.index(chosen)]
+    screened = site.get("screened") or {}
     top = st.container()
 
     picked: list[str] = []
@@ -320,11 +427,28 @@ def render_missing_viewer(block: dict, key: str) -> None:
             )
             picked += [m for i in ticked for m in site["groups"][groups.iloc[i]["Group"]]]
             st.markdown(
-                '<p class="batch_table-caption">Tick a group to draw all its parameters.</p>',
+                '<p class="batch_table-caption">Tick a group to draw all its parameters. '
+                "<i>Screened members</i> counts the ones already screened out here.</p>",
                 unsafe_allow_html=True,
             )
         else:
             st.caption("No group of parameters goes missing together at this site.")
+    with st.expander(f"Screened out at this site ({len(screened)})", expanded=bool(screened)):
+        if screened:
+            headers = ["Parameter", *next(iter(screened.values()))]
+            rows = [[name, *decision.values()] for name, decision in screened.items()]
+            frame, ticked = _pick_table(
+                headers, rows, [None] * len(headers), "multi-row", f"screened{key}-{chosen}"
+            )
+            picked += [frame.iloc[i]["Parameter"] for i in ticked]
+            st.markdown(
+                '<p class="batch_table-caption">The screening register\'s standing exclusions '
+                "at this site. Every task leaves these out. Tick them to draw them, or to "
+                "reinstate them.</p>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.caption("Nothing is screened out at this site.")
     with st.expander(f"Parameters ({len(site['rows'])})", expanded=False):
         frame, ticked = _pick_table(
             site["headers"], site["rows"], site["formats"], "multi-row", f"rows{key}-{chosen}"
@@ -344,6 +468,8 @@ def render_missing_viewer(block: dict, key: str) -> None:
         )
 
     picked = list(dict.fromkeys(picked))
+    if block.get("proposal"):
+        render_proposal(block["proposal"], site, picked, f"{key}-{chosen}")
     n = len(site["batches"])
     with top:
         if not picked:
@@ -352,8 +478,15 @@ def render_missing_viewer(block: dict, key: str) -> None:
         data = {
             "batches": site["batches"],
             "dates": site["dates"],
+            "analysed": site.get("in_statistics") or "",
             # A parameter with no blank at this site has no pattern stored: all measured.
-            "rows": [{"name": p, "bits": site["patterns"].get(p, "0" * n)} for p in picked],
+            "rows": [
+                {
+                    "name": ("⊘ " if p in screened else "") + p,
+                    "bits": site["patterns"].get(p, "0" * n),
+                }
+                for p in picked
+            ],
         }
         page = STRIP % {
             "data": json.dumps(data).replace("<", "\\u003c"),

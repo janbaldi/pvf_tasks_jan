@@ -25,7 +25,7 @@ from typing import Any
 import pandas as pd
 import yaml
 
-from . import decorrelate, missingness, plots, stlite
+from . import decorrelate, missingness, plots, screening, stlite
 from .blocks import (
     Block,
     bold,
@@ -408,6 +408,8 @@ def _missing_viewer(run: BuildRun) -> dict | None:
                 "batches": analysis.batches,
                 "dates": analysis.dates,
                 "patterns": analysis.missing,
+                "in_statistics": analysis.in_statistics,
+                "screened": analysis.screened,
                 "groups": {g.name: g.members for g in analysis.groups},
                 "group_headers": list(_GROUP_FORMATS),
                 "group_rows": [
@@ -416,6 +418,7 @@ def _missing_viewer(run: BuildRun) -> dict | None:
                         len(g.members),
                         round(100 * g.group_rate, 1),
                         g.kind,
+                        sum(m in analysis.screened for m in g.members),
                     ]
                     for g in analysis.groups
                 ],
@@ -427,7 +430,16 @@ def _missing_viewer(run: BuildRun) -> dict | None:
                 "csv": csv_text([{"Site": site, **row} for row in rows]),
             }
         )
-    return _section("viewer", "Missingness pattern", [missing_viewer(sites)])
+    block = missing_viewer(sites)
+    if block is not None:
+        # What the proposal form offers, so the page writes what `ml screening add` reads.
+        block["proposal"] = {
+            "columns": list(screening.PROPOSAL_COLUMNS),
+            "actions": list(screening.ACTIONS),
+            "reasons": list(screening.REASONS),
+            "review_days": screening.REVIEW_AFTER.days,
+        }
+    return _section("viewer", "Missingness pattern", [block])
 
 
 #: The group table's columns, with their display formats.
@@ -436,6 +448,7 @@ _GROUP_FORMATS = {
     "Members": "%d",
     "Batches missing ≥1 member %": "%.1f",
     "Pattern": None,
+    "Screened members": "%d",
 }
 
 
@@ -457,7 +470,8 @@ def _missingness_help(run: BuildRun) -> dict | None:
             ),
             md(
                 "Each site is analysed on its own batches, in date order. This is description "
-                "only: nothing here changes the batch table.\n\n"
+                "only: nothing here changes the batch table. Batches drawn with green gaps are "
+                "not in any statistic or group (see the top of the page for which ones).\n\n"
                 "- **Pattern.** A gap is a run of consecutive missing batches. The runs test "
                 "compares the number of gaps with what chance gives for that many missing batches "
                 f"(*Random would give*); |z| > {missingness.RUNS_Z} (p < 0.01, two-sided) is not "

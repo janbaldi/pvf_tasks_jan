@@ -53,6 +53,9 @@ build:
     value: type_commercial
     all_batches_at:
     - b
+    analyse_only:
+      column: manufacturing_completed
+      value: completed_yes
 cleaning:
   censored: limit
   censored_flags: false

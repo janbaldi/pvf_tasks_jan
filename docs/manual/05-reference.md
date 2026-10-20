@@ -9,7 +9,7 @@ Run as `uv run ml [--config FILE] [--debug] [--quiet] COMMAND …`.
 | `ml validate [--task T]` | Check `config.yaml`, the vocabulary, the corrections, the screening register and the given tasks. Writes nothing. Inside a task folder, also checks that task. |
 | `ml check-catalog` | Compare every source's columns with the catalog. Writes `catalog_report.html`, `catalog_manifest.json` and `new_parameters.csv` into the catalog's folder. |
 | `ml build` | Build the batch table. Writes `batch_data.xlsx`, `batch_data.parquet`, `build_report.html`, `missingness_report.html`, `missingness.xlsx` and `batch_table_manifest.json` into the batch table's folder. |
-| `ml screening add PROPOSAL --author NAME [--new]` | Check a proposal against the latest build and add its decisions to the screening register. `--new` starts the register when there is none. |
+| `ml screening add PROPOSAL [--author NAME] [--new]` | Check a proposal (written by the missingness report, or by hand) against the latest build and add its decisions to the screening register. `--author` fills an empty `Author` column. `--new` starts the register when there is none. |
 | `ml screening status` | List what the register excludes today, and the decisions the latest build gives a reason to look at again. |
 | `ml task new FOLDER [--target COL] [--question TEXT] [--force]` | Create a task folder with an annotated `task.yaml`. |
 | `ml task run [--task T]` | Run tasks; without `--task`, the task in the current folder. |
@@ -50,7 +50,8 @@ sharepoint: {vocabulary: {path: …, drive_id: …}, catalog: {…}, batch_table
              site_maps: {folder: …, files: […], drive_id: …}}
 catalog:    {write_new_parameters: true}
 build:      {write_parquet: true, date_column: date_start,
-             missingness_cohort: {column: batch_type, value: type_commercial, all_batches_at: [b]}}
+             missingness_cohort: {column: batch_type, value: type_commercial, all_batches_at: [b],
+                                  analyse_only: {column: manufacturing_completed, value: completed_yes}}}
 cleaning:   {disable: [], censored: limit, censored_flags: false,
              duration_unit: minutes, yes_no_defaults: {pre_activation_clumps_yn: 'No'}}
 mapping:    {exclude: [excluded_mapping_row]}
@@ -63,6 +64,7 @@ lv_coa:     {ph_nominal: 7.2, osmo_nominal: 300.0}
 | `sharepoint.<input>` | Where each input is: `path`, `drive_id`, optional `sheet`. Values come from `.env` as `${NAME}`. `screening` is optional: without it, no parameter is screened out. |
 | `build.date_column` | The vocabulary key of the date that orders batches in the missingness report. |
 | `build.missingness_cohort` | Which batches the missingness report describes: those whose `column` holds `value` (vocabulary keys, case ignored), and every batch at the sites in `all_batches_at`. Leave it out to describe every batch. |
+| `build.missingness_cohort.analyse_only` | Of those, the batches the statistics and groups are computed over: `column` holds `value`. The others are drawn in the plot, their missing cells in green. A site without the column has all its batches analysed. |
 | `cleaning.censored` | What `<0.5` becomes: `limit` (0.5), `half` (0.25) or `missing`. Applies to every source, the vector certificates included. |
 | `cleaning.censored_flags` | Also add a `<column> censored` 0/1 column. |
 | `cleaning.disable` | Names of corrections to switch off. |
@@ -179,7 +181,7 @@ parameter:
 | Column | Filled by | Meaning |
 |---|---|---|
 | `ID` | tool | `S-0001`, … one per proposal row; a group's members share it |
-| `Date`, `Author` | tool | When, and `--author` |
+| `Date`, `Author` | tool, proposal | When, and the proposal's `Author` (or `--author`) |
 | `Action` | you | `exclude` or `reinstate` |
 | `Parameter`, `Site` | you (tool, for a group) | What, and where (a site's name or `all`) |
 | `Group` | you | The report's group label, as context |

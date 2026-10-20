@@ -204,8 +204,15 @@ def test_a_proposal_with_problems_adds_nothing_and_names_them():
     assert "row 3: Rationale is empty" in message
     assert "row 4: nothing to reinstate" in message
     assert "row 5: a Group is numbered per site" in message
+    row = {
+        "Action": "exclude",
+        "Parameter": "X",
+        "Site": "North",
+        "Reason": "retired",
+        "Rationale": "x",
+    }
     with pytest.raises(screening.ScreeningError, match="--author"):
-        screening.add([], proposal(), EVIDENCE, "", " ", SITES)
+        screening.add([], proposal(row), EVIDENCE, "", " ", SITES)
 
 
 # ---------------------------------------------------------------------------
@@ -290,3 +297,83 @@ def test_adding_a_proposal_and_asking_for_the_status(built, tmp_path):
     )
     assert {d.parameter for d in register.decisions} == members
     assert cli.run_screening_status(config) == []
+
+
+# ---------------------------------------------------------------------------
+# The proposal the missingness report writes
+# ---------------------------------------------------------------------------
+def _proposal_rows():
+    """``proposal_rows`` from the page module, which imports streamlit and so cannot load here."""
+    import ast
+
+    from conftest import ROOT
+
+    source = (ROOT / "src" / "ml" / "streamlit_app.py").read_text(encoding="utf-8")
+    node = next(n for n in ast.parse(source).body if getattr(n, "name", "") == "proposal_rows")
+    space: dict = {}
+    exec(compile(ast.Module([node], []), "streamlit_app.py", "exec"), space)
+    return space["proposal_rows"]
+
+
+def test_the_report_writes_a_proposal_that_ml_screening_add_accepts():
+    proposal_rows = _proposal_rows()
+    group_of = {"X": "Missing 01", "Y": "Missing 01", "Z": ""}
+    rows, skipped = proposal_rows(
+        ["X", "Y", "Z"],
+        group_of,
+        {},
+        "North",
+        "exclude",
+        "retired",
+        " old assay ",
+        "2027-01-01",
+        "A. Reviewer",
+    )
+    assert skipped == []
+    assert set(rows[0]) == set(screening.PROPOSAL_COLUMNS), "every column filled in"
+    assert rows[0]["Rationale"] == "old assay" and rows[2]["Group"] == ""
+    added = screening.add([], pd.DataFrame(rows), EVIDENCE, "", "", SITES)
+    # The group's members are one decision; the parameter on its own is another.
+    assert [(d.id, d.parameter) for d in added] == [
+        ("S-0001", "X"),
+        ("S-0001", "Y"),
+        ("S-0002", "Z"),
+    ]
+    assert {d.author for d in added} == {"A. Reviewer"}
+    assert added[0].review_by == "2027-01-01"
+
+
+def test_the_report_only_reinstates_what_is_screened_out():
+    proposal_rows = _proposal_rows()
+    screened = {"X": {"Decision": "S-0001"}}
+    rows, skipped = proposal_rows(
+        ["X", "Z"],
+        {},
+        screened,
+        "North",
+        "reinstate",
+        "other",
+        "back in use",
+        "2027-01-01",
+        "A. Reviewer",
+    )
+    assert [r["Parameter"] for r in rows] == ["X"] and skipped == ["Z"]
+    assert rows[0]["Review by"] == "", "a reinstatement has no review date"
+    log = [decision(1, "exclude", "X", "North")]
+    (added,) = screening.add(log, pd.DataFrame(rows), EVIDENCE, "", "", SITES)
+    assert added.action == "reinstate"
+
+
+def test_the_missingness_report_shows_what_is_screened_out(built):
+    from conftest import shared
+    from ml import stlite
+
+    page = shared(built["directory"], built["config"], "batch_table", "missingness_report.html")
+    payload = stlite.read_payload(page.read_text(encoding="utf-8"))
+    viewer = next(b for b in payload["sections"][0]["blocks"] if b["kind"] == "missing_viewer")
+    assert viewer["proposal"]["reasons"] == list(screening.REASONS)
+    sites = {site["label"]: site for site in viewer["sites"]}
+    first = sites[names.site("a")]
+    assert first["screened"][dummy_data.screened_parameter()]["Decision"] == "S-0001"
+    assert sites[names.site("b")]["screened"] == {}
+    assert "Screened members" in first["group_headers"]

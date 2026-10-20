@@ -86,19 +86,30 @@ and 10 to 30 seconds to start. Look at these sections:
 ## 5. Read the missingness report
 
 Open `missingness_report.html`. It describes **commercial batches only**: Ghent
-batches whose `Type` is `Commercial`, and every Raritan batch
-(`build.missingness_cohort` in `config.yaml`). The top of the page says how many
-batches each site's analysis covers.
+batches whose `Type` is `Commercial`, and every Raritan batch. Of those, the
+**statistics and groups use only batches whose manufacturing is completed**
+(`Manufacturing Completed?` = `Y`). Batches still in production are drawn in the
+plot but counted nowhere else. Both rules are `build.missingness_cohort` in
+`config.yaml`. The top of the page says how many batches each site's analysis
+covers.
 
-Pick a site in the sidebar. The page has three parts:
+Pick a site at the top. The page has these parts:
 
 - **The pattern plot.** One row per parameter, one cell per batch in date order,
-  newest on the right. Hover a cell for its batch and date.
+  newest on the right. Missing cells are blue, or **green for a batch whose
+  manufacturing is not completed**: a gap there may just mean "not measured
+  yet". A ⊘ before a name marks a parameter screened out at this site. Hover a
+  cell for its batch and date.
 - **The group table.** Parameters that go missing together. Tick a group to draw
-  all its members.
+  all its members. *Screened members* counts the ones already screened out.
+- **Screened out at this site.** The screening register's standing exclusions:
+  decision, date, reason, rationale and review date. Tick one to draw it, or to
+  reinstate it.
 - **The parameter table** (collapsed). Every parameter with its **pattern**, its
   statistics and, in the **Screening** column, the decision standing for it at
   this site. Tick parameters to add them to the plot.
+- **Propose a screening decision.** Turns everything you ticked into a
+  `proposal.csv` ([chapter 3](03-screening.md#recording-a-decision)).
 
 The pattern says how a parameter goes missing:
 

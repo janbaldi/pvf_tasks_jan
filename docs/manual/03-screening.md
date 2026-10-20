@@ -48,28 +48,46 @@ batches lose it.
 
 ## Recording a decision
 
-**1. Write a proposal.** A small CSV or Excel file, one decision per row:
+**1. Write the proposal from the report.** In `missingness_report.html`, pick the
+site and tick what the decision is about: a group in the group table,
+parameters in the parameter table, or (to reinstate them) rows of *Screened out
+at this site*. Open **Propose a screening decision** below the tables and fill in:
+
+- **Action**: exclude or reinstate;
+- **Reason**: one of the list above;
+- **Rationale**: why, in a sentence;
+- **Review by**: three months from today unless you change it;
+- **Author**: your name.
+
+The form shows the rows it will write, and **Download proposal.csv** saves them,
+one row per parameter with every column filled in:
 
 ```
-Action,Parameter,Group,Site,Reason,Rationale,Review by
-exclude,,Missing 05,Northfield,missing with group,clump observations recorded on some batches only,
-exclude,Seeding density vessel A,,Southbank,never recorded,Southbank does not record it,
+Action,Parameter,Group,Site,Reason,Rationale,Review by,Author
+exclude,Day 3 clump observation,Missing 05,Northfield,missing with group,clump observations recorded on some batches only,2027-01-19,S. Degroeve
+exclude,D3 clumps present,Missing 05,Northfield,missing with group,clump observations recorded on some batches only,2027-01-19,S. Degroeve
 ```
+
+Only parameters that are screened out at that site can be reinstated; the form
+says which ticked ones it leaves out, and why.
+
+You can also write the file by hand, in Excel or a text editor:
 
 | Column | Fill in |
 |---|---|
 | `Action` | `exclude` or `reinstate` |
 | `Parameter` | The parameter's exact name, as in the report |
-| `Group` | Or, instead of a parameter: a group from the report's group table, such as `Missing 05`. Name the site, since groups are found per site |
-| `Site` | A site's name, or `all` |
+| `Group` | A group from the report's group table, such as `Missing 05`. With no `Parameter`, the row stands for every member of the group at that site; with one, it is context |
+| `Site` | A site's name, or `all` (not with a group: groups are found per site) |
 | `Reason` | One of the reasons in the table above |
 | `Rationale` | Why, in a sentence. Required |
 | `Review by` | Optional date (`YYYY-MM-DD`) to look at it again; empty means three months from today |
+| `Author` | Who decides; or leave it empty and pass `--author` |
 
 **2. Add it.**
 
 ```bash
-uv run ml screening add proposal.csv --author "S. Degroeve"
+uv run ml screening add proposal.csv
 ```
 
 ```
@@ -89,9 +107,10 @@ writes anything. It refuses a proposal with an unknown parameter or group, a
 reason that isn't on the list, an empty rationale, or a reinstatement of
 something that isn't excluded. It names every problem at once and adds nothing.
 
-Each proposal row gets a decision ID (`S-0002`). A group becomes one register
-row per member, all with the same ID, because group numbers can change with the
-next build and the members are what was decided. The tool fills in the date,
+Each decision gets an ID (`S-0002`). The rows of one group with the same action,
+reason, rationale, review date and author share one ID: they are one decision.
+A group is stored as its members, because group numbers can change with the next
+build and the members are what was decided. The tool fills in the date,
 the author, and the evidence from the latest build: missing %, pattern, last
 measurement, and the digest of the batch table it was decided on.
 

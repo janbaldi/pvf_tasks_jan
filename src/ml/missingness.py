@@ -140,6 +140,10 @@ class MissingnessReport:
     batches: list[str] = field(default_factory=list)
     dates: list[str] = field(default_factory=list)
     missing: dict[str, str] = field(default_factory=dict)
+    #: Per batch in ``batches`` order, 1 when it is in the statistics, 0 when only drawn.
+    in_statistics: str = ""
+    #: Set by the build: parameter → the screening decision standing for it at this site.
+    screened: dict[str, dict] = field(default_factory=dict)
 
 
 def _jaccard(matrix: np.ndarray) -> np.ndarray:
@@ -421,44 +425,60 @@ def for_build(
     value_types: dict[str, str],
     id_column: str,
     order_column: str,
+    analysed: pd.Series | None = None,
 ) -> tuple[list[dict], MissingnessReport]:
     """Every batch table column's missingness, and the groups that go missing together.
 
     One row per column: its pattern and gap statistics over the batches in date
     order, and its group. The groups use the task's default settings; the build
     reports their pattern, not an explainer.
+
+    ``analysed`` marks the batches the statistics and groups are computed over
+    (default: all). The others are still drawn in the pattern viewer, flagged,
+    so a gap they cause can be told from one the analysed batches have.
     """
     settings = Missingness()
     frame, order = _ordered(frame, order_column)
-    report = analyse(frame, value_types, settings, id_column=id_column, order_column=order_column)
+    if analysed is None:
+        analysed = pd.Series(True, index=frame.index)
+    analysed = analysed.reindex(frame.index).fillna(False).astype(bool)
+    counted = frame[analysed]
+    report = analyse(counted, value_types, settings, id_column=id_column, order_column=order_column)
     undated = int(pd.to_datetime(frame.get(order_column), errors="coerce").isna().sum())
     if undated and order_column in frame.columns:
         report.order += f", the {undated:,} batches without one last"
-    log.step(MODULE, f"Profiling the gaps of {frame.shape[1]:,} columns, {order}")
+    log.step(
+        MODULE,
+        f"Profiling the gaps of {frame.shape[1]:,} columns over {len(counted):,} of "
+        f"{len(frame):,} batches, {order}",
+    )
 
-    blank = frame.isna()
     dates = (
         pd.to_datetime(frame[order_column], errors="coerce").dt.strftime("%Y-%m-%d")
         if order_column in frame.columns
         else pd.Series("", index=frame.index)
-    )
+    ).fillna("")
     group_of = {member: group.name for group in report.groups for member in group.members}
     report.batches = (
         frame[id_column].astype(str).tolist() if id_column in frame.columns else []
     ) or [f"row {i}" for i in frame.index]
-    report.dates = dates.fillna("").tolist()
+    report.dates = dates.tolist()
+    report.in_statistics = "".join("1" if flag else "0" for flag in analysed)
+    every_blank, blank = frame.isna(), counted.isna()
+    counted_dates = dates[analysed]
     rows = []
     for column in frame.columns:
+        drawn = every_blank[column].to_numpy()
+        if drawn.any():
+            report.missing[str(column)] = "".join(drawn.astype(int).astype(str))
         missing = blank[column].to_numpy()
-        if missing.any():
-            report.missing[str(column)] = "".join(missing.astype(int).astype(str))
         measured = np.flatnonzero(~missing)
         rows.append(
             {
                 "Parameter": str(column),
                 **timeline(missing),
-                "First measured": dates.iloc[measured[0]] if len(measured) else "",
-                "Last measured": dates.iloc[measured[-1]] if len(measured) else "",
+                "First measured": counted_dates.iloc[measured[0]] if len(measured) else "",
+                "Last measured": counted_dates.iloc[measured[-1]] if len(measured) else "",
                 "Group": group_of.get(column, ""),
             }
         )

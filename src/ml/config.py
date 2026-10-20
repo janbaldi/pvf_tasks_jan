@@ -256,7 +256,13 @@ def validate(config: dict[str, Any], source: str = "config") -> None:
     cohort = _mapping(
         build.get("missingness_cohort"),
         "build.missingness_cohort",
-        ("column", "value", "all_batches_at"),
+        ("column", "value", "all_batches_at", "analyse_only"),
+        errors,
+    )
+    _mapping(
+        cohort.get("analyse_only"),
+        "build.missingness_cohort.analyse_only",
+        ("column", "value"),
         errors,
     )
     if cohort:

@@ -408,7 +408,8 @@ def render_proposal(form: dict, site: dict, picked: list, key: str) -> None:
 def render_missing_viewer(block: dict, key: str) -> None:
     """The strip on top; below it the groups (one to draw) and the parameters (any to add)."""
     labels = [site["label"] for site in block["sites"]]
-    chosen = st.radio("Site", labels, horizontal=True, key=f"site{key}")
+    with SLOTS.get("site") or st.sidebar:
+        chosen = st.radio("Site", labels, horizontal=True, key=f"site{key}")
     site = block["sites"][labels.index(chosen)]
     screened = site.get("screened") or {}
     top = st.container()
@@ -472,9 +473,19 @@ def render_missing_viewer(block: dict, key: str) -> None:
         render_proposal(block["proposal"], site, picked, f"{key}-{chosen}")
     n = len(site["batches"])
     with top:
+        drawn = picked
         if not picked:
-            st.info("Tick a group or parameters in the tables below to draw them here.")
-            return
+            # Open on a plot: the first group, until the reader ticks something.
+            first = next(iter(site["groups"]), None)
+            drawn = site["groups"][first] if first else []
+            st.caption(
+                f"Showing {first}, the largest group. Tick a group or parameters below to "
+                "draw them instead."
+                if first
+                else "Tick parameters in the tables below to draw them here."
+            )
+            if not drawn:
+                return
         data = {
             "batches": site["batches"],
             "dates": site["dates"],
@@ -485,7 +496,7 @@ def render_missing_viewer(block: dict, key: str) -> None:
                     "name": ("⊘ " if p in screened else "") + p,
                     "bits": site["patterns"].get(p, "0" * n),
                 }
-                for p in picked
+                for p in drawn
             ],
         }
         page = STRIP % {
@@ -494,7 +505,7 @@ def render_missing_viewer(block: dict, key: str) -> None:
             "row": ROW,
             "labels": LABELS,
         }
-        components.html(page, height=len(picked) * (ROW + 2) + 22 + 40, scrolling=False)
+        components.html(page, height=len(drawn) * (ROW + 2) + 22 + 40, scrolling=False)
 
 
 def render_block(block: dict, key: str) -> None:
@@ -728,8 +739,18 @@ def help_page() -> None:
                 render_block(block, f"help-{n}-{i}")
 
 
+#: Places in the sidebar a block may fill, reserved before the page is drawn.
+SLOTS: dict = {}
+
+
 def report_page() -> None:
+    compact = PAYLOAD.get("compact", False)
     with st.sidebar:
+        SLOTS["site"] = st.container()
+        if compact and PAYLOAD.get("lead"):
+            with st.popover("About this report", icon=":material/info:", width="stretch"):
+                st.markdown(PAYLOAD["lead"])
+                st.caption(PAYLOAD["subtitle"])
         contents([(2, s["title"], s["id"]) for s in PAYLOAD["sections"]], "Contents")
         if PAYLOAD.get("help"):
             st.divider()
@@ -742,20 +763,27 @@ def report_page() -> None:
                 width="stretch",
             )
 
-    title_block(PAYLOAD["title"])
-    if PAYLOAD.get("lead"):
+    sections = PAYLOAD["sections"]
+    if compact:
+        # A working page: no heading above it, it opens on its first section's content.
+        for i, block in enumerate(sections[0]["blocks"]):
+            render_block(block, f"{sections[0]['id']}-{i}")
+        sections = sections[1:]
+    else:
+        title_block(PAYLOAD["title"])
+        if PAYLOAD.get("lead"):
+            st.markdown(
+                f'<p class="batch_table-lead">{html.escape(PAYLOAD["lead"])}</p>',
+                unsafe_allow_html=True,
+            )
         st.markdown(
-            f'<p class="batch_table-lead">{html.escape(PAYLOAD["lead"])}</p>',
+            f'<p class="batch_table-sub">{html.escape(PAYLOAD["subtitle"])}</p>',
             unsafe_allow_html=True,
         )
-    st.markdown(
-        f'<p class="batch_table-sub">{html.escape(PAYLOAD["subtitle"])}</p>',
-        unsafe_allow_html=True,
-    )
 
     # Each section in a bordered box, the dashboard's expander look; expanders
     # themselves cannot hold the folded blocks a section may contain.
-    for section in PAYLOAD["sections"]:
+    for section in sections:
         with st.container(border=True):
             st.subheader(section["title"], anchor=section["id"])
             for i, block in enumerate(section["blocks"]):

@@ -471,7 +471,7 @@ def _missingness_help(run: BuildRun) -> dict | None:
             md(
                 "Each site is analysed on its own batches, in date order. This is description "
                 "only: nothing here changes the batch table. Batches drawn with green gaps are "
-                "not in any statistic or group (see the top of the page for which ones).\n\n"
+                "not in any statistic or group (About this report, in the sidebar, says which ones).\n\n"
                 "- **Pattern.** A gap is a run of consecutive missing batches. The runs test "
                 "compares the number of gaps with what chance gives for that many missing batches "
                 f"(*Random would give*); |z| > {missingness.RUNS_Z} (p < 0.01, two-sided) is not "
@@ -918,6 +918,8 @@ def build_missingness_payload(run: BuildRun) -> dict[str, Any]:
         "subtitle": f"CAR-T manufacturing data · run {stamp}",
         "sections": [section for section in sections if section],
         "help": _missingness_help(run),
+        # Opens on the plot, with the site and this lead in the sidebar.
+        "compact": True,
     }
 
 

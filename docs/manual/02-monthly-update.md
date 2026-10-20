@@ -90,12 +90,13 @@ batches whose `Type` is `Commercial`, and every Raritan batch. Of those, the
 **statistics and groups use only batches whose manufacturing is completed**
 (`Manufacturing Completed?` = `Y`). Batches still in production are drawn in the
 plot but counted nowhere else. Both rules are `build.missingness_cohort` in
-`config.yaml`. The top of the page says how many batches each site's analysis
-covers.
+`config.yaml`. **About this report** in the sidebar says how many batches each
+site's analysis covers.
 
-Pick a site at the top. The page has these parts:
+Pick a site in the sidebar. The page opens on the plot, and has these parts:
 
-- **The pattern plot.** One row per parameter, one cell per batch in date order,
+- **The pattern plot.** It shows the largest group until you tick something.
+  One row per parameter, one cell per batch in date order,
   newest on the right. Missing cells are blue, or **green for a batch whose
   manufacturing is not completed**: a gap there may just mean "not measured
   yet". A ⊘ before a name marks a parameter screened out at this site. Hover a

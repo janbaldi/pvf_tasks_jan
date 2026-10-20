@@ -377,3 +377,43 @@ def test_the_missingness_report_shows_what_is_screened_out(built):
     assert first["screened"][dummy_data.screened_parameter()]["Decision"] == "S-0001"
     assert sites[names.site("b")]["screened"] == {}
     assert "Screened members" in first["group_headers"]
+
+
+# ---------------------------------------------------------------------------
+# A new task file lists what the register excludes
+# ---------------------------------------------------------------------------
+def test_a_new_task_file_lists_the_screened_parameters_as_exclusions(built, tmp_path):
+    from ml import scaffold, taskconfig
+
+    screened, as_of = cli._screened_for_new_task(built["config"])
+    assert as_of == "S-0001"
+    assert screened == [
+        (dummy_data.screened_parameter(), f"screened out by S-0001: irregular ({names.site('a')})")
+    ]
+    path = scaffold.init(
+        tmp_path / "new_task",
+        dummy_data.target(),
+        config=built["config_path"],
+        screened=screened,
+        screened_as_of=as_of,
+    )
+    text = path.read_text(encoding="utf-8")
+    assert "Screened out by the screening register (last decision S-0001)" in text
+    spec = taskconfig.load(path)
+    assert dict(spec.predictors.exclude) == dict(screened)
+    # Without a register there is nothing to list, and the template is as it was.
+    plain = scaffold.init(tmp_path / "plain", dummy_data.target())
+    assert "  exclude: []" in plain.read_text(encoding="utf-8")
+
+
+def test_a_run_warns_when_a_listed_exclusion_was_reinstated(caplog):
+    from ml import taskconfig
+
+    spec = taskconfig.TaskSpec(
+        predictors=taskconfig.Predictors(
+            exclude=(("X", "screened out by S-0001: retired (North)"), ("Y", "my own reason"))
+        )
+    )
+    cli._check_listed_screening(spec, {})
+    assert "still excludes 'X'" in caplog.text
+    assert "'Y'" not in caplog.text

@@ -889,6 +889,32 @@ VOCABULARY_COPY = f"inputs/{workspace.RUN_VOCABULARY}"
 SCREENING_COPY = "inputs/screening.xlsx"
 
 
+def _check_listed_screening(spec: TaskSpec, screened: dict) -> None:
+    """Warn about task-file exclusions copied from the register that it no longer makes."""
+    for column, reason in spec.predictors.exclude:
+        if reason.startswith("screened out by ") and column not in screened:
+            log.warn(
+                MODULE,
+                f"task.yaml still excludes '{column}' ({reason}), but the screening register "
+                "no longer does at this task's sites — delete the line to use it again",
+            )
+
+
+def _screened_for_new_task(config: dict[str, Any] | None) -> tuple[list[tuple[str, str]], str]:
+    """What the screening register excludes today, at any site, for a new task file."""
+    if not config or not workspace.has(config, "screening"):
+        return [], ""
+    try:
+        workspace.load_vocabulary(config)
+        register = _register(config)
+    except Exception as exc:  # the task is still worth making; its runs apply the register
+        log.warn(MODULE, f"The screening register could not be read for the task file: {exc}")
+        return [], ""
+    excluded = screening.excluded(register.decisions, names.sites())
+    last = register.decisions[-1].id if register.decisions else ""
+    return [(p, f"screened out by {d.label}") for p, d in sorted(excluded.items())], last
+
+
 def _task_register(config: dict[str, Any] | None, spec: TaskSpec) -> screening.Register | None:
     """The register a task applies: its run's own copy for a rerun, else SharePoint's."""
     if spec.batch_table is not None:  # a rerun reads nothing but its own folder
@@ -992,6 +1018,7 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec) -> Path:
             if register is not None
             else {}
         )
+        _check_listed_screening(spec, screened)
         final, result = dataset.build(
             batch_table,
             catalog_frame,
@@ -1504,12 +1531,15 @@ def _run(args) -> int:
 
     if command == "task new":
         found = _config(args, start=args.folder, required=False)
+        screened, as_of = _screened_for_new_task(found)
         path = scaffold.init(
             args.folder,
             args.target,
             args.question,
             args.force,
             config=found["__path__"] if found else None,
+            screened=screened,
+            screened_as_of=as_of,
         )
         log.facts(
             "Task workspace created",

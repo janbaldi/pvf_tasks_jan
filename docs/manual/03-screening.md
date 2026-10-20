@@ -17,7 +17,8 @@ written down, until you decide otherwise.
   decision stands.
 - **Every task applies it.** When a task picks its predictors, it leaves out
   every parameter the register excludes at the task's sites. A task over both
-  sites leaves out what either site excludes.
+  sites leaves out what either site excludes. `ml task new` also lists them in the
+  new `task.yaml` under `predictors.exclude`, so the task file shows them.
 - **Every run keeps the evidence.** The run's `parameters.csv` names the decision
   behind each exclusion, its `manifest.json` records which register it applied,
   and `inputs/screening.xlsx` is a copy of that register. `ml task rerun` applies

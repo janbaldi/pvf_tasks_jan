@@ -20,6 +20,21 @@ cd tasks/car_expression
 
 The folder holds an annotated `task.yaml` that already points at the
 `config.yaml` you came from, so the task finds the batch table from anywhere.
+Every parameter the screening register excludes today (at any site) is already
+listed under `predictors.exclude`, with its decision:
+
+```yaml
+predictors:
+  exclude:
+    # Screened out by the screening register (last decision S-0003), at any site.
+    - {column: "Day 1 mixing cycles", reason: "screened out by S-0001: irregular (Northfield)"}
+```
+
+Every run applies the register anyway; the lines make it visible in the task
+itself. If a decision is later reinstated, the run warns that the task still
+excludes the parameter: delete the line to use it again. A line for a site your
+task doesn't use can be deleted too.
+
 Its main sections:
 
 ```yaml

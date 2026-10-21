@@ -12,8 +12,9 @@ over the same batches as the missingness report:
 2. Two parameters are compared by Spearman's rank correlation over the batches
    where both have a value; the pair needs :data:`MIN_BATCHES` of them. The sign
    does not matter to a tree, so the similarity is |ρ|.
-3. Average linkage on ``1 - |ρ|``, cut at ``1 - THRESHOLD``, gives the groups: the
-   average |ρ| between two merged groups reaches :data:`THRESHOLD`. A pair with
+3. Complete linkage on ``1 - |ρ|``, cut at ``1 - threshold``, gives the groups:
+   every pair of members has |ρ| of at least the threshold (``build.
+   correlation_threshold``, default :data:`THRESHOLD`). A pair with
    too few batches in common counts as unrelated.
 4. Per pair a p-value from ``t = ρ √((n-2)/(1-ρ²))`` on n-2 degrees of freedom,
    Benjamini-Hochberg adjusted over every pair compared at the site (q). A group
@@ -44,8 +45,8 @@ MODULE = "correlation"
 
 #: The catalog value types that are numbers with an order.
 NUMERIC_TYPES = ("numeric", "duration", "ratio")
-#: Average |ρ| at which two parameters (or groups) join.
-THRESHOLD = 0.8
+#: The |ρ| every pair in a group reaches, unless config.yaml sets another.
+THRESHOLD = 0.9
 #: Values a parameter needs, and batches in common a pair needs, to be compared.
 MIN_BATCHES = 20
 #: The screening reason that leaves this analysis's own decisions in it.
@@ -84,6 +85,8 @@ class CorrelationReport:
     screened: dict[str, dict] = field(default_factory=dict)
     #: Parameters left out because the register already excludes them here.
     left_out: list[str] = field(default_factory=list)
+    #: The |ρ| every pair in a group reaches.
+    threshold: float = THRESHOLD
 
 
 def _bh(p: np.ndarray) -> np.ndarray:
@@ -103,8 +106,12 @@ def grouped(
     names: list[str],
     threshold: float,
     prefix: str,
+    method: str = "average",
 ) -> list[CorrelationGroup]:
-    """Average-linkage groups on ``1 - similarity``, cut at ``1 - threshold``, with their stats.
+    """Hierarchical groups on ``1 - similarity``, cut at ``1 - threshold``, with their stats.
+
+    ``method`` is the linkage: ``"complete"`` holds every pair to the threshold,
+    ``"average"`` only the mean between the two groups it joins.
 
     ``n`` holds the batches each pair shares (its diagonal: each parameter's), ``q``
     each pair's adjusted p-value. Each group's suggested representative comes first.
@@ -112,7 +119,7 @@ def grouped(
     groups: list[list[int]] = []
     if len(names) >= 2:
         distance = squareform(1.0 - similarity, checks=False)
-        cut = fcluster(linkage(distance, method="average"), t=1.0 - threshold, criterion="distance")
+        cut = fcluster(linkage(distance, method=method), t=1.0 - threshold, criterion="distance")
         members_of: dict[int, list[int]] = {}
         for index, label in enumerate(cut):
             members_of.setdefault(int(label), []).append(index)
@@ -152,18 +159,20 @@ def for_build(
     order_column: str,
     analysed: pd.Series | None = None,
     screened_out: dict[str, str] | None = None,
+    threshold: float = THRESHOLD,
 ) -> tuple[list[dict], CorrelationReport]:
     """Groups of numerical parameters that rank the batches alike, and one row per parameter.
 
     ``analysed`` marks the batches compared (default: all), as for the missingness
     report. ``screened_out`` maps a parameter to the reason the register excludes
     it at this site; it takes part only when that reason is :data:`REASON`.
+    ``threshold`` is the |ρ| every pair in a group must reach.
     """
     frame, _ = _ordered(frame, order_column)
     if analysed is not None:
         frame = frame[analysed.reindex(frame.index).fillna(False).astype(bool)]
     screened_out = screened_out or {}
-    report = CorrelationReport()
+    report = CorrelationReport(threshold=threshold)
     report.left_out = sorted(c for c, why in screened_out.items() if why != REASON)
     numeric = [
         c
@@ -210,7 +219,9 @@ def for_build(
 
     similarity = np.nan_to_num(np.abs(rho))
     np.fill_diagonal(similarity, 1.0)
-    report.groups = grouped(similarity, n, q, report.analysed, THRESHOLD, "Correlated")
+    report.groups = grouped(
+        similarity, n, q, report.analysed, threshold, "Correlated", method="complete"
+    )
     report.values = {
         c: [None if pd.isna(v) else float(f"{v:.4g}") for v in values[c]] for c in report.analysed
     }
@@ -243,6 +254,6 @@ def for_build(
     log.success(
         MODULE,
         f"{len(report.groups)} groups of numerical parameters that rank the batches alike "
-        f"(average |ρ| ≥ {THRESHOLD})",
+        f"(every pair |ρ| ≥ {threshold})",
     )
     return rows, report

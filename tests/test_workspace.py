@@ -230,6 +230,7 @@ def test_the_env_file_beside_the_config_is_loaded_with_it(tmp_path, monkeypatch)
         ({"build": {"missingness_cohort": {"column": "batch_type"}}}, "missingness_cohort.value"),
         ({"build": {"missingness_cohort": {"value": "x", "column": "y", "on": 1}}}, "cohort.on"),
         ({"tasks": {"target": "x"}}, "unknown setting"),
+        ({"build": {"correlation_threshold": 1.5}}, "build.correlation_threshold"),
     ],
 )
 def test_a_config_that_cannot_be_used_is_refused_by_field(tmp_path, change, field):

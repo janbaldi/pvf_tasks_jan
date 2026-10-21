@@ -496,6 +496,9 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
             order_column=names.col(date_column),
             analysed=analysed,
             screened_out={p: d["Reason"] for p, d in screened.items()},
+            threshold=float(
+                (config.get("build") or {}).get("correlation_threshold", correlation.THRESHOLD)
+            ),
         )
         analysis.cohort = missing_by_site[site][1].cohort
         analysis.screened = {p: d for p, d in screened.items() if d["Reason"] == correlation.REASON}

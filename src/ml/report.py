@@ -640,6 +640,7 @@ def _grouped_viewer(
 def _correlation_help(run: BuildRun) -> dict | None:
     if not run.correlation:
         return None
+    threshold = next(iter(run.correlation.values()))[1].threshold
     return {
         "title": "Method",
         "blocks": [
@@ -680,10 +681,11 @@ def _correlation_help(run: BuildRun) -> dict | None:
                 f"needs {correlation.MIN_BATCHES} of them (*Batches in common*).\n"
                 "- **q** is the p-value of ρ (t-test on n-2 degrees of freedom), "
                 "Benjamini-Hochberg adjusted over every pair compared at the site.\n"
-                "- **Groups.** Average linkage on 1-|ρ|: two parameters or groups join while "
-                f"the mean |ρ| between them is at least {correlation.THRESHOLD}. A pair with "
-                "too few batches in common counts as unrelated. *Weakest |ρ|* and *Weakest pair "
-                "q* are the group's least related pair: a group is only as tight as that.\n"
+                "- **Groups.** Complete linkage on 1-|ρ|: two parameters or groups join only "
+                f"when every pair between them has |ρ| of at least {threshold} "
+                "(`build.correlation_threshold` in config.yaml), so *Weakest |ρ|* never falls "
+                "below it. A pair with too few batches in common counts as unrelated. *Weakest "
+                "|ρ|* and *Weakest pair q* are the group's least related pair.\n"
                 "- **Closest parameter** has the highest |ρ| to it, in a group or not.\n"
                 "- **Suggested representative** is the member that carries most of the others' "
                 "information: the highest *representative score*, the mean over the other "

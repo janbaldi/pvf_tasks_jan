@@ -251,8 +251,18 @@ def validate(config: dict[str, Any], source: str = "config") -> None:
 
     _mapping(config.get("catalog"), "catalog", ("write_new_parameters",), errors)
     build = _mapping(
-        config.get("build"), "build", ("write_parquet", "date_column", "missingness_cohort"), errors
+        config.get("build"),
+        "build",
+        ("write_parquet", "date_column", "missingness_cohort", "correlation_threshold"),
+        errors,
     )
+    threshold = build.get("correlation_threshold")
+    if threshold is not None and (
+        isinstance(threshold, bool)
+        or not isinstance(threshold, (int, float))
+        or not 0 < threshold <= 1
+    ):
+        errors.append("build.correlation_threshold: expected a number above 0 and at most 1")
     cohort = _mapping(
         build.get("missingness_cohort"),
         "build.missingness_cohort",

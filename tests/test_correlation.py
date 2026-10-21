@@ -33,6 +33,7 @@ def test_parameters_that_rank_the_batches_alike_group_whatever_the_transform():
     )
     (group,) = report.groups
     assert sorted(group.members) == ["a", "b", "c", "f"]
+    assert report.threshold == correlation.THRESHOLD == 0.9 and group.weakest >= 0.9
     assert group.weakest > 0.99 and group.max_q < 1e-6 and group.min_batches == 89
     assert report.left_out == ["e"] and "e" not in report.values
     # The representative carries the others where they were measured: not b, with gaps.
@@ -196,3 +197,14 @@ def test_a_ticked_pair_excludes_the_closest_represented_by_the_parameter():
     assert report._register_note({"Parameter": "Z"}, screened) == (
         "excluded (S-0001), represented by W"
     )
+
+
+def test_every_pair_in_a_group_reaches_the_threshold():
+    # c is 0.96 with a but 0.86 with b: the mean reaches 0.9, the weakest pair does not.
+    similarity = np.array([[1, 0.97, 0.96], [0.97, 1, 0.86], [0.96, 0.86, 1]])
+    n, q = np.full((3, 3), 50), np.zeros((3, 3))
+    names_ = ["a", "b", "c"]
+    (average,) = correlation.grouped(similarity, n, q, names_, 0.9, "G", method="average")
+    assert len(average.members) == 3 and average.weakest == 0.86
+    (complete,) = correlation.grouped(similarity, n, q, names_, 0.9, "G", method="complete")
+    assert len(complete.members) == 2 and complete.weakest >= 0.9

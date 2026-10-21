@@ -5,6 +5,8 @@ the cleaning had to correct, sources joined on, features computed or reported as
 blocked, and the catalog gap in both directions.
 """
 
+import io
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -295,7 +297,11 @@ def test_the_missingness_report_analyses_each_site_on_its_own_batches(built):
         (names.site("b"), site_b(batch_table)),
     ):
         site = sites[name]
-        rows = {row[0]: dict(zip(site["headers"], row)) for row in site["rows"]}
+        # Every parameter in the CSV; the table leaves out those in the group table.
+        full = pd.read_csv(io.StringIO(site["csv"])).fillna({"Group": ""})
+        rows = {row["Parameter"]: row for row in full.to_dict("records")}
+        grouped = {m for members in site["groups"].values() for m in members}
+        assert {row[0] for row in site["rows"]} == set(rows) - grouped
         # Only the parameters missing somewhere: one recorded in every batch has no pattern.
         gappy = {str(column) for column in batch_table.columns if batches[column].isna().any()}
         assert set(rows) == gappy and "Site Merged" not in rows

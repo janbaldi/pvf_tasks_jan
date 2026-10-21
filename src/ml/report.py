@@ -432,7 +432,8 @@ def _missing_viewer(run: BuildRun) -> dict | None:
                 ],
                 "group_formats": list(_GROUP_FORMATS.values()),
                 "headers": headers,
-                "rows": [[row[h] for h in headers] for row in rows],
+                # The parameter table: those in a group are in the group table already.
+                "rows": [[row[h] for h in headers] for row in rows if not row["Group"]],
                 "formats": [_MISSING_FORMATS.get(h) for h in headers],
                 "csv_name": f"missingness_site_{number}.csv",
                 "csv": csv_text([{"Site": site, **row} for row in rows]),
@@ -556,9 +557,6 @@ def _grouped_viewer(
             continue
         headers = list(rows[0])
         ranked = kind == "rank_viewer"
-        if ranked:
-            # The correlation report is about its groups: a parameter in none is left out.
-            rows = [row for row in rows if row["Group"]]
         sites.append(
             {
                 "label": site,
@@ -594,7 +592,10 @@ def _grouped_viewer(
                 ],
                 "group_formats": list(group_formats.values()),
                 "headers": headers,
-                "rows": [[row[h] for h in headers] for row in rows],
+                # In the correlation report the parameter table holds those in no group.
+                "rows": [
+                    [row[h] for h in headers] for row in rows if not ranked or not row["Group"]
+                ],
                 "formats": [_GROUPED_FORMATS.get(h) for h in headers],
                 "csv_name": f"{stem}_site_{number}.csv",
                 "csv": csv_text([{"Site": site, **row} for row in rows]),
@@ -624,12 +625,13 @@ def _correlation_help(run: BuildRun) -> dict | None:
         "blocks": [
             md(
                 "#### Reading the report\n\n"
-                "Pick a site. The report lists only the groups and their members. Tick a group "
-                "to draw its parameters against each other, one dot per batch with a value for "
-                "both; tick parameters to add them. Up to four parameters show every pair; "
-                "more show the parameter picked in *Against* (the representative by default) "
-                "against each of the others. Parameters that rank the "
-                "batches alike lie along a rising or falling curve. ⊘ marks a parameter the "
+                "Pick a site. Tick a group to draw its parameters against each other, one dot "
+                "per batch with a value for both. The parameter table lists the parameters in no "
+                "group; tick one to draw it against its closest parameter. Up to four "
+                "parameters show every pair; more show the parameter picked in *Against* "
+                "(the representative by default) against each of the others. Parameters "
+                "that rank the batches alike lie along a rising or falling curve. ⊘ marks a "
+                "parameter the "
                 f"screening register already excludes here as *{correlation.REASON}*.\n\n"
                 "To keep only a group's representative, tick the group and open *Propose a "
                 "screening decision*: exclude, with the representative chosen under "

@@ -72,8 +72,8 @@ class CorrelationGroup:
 class CorrelationReport:
     analysed: list[str] = field(default_factory=list)
     groups: list[CorrelationGroup] = field(default_factory=list)
-    #: The batches compared, in date order, and each group member's value per batch
-    #: (None where it has none): what the viewer's scatterplots draw.
+    #: The batches compared, in date order, and each analysed parameter's value per
+    #: batch (None where it has none): what the viewer's scatterplots draw.
     batches: list[str] = field(default_factory=list)
     dates: list[str] = field(default_factory=list)
     values: dict[str, list[float | None]] = field(default_factory=dict)
@@ -212,9 +212,7 @@ def for_build(
     np.fill_diagonal(similarity, 1.0)
     report.groups = grouped(similarity, n, q, report.analysed, THRESHOLD, "Correlated")
     report.values = {
-        m: [None if pd.isna(v) else float(f"{v:.4g}") for v in values[m]]
-        for g in report.groups
-        for m in g.members
+        c: [None if pd.isna(v) else float(f"{v:.4g}") for v in values[c]] for c in report.analysed
     }
     rows_of = {
         m: {"Group": g.name, "Suggested representative": g.representative}

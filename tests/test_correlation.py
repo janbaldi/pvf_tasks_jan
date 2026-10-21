@@ -40,7 +40,7 @@ def test_parameters_that_rank_the_batches_alike_group_whatever_the_transform():
     by_name = {row["Parameter"]: row for row in rows}
     assert by_name["d"]["Group"] == "" and by_name["b"]["Batches with a value"] == 89
     # The scatterplots: each member's value per batch, None where it has none.
-    assert set(report.values) == set(group.members)
+    assert set(report.values) == {"a", "b", "c", "d", "f"}
     assert report.values["b"][:31] == [None] * 31 and report.values["a"][40] == float(
         f"{x[40]:.4g}"
     )
@@ -157,8 +157,10 @@ def test_the_build_writes_the_correlation_report_over_the_missingness_batches(bu
         # The same batches as the missingness statistics, and only numerical parameters.
         assert sorted(site["batches"]) == sorted(counted[site["label"]])
         members = {m for group in site["groups"].values() for m in group}
-        assert set(site["values"]) == members, "only the groups are shown"
-        assert {row[0] for row in site["rows"]} == members
+        assert members <= set(site["values"])
+        assert not members & {row[0] for row in site["rows"]}, "grouped: in the group table"
+        closest = site["headers"].index("Closest parameter")
+        assert {row[closest] for row in site["rows"]} - {""} <= set(site["values"])
         assert all(len(values) == len(site["batches"]) for values in site["values"].values())
     # Screened out at site A for missingness, so not compared there.
     first = {site["label"]: site for site in viewer["sites"]}[names.site("a")]

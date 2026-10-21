@@ -110,8 +110,10 @@ Pick a site in the sidebar. The page opens on the plot, and has these parts:
   decision, date, reason, rationale and review date. Tick one to draw it, or to
   reinstate it.
 - **The parameter table** (collapsed). Every parameter missing on at least one
-  batch at this site, with its **pattern**, its statistics and, in the **Screening** column, the decision standing for it at
-  this site. Tick parameters to add them to the plot.
+  batch at this site and in no group (those are in the group table), with its
+  **pattern**, its statistics and, in the **Screening** column, the decision
+  standing for it at this site. Tick parameters to add them to the plot. The CSV
+  download still has every parameter.
 - **Propose a screening decision.** Turns everything you ticked into a
   `proposal.csv` ([chapter 3](03-screening.md#recording-a-decision)).
 
@@ -144,7 +146,9 @@ the site. It groups the parameters that **put the batches in the same order**
 (Spearman rank correlation, sign ignored): a decision tree only uses that order,
 so to a tree the members of a group are interchangeable.
 
-Only the groups and their members are listed; a parameter in no group is left out.
+The parameter table lists only the parameters in no group, each with its closest
+parameter; tick one to draw just that pair. The same goes for the missingness
+report: a parameter in a group is in the group table, not the parameter table.
 
 - **The scatterplots.** One dot per batch with a value for both parameters;
   members of a group lie along a rising or falling curve. A group of up to four

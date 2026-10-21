@@ -378,8 +378,7 @@ def proposal_rows(
 
 def render_proposal(form: dict, site: dict, picked: list, key: str) -> None:
     """Turn the ticked parameters into a proposal.csv for `ml screening add`."""
-    name, group = site["headers"].index("Parameter"), site["headers"].index("Group")
-    group_of = {row[name]: row[group] or "" for row in site["rows"]}
+    group_of = {m: g for g, members in site["groups"].items() for m in members}
     with st.expander(f"Propose a screening decision ({len(picked)} ticked)", expanded=False):
         if not picked:
             st.caption(
@@ -514,14 +513,29 @@ def render_missing_viewer(block: dict, key: str) -> None:
             )
         else:
             st.caption("Nothing is screened out at this site.")
-    with st.expander(f"Parameters ({len(site['rows'])})", expanded=False):
+    pair: list[str] = []
+    with st.expander(f"Parameters in no group ({len(site['rows'])})", expanded=False):
         frame, ticked = _pick_table(
-            site["headers"], site["rows"], site["formats"], "multi-row", f"rows{key}-{chosen}"
+            site["headers"],
+            site["rows"],
+            site["formats"],
+            "single-row" if mode == "rank" else "multi-row",
+            f"rows{key}-{chosen}",
         )
         picked += [frame.iloc[i]["Parameter"] for i in ticked]
+        if mode == "rank" and ticked:
+            # A parameter in no group is drawn against its closest parameter, and only that.
+            row = frame.iloc[ticked[0]]
+            pair = [p for p in (row["Parameter"], row["Closest parameter"]) if p]
         st.markdown(
-            '<p class="batch_table-caption">Tick parameters to add them to the plot. Sort by a '
-            "column header; search with the magnifier at the table's top right.</p>",
+            '<p class="batch_table-caption">'
+            + (
+                "Tick a parameter to draw it against its closest parameter. "
+                if mode == "rank"
+                else "Tick parameters to add them to the plot. "
+            )
+            + "The ones in a group are in the group table. Sort by a column header; search "
+            "with the magnifier at the table's top right.</p>",
             unsafe_allow_html=True,
         )
         st.download_button(
@@ -537,8 +551,8 @@ def render_missing_viewer(block: dict, key: str) -> None:
         render_proposal(block["proposal"], site, picked, f"{key}-{chosen}")
     n = len(site["batches"])
     with top:
-        drawn = picked
-        if not picked:
+        drawn = pair or picked
+        if not drawn:
             # Open on a plot: the first group, until the reader ticks something.
             first = next(iter(site["groups"]), None)
             drawn = site["groups"][first] if first else []

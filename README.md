@@ -30,7 +30,7 @@ table, and the means to refit the preprocessing inside every fold.
 | **batch table** | `batch_data.xlsx` on SharePoint: one row per batch, both sites, cleaned, with calculated features |
 | **missingness report** | `missingness_report.html`: how every parameter goes missing, per site, batch by batch |
 | **correlation report** | `correlation_report.html`: which numerical parameters rank the batches alike, per site, and which one could represent each group |
-| **shifts report** | `shifts_report.html`: which parameters fall into level groups over time, as a lot does, and which have the same level groups, per site |
+| **shifts report** | `shifts_report.html`: which parameters run in groups over time, as a lot does, and which change on the same days, per manufacturing site; `ml task new --exclude-shifting` leaves them out of a task |
 | **task catalog** | `task_catalog.xlsx`, next to the batch table: the catalog parameters a task can still use after screening |
 | **screening register** | `parameter_screening.xlsx` on SharePoint: the log of parameters you decided to leave out of every task, and why |
 | **task** | one question, written as a `task.yaml` in a folder of its own |
@@ -71,7 +71,7 @@ Then open, in a browser:
 - `sharepoint/DEMO_DRIVE/Data/batch_data/build_report.html`: where every column came from and what cleaning changed.
 - `sharepoint/DEMO_DRIVE/Data/batch_data/missingness_report.html`: how each parameter goes missing.
 - `sharepoint/DEMO_DRIVE/Data/batch_data/correlation_report.html`: which numerical parameters rank the batches alike.
-- `sharepoint/DEMO_DRIVE/Data/batch_data/shifts_report.html`: which parameters have the same level groups over time, as the lots do.
+- `sharepoint/DEMO_DRIVE/Data/batch_data/shifts_report.html`: which parameters run in groups over time, as the lots do, and which change on the same days.
 - `sharepoint/DEMO_DRIVE/Data/batch_data/task_catalog.xlsx`: the parameters a task can still use.
 - `tasks/expression/runs/<run id>/report/report.html`: the training dataset and every decision behind it.
 

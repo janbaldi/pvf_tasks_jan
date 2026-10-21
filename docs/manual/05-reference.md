@@ -8,10 +8,10 @@ Run as `uv run ml [--config FILE] [--debug] [--quiet] COMMAND …`.
 |---|---|
 | `ml validate [--task T]` | Check `config.yaml`, the vocabulary, the corrections, the screening register and the given tasks. Writes nothing. Inside a task folder, also checks that task. |
 | `ml check-catalog` | Compare every source's columns with the catalog. Writes `catalog_report.html`, `catalog_manifest.json` and `new_parameters.csv` into the catalog's folder. |
-| `ml build` | Build the batch table. Writes `batch_data.xlsx`, `batch_data.parquet`, `build_report.html`, `missingness_report.html`, `missingness.xlsx`, `correlation_report.html`, `shifts_report.html`, `task_catalog.xlsx` and `batch_table_manifest.json` into the batch table's folder. |
-| `ml screening add PROPOSAL [--author NAME] [--new]` | Check a proposal (written by the missingness, correlation or shifts report, or by hand) against the latest build and add its decisions to the screening register. `--author` fills an empty `Author` column. `--new` starts the register when there is none. |
+| `ml build` | Build the batch table. Writes `batch_data.xlsx`, `batch_data.parquet`, `build_report.html`, `missingness_report.html`, `missingness.xlsx`, `correlation_report.html`, `shifts_report.html`, `shifts.xlsx`, `task_catalog.xlsx` and `batch_table_manifest.json` into the batch table's folder. |
+| `ml screening add PROPOSAL [--author NAME] [--new]` | Check a proposal (written by the missingness or correlation report, or by hand) against the latest build and add its decisions to the screening register. `--author` fills an empty `Author` column. `--new` starts the register when there is none. |
 | `ml screening status` | List what the register excludes today, and the decisions the latest build gives a reason to look at again. |
-| `ml task new FOLDER [--target COL] [--question TEXT] [--force]` | Create a task folder with an annotated `task.yaml`. |
+| `ml task new FOLDER [--target COL] [--question TEXT] [--force] [--exclude-shifting]` | Create a task folder with an annotated `task.yaml`. It lists what the screening register excludes under `predictors.exclude`; `--exclude-shifting` also lists every parameter the latest build's `shifts.xlsx` holds, each with why. |
 | `ml task run [--task T]` | Run tasks; without `--task`, the task in the current folder. |
 | `ml task rerun RUN_FOLDER` | Redo a run from its own folder, and say whether `dataset.csv` came out identical. |
 | `ml task encode --run RUN_FOLDER [--out FILE]` | Encode the batch table's batches with a run's fitted encoding. |
@@ -204,7 +204,8 @@ The `Check` sheet holds the digest the register was last written with. Reasons:
 | `missingness.xlsx` | Per site and parameter: missing %, pattern, gaps, last measured, missingness group, *Correlation group* and *Suggested representative*, *Shift group* and *Suggested shift representative* (several, joined by `; `, when a source has several plants), and the standing screening decision. What `ml screening add` checks a proposal against and cites as evidence. |
 | `task_catalog.xlsx` | The catalog rows for the batch table's parameters that the register (as the build read it) leaves usable at some site, with *Usable at* (sites) and *Represents* (what each representative stands for, per site). |
 | `correlation_report.html` | Per site: numerical parameters grouped by Spearman \|ρ\| (complete linkage: every pair ≥ `build.correlation_threshold`, default 0.9; pairs need 20 shared batches), each group with a suggested representative and BH-adjusted q. |
-| `shifts_report.html` | Per manufacturing site (the `Manufacturing Site` column; decisions go to the plant's data source, or `all`): parameters whose values fall into level groups over time (groups ≥ 3 batches on average, jumps ≥ 4× the spread within, no drift within, permutation p ≤ 0.01), grouped by the adjusted Rand index of their level groups (mean ≥ 0.8, q < 0.05). |
+| `shifts_report.html` | Per manufacturing site (the `Manufacturing Site` column): parameters whose exact value runs in groups over time, dates by the day (groups ≥ 2 days with a value on average, permutation p ≤ 0.01; pairs need 20 shared batches), grouped by the days they change (complete linkage: every pair shares ≥ 0.8 of its change days). |
+| `shifts.xlsx` | The shifts report's parameter table, one row per manufacturing site and parameter, and when it was built: what `ml task new --exclude-shifting` lists. |
 
 The Help page of each report gives the method in full.
 

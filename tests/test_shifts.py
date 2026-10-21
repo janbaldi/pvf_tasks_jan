@@ -1,74 +1,83 @@
-"""The shifts report: parameters whose values fall into level groups over time, together."""
+"""The shifts report: parameters whose value runs in groups over time, and which change together."""
 
 import numpy as np
 import pandas as pd
 
 from conftest import shared
 from dummy_data import c
-from ml import names, screening, shifts, stlite
+from ml import cli, names, screening, shifts, stlite, taskconfig
 
 
-def _lots(n: int = 200) -> pd.DataFrame:
+def _lots(n: int = 240) -> pd.DataFrame:
     rng = np.random.default_rng(1)
-    lot = np.arange(n) // 8
-    level = rng.normal(10, 3, size=lot.max() + 1)
+    # Three batches a day; a lot lasts ten batches, so it mostly changes during a day.
+    day = pd.Timestamp("2024-01-01") + pd.to_timedelta(np.arange(n) // 3, "D")
+    lot = np.arange(n) // 10
     frame = pd.DataFrame(
         {
             "id": range(n),
-            "date": pd.date_range("2024-01-01", periods=n),
+            "date": day + pd.to_timedelta(rng.integers(0, 600, n), "min"),  # the time is ignored
             "lot": [f"L{k}" for k in lot],
-            # Measured per batch: very nearly the lot's value.
-            "titre": level[lot] + rng.normal(0, 0.05, n),
+            # The lot's certificate value and expiry date: they change with it.
+            "titre": rng.normal(10, 3, lot.max() + 1).round(2)[lot],
             "expiry": pd.Timestamp("2025-01-01") + pd.to_timedelta(lot * 30, "D"),
-            "other lot": np.arange(n) // 5,  # its own lots: level groups on other batches
-            "trend": np.arange(n) * 0.1,
-            "noisy trend": np.arange(n) * 0.1 + rng.normal(size=n),
-            "random": rng.choice(list("abc"), n),
-            # Follows the lot, but far from one value within it.
-            "loosely per lot": level[lot] + rng.normal(0, 1.5, n),
-            # A process date: advances with every batch, with a shutdown halfway.
-            "process date": pd.date_range("2024-01-01", periods=n)
-            + pd.to_timedelta((np.arange(n) >= n // 2) * 60, "D"),
-            "screened": np.arange(n) // 8,
+            "other lot": np.arange(n) // 7,  # its own lots: they change on other days
+            "process": np.where(np.arange(n) < 150, "old", "new"),  # changed once
+            "operator": rng.choice(["X", "Y"], n),  # both, side by side, every day
+            "rare flag": np.where(np.arange(n) % 37 == 5, "Yes", "No"),  # now and then
+            "measured": rng.normal(size=n),
+            "harvest": day + pd.Timedelta(days=9),  # one value a day
+            "screened": lot,
         }
     )
     frame.loc[10:30, "titre"] = np.nan
     return frame
 
 
-def test_parameters_with_the_same_level_groups_group_and_trends_do_not():
+def test_what_runs_in_groups_is_found_and_grouped_by_the_days_it_changes():
     rows, report = shifts.for_build(_lots(), "id", "date", screened_out={"screened": "retired"})
-    assert set(report.analysed) == {"lot", "titre", "expiry", "other lot"}
+    assert set(report.analysed) == {"lot", "titre", "expiry", "other lot", "process"}
     assert report.left_out == ["screened"] and report.tested == 9
     (group,) = report.groups
-    assert set(group.members) == {"lot", "titre", "expiry"}
-    assert group.weakest > 0.95 and group.max_q < 1e-20
-    # titre has gaps, so it carries less of the others: not the representative.
-    assert group.representative == group.members[0] != "titre"
+    assert set(group.members) == {"lot", "titre", "expiry"} and group.weakest > 0.9
     by_name = {row["Parameter"]: row for row in rows}
-    assert by_name["lot"]["Level groups"] == 25 and by_name["other lot"]["Group"] == ""
-    assert by_name["expiry"]["Median jump"] == 30 and by_name["lot"]["Median jump"] is None
-    assert (
-        by_name["titre"]["Median jump"] > shifts.SEPARATION * by_name["titre"]["SD within groups"]
-    )
-    # The strip: one shade per level group, and each group's first batch and value.
-    lot = report.segments["lot"]
-    assert lot["starts"][:3] == [0, 8, 16] and lot["values"][:2] == ["L0", "L1"]
-    assert len(set(report.levels["lot"][:8])) == 1 != len(set(report.levels["lot"][:9]))
-    assert report.segments["expiry"]["values"][1] == "2025-01-31"
+    # A lot that changes during a day is one change: 24 lots, 24 groups.
+    assert by_name["lot"]["Groups"] == 24 and by_name["lot"]["Shift group"] == group.name
+    assert by_name["process"]["Groups"] == 2 and by_name["process"]["Shift group"] == ""
+    assert by_name["other lot"]["Shift group"] == ""
+    # Each group: first and last day, value, batches; the change day is in both.
+    assert report.segments["lot"][:2] == [
+        ["2024-01-01", "2024-01-04", "L0", 10],
+        ["2024-01-04", "2024-01-07", "L1", 10],
+    ]
+    assert report.segments["expiry"][1][2] == "2025-01-31"
 
 
-def test_a_parameter_excluded_as_shifting_stays_in_the_report():
-    _, report = shifts.for_build(_lots(), "id", "date", screened_out={"titre": shifts.REASON})
-    assert "titre" in report.analysed and report.left_out == []
+def test_a_change_during_a_day_is_one_change_and_values_side_by_side_are_many():
+    # Days 0, 1, 1, 2: the lot changes on day 1, which has both.
+    assert shifts.count_groups(np.array([0, 1, 1, 2]), np.array([0, 0, 1, 1])) == 2
+    assert shifts.segments(np.array([0, 1, 1, 2]), np.array([0, 0, 1, 1])) == [
+        [0, 0, 1, 2],
+        [1, 1, 2, 2],
+    ]
+    # Two values every day: only one group carries on, the other starts again each day.
+    side_by_side = np.array([0, 0, 1, 1, 2, 2]), np.array([0, 1, 0, 1, 0, 1])
+    assert shifts.count_groups(*side_by_side) == 4 == len(shifts.segments(*side_by_side))
+    # Shuffles are counted the same way, a row each.
+    assert list(shifts.count_groups(np.array([0, 1, 2]), np.array([[0, 0, 1], [0, 1, 0]]))) == [
+        2,
+        3,
+    ]
 
 
-def test_the_adjusted_rand_index():
-    assert shifts.ari(np.array([0, 0, 1, 1]), np.array([5, 5, 7, 7])) == 1.0
-    assert shifts.ari(np.array([0, 0, 1, 1]), np.array([0, 1, 0, 1])) < 0
+def test_a_change_counts_on_the_next_day_both_have_a_value():
+    days = np.arange(np.datetime64("2024-01-01"), np.datetime64("2024-01-11"))
+    gap = np.delete(days, 4)  # no value on the day the first one changes
+    assert shifts.shared_shifts(days, days[[4]], gap, days[[5]]) == 1.0
+    assert shifts.shared_shifts(days, days[[4]], gap, days[[7]]) == 0.0
 
 
-def test_a_shift_group_is_represented_by_its_suggested_member():
+def test_a_shift_group_can_still_be_represented_by_its_suggested_member():
     evidence = pd.DataFrame(
         {
             "Site": ["North"] * 3,
@@ -87,7 +96,7 @@ def test_a_shift_group_is_represented_by_its_suggested_member():
                 "Action": "exclude",
                 "Group": "Shifting 01",
                 "Site": "North",
-                "Reason": shifts.REASON,
+                "Reason": screening.SHIFTED,
                 "Rationale": "the lot's certificate values",
             }
         ]
@@ -96,38 +105,52 @@ def test_a_shift_group_is_represented_by_its_suggested_member():
     assert [(d.parameter, d.represented_by) for d in added] == [("Titre", "Lot"), ("Expiry", "Lot")]
 
 
-def test_the_build_writes_the_shifts_report_and_finds_the_demo_lots(built):
+def test_the_build_writes_the_shifts_report_and_table_and_finds_the_demo_lots(built):
     page = shared(built["directory"], built["config"], "batch_table", "shifts_report.html")
     payload = stlite.read_payload(page.read_text(encoding="utf-8"))
     viewer = payload["sections"][0]["blocks"][0]
-    assert viewer["kind"] == "shift_viewer" and viewer["proposal"]["reason"] == shifts.REASON
-    # One per manufacturing site; a proposal names the data source its batches come from.
-    assert viewer["site_label"] == "Manufacturing site"
-    assert {(s["label"], s["register_site"]) for s in viewer["sites"]} == {
-        (f"{names.site(k)} plant", names.site(k)) for k in "ab"
-    }
+    assert viewer["kind"] == "shift_viewer" and viewer["site_label"] == "Manufacturing site"
+    assert {s["label"] for s in viewer["sites"]} == {f"{names.site(k)} plant" for k in "ab"}
     for site in viewer["sites"]:
-        # The medium and cytokine lots change on the same batches at both sites.
+        # The medium and cytokine lots change on the same days at both sites.
         assert {c("media_lot"), c("cytokine_lot")} in [set(g) for g in site["groups"].values()]
-        for parameter, levels in site["patterns"].items():
-            starts = site["segments"][parameter]["starts"]
-            assert len(levels) == len(site["batches"]) and levels[starts[0]] != "."
-            assert len(site["segments"][parameter]["values"]) == len(starts)
+        for row in site["rows"]:
+            assert site["segments"][row[0]], "every parameter in the table has its groups"
+    table = pd.read_excel(
+        shared(built["directory"], built["config"], "batch_table", "shifts.xlsx"),
+        sheet_name=screening.EVIDENCE_SHEET,
+    )
+    lots = table[table["Parameter"] == c("media_lot")]
+    assert len(lots) == 2 and lots["Shift group"].str.startswith("Shifting").all()
     path = shared(built["directory"], built["config"], "batch_table", screening.EVIDENCE_FILE)
     evidence = pd.read_excel(path, sheet_name=screening.EVIDENCE_SHEET)
     at_a = evidence[evidence["Site"] == names.site("a")].set_index("Parameter")
     assert at_a.loc[c("media_lot"), screening.SHIFT_GROUP].startswith("Shifting")
 
 
+def test_a_new_task_can_leave_out_every_parameter_that_runs_in_groups(built, tmp_path):
+    folder = tmp_path / "no_lots"
+    config = str(built["config_path"])
+    assert cli.main(["--config", config, "task", "new", str(folder), "--exclude-shifting"]) == 0
+    text = (folder / "task.yaml").read_text(encoding="utf-8")
+    assert "Run in groups over time at a manufacturing site, as the build of" in text
+    excluded = dict(taskconfig.load(folder / "task.yaml").predictors.exclude)
+    why = excluded[c("media_lot")]
+    assert why.startswith("runs in groups over time: ") and why.count("changes with Shifting") == 2
+    assert all(f"at {names.site(k)} plant" in why for k in "ab")
+    # Without the option, nothing that runs in groups is listed.
+    plain = tmp_path / "plain"
+    assert cli.main(["--config", config, "task", "new", str(plain)]) == 0
+    assert c("media_lot") not in dict(taskconfig.load(plain / "task.yaml").predictors.exclude)
+
+
 def test_the_shifts_run_per_manufacturing_site():
     from types import SimpleNamespace
 
-    from ml import cli
-
     plant = names.col("manufacturing_site")
     frame = _lots().rename(columns={"id": "Patient Lot/Batch #"})
-    north, south = frame.iloc[:100].copy(), frame.iloc[100:].copy()
-    north[plant] = ["P1"] * 60 + ["P2"] * 40
+    north, south = frame.iloc[:120].copy(), frame.iloc[120:].copy()
+    north[plant] = ["P1"] * 60 + ["P2"] * 60
     south[plant] = "P2"
     cohorts = {"North": (north, None), "South": (south, None)}
     missing = {
@@ -137,9 +160,9 @@ def test_the_shifts_run_per_manufacturing_site():
     found = cli._shifts_by_plant(cohorts, missing, "date")
     assert set(found) == {"P1", "P2"}
     p1, p2 = found["P1"][1], found["P2"][1]
-    # P2 makes batches for both sources: its decisions are for both.
-    assert (p1.register_site, p2.register_site) == ("North", screening.ALL)
-    assert p2.sources == ["North", "South"] and len(p2.batches) == 140
+    # P2 makes batches for both sources.
+    assert (p1.sources, p2.sources) == (["North"], ["North", "South"])
+    assert p2.cohort.startswith("180 batches")
     # Screened out at North, so left out of every plant North's batches come from.
     assert "lot" in p1.left_out and "lot" in p2.left_out
     assert all(g.name.endswith(" @ P2") for g in p2.groups)
@@ -164,7 +187,7 @@ def test_evidence_with_a_group_per_plant_still_names_the_members_and_the_suggest
             screening.SHIFT_SUGGESTED: ["Lot; Expiry"] * 2 + ["Expiry"],
         }
     )
-    row = {"Action": "exclude", "Site": "North", "Reason": shifts.REASON, "Rationale": "lots"}
+    row = {"Action": "exclude", "Site": "North", "Reason": screening.SHIFTED, "Rationale": "lots"}
     added = screening.add(
         [], pd.DataFrame([row | {"Group": "Shifting 02 @ P2"}]), evidence, "", "A", ("North",)
     )

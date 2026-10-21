@@ -51,15 +51,13 @@ THRESHOLD = 0.9
 MIN_BATCHES = 20
 #: The screening reason that leaves this analysis's own decisions in it.
 REASON = CORRELATED
-#: Levels the shifts strip draws a value in: one base-36 digit per batch.
-LEVELS = 36
 
 
 @dataclass
 class CorrelationGroup:
     name: str
     members: list[str]
-    #: The mean and the lowest similarity (|ρ|, or the Jaccard of shifts) between members.
+    #: The mean and the lowest similarity (|ρ|, or the shared shifts) between members.
     mean: float
     weakest: float
     min_batches: int

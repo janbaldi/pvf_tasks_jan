@@ -31,12 +31,16 @@ def init(
     config: str | Path | None = None,
     screened: list[tuple[str, str]] = (),
     screened_as_of: str = "",
+    shifting: list[tuple[str, str]] = (),
+    shifting_built: str = "",
 ) -> Path:
     """Write ``<folder>/task.yaml``, pointing at ``config``. Returns its path.
 
     ``screened`` is (parameter, reason) for every parameter the screening register
-    excludes when the task is made. They are written out as ``predictors.exclude``
-    entries, so the task file itself says what it leaves out and why.
+    excludes when the task is made, and ``shifting`` for every parameter the latest
+    build (run at ``shifting_built``) found running in groups over time, when asked
+    for. They are written out as ``predictors.exclude`` entries, so the task file
+    itself says what it leaves out and why.
     """
     path = (Path(folder).expanduser() / TASK_FILE).resolve()
     if path.exists() and not force:
@@ -56,7 +60,7 @@ def init(
         .replace("__TARGET_TYPE__", "numeric")
         .replace(
             "  exclude: []                     # single columns: [{column: ..., reason: ...}]\n",
-            _excludes(screened, screened_as_of),
+            _excludes(screened, screened_as_of, shifting, shifting_built),
         )
     )
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -64,18 +68,32 @@ def init(
     return path
 
 
-def _excludes(screened: list[tuple[str, str]], as_of: str) -> str:
-    """The ``predictors.exclude`` lines of a new task: empty, or the screened parameters."""
-    if not screened:
+def _excludes(
+    screened: list[tuple[str, str]],
+    as_of: str,
+    shifting: list[tuple[str, str]] = (),
+    built: str = "",
+) -> str:
+    """The ``predictors.exclude`` lines of a new task: empty, or the parameters left out."""
+    if not screened and not shifting:
         return "  exclude: []                     # single columns: [{column: ..., reason: ...}]\n"
-    lines = [
-        "  exclude:                        # single columns: [{column: ..., reason: ...}]",
-        f"    # Screened out by the screening register (last decision {as_of}), at any site.",
-        "    # Every run applies the register anyway; these lines make it visible here.",
-        "    # A run warns when one of them has since been reinstated: then delete the line.",
-    ]
-    lines += [
-        f"    - {{column: {json.dumps(column)}, reason: {json.dumps(reason)}}}"
-        for column, reason in screened
-    ]
+    lines = ["  exclude:                        # single columns: [{column: ..., reason: ...}]"]
+    if screened:
+        lines += [
+            f"    # Screened out by the screening register (last decision {as_of}), at any site.",
+            "    # Every run applies the register anyway; these lines make it visible here.",
+            "    # A run warns when one of them has since been reinstated: then delete the line.",
+        ]
+        lines += [_exclude(column, reason) for column, reason in screened]
+    if shifting:
+        lines += [
+            f"    # Run in groups over time at a manufacturing site, as the build of {built}",
+            "    # found (shifts_report.html; `ml task new --exclude-shifting`). A lot does this,",
+            "    # and so the model would learn time. Delete a line to use the parameter again.",
+        ]
+        lines += [_exclude(column, reason) for column, reason in shifting]
     return "\n".join(lines) + "\n"
+
+
+def _exclude(column: str, reason: str) -> str:
+    return f"    - {{column: {json.dumps(column)}, reason: {json.dumps(reason)}}}"

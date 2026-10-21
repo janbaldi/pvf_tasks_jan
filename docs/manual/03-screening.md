@@ -3,10 +3,11 @@
 Some parameters are not fit to predict with: a site never records them, they
 were retired, or they are recorded so irregularly that a model would learn the
 gaps. Others are redundant: they rank the batches as another parameter does
-(the correlation report), or fall into the same level groups over time, as a lot
-and its certificate values do (the shifts report). **Screening** leaves such a
-parameter out of every task, with the reason written down (and, for a redundant
-one, the parameter that represents it), until you decide otherwise.
+(the correlation report). **Screening** leaves such a parameter out of every
+task, with the reason written down (and, for a redundant one, the parameter that
+represents it), until you decide otherwise. Parameters that run in groups over
+time, as a lot does (the shifts report), are left out per task instead, with
+`ml task new --exclude-shifting` ([chapter 4](04-tasks.md#1-create-a-task)).
 
 ## How it works
 
@@ -33,7 +34,7 @@ one, the parameter that represents it), until you decide otherwise.
 
 ## Deciding: what to look at
 
-Open the latest `missingness_report.html`, `correlation_report.html` and `shifts_report.html`
+Open the latest `missingness_report.html` and `correlation_report.html`
 ([chapter 2](02-monthly-update.md#5-read-the-missingness-report)).
 Good candidates for screening:
 
@@ -45,7 +46,7 @@ Good candidates for screening:
 | *Regular skipping*, *Clumped*, *Gap in the middle* with no process reason | `irregular` |
 | A group that goes missing together, explained by one of the above | `missing with group` |
 | A member of a group in the correlation report, represented by another member | `correlated with group`, with `Represented by` |
-| A member of a group in the shifts report, represented by another member | `shifts with group`, with `Represented by` |
+| A member of a group in the shifts report that no task should use (write the proposal by hand) | `shifts with group`, with `Represented by` |
 | Values you know to be wrong or incomparable | `data quality` |
 | Anything else | `other`, and say why |
 
@@ -61,8 +62,8 @@ batches lose it.
 
 ## Recording a decision
 
-**1. Write the proposal from the report.** In the report (`missingness_report.html`,
-`correlation_report.html` or `shifts_report.html`), pick the site and tick what
+**1. Write the proposal from the report.** In the report (`missingness_report.html`
+or `correlation_report.html`), pick the site and tick what
 the decision is about: a group in the group table,
 parameters in the parameter table, or (to reinstate them) rows of *Screened out
 at this site*. Open **Propose a screening decision** below the tables and fill in:
@@ -72,7 +73,7 @@ at this site*. Open **Propose a screening decision** below the tables and fill i
 - **Rationale**: why, in a sentence;
 - **Review by**: three months from today unless you change it;
 - **Author**: your name;
-- **Represented by** (correlation and shifts reports, exclude only): the member
+- **Represented by** (correlation report, exclude only): the member
   that stays, starting on the report's suggestion;
 - **Leave out of the proposal**: ticked parameters the proposal should skip.
 
@@ -83,13 +84,12 @@ one row per parameter with every column filled in:
 Action,Parameter,Group,Site,Reason,Rationale,Review by,Author,Represented by
 exclude,Day 3 clump observation,Missing 05,Northfield,missing with group,clump observations recorded on some batches only,2027-01-19,S. Degroeve,
 exclude,D3 clumps present,Missing 05,Northfield,missing with group,clump observations recorded on some batches only,2027-01-19,S. Degroeve,
-exclude,Cytokine lot,Shifting 01,Northfield,shifts with group,changes with the medium lot,2027-01-19,S. Degroeve,Medium lot
 ```
 
 Only parameters that are screened out at that site can be reinstated; the form
 says which ticked ones it leaves out, and why.
 
-From the correlation or shifts report, a ticked group becomes an exclusion of every member
+From the correlation report, a ticked group becomes an exclusion of every member
 but its representative, with the representative in the `Represented by` column.
 `ml screening status` lists such an exclusion again when its representative is
 screened out later, since the group would then have no parameter left.
@@ -101,7 +101,7 @@ You can also write the file by hand, in Excel or a text editor:
 | `Action` | `exclude` or `reinstate` |
 | `Parameter` | The parameter's exact name, as in the report |
 | `Group` | A group from a report's group table, such as `Missing 05`, `Correlated 02` or `Shifting 01`. With no `Parameter`, the row stands for every member of the group at that site; with one, it is context |
-| `Site` | A site's name, or `all` (not with a group and no `Parameter`: groups are found per site). The shifts report finds groups per manufacturing site and names the plant's data source, or `all` |
+| `Site` | A site's name, or `all` (not with a group and no `Parameter`: groups are found per site). A `Shifting` group is found per manufacturing site: name the data source its batches come from, or `all` |
 | `Reason` | One of the reasons in the table above |
 | `Rationale` | Why, in a sentence. Required |
 | `Review by` | Optional date (`YYYY-MM-DD`) to look at it again; empty means three months from today |

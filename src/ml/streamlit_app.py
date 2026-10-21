@@ -209,12 +209,6 @@ MISSING_LEGEND = """<b style="background:#d3d2cc;margin-left:0"></b>measured
   <b style="background:#2e8b57"></b>missing, batch not in the statistics
   &nbsp;·&nbsp; one cell per batch, newest on the right; scroll left to go back in time;
   ⊘ marks a parameter screened out at this site"""
-SHIFT_LEGEND = """<b style="background:#d3d2cc;margin-left:0"></b>no value
-  <b style="background:hsl(216,100%,92%)"></b>lowest
-  <b style="background:hsl(216,100%,34%)"></b>highest level of the parameter;
-  a dark line starts a new level group
-  &nbsp;·&nbsp; one cell per batch, newest on the right; rows with their lines in the same
-  places have the same level groups; ⊘ marks a parameter screened out at this site"""
 
 # The pattern strip: a fixed size per batch, so a long history scrolls sideways
 # instead of being squeezed to the page. Drawn on a canvas in its own frame,
@@ -243,24 +237,12 @@ STRIP = """
 const D = %(data)s, W = %(cell)d, H = %(row)d, GAP = 2, AXIS = 22;
 const n = D.batches.length, step = W + 1, ratio = window.devicePixelRatio || 1;
 const canvas = document.getElementById("c"), ctx = canvas.getContext("2d");
-// "." is no value. The level of a level group is one base-36 digit;
-// a missing pattern is "1" for missing.
-const level = (c) => parseInt(c, 36) / (D.levels - 1);
-const fill = (c, i) => D.mode !== "missing"
-  ? (c === "." ? "#d3d2cc" : "hsl(216, 100%%, " + (92 - 58 * level(c)) + "%%)")
-  : c !== "1" ? "#d3d2cc" : !D.analysed || D.analysed[i] === "1" ? "#0047ab" : "#2e8b57";
-// The level group a cell is in: the last one starting at or before it.
-const segment = (row, i) => row.segments.starts.filter((start) => start <= i).length - 1;
-const state = (row, i) => {
-  const c = row.bits[i];
-  if (D.mode === "shift") {
-    if (c === ".") return "no value";
-    const k = segment(row, i), count = row.segments.starts.length;
-    return row.segments.values[k] + " (level group " + (k + 1) + " of " + count + ")";
-  }
-  return (c === "1" ? "missing" : "measured") +
-    (D.analysed && D.analysed[i] !== "1" ? " (not in the statistics)" : "");
-};
+// A missing pattern is "1" for missing.
+const fill = (c, i) =>
+  c !== "1" ? "#d3d2cc" : !D.analysed || D.analysed[i] === "1" ? "#0047ab" : "#2e8b57";
+const state = (row, i) =>
+  (row.bits[i] === "1" ? "missing" : "measured") +
+  (D.analysed && D.analysed[i] !== "1" ? " (not in the statistics)" : "");
 const width = n * step, height = D.rows.length * (H + GAP) + AXIS;
 canvas.width = width * ratio; canvas.height = height * ratio;
 canvas.style.width = width + "px"; canvas.style.height = height + "px";
@@ -273,11 +255,6 @@ D.rows.forEach((row, r) => {
     ctx.fillStyle = fill(row.bits[i], i);
     ctx.fillRect(i * step, r * (H + GAP), W, H);
   }
-  // A line in the gap before each level group but the first.
-  ctx.fillStyle = "#1b2631";
-  (row.segments ? row.segments.starts.slice(1) : []).forEach((start) => {
-    ctx.fillRect(start * step - 1, r * (H + GAP) - 1, 2, H + 2);
-  });
 });
 // A date under the strip wherever the month changes, with room between labels.
 ctx.fillStyle = "#5d6d7e"; ctx.font = "11px system-ui, sans-serif";
@@ -438,7 +415,7 @@ def render_proposal(form: dict, site: dict, picked: list, key: str, pairs: list 
         common = (
             group_of,
             site["screened"],
-            site.get("register_site") or site["label"],
+            site["label"],
             action,
             reason,
             rationale,
@@ -493,16 +470,10 @@ def render_missing_viewer(block: dict, key: str) -> None:
     """The strip on top; below it the groups (one to draw) and the parameters (any to add).
 
     A ``rank_viewer`` draws a scatterplot of every pair of the parameters instead
-    of the strip, from each site's ``values``. In a ``shift_viewer`` the ``patterns``
-    are the level of each batch's level group, with each group's first batch and
-    value in ``segments``.
+    of the strip, from each site's ``values``.
     """
-    mode = {"rank_viewer": "rank", "shift_viewer": "shift"}.get(block["kind"], "missing")
-    together = {
-        "rank": "that rank the batches alike",
-        "shift": "with the same level groups",
-        "missing": "missing together",
-    }[mode]
+    mode = "rank" if block["kind"] == "rank_viewer" else "missing"
+    together = "that rank the batches alike" if mode == "rank" else "missing together"
     labels = [site["label"] for site in block["sites"]]
     with SLOTS.get("site") or st.sidebar:
         chosen = st.radio(
@@ -607,38 +578,20 @@ def render_missing_viewer(block: dict, key: str) -> None:
             render_pairs(site, drawn, screened, f"{key}-{chosen}")
             return
         # A parameter with no blank at this site has no pattern stored: all measured.
-        bits = [site["patterns"].get(p, ("0" if mode == "missing" else ".") * n) for p in drawn]
+        bits = [site["patterns"].get(p, "0" * n) for p in drawn]
         names = [("⊘ " if p in screened else "") + p for p in drawn]
-        legend = SHIFT_LEGEND if mode == "shift" else MISSING_LEGEND
-        if mode != "missing":
-            # Each row labelled with its similarity to the first: why it is in a group with it.
-            index = {p: i for i, p in enumerate(site["similarity"]["parameters"])}
-            reference = site["similarity"]["values"][index[drawn[0]]] if drawn[0] in index else []
-            names = [
-                name
-                if i == 0 or p not in index or reference[index[p]] is None
-                else f"ARI {reference[index[p]] / 100:.2f} · {name}"
-                for i, (p, name) in enumerate(zip(drawn, names))
-            ]
         order = list(range(n))
         data = {
             "batches": [site["batches"][i] for i in order],
             "dates": [site["dates"][i] for i in order],
             "analysed": site.get("in_statistics") or "",
-            "levels": block.get("levels") or 0,
-            "mode": mode,
             "axis": True,
             "rows": [
-                {
-                    "name": name,
-                    "bits": "".join(b[i] for i in order),
-                    "segments": (site.get("segments") or {}).get(p),
-                }
-                for p, name, b in zip(drawn, names, bits)
+                {"name": name, "bits": "".join(b[i] for i in order)} for name, b in zip(names, bits)
             ],
         }
         page = STRIP % {
-            "legend": legend,
+            "legend": MISSING_LEGEND,
             "data": json.dumps(data).replace("<", "\\u003c"),
             "cell": CELL,
             "row": ROW,
@@ -717,6 +670,131 @@ def render_pairs(site: dict, drawn: list, screened: dict, key: str) -> None:
     )
 
 
+#: The two shades a row's groups alternate between: they only tell neighbours apart.
+SHADES = ("#0047ab", "#9db9e6")
+
+
+def render_timeline(segments: dict, drawn: list, key: str) -> None:
+    """One row per parameter, one bar per group: its value from its first day to its last.
+
+    A day two groups share, the day a lot changes, is split between them at noon.
+    """
+    day, half = datetime.timedelta(days=1), datetime.timedelta(hours=12)
+    bars = []  # parameter, shade, start, end, group
+    for p in drawn:
+        groups = segments[p]
+        for i, g in enumerate(groups):
+            shared_first = i > 0 and groups[i - 1][1] == g[0]
+            shared_last = i + 1 < len(groups) and groups[i + 1][0] == g[1]
+            start = datetime.datetime.fromisoformat(g[0]) + (half if shared_first else 0 * day)
+            end = datetime.datetime.fromisoformat(g[1]) + day - (half if shared_last else 0 * day)
+            bars.append((p, i % 2, start, end, g))
+    figure = go.Figure()
+    for shade in (0, 1):
+        mine = [bar for bar in bars if bar[1] == shade]
+        figure.add_trace(
+            go.Bar(
+                orientation="h",
+                y=[p for p, *_ in mine],
+                base=[start for _, _, start, _, _ in mine],
+                x=[(end - start).total_seconds() * 1000 for _, _, start, end, _ in mine],
+                text=[g[2] for *_, g in mine],
+                customdata=[[g[0], g[1], g[3]] for *_, g in mine],
+                textposition="inside",
+                insidetextanchor="middle",
+                marker={"color": SHADES[shade]},
+                hovertemplate="%{y}<br><b>%{text}</b><br>%{customdata[0]} to %{customdata[1]}"
+                " · %{customdata[2]} batches<extra></extra>",
+            )
+        )
+    # Where the first row changes value: the rows that change with it line up here.
+    for start in [bar[2] for bar in bars if bar[0] == drawn[0]][1:]:
+        figure.add_shape(
+            type="line",
+            x0=start,
+            x1=start,
+            yref="paper",
+            y0=0,
+            y1=1,
+            layer="below",
+            line={"color": "#c3cad2", "width": 1},
+        )
+    figure.update_layout(
+        barmode="overlay",
+        bargap=0.3,
+        showlegend=False,
+        height=30 * len(drawn) + 80,
+        margin={"l": 10, "r": 10, "t": 30, "b": 10},
+        uniformtext={"minsize": 9, "mode": "hide"},
+        xaxis={"type": "date", "showgrid": False},
+        yaxis={"autorange": "reversed", "automargin": True, "showgrid": False},
+    )
+    st.plotly_chart(figure, width="stretch", key=f"timeline{key}")
+
+
+def render_shift_viewer(block: dict, key: str) -> None:
+    """The groups over time of the parameters picked; below, the groups and parameters to pick."""
+    labels = [site["label"] for site in block["sites"]]
+    with SLOTS.get("site") or st.sidebar:
+        chosen = st.radio(block["site_label"], labels, horizontal=True, key=f"site{key}")
+    site = block["sites"][labels.index(chosen)]
+    top = st.container()
+
+    picked: list[str] = []
+    together = "Groups of parameters that change on the same days"
+    with st.expander(f"{together} ({len(site['groups'])})", expanded=True):
+        if site["groups"]:
+            groups, ticked = _pick_table(
+                site["group_headers"],
+                site["group_rows"],
+                site["group_formats"],
+                "single-row",
+                f"groups{key}-{chosen}",
+            )
+            picked += [m for i in ticked for m in site["groups"][groups.iloc[i]["Group"]]]
+            st.caption("Tick a group to draw its parameters.")
+        else:
+            st.caption("No two parameters change on the same days at this site.")
+    with st.expander(f"Parameters that run in groups over time ({len(site['rows'])})"):
+        frame, ticked = _pick_table(
+            site["headers"], site["rows"], site["formats"], "multi-row", f"rows{key}-{chosen}"
+        )
+        picked += [frame.iloc[i]["Parameter"] for i in ticked]
+        st.caption(
+            "Tick parameters to add them to the plot. Sort by a column header; search with "
+            "the magnifier at the table's top right."
+        )
+        st.download_button(
+            f"Download {site['csv_name']}",
+            data=site["csv"],
+            file_name=site["csv_name"],
+            mime="text/csv",
+            key=f"dl{key}-{chosen}",
+        )
+    st.markdown(
+        '<p class="batch_table-caption"><code>uv run ml task new &lt;folder&gt; '
+        "--exclude-shifting</code> lists every parameter in this table, at any site, under "
+        "<code>predictors.exclude</code> in the new task file, with why.</p>",
+        unsafe_allow_html=True,
+    )
+    with top:
+        drawn = list(dict.fromkeys(picked))
+        if not drawn:
+            # Open on a plot: the largest group, until the reader ticks something.
+            first = next(iter(site["groups"]), None)
+            drawn = site["groups"][first] if first else [site["rows"][0][0]]
+            shown = f"{first}, the largest group" if first else "the first parameter"
+            st.caption(f"Showing {shown}. Tick a group or parameters below to draw them instead.")
+        render_timeline(site["segments"], drawn, f"{key}-{chosen}")
+        st.markdown(
+            '<p class="batch_table-caption">One bar per group: one value, from the first day it '
+            "was used to the last. A row's bars alternate dark and light only to tell "
+            "neighbours apart; a blank stretch has no value. Grey lines: the days the first row "
+            "changes value.</p>",
+            unsafe_allow_html=True,
+        )
+
+
 def render_block(block: dict, key: str) -> None:
     kind = block["kind"]
     if kind == "md":
@@ -766,8 +844,10 @@ def render_block(block: dict, key: str) -> None:
                     render_block(child, f"{key}-{i}")
             else:
                 st.caption("Nothing here is drawn until you ask for it.")
-    elif kind in ("missing_viewer", "rank_viewer", "shift_viewer"):
+    elif kind in ("missing_viewer", "rank_viewer"):
         render_missing_viewer(block, key)
+    elif kind == "shift_viewer":
+        render_shift_viewer(block, key)
     elif kind == "chooser":
         labels = [option["label"] for option in block["options"]]
         chosen = st.selectbox(block["label"], labels, key=f"pick{key}")

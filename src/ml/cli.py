@@ -112,6 +112,7 @@ BUILD_OUTPUTS = {
     "missingness table": screening.EVIDENCE_FILE,
     "correlation report": "correlation_report.html",
     "shifts report": "shifts_report.html",
+    "shifts table": "shifts.xlsx",
     "task catalog": "task_catalog.xlsx",
     "manifest": "batch_table_manifest.json",
 }
@@ -600,6 +601,11 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
             files["shifts report"] = report.write(
                 report.build_shifts_payload(build_run), shifts_report
             )
+        shifts_table = staged / BUILD_OUTPUTS["shifts table"]
+        with _preparing("the shifts table", shifts_table, folder):
+            files["shifts table"] = _write_shifts(
+                shifts_table, shifted_by_site, content_digest, run_start
+            )
         correlation_report = staged / BUILD_OUTPUTS["correlation report"]
         with _preparing("the correlation report", correlation_report, folder):
             files["correlation report"] = report.write(
@@ -660,9 +666,8 @@ def _shifts_by_plant(
 ) -> dict[str, tuple[list[dict], Any]]:
     """The shifts analysis per manufacturing site, over the missingness report's batches.
 
-    Time, and the lots, run per plant rather than per data source. A plant's
-    decisions go to the register site its batches come from, or to ``all`` when
-    they come from both; it leaves out what the register excludes at any of them.
+    Time, and the lots, run per plant rather than per data source. A plant leaves
+    out what the register excludes at any data source its batches come from.
     Without the column, each data source counts as one plant.
     """
     every = pd.concat([batches for batches, _ in cohorts.values()])
@@ -698,11 +703,33 @@ def _shifts_by_plant(
             label=str(name),
         )
         found.sources = sources
-        found.register_site = sources[0] if len(sources) == 1 else screening.ALL
         found.cohort = f"{int(counted[here].sum()):,} batches from {', '.join(sources)}"
-        found.screened = {p: d for p, d in screened.items() if d["Reason"] == shifts.REASON}
         out[str(name)] = rows, found
     return out
+
+
+def _write_shifts(
+    path: Path,
+    shifted_by_plant: dict[str, tuple[list[dict], Any]],
+    content_digest: str,
+    run_start: datetime,
+) -> Path:
+    """Every parameter that runs in groups over time, per plant: what
+    ``ml task new --exclude-shifting`` leaves out of a task."""
+    rows = [
+        {"Manufacturing site": plant, **row}
+        for plant, (found, _) in shifted_by_plant.items()
+        for row in found
+    ]
+    with pd.ExcelWriter(path) as workbook:
+        pd.DataFrame(rows).to_excel(workbook, sheet_name=screening.EVIDENCE_SHEET, index=False)
+        pd.DataFrame(
+            [
+                {"Item": "Batch table content digest", "Value": content_digest},
+                {"Item": "Built", "Value": run_start.strftime("%Y-%m-%d %H:%M")},
+            ]
+        ).to_excel(workbook, sheet_name=screening.ABOUT_SHEET, index=False)
+    return path
 
 
 def _register(config: dict[str, Any]) -> screening.Register | None:
@@ -1085,6 +1112,43 @@ def _screened_for_new_task(config: dict[str, Any] | None) -> tuple[list[tuple[st
     excluded = screening.excluded(register.decisions, names.sites())
     last = register.decisions[-1].id if register.decisions else ""
     return [(p, f"screened out by {d.label}") for p, d in sorted(excluded.items())], last
+
+
+def _shifting_for_new_task(config: dict[str, Any] | None) -> tuple[list[tuple[str, str]], str]:
+    """Every parameter the latest build found running in groups over time, at any plant,
+    with why, for a new task file; and when that build ran."""
+    if not config:
+        raise ConfigError(
+            "--exclude-shifting reads the latest build's shifts table, and no config.yaml was "
+            "found: pass --config"
+        )
+    workspace.load_vocabulary(config)
+    where = workspace.batch_table_folder(config).file(BUILD_OUTPUTS["shifts table"])
+    try:
+        found = share.read_excel(where.with_sheet(screening.EVIDENCE_SHEET))
+        about = share.read_excel(where.with_sheet(screening.ABOUT_SHEET))
+    except Exception as exc:
+        raise FileNotFoundError(
+            f"The latest build's shifts table could not be read from {where} ({exc}) "
+            "— run `ml build` first"
+        ) from exc
+    built = dict(zip(about["Item"].astype(str), about["Value"].astype(str))).get("Built", "")
+    if found.empty:
+        return [], built
+    found["Shift group"] = found["Shift group"].fillna("")
+    # A group's members one after the other; parameters in no group last.
+    rows = sorted(
+        found.to_dict("records"),
+        key=lambda r: (not r["Shift group"], r["Shift group"], r["Parameter"]),
+    )
+    why: dict[str, list[str]] = {}
+    for row in rows:
+        group = row["Shift group"].split(" @ ")[0]
+        why.setdefault(row["Parameter"], []).append(
+            f"{row['Groups']} groups at {row['Manufacturing site']}"
+            + (f", changes with {group}" if group else "")
+        )
+    return [(p, "runs in groups over time: " + "; ".join(w)) for p, w in why.items()], built
 
 
 def _task_register(config: dict[str, Any] | None, spec: TaskSpec) -> screening.Register | None:
@@ -1661,6 +1725,12 @@ def _parser() -> argparse.ArgumentParser:
     new.add_argument("--target", default="", help="the column the task predicts")
     new.add_argument("--question", default="", help="the question, in words")
     new.add_argument("--force", action="store_true", help="overwrite an existing task file")
+    new.add_argument(
+        "--exclude-shifting",
+        action="store_true",
+        help="also exclude every parameter the latest build's shifts report finds running in "
+        "groups over time, each with why",
+    )
     run = actions.add_parser("run", help="run tasks, each into a new run folder")
     run.add_argument(
         "--task",
@@ -1704,6 +1774,8 @@ def _run(args) -> int:
     if command == "task new":
         found = _config(args, start=args.folder, required=False)
         screened, as_of = _screened_for_new_task(found)
+        shifting, built = _shifting_for_new_task(found) if args.exclude_shifting else ([], "")
+        shifting = [(p, why) for p, why in shifting if p not in dict(screened)]
         path = scaffold.init(
             args.folder,
             args.target,
@@ -1712,12 +1784,19 @@ def _run(args) -> int:
             config=found["__path__"] if found else None,
             screened=screened,
             screened_as_of=as_of,
+            shifting=shifting,
+            shifting_built=built,
         )
         log.facts(
             "Task workspace created",
             [
                 ("File", str(path)),
                 ("Config", found["__path__"] if found else "none found — set config: in the file"),
+                *(
+                    [("Run in groups", f"{len(shifting)} parameters excluded (build {built})")]
+                    if args.exclude_shifting
+                    else []
+                ),
                 ("Next", f"cd {path.parent} && ml validate && ml task run"),
             ],
         )

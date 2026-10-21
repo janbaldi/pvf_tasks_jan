@@ -62,6 +62,7 @@ Written to SharePoint — 70 batches × 230 columns
   missingness report     missingness_report.html
   correlation report     correlation_report.html
   shifts report          shifts_report.html
+  shifts table           shifts.xlsx
   task catalog           task_catalog.xlsx
   manifest               batch_table_manifest.json
 ```
@@ -178,39 +179,42 @@ not the parameter table.
 
 ### The shifts report
 
-Open `shifts_report.html`. It works like the correlation report, but **per
-manufacturing site** (the `Manufacturing Site` column) rather than per data
-source: time, and the lots, run per plant. It uses the batches the missingness
-report counts in its statistics, split by plant, for parameters of **any type** whose batches, in date order, fall into
-**level groups**: stretches of consecutive batches where the value is very
-nearly the same, followed by a jump to another level. A raw material or
-consumable lot does this, and with it the lot's certificate values, its expiry
-date, or anything measured per lot with little noise. Parameters whose level
-groups cover **the same batches** are grouped, since they all say which lot a
+Open `shifts_report.html`. It finds the parameters, of **any type**, whose value
+**runs in groups over time**: it keeps exactly one value for a stretch of days
+(blanks allowed), then changes to another. A raw material or consumable lot does
+this, and with it the lot's certificate values and expiry date. A model can learn
+such a parameter as a stand-in for time. The report also groups the parameters
+that **change on the same days**, since they say the same thing: which lot a
 batch was made with.
 
-A parameter only counts when, in its level groups, the values are very close to
-the same (the jump between groups is at least four times the spread within
-them) and do not drift. So a trend is not caught, nor a date that advances with
-every batch, nor a parameter that merely leans with the lot.
+It works **per manufacturing site** (the `Manufacturing Site` column) rather than
+per data source, since time and the lots run per plant, over the batches the
+missingness report counts in its statistics. Dates count by the day: the batches
+of one day have no order, and on the day a lot changes some of them can have the
+old lot and some the new one; that day ends the old lot's group and starts the
+new one's.
 
-- **The plot.** One row per parameter, one cell per batch in date order. A dark
-  line starts a new level group; each level group is one shade, light for the
-  parameter's lowest level and dark for its highest. Rows with their lines in
-  the same places have the same level groups. Hover a cell for its group's
-  value. Each row says the adjusted Rand index (ARI, 1 = the same groups) of its
-  level groups and the first row's.
-- **The parameter table.** Every parameter that moves in level groups: how many,
-  their mean length, the median jump and the spread within groups (in the
-  parameter's own unit), the drift within groups, and the permutation p.
-- **The group table, screening and the proposal** as in the correlation report,
-  with the reason `shifts with group`. Group names end with the plant
-  (`Shifting 01 @ …`). The register records decisions per data source, so a
-  proposal names the source the plant's batches come from, or `all` when they
-  come from both.
+A parameter counts when its groups last more than a day on average (so a value
+set per day, such as a date, does not) and it has far fewer groups than its
+values shuffled at random would give (so a rare value scattered at random does
+not).
 
-Parameters screened out for any other reason (missingness, correlation) are left
-out, so a parameter already represented elsewhere is not counted twice.
+- **The plot.** One row per parameter, one bar per group: one value, from the
+  first day it was used to the last, with the value written in it where it fits
+  (hover for it and its batches). A row's bars alternate dark and light only to
+  tell neighbours apart; a blank stretch has no value. Thin grey lines mark the
+  days the first row changes value, so the rows that change with it line up.
+- **The group table.** Groups of parameters that change on the same days: every
+  pair in a group shares at least 80% of its change days. Tick one to draw it.
+  Names end with the plant (`Shifting 01 @ …`).
+- **The parameter table.** Every parameter that runs in groups: its groups, days
+  per group, the permutation p, and the parameter it shares most change days
+  with.
+
+To leave all of them out of a task, create it with `ml task new <folder>
+--exclude-shifting` ([chapter 4](04-tasks.md#1-create-a-task)): it reads the
+same table from `shifts.xlsx`. Parameters the register already screens out are
+not looked at.
 
 ### The task catalog
 

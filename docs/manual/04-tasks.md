@@ -41,6 +41,29 @@ itself. If a decision is later reinstated, the run warns that the task still
 excludes the parameter: delete the line to use it again. A line for a site your
 task doesn't use can be deleted too.
 
+To also leave out every parameter that runs in groups over time, as a lot does
+(the [shifts report](02-monthly-update.md#the-shifts-report)), add
+`--exclude-shifting`:
+
+```bash
+uv run ml task new tasks/car_expression_no_lots --target "Product CAR expression (%)" --exclude-shifting
+```
+
+It lists them from the latest build's `shifts.xlsx`, at any manufacturing site,
+each with why, a group of parameters that change on the same days one after the
+other:
+
+```yaml
+    # Run in groups over time at a manufacturing site, as the build of 2026-10-21 14:03
+    # found (shifts_report.html; `ml task new --exclude-shifting`). A lot does this,
+    # and so the model would learn time. Delete a line to use the parameter again.
+    - {column: "Cytokine lot", reason: "runs in groups over time: 7 groups at Northfield plant, changes with Shifting 01"}
+    - {column: "Medium lot", reason: "runs in groups over time: 7 groups at Northfield plant, changes with Shifting 01"}
+```
+
+These lines are the task's own: a later build does not change them. Make the
+task again to pick up a newer build's list.
+
 Its main sections:
 
 ```yaml

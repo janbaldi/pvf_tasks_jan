@@ -427,6 +427,7 @@ def test_the_build_writes_everything_into_the_batch_table_folder_on_sharepoint(b
         "missingness.xlsx",
         "correlation_report.html",
         "shifts_report.html",
+        "shifts.xlsx",
         "task_catalog.xlsx",
         "batch_table_manifest.json",
     }
@@ -445,5 +446,6 @@ def test_the_build_writes_everything_into_the_batch_table_folder_on_sharepoint(b
         "missingness.xlsx",
         "correlation_report.html",
         "shifts_report.html",
+        "shifts.xlsx",
         "task_catalog.xlsx",
     }

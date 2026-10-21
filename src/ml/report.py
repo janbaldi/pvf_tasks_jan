@@ -12,7 +12,7 @@ record that the schema has never been told about. The build report: what came
 out, what the data needed doing to it, where every parameter came from, and which
 catalog parameters the batch table still does not have. The build's missingness,
 correlation and shifts reports: which parameters go missing together, rank the
-batches alike, or fall into the same level groups over time, and what to screen.
+batches alike, or run in groups over time, and what to screen.
 The tasks report: which batches are in the cohort, what each parameter became,
 and what every column of the dataset means.
 """
@@ -514,14 +514,11 @@ def _missingness_help(run: BuildRun) -> dict | None:
 _GROUPED_FORMATS = {
     "Batches with a value": "%d",
     "Distinct values": "%d",
-    "Level groups": "%d",
-    "Mean group length": "%.1f",
-    "Median jump": "%.4g",
-    "SD within groups": "%.4g",
-    "Drift within groups": "%.2f",
+    "Groups": "%d",
+    "Days per group": "%.1f",
     "Permutation p": "%.3f",
     "|ρ| with it": "%.3f",
-    "ARI with it": "%.3f",
+    "Shared shifts with it": "%.2f",
     "Batches in common": "%d",
     "q": "%.2g",
 }
@@ -549,10 +546,10 @@ def _grouped_viewer(
     measure: str,
     reason: str,
 ) -> dict | None:
-    """The strip, with the group and parameter tables to pick what it draws.
+    """The plot, with the group and parameter tables to pick what it draws.
 
-    For the correlation (``rank_viewer``) and shifts (``shift_viewer``) reports:
-    ``measure`` names the similarity the groups are made of, as in *Mean |ρ|*.
+    For the correlation report (``rank_viewer``): ``measure`` names the similarity the
+    groups are made of, as in *Mean |ρ|*.
     """
     group_formats = {
         "Group": None,
@@ -569,31 +566,20 @@ def _grouped_viewer(
     for number, (site, (rows, analysis)) in enumerate(results.items(), start=1):
         if not rows:
             continue
-        ranked = kind == "rank_viewer"
-        if ranked:
-            rows = [
-                {"Parameter": row["Parameter"], "Register": _register_note(row, analysis.screened)}
-                | row
-                for row in rows
-            ]
+        rows = [
+            {"Parameter": row["Parameter"], "Register": _register_note(row, analysis.screened)}
+            | row
+            for row in rows
+        ]
         headers = list(rows[0])
         sites.append(
             {
                 "label": site,
-                # The register site a proposal names: a plant's data source, or "all".
-                "register_site": getattr(analysis, "register_site", "") or site,
                 "batches": analysis.batches,
                 "dates": analysis.dates,
-                # The correlation report draws scatterplots of the values, the shifts a strip.
-                "values": analysis.values if ranked else {},
-                "patterns": {} if ranked else analysis.levels,
-                # Each level group's first batch and value, for the shifts strip.
-                "segments": {} if ranked else analysis.segments,
+                # Drawn as scatterplots of the values.
+                "values": analysis.values,
                 "screened": analysis.screened,
-                "similarity": {
-                    "parameters": [] if ranked else analysis.analysed,
-                    "values": [] if ranked else analysis.similarity,
-                },
                 "groups": {g.name: g.members for g in analysis.groups},
                 "group_headers": list(group_formats),
                 "group_rows": [
@@ -612,10 +598,8 @@ def _grouped_viewer(
                 ],
                 "group_formats": list(group_formats.values()),
                 "headers": headers,
-                # In the correlation report the parameter table holds those in no group.
-                "rows": [
-                    [row[h] for h in headers] for row in rows if not ranked or not row["Group"]
-                ],
+                # The parameter table holds those in no group.
+                "rows": [[row[h] for h in headers] for row in rows if not row["Group"]],
                 "formats": [_GROUPED_FORMATS.get(h) for h in headers],
                 "csv_name": f"{stem}_site_{number}.csv",
                 "csv": csv_text([{"Site": site, **row} for row in rows]),
@@ -623,8 +607,7 @@ def _grouped_viewer(
         )
     block = missing_viewer(sites, kind=kind)
     if block is not None:
-        block["levels"] = correlation.LEVELS
-        block["site_label"] = "Site" if kind == "rank_viewer" else "Manufacturing site"
+        block["site_label"] = "Site"
         block["proposal"] = {
             "columns": list(screening.PROPOSAL_COLUMNS),
             "actions": list(screening.ACTIONS),
@@ -706,6 +689,40 @@ def _correlation_help(run: BuildRun) -> dict | None:
     }
 
 
+def _shift_viewer(run: BuildRun) -> dict | None:
+    """Per plant: the groups over time of the parameters picked, and the tables to pick them."""
+    sites = []
+    for number, (plant, (rows, analysis)) in enumerate(run.shifts.items(), start=1):
+        if not rows:
+            continue
+        headers = list(rows[0])
+        sites.append(
+            {
+                "label": plant,
+                "segments": analysis.segments,
+                "groups": {g.name: g.members for g in analysis.groups},
+                "group_headers": [
+                    "Group",
+                    "Members",
+                    "Mean shared shifts",
+                    "Weakest shared shifts",
+                ],
+                "group_rows": [
+                    [g.name, len(g.members), round(g.mean, 2), round(g.weakest, 2)]
+                    for g in analysis.groups
+                ],
+                "group_formats": [None, "%d", "%.2f", "%.2f"],
+                "headers": headers,
+                "rows": [[row[h] for h in headers] for row in rows],
+                "formats": [_GROUPED_FORMATS.get(h) for h in headers],
+                "csv_name": f"shifts_site_{number}.csv",
+                "csv": csv_text([{"Manufacturing site": plant, **row} for row in rows]),
+            }
+        )
+    block = {"kind": "shift_viewer", "sites": sites, "site_label": "Manufacturing site"}
+    return _section("viewer", "Groups over time", [block if sites else None])
+
+
 def _shifts_help(run: BuildRun) -> dict | None:
     if not run.shifts:
         return None
@@ -714,70 +731,55 @@ def _shifts_help(run: BuildRun) -> dict | None:
         "blocks": [
             md(
                 "#### Reading the report\n\n"
-                "Pick a site. Tick a group to draw its parameters, and tick parameters to add "
-                "them. Each row of the plot is a parameter, each cell a batch in date order, "
-                "newest on the right. A dark line starts a new *level group*: a stretch of "
-                "batches whose values are very close to the same. Each level group is one "
-                "shade, light for the parameter's lowest level, dark for its highest; grey is no "
-                "value. Parameters in one group have their lines in the same places. Hover a "
-                "cell for its level group's value. Each row is labelled with the adjusted Rand "
-                "index (ARI) of its level groups and the first row's.\n\n"
-                "#### What a level group is\n\n"
+                "Pick a manufacturing site. Tick a group to draw its parameters, or tick "
+                "parameters to add them. Each row of the plot is a parameter; each bar is one "
+                "of its groups: one value, from the first day it was used to the last, with "
+                "the value written in it where it fits (hover for it, and the batches). The "
+                "bars of a row alternate dark and light only so that neighbours are told "
+                "apart. A blank stretch has no value. Thin grey lines mark the days the first "
+                "row changes value: the rows of a group change on those days too.\n\n"
+                "#### Leaving them out of a task\n\n"
+                "`ml task new <folder> --exclude-shifting` lists every parameter in the "
+                "parameter table, at any manufacturing site, under `predictors.exclude` in "
+                "the new task file, each with why: how many groups it runs in, where, and "
+                "the group of parameters it changes with. It reads the latest build's "
+                "`shifts.xlsx`, which holds the same table.\n\n"
+                "#### What runs in groups\n\n"
                 "A raw material or consumable lot, its certificate values, a vector lot and "
-                "its titre each hold (very nearly) one value for as long as a lot lasts, then "
-                "jump to another: the batches fall into level groups. Not a trend: a trend "
-                "drifts, it doesn't hold a level. Parameters whose level groups cover the same "
-                "batches say the same thing, which lot a batch was made with, so to a model one "
-                "of them is enough."
+                "its titre each keep one value for as long as a lot lasts, then change to "
+                "another. A model can learn such a parameter as a stand-in for time."
             ),
             md(
                 "#### How the numbers are decided\n\n"
-                "Each manufacturing site is analysed on its own batches, in date order, blanks "
-                "skipped: time, and the lots, run per plant rather than per data source. They "
-                "are the batches the missingness report counts in its statistics, split by "
-                "the *Manufacturing Site* column. A proposal names the data source the plant's "
-                "batches come from, or *all* when they come from both.\n\n"
+                "Each manufacturing site is analysed on its own batches: time, and the lots, "
+                "run per plant rather than per data source. They are the batches the "
+                "missingness report counts in its statistics, split by the *Manufacturing "
+                "Site* column; batches without a date are left out. Dates count by the day: "
+                "a day's batches have no order among themselves, and on the day a lot runs out "
+                "some of them can have the old lot and some the new one.\n\n"
                 f"- **Parameters.** Any parameter with at least {shifts.MIN_BATCHES} values and "
-                "two distinct ones is tested. A parameter the screening register excludes at "
-                "the plant's data source is left out, unless the reason is "
-                f"*{shifts.REASON}*: those stay, "
-                "marked ⊘, so they can be reinstated.\n"
-                "- **Level groups.** A new group starts where the value moves from the batch "
-                f"before by more than {shifts.TOLERANCE:g} times the median batch-to-batch "
-                "change (within a group most changes are noise, so the median is the noise; "
-                "0 when values repeat exactly). For a category, any change starts a group.\n"
-                "- A parameter **moves in level groups** when its groups average at least "
-                f"{shifts.MIN_RUN} batches (*Mean group length*); the *Median jump* from one "
-                f"group's level to the next is at least {shifts.SEPARATION:g} times the *SD "
-                "within groups*, so within a group the values are very close to the same and a "
-                "trend, whose groups are no further apart than its drift, is not caught; its "
-                "values do not drift within a group: the correlation of value and batch "
-                "position within the groups (*Drift within groups*) is below "
-                f"{shifts.MAX_DRIFT:g} in size, so a date that advances with every batch is not "
-                "caught either; and it "
-                f"has fewer groups than chance: in at most {shifts.P_MAX:g} of "
-                f"{shifts.PERMUTATIONS} shuffles of its values do as few come out "
-                "(*Permutation p*).\n"
-                "- **ARI** of a pair: over the batches where both have a value, the adjusted "
-                "Rand index of their level groups: 1 when they split those batches into the "
-                "same groups, about 0 when no more alike than chance. It needs "
-                f"{shifts.MIN_BATCHES} batches in common.\n"
-                "- **q** is the chance of their groups starting on that many of the same batches "
-                "at random (hypergeometric), Benjamini-Hochberg adjusted over every pair "
-                "compared at the site.\n"
-                "- **Groups.** Average linkage on 1-ARI: parameters or groups join while the "
-                f"mean ARI between them is at least {shifts.THRESHOLD}. A pair with q of "
-                f"{shifts.ALPHA} or more counts as unrelated: a boundary or two in common is "
-                "easily chance.\n"
-                "- **Suggested representative** as in the correlation report: the highest mean "
-                "ARI to the other members, weighted by the share of their batches it has a "
-                "value on."
-            ),
-            md(
-                "#### Screening\n\n"
-                "Tick a group and open *Propose a screening decision*: *Represented by* starts "
-                "on the suggested representative, and the proposal excludes every other member "
-                f"with the reason *{shifts.REASON}*. The representative stays usable."
+                "two distinct ones is tested, unless the screening register already "
+                "excludes it at the plant's data source.\n"
+                "- **Groups.** Over the days the parameter has a value (blanks skipped), a "
+                "group is one value kept from one day to the next; values are compared "
+                "exactly. One group carries on from a day to the next, and only when both "
+                "days hold its value; any other value on a day starts a group. So the day a "
+                "lot changes ends the old lot's group and starts the new one's, while two "
+                "values used side by side start a group every day.\n"
+                "- A parameter **runs in groups** when its groups last at least "
+                f"{shifts.MIN_DAYS:g} of its days on average (*Days per group*: its days with "
+                "a value over its groups), so a value set per day, such as a date, does not; "
+                f"and it has fewer groups than chance: in at most {shifts.P_MAX:g} of "
+                f"{shifts.PERMUTATIONS} shuffles of its values over its batches do as few "
+                "come out (*Permutation p*), so a rare value scattered at random does not.\n"
+                "- **Shared shifts** of a pair: its *shift days* are the days a group starts, "
+                "but its first. Over the days both have a value (at least "
+                f"{shifts.MIN_BATCHES} batches), each shift day counts on the first of those "
+                "days on or after it, and shared shifts is the share of their shift days the "
+                "two have in common: 1 when they change on the same days.\n"
+                "- **Groups of parameters.** Complete linkage on 1 - shared shifts: every "
+                f"pair in a group shares at least {shifts.THRESHOLD:g} of its shift days. A "
+                "group's name ends with the plant."
             ),
         ],
     }
@@ -1250,20 +1252,18 @@ def build_correlation_payload(run: BuildRun) -> dict[str, Any]:
 
 def build_shifts_payload(run: BuildRun) -> dict[str, Any]:
     """The build's shifts report."""
-    viewer = _grouped_viewer(
-        run.shifts, "shift_viewer", "Level groups", "shifts", "ARI", shifts.REASON
-    )
     tested = ", ".join(
         f"{site} {len(a.analysed):,} of {a.tested:,}" for site, (_, a) in run.shifts.items()
     )
     return _grouped_payload(
         run,
         run.shifts,
-        viewer,
+        _shift_viewer(run),
         "Batch table shifts",
-        "Which parameters hold very nearly one value for a stretch of batches and then jump to "
-        "another, as a lot does, and which have their level groups on the same batches, per "
-        f"manufacturing site. Parameters that move in level groups — {tested}.",
+        "Which parameters keep one value for a stretch of days and then change to another, as "
+        "a lot does, and which change on the same days, per manufacturing site. "
+        "`ml task new --exclude-shifting` leaves them all out of a task. Parameters that run "
+        f"in groups — {tested}.",
         _shifts_help(run),
     )
 

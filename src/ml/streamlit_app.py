@@ -20,6 +20,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
+from plotly.subplots import make_subplots
 
 # pandas is here for one reason: a sortable table is a Streamlit data grid, and
 # a data grid wants a DataFrame. Streamlit installs it into the runtime itself,
@@ -550,7 +551,7 @@ def render_missing_viewer(block: dict, key: str) -> None:
             if not drawn:
                 return
         if mode == "rank":
-            render_pairs(site, drawn, screened)
+            render_pairs(site, drawn, screened, f"{key}-{chosen}")
             return
         # A parameter with no blank at this site has no pattern stored: all measured.
         bits = [site["patterns"].get(p, ("0" if mode == "missing" else ".") * n) for p in drawn]
@@ -593,29 +594,76 @@ def render_missing_viewer(block: dict, key: str) -> None:
         components.html(page, height=len(drawn) * (ROW + 2) + 22 + 40, scrolling=False)
 
 
-def render_pairs(site: dict, drawn: list, screened: dict) -> None:
-    """A scatterplot of every pair of the parameters drawn, one dot per batch."""
+#: Up to this many parameters a group is drawn as every pair; beyond, the labels do not fit.
+ALL_PAIRS = 4
+#: Panels per row, and a panel's title length, when one parameter is drawn against the others.
+PANELS, TITLE = 3, 48
+
+
+def render_pairs(site: dict, drawn: list, screened: dict, key: str) -> None:
+    """Scatterplots of the parameters drawn, one dot per batch.
+
+    A small group shows every pair. A larger one shows one parameter (the
+    representative, unless the reader picks another) against each of the others.
+    """
     shown = [p for p in drawn if p in site["values"]]
     if len(shown) < 2:
         st.caption("Tick at least two parameters of a group to draw them against each other.")
         return
-    labels = [("⊘ " if p in screened else "") + p for p in shown]
-    figure = go.Figure(
-        go.Splom(
-            dimensions=[
-                {"label": label, "values": site["values"][p]} for p, label in zip(shown, labels)
-            ],
-            text=site["batches"],
-            diagonal_visible=False,
-            showupperhalf=False,
-            marker={"size": 4, "color": "#0047ab", "opacity": 0.6},
+    label = {p: ("⊘ " if p in screened else "") + p for p in shown}
+    dots = {"size": 4, "color": "#0047ab", "opacity": 0.6}
+    if len(shown) <= ALL_PAIRS:
+        figure = go.Figure(
+            go.Splom(
+                dimensions=[{"label": label[p], "values": site["values"][p]} for p in shown],
+                text=site["batches"],
+                diagonal_visible=False,
+                showupperhalf=False,
+                marker=dots,
+            )
         )
-    )
-    size = 160 * (len(shown) - 1) + 120
-    figure.update_layout(
-        height=size, margin={"l": 10, "r": 10, "t": 10, "b": 10}, dragmode="select"
-    )
-    st.plotly_chart(figure, width="stretch")
+        figure.update_layout(height=180 * (len(shown) - 1) + 120)
+    else:
+        x = st.selectbox(
+            "Against",
+            shown,
+            format_func=label.get,
+            key=f"against{key}",
+            help="Each plot puts this parameter on the x-axis; the first is the representative.",
+        )
+        others = [p for p in shown if p != x]
+        rows = -(-len(others) // PANELS)
+        figure = make_subplots(
+            rows=rows,
+            cols=PANELS,
+            subplot_titles=[
+                label[p] if len(label[p]) <= TITLE else label[p][: TITLE - 1] + "…" for p in others
+            ],
+            vertical_spacing=min(0.3 / rows, 0.12),
+            horizontal_spacing=0.06,
+        )
+        for i, p in enumerate(others):
+            figure.add_trace(
+                go.Scatter(
+                    x=site["values"][x],
+                    y=site["values"][p],
+                    mode="markers",
+                    marker=dots,
+                    text=site["batches"],
+                    hovertemplate=f"%{{text}}<br>{x}: %{{x}}<br>{p}: %{{y}}<extra></extra>",
+                ),
+                row=i // PANELS + 1,
+                col=i % PANELS + 1,
+            )
+        figure.update_annotations(font_size=11)
+        figure.update_layout(height=230 * rows + 40, showlegend=False)
+        st.markdown(
+            f'<p class="batch_table-caption">x-axis: <b>{html.escape(label[x])}</b>; each '
+            "plot's title names the parameter on its y-axis.</p>",
+            unsafe_allow_html=True,
+        )
+    figure.update_layout(margin={"l": 50, "r": 10, "t": 30, "b": 10})
+    st.plotly_chart(figure, width="stretch", key=f"pairs{key}")
     st.markdown(
         '<p class="batch_table-caption">One dot per batch with a value for both. The first '
         "parameter is the group's suggested representative; ⊘ marks one the register already "

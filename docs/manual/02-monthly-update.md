@@ -146,9 +146,11 @@ so to a tree the members of a group are interchangeable.
 
 Only the groups and their members are listed; a parameter in no group is left out.
 
-- **The scatterplots.** One plot per pair of the group's parameters, one dot per
-  batch with a value for both. Members of a group lie along a rising or falling
-  curve. The representative comes first.
+- **The scatterplots.** One dot per batch with a value for both parameters;
+  members of a group lie along a rising or falling curve. A group of up to four
+  parameters shows every pair. A larger one shows one parameter (*Against*, the
+  representative by default) on the x-axis of a small plot per other member,
+  titled with that member; pick another parameter in *Against* to see its pairs.
 - **The group table.** Members, the **suggested representative** (the member
   that carries most of the others' information: the highest mean |ρ| to the other
   members, weighted by how many of their batches it has a value on), mean and

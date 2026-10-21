@@ -625,8 +625,10 @@ def _correlation_help(run: BuildRun) -> dict | None:
             md(
                 "#### Reading the report\n\n"
                 "Pick a site. The report lists only the groups and their members. Tick a group "
-                "to draw a scatterplot of every pair of its parameters, one dot per batch with "
-                "a value for both; tick parameters to add them. Parameters that rank the "
+                "to draw its parameters against each other, one dot per batch with a value for "
+                "both; tick parameters to add them. Up to four parameters show every pair; "
+                "more show the parameter picked in *Against* (the representative by default) "
+                "against each of the others. Parameters that rank the "
                 "batches alike lie along a rising or falling curve. ⊘ marks a parameter the "
                 f"screening register already excludes here as *{correlation.REASON}*.\n\n"
                 "To keep only a group's representative, tick the group and open *Propose a "

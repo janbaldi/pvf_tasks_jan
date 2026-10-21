@@ -8,7 +8,7 @@ import pytest
 
 import dummy_data
 from conftest import shared
-from ml import correlation, names, screening, stlite
+from ml import correlation, names, report, screening, stlite
 
 
 def test_parameters_that_rank_the_batches_alike_group_whatever_the_transform():
@@ -159,6 +159,7 @@ def test_the_build_writes_the_correlation_report_over_the_missingness_batches(bu
         members = {m for group in site["groups"].values() for m in group}
         assert members <= set(site["values"])
         assert not members & {row[0] for row in site["rows"]}, "grouped: in the group table"
+        assert site["headers"][:2] == ["Parameter", "Register"]
         closest = site["headers"].index("Closest parameter")
         assert {row[closest] for row in site["rows"]} - {""} <= set(site["values"])
         assert all(len(values) == len(site["batches"]) for values in site["values"].values())
@@ -177,3 +178,21 @@ def test_the_build_writes_the_task_catalog(built):
     # Screened out at site A only: still usable over site B.
     assert table.loc[dummy_data.screened_parameter(), "Usable at"] == names.site("b")
     assert set(table.index) <= set(built["batch_table"].columns)
+
+
+def test_a_ticked_pair_excludes_the_closest_represented_by_the_parameter():
+    from test_screening import _proposal_rows
+
+    # As the report's proposal builds it for a ticked parameter W whose closest is Z.
+    rows, _ = _proposal_rows()(
+        ["Z"], {}, {}, "North", "exclude", correlation.REASON, "same order", "2027-01-01", "A", "W"
+    )
+    (added,) = screening.add([], pd.DataFrame(rows), EVIDENCE, "", "", SITES)
+    assert (added.parameter, added.represented_by, added.reason) == ("Z", "W", correlation.REASON)
+    screened = {"Z": {"Decision": "S-0001", "Represented by": "W"}}
+    assert report._register_note({"Parameter": "W", "Closest parameter": "Z"}, screened) == (
+        "represents Z (its closest)"
+    )
+    assert report._register_note({"Parameter": "Z"}, screened) == (
+        "excluded (S-0001), represented by W"
+    )

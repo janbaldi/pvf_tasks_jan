@@ -527,6 +527,20 @@ _GROUPED_FORMATS = {
 }
 
 
+def _register_note(row: dict, screened: dict[str, dict]) -> str:
+    """What the register already says about a parameter and its closest one, as correlated."""
+    parameter, closest = row["Parameter"], row.get("Closest parameter")
+    notes = []
+    if parameter in screened:
+        d = screened[parameter]
+        notes.append(f"excluded ({d['Decision']}), represented by {d['Represented by']}")
+    represents = [p for p, d in screened.items() if d.get("Represented by") == parameter]
+    if represents:
+        mark = " (its closest)" if closest in represents else ""
+        notes.append(f"represents {', '.join(represents)}{mark}")
+    return "; ".join(notes)
+
+
 def _grouped_viewer(
     results: dict[str, tuple[list[dict], Any]],
     kind: str,
@@ -555,8 +569,14 @@ def _grouped_viewer(
     for number, (site, (rows, analysis)) in enumerate(results.items(), start=1):
         if not rows:
             continue
-        headers = list(rows[0])
         ranked = kind == "rank_viewer"
+        if ranked:
+            rows = [
+                {"Parameter": row["Parameter"], "Register": _register_note(row, analysis.screened)}
+                | row
+                for row in rows
+            ]
+        headers = list(rows[0])
         sites.append(
             {
                 "label": site,
@@ -627,7 +647,9 @@ def _correlation_help(run: BuildRun) -> dict | None:
                 "#### Reading the report\n\n"
                 "Pick a site. Tick a group to draw its parameters against each other, one dot "
                 "per batch with a value for both. The parameter table lists the parameters in no "
-                "group; tick one to draw it against its closest parameter. Up to four "
+                "group; the plot shows the last one ticked against its closest parameter, and a "
+                "proposal excludes each ticked one's closest, represented by it. Its *Register* "
+                "column says what the register holds already. Up to four "
                 "parameters show every pair; more show the parameter picked in *Against* "
                 "(the representative by default) against each of the others. Parameters "
                 "that rank the batches alike lie along a rising or falling curve. ⊘ marks a "

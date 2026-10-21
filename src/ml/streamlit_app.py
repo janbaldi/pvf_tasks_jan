@@ -376,29 +376,50 @@ def proposal_rows(
     return rows, skipped
 
 
-def render_proposal(form: dict, site: dict, picked: list, key: str) -> None:
-    """Turn the ticked parameters into a proposal.csv for `ml screening add`."""
+def render_proposal(form: dict, site: dict, picked: list, key: str, pairs: list = ()) -> None:
+    """Turn the ticked parameters into a proposal.csv for `ml screening add`.
+
+    ``pairs`` are (parameter, closest parameter) ticked in the correlation report's
+    parameter table: each excludes the closest, represented by the parameter.
+    """
     group_of = {m: g for g, members in site["groups"].items() for m in members}
-    with st.expander(f"Propose a screening decision ({len(picked)} ticked)", expanded=False):
-        if not picked:
+    ticked = len(pairs) or len(picked)
+    with st.expander(f"Propose a screening decision ({ticked} ticked)", expanded=False):
+        if not ticked:
             st.caption(
                 "Tick a group, parameters, or screened parameters above; they are what the "
                 "proposal is about."
             )
             return
-        # A correlated group keeps one representative: the reader leaves it out here.
-        kept = st.multiselect("Leave out of the proposal", picked, key=f"keep{key}")
-        picked = [p for p in picked if p not in kept]
-        left, right = st.columns(2)
-        action = left.radio("Action", form["actions"], horizontal=True, key=f"act{key}")
-        reason = right.selectbox(
-            "Reason",
-            form["reasons"],
-            index=form["reasons"].index(form["reason"]) if form.get("reason") else 0,
-            key=f"why{key}",
-        )
-        instead = ""
-        if form.get("represent") and action == "exclude" and picked:
+        action, reason, instead = "exclude", form.get("reason") or "", ""
+        if pairs:
+            done = [
+                (p, c) for p, c in pairs if site["screened"].get(c, {}).get("Represented by") == p
+            ]
+            if done:
+                st.caption(
+                    "Already in the register, so left out: "
+                    + "; ".join(f"{c} represented by {p}" for p, c in done)
+                )
+            pairs = [pair for pair in pairs if pair not in done]
+            st.markdown(
+                f"Exclude each pair's closest parameter as *{reason}*, represented by the "
+                "ticked parameter:\n"
+                + "".join(f"\n- {c} → represented by **{p}**" for p, c in pairs)
+            )
+        else:
+            # A correlated group keeps one representative: the reader leaves it out here.
+            kept = st.multiselect("Leave out of the proposal", picked, key=f"keep{key}")
+            picked = [p for p in picked if p not in kept]
+            left, right = st.columns(2)
+            action = left.radio("Action", form["actions"], horizontal=True, key=f"act{key}")
+            reason = right.selectbox(
+                "Reason",
+                form["reasons"],
+                index=form["reasons"].index(form["reason"]) if form.get("reason") else 0,
+                key=f"why{key}",
+            )
+        if form.get("represent") and action == "exclude" and picked and not pairs:
             # Ticking a group puts its suggested representative first.
             instead = st.selectbox(
                 "Represented by: stays usable, the others are excluded",
@@ -414,8 +435,7 @@ def render_proposal(form: dict, site: dict, picked: list, key: str) -> None:
             disabled=action != "exclude",
         )
         author = right.text_input("Author", key=f"who{key}")
-        rows, skipped = proposal_rows(
-            picked,
+        common = (
             group_of,
             site["screened"],
             site.get("register_site") or site["label"],
@@ -424,8 +444,12 @@ def render_proposal(form: dict, site: dict, picked: list, key: str) -> None:
             rationale,
             review.isoformat(),
             author,
-            instead,
         )
+        if pairs:
+            rows = [row for p, c in pairs for row in proposal_rows([c], *common, p)[0]]
+            skipped = []
+        else:
+            rows, skipped = proposal_rows(picked, *common, instead)
         if skipped:
             st.warning(
                 f"Not screened out at this site, so nothing to reinstate: {', '.join(skipped)}"
@@ -454,6 +478,15 @@ def render_proposal(form: dict, site: dict, picked: list, key: str) -> None:
             "</code>. It checks every row against the latest build before it adds any.</p>",
             unsafe_allow_html=True,
         )
+
+
+def _last_ticked(ticked: list, key: str) -> int | None:
+    """The row ticked most recently: a grid reports its ticked rows, not their order."""
+    before, last = st.session_state.get(key, ([], None))
+    new = [i for i in ticked if i not in before]
+    last = new[-1] if new else last if last in ticked else (ticked[-1] if ticked else None)
+    st.session_state[key] = (list(ticked), last)
+    return last
 
 
 def render_missing_viewer(block: dict, key: str) -> None:
@@ -514,23 +547,29 @@ def render_missing_viewer(block: dict, key: str) -> None:
         else:
             st.caption("Nothing is screened out at this site.")
     pair: list[str] = []
-    with st.expander(f"Parameters in no group ({len(site['rows'])})", expanded=False):
+    pairs: list[tuple] = []
+    with st.expander(f"Parameters in no group ({len(site['rows'])})", expanded=mode == "rank"):
         frame, ticked = _pick_table(
-            site["headers"],
-            site["rows"],
-            site["formats"],
-            "single-row" if mode == "rank" else "multi-row",
-            f"rows{key}-{chosen}",
+            site["headers"], site["rows"], site["formats"], "multi-row", f"rows{key}-{chosen}"
         )
-        picked += [frame.iloc[i]["Parameter"] for i in ticked]
-        if mode == "rank" and ticked:
-            # A parameter in no group is drawn against its closest parameter, and only that.
-            row = frame.iloc[ticked[0]]
-            pair = [p for p in (row["Parameter"], row["Closest parameter"]) if p]
+        if mode == "rank":
+            # Each ticked parameter with its closest; the plot shows the last one ticked.
+            pairs = [
+                (r["Parameter"], r["Closest parameter"])
+                for r in (frame.iloc[i] for i in ticked)
+                if r["Closest parameter"]
+            ]
+            last = _last_ticked(ticked, f"last{key}-{chosen}")
+            if last is not None:
+                row = frame.iloc[last]
+                pair = [p for p in (row["Parameter"], row["Closest parameter"]) if p]
+        else:
+            picked += [frame.iloc[i]["Parameter"] for i in ticked]
         st.markdown(
             '<p class="batch_table-caption">'
             + (
-                "Tick a parameter to draw it against its closest parameter. "
+                "Tick parameters to keep each and exclude its closest parameter; the plot "
+                "shows the last one ticked against its closest. "
                 if mode == "rank"
                 else "Tick parameters to add them to the plot. "
             )
@@ -548,7 +587,7 @@ def render_missing_viewer(block: dict, key: str) -> None:
 
     picked = list(dict.fromkeys(picked))
     if block.get("proposal"):
-        render_proposal(block["proposal"], site, picked, f"{key}-{chosen}")
+        render_proposal(block["proposal"], site, picked, f"{key}-{chosen}", pairs)
     n = len(site["batches"])
     with top:
         drawn = pair or picked
@@ -610,33 +649,28 @@ def render_missing_viewer(block: dict, key: str) -> None:
 
 #: Up to this many parameters a group is drawn as every pair; beyond, the labels do not fit.
 ALL_PAIRS = 4
-#: Panels per row, and a panel's title length, when one parameter is drawn against the others.
+#: Panels per row, and an axis title's length.
 PANELS, TITLE = 3, 48
 
 
-def render_pairs(site: dict, drawn: list, screened: dict, key: str) -> None:
-    """Scatterplots of the parameters drawn, one dot per batch.
+def _short(text: str) -> str:
+    return text if len(text) <= TITLE else text[: TITLE - 1] + "…"
 
-    A small group shows every pair. A larger one shows one parameter (the
-    representative, unless the reader picks another) against each of the others.
+
+def render_pairs(site: dict, drawn: list, screened: dict, key: str) -> None:
+    """Scatterplots of the parameters drawn, one dot per batch, as SVG (no WebGL needed).
+
+    Two parameters make one plot. A small group shows every pair. A larger one shows
+    one parameter (the representative, unless the reader picks another) against
+    each of the others.
     """
     shown = [p for p in drawn if p in site["values"]]
     if len(shown) < 2:
         st.caption("Tick at least two parameters of a group to draw them against each other.")
         return
     label = {p: ("⊘ " if p in screened else "") + p for p in shown}
-    dots = {"size": 4, "color": "#0047ab", "opacity": 0.6}
     if len(shown) <= ALL_PAIRS:
-        figure = go.Figure(
-            go.Splom(
-                dimensions=[{"label": label[p], "values": site["values"][p]} for p in shown],
-                text=site["batches"],
-                diagonal_visible=False,
-                showupperhalf=False,
-                marker=dots,
-            )
-        )
-        figure.update_layout(height=180 * (len(shown) - 1) + 120)
+        pairs = [(x, y) for i, x in enumerate(shown) for y in shown[i + 1 :]]
     else:
         x = st.selectbox(
             "Against",
@@ -645,43 +679,40 @@ def render_pairs(site: dict, drawn: list, screened: dict, key: str) -> None:
             key=f"against{key}",
             help="Each plot puts this parameter on the x-axis; the first is the representative.",
         )
-        others = [p for p in shown if p != x]
-        rows = -(-len(others) // PANELS)
-        figure = make_subplots(
-            rows=rows,
-            cols=PANELS,
-            subplot_titles=[
-                label[p] if len(label[p]) <= TITLE else label[p][: TITLE - 1] + "…" for p in others
-            ],
-            vertical_spacing=min(0.3 / rows, 0.12),
-            horizontal_spacing=0.06,
+        pairs = [(x, y) for y in shown if y != x]
+    cols = min(PANELS, len(pairs))
+    rows = -(-len(pairs) // cols)
+    figure = make_subplots(
+        rows=rows,
+        cols=cols,
+        vertical_spacing=min(0.35 / rows, 0.15),
+        horizontal_spacing=0.12 if cols > 1 else 0.0,
+    )
+    for i, (x, y) in enumerate(pairs):
+        at = {"row": i // cols + 1, "col": i % cols + 1}
+        figure.add_trace(
+            go.Scatter(
+                x=site["values"][x],
+                y=site["values"][y],
+                mode="markers",
+                marker={"size": 5, "color": "#0047ab", "opacity": 0.6},
+                text=site["batches"],
+                hovertemplate=f"%{{text}}<br>{x}: %{{x}}<br>{y}: %{{y}}<extra></extra>",
+            ),
+            **at,
         )
-        for i, p in enumerate(others):
-            figure.add_trace(
-                go.Scatter(
-                    x=site["values"][x],
-                    y=site["values"][p],
-                    mode="markers",
-                    marker=dots,
-                    text=site["batches"],
-                    hovertemplate=f"%{{text}}<br>{x}: %{{x}}<br>{p}: %{{y}}<extra></extra>",
-                ),
-                row=i // PANELS + 1,
-                col=i % PANELS + 1,
-            )
-        figure.update_annotations(font_size=11)
-        figure.update_layout(height=230 * rows + 40, showlegend=False)
-        st.markdown(
-            f'<p class="batch_table-caption">x-axis: <b>{html.escape(label[x])}</b>; each '
-            "plot's title names the parameter on its y-axis.</p>",
-            unsafe_allow_html=True,
-        )
-    figure.update_layout(margin={"l": 50, "r": 10, "t": 30, "b": 10})
+        figure.update_xaxes(title_text=_short(label[x]), title_font_size=11, **at)
+        figure.update_yaxes(title_text=_short(label[y]), title_font_size=11, **at)
+    figure.update_layout(
+        height=(260 if cols > 1 else 380) * rows + 20,
+        showlegend=False,
+        margin={"l": 60, "r": 10, "t": 10, "b": 10},
+    )
     st.plotly_chart(figure, width="stretch", key=f"pairs{key}")
     st.markdown(
-        '<p class="batch_table-caption">One dot per batch with a value for both. The first '
-        "parameter is the group's suggested representative; ⊘ marks one the register already "
-        "excludes here as correlated.</p>",
+        '<p class="batch_table-caption">One dot per batch with a value for both. In a group '
+        "the first parameter is its suggested representative; ⊘ marks one the register "
+        "already excludes here as correlated.</p>",
         unsafe_allow_html=True,
     )
 

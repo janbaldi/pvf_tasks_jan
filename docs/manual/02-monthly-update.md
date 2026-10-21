@@ -147,8 +147,13 @@ the site. It groups the parameters that **put the batches in the same order**
 so to a tree the members of a group are interchangeable.
 
 The parameter table lists only the parameters in no group, each with its closest
-parameter; tick one to draw just that pair. The same goes for the missingness
-report: a parameter in a group is in the group table, not the parameter table.
+parameter; the plot shows the last one you ticked against its closest. Tick
+several to propose, for each, that its closest parameter is excluded as
+`correlated with group`, represented by the ticked one. The **Register** column
+says what the register already holds: *excluded (S-…), represented by …*, or
+*represents …* (*its closest* when the closest parameter is among them). The same
+goes for the missingness report: a parameter in a group is in the group table,
+not the parameter table.
 
 - **The scatterplots.** One dot per batch with a value for both parameters;
   members of a group lie along a rising or falling curve. A group of up to four

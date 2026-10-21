@@ -208,11 +208,6 @@ MISSING_LEGEND = """<b style="background:#d3d2cc;margin-left:0"></b>measured
   <b style="background:#2e8b57"></b>missing, batch not in the statistics
   &nbsp;·&nbsp; one cell per batch, newest on the right; scroll left to go back in time;
   ⊘ marks a parameter screened out at this site"""
-RANK_LEGEND = """<b style="background:#d3d2cc;margin-left:0"></b>no value
-  <b style="background:hsl(216,100%%,92%%)"></b>lowest
-  <b style="background:hsl(216,100%%,34%%)"></b>highest value of the parameter at this site
-  &nbsp;·&nbsp; one cell per batch, %s; rows that darken in step rank the batches alike;
-  ⊘ marks a parameter screened out at this site"""
 SHIFT_LEGEND = """<b style="background:#d3d2cc;margin-left:0"></b>no value
   <b style="background:hsl(216,100%,92%)"></b>lowest
   <b style="background:hsl(216,100%,34%)"></b>highest level of the parameter;
@@ -247,7 +242,7 @@ STRIP = """
 const D = %(data)s, W = %(cell)d, H = %(row)d, GAP = 2, AXIS = 22;
 const n = D.batches.length, step = W + 1, ratio = window.devicePixelRatio || 1;
 const canvas = document.getElementById("c"), ctx = canvas.getContext("2d");
-// "." is no value. A rank, or the level of a level group, is one base-36 digit;
+// "." is no value. The level of a level group is one base-36 digit;
 // a missing pattern is "1" for missing.
 const level = (c) => parseInt(c, 36) / (D.levels - 1);
 const fill = (c, i) => D.mode !== "missing"
@@ -257,7 +252,6 @@ const fill = (c, i) => D.mode !== "missing"
 const segment = (row, i) => row.segments.starts.filter((start) => start <= i).length - 1;
 const state = (row, i) => {
   const c = row.bits[i];
-  if (D.mode === "rank") return c === "." ? "no value" : "percentile " + Math.round(100 * level(c));
   if (D.mode === "shift") {
     if (c === ".") return "no value";
     const k = segment(row, i), count = row.segments.starts.length;
@@ -465,13 +459,12 @@ def render_proposal(form: dict, site: dict, picked: list, key: str) -> None:
 def render_missing_viewer(block: dict, key: str) -> None:
     """The strip on top; below it the groups (one to draw) and the parameters (any to add).
 
-    In a ``rank_viewer`` each site's ``patterns`` are percentile ranks rather than
-    missing flags, and the strip can order the batches by the first parameter drawn.
-    In a ``shift_viewer`` they are the level of each batch's level group, with each
-    group's first batch and value in ``segments``.
+    A ``rank_viewer`` draws a scatterplot of every pair of the parameters instead
+    of the strip, from each site's ``values``. In a ``shift_viewer`` the ``patterns``
+    are the level of each batch's level group, with each group's first batch and
+    value in ``segments``.
     """
     mode = {"rank_viewer": "rank", "shift_viewer": "shift"}.get(block["kind"], "missing")
-    ranks = mode == "rank"
     together = {
         "rank": "that rank the batches alike",
         "shift": "with the same level groups",
@@ -542,7 +535,6 @@ def render_missing_viewer(block: dict, key: str) -> None:
     if block.get("proposal"):
         render_proposal(block["proposal"], site, picked, f"{key}-{chosen}")
     n = len(site["batches"])
-    by_value = False
     with top:
         drawn = picked
         if not picked:
@@ -557,6 +549,9 @@ def render_missing_viewer(block: dict, key: str) -> None:
             )
             if not drawn:
                 return
+        if mode == "rank":
+            render_pairs(site, drawn, screened)
+            return
         # A parameter with no blank at this site has no pattern stored: all measured.
         bits = [site["patterns"].get(p, ("0" if mode == "missing" else ".") * n) for p in drawn]
         names = [("⊘ " if p in screened else "") + p for p in drawn]
@@ -568,35 +563,17 @@ def render_missing_viewer(block: dict, key: str) -> None:
             names = [
                 name
                 if i == 0 or p not in index or reference[index[p]] is None
-                else f"ρ {reference[index[p]] / 100:+.2f} · {name}"
-                if ranks
                 else f"ARI {reference[index[p]] / 100:.2f} · {name}"
                 for i, (p, name) in enumerate(zip(drawn, names))
             ]
-        if ranks:
-            by_value = (
-                st.radio(
-                    "Batches",
-                    ["by the first parameter's value", "by date"],
-                    horizontal=True,
-                    key=f"order{key}-{chosen}",
-                )
-                != "by date"
-            )
-            legend = RANK_LEGEND % (
-                f"lowest to highest {drawn[0]}" if by_value else "newest on the right"
-            )
         order = list(range(n))
-        if by_value:
-            first = bits[0]
-            order.sort(key=lambda i: (first[i] == ".", int(first[i], 36) if first[i] != "." else 0))
         data = {
             "batches": [site["batches"][i] for i in order],
             "dates": [site["dates"][i] for i in order],
             "analysed": site.get("in_statistics") or "",
             "levels": block.get("levels") or 0,
             "mode": mode,
-            "axis": not by_value,
+            "axis": True,
             "rows": [
                 {
                     "name": name,
@@ -614,6 +591,37 @@ def render_missing_viewer(block: dict, key: str) -> None:
             "labels": LABELS,
         }
         components.html(page, height=len(drawn) * (ROW + 2) + 22 + 40, scrolling=False)
+
+
+def render_pairs(site: dict, drawn: list, screened: dict) -> None:
+    """A scatterplot of every pair of the parameters drawn, one dot per batch."""
+    shown = [p for p in drawn if p in site["values"]]
+    if len(shown) < 2:
+        st.caption("Tick at least two parameters of a group to draw them against each other.")
+        return
+    labels = [("⊘ " if p in screened else "") + p for p in shown]
+    figure = go.Figure(
+        go.Splom(
+            dimensions=[
+                {"label": label, "values": site["values"][p]} for p, label in zip(shown, labels)
+            ],
+            text=site["batches"],
+            diagonal_visible=False,
+            showupperhalf=False,
+            marker={"size": 4, "color": "#0047ab", "opacity": 0.6},
+        )
+    )
+    size = 160 * (len(shown) - 1) + 120
+    figure.update_layout(
+        height=size, margin={"l": 10, "r": 10, "t": 10, "b": 10}, dragmode="select"
+    )
+    st.plotly_chart(figure, width="stretch")
+    st.markdown(
+        '<p class="batch_table-caption">One dot per batch with a value for both. The first '
+        "parameter is the group's suggested representative; ⊘ marks one the register already "
+        "excludes here as correlated.</p>",
+        unsafe_allow_html=True,
+    )
 
 
 def render_block(block: dict, key: str) -> None:

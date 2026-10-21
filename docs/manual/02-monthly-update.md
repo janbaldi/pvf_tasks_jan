@@ -144,11 +144,11 @@ the site. It groups the parameters that **put the batches in the same order**
 (Spearman rank correlation, sign ignored): a decision tree only uses that order,
 so to a tree the members of a group are interchangeable.
 
-- **The rank plot.** One row per parameter, one cell per batch, coloured by the
-  parameter's percentile rank at that site: light is low, dark is high, grey is
-  no value. The batches are ordered by the first parameter's value, so rows that
-  darken in step are the reason for the group; each row says its ρ to the first.
-  Switch to *by date* to see them over time.
+Only the groups and their members are listed; a parameter in no group is left out.
+
+- **The scatterplots.** One plot per pair of the group's parameters, one dot per
+  batch with a value for both. Members of a group lie along a rising or falling
+  curve. The representative comes first.
 - **The group table.** Members, the **suggested representative** (the member
   that carries most of the others' information: the highest mean |ρ| to the other
   members, weighted by how many of their batches it has a value on), mean and
@@ -161,7 +161,9 @@ so to a tree the members of a group are interchangeable.
   every other member and records the representative in the register; the
   representative stays usable. Excluded members stay in this report, marked ⊘,
   so they can be reinstated; a parameter screened out for any other reason is
-  left out.
+  left out. A group you propose nothing for stays whole: tasks use all of it.
+  Every new task file lists the excluded members under `predictors.exclude`, each
+  with its decision as the reason ([chapter 4](04-tasks.md)).
 
 ### The shifts report
 

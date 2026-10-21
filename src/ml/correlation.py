@@ -50,7 +50,7 @@ THRESHOLD = 0.8
 MIN_BATCHES = 20
 #: The screening reason that leaves this analysis's own decisions in it.
 REASON = CORRELATED
-#: Levels a value's percentile rank is drawn in: one base-36 digit per batch.
+#: Levels the shifts strip draws a value in: one base-36 digit per batch.
 LEVELS = 36
 
 
@@ -72,11 +72,11 @@ class CorrelationGroup:
 class CorrelationReport:
     analysed: list[str] = field(default_factory=list)
     groups: list[CorrelationGroup] = field(default_factory=list)
-    #: The batches compared, in date order, and what the viewer draws per parameter:
-    #: its percentile rank per batch, one base-36 digit, "." where it has no value.
+    #: The batches compared, in date order, and each group member's value per batch
+    #: (None where it has none): what the viewer's scatterplots draw.
     batches: list[str] = field(default_factory=list)
     dates: list[str] = field(default_factory=list)
-    ranks: dict[str, str] = field(default_factory=dict)
+    values: dict[str, list[float | None]] = field(default_factory=dict)
     #: ρ × 100, rounded, between the analysed parameters, in ``analysed`` order.
     rho: list[list[int | None]] = field(default_factory=list)
     cohort: str = ""
@@ -94,13 +94,6 @@ def _bh(p: np.ndarray) -> np.ndarray:
     out = np.empty_like(q)
     out[order] = q
     return out
-
-
-def _rank_text(values: pd.Series) -> str:
-    """Percentile ranks as one base-36 digit per batch, "." where there is no value."""
-    spread = (values.rank() - 1) / max(values.notna().sum() - 1, 1)
-    level = (spread * (LEVELS - 1)).round()
-    return "".join("." if pd.isna(v) else np.base_repr(int(v), 36).lower() for v in level)
 
 
 def grouped(
@@ -201,7 +194,6 @@ def for_build(
         else pd.Series("", index=frame.index)
     ).tolist()
     values = values[report.analysed]
-    report.ranks = {c: _rank_text(values[c]) for c in report.analysed}
 
     p = len(report.analysed)
     rho = values.corr(method="spearman", min_periods=MIN_BATCHES).to_numpy()
@@ -219,6 +211,11 @@ def for_build(
     similarity = np.nan_to_num(np.abs(rho))
     np.fill_diagonal(similarity, 1.0)
     report.groups = grouped(similarity, n, q, report.analysed, THRESHOLD, "Correlated")
+    report.values = {
+        m: [None if pd.isna(v) else float(f"{v:.4g}") for v in values[m]]
+        for g in report.groups
+        for m in g.members
+    }
     rows_of = {
         m: {"Group": g.name, "Suggested representative": g.representative}
         for g in report.groups

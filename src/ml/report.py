@@ -556,6 +556,9 @@ def _grouped_viewer(
             continue
         headers = list(rows[0])
         ranked = kind == "rank_viewer"
+        if ranked:
+            # The correlation report is about its groups: a parameter in none is left out.
+            rows = [row for row in rows if row["Group"]]
         sites.append(
             {
                 "label": site,
@@ -563,13 +566,15 @@ def _grouped_viewer(
                 "register_site": getattr(analysis, "register_site", "") or site,
                 "batches": analysis.batches,
                 "dates": analysis.dates,
-                "patterns": analysis.ranks if ranked else analysis.levels,
+                # The correlation report draws scatterplots of the values, the shifts a strip.
+                "values": analysis.values if ranked else {},
+                "patterns": {} if ranked else analysis.levels,
                 # Each level group's first batch and value, for the shifts strip.
                 "segments": {} if ranked else analysis.segments,
                 "screened": analysis.screened,
                 "similarity": {
-                    "parameters": analysis.analysed,
-                    "values": analysis.rho if ranked else analysis.similarity,
+                    "parameters": [] if ranked else analysis.analysed,
+                    "values": [] if ranked else analysis.similarity,
                 },
                 "groups": {g.name: g.members for g in analysis.groups},
                 "group_headers": list(group_formats),
@@ -619,13 +624,16 @@ def _correlation_help(run: BuildRun) -> dict | None:
         "blocks": [
             md(
                 "#### Reading the report\n\n"
-                "Pick a site. Tick a group to draw its parameters, and tick parameters to add "
-                "them. Each row of the plot is a parameter, each cell a batch, coloured by the "
-                "parameter's percentile rank at this site: light is its lowest value, dark its "
-                "highest, grey no value. By default the batches are ordered by the first "
-                "parameter's value, so its row runs light to dark; a parameter that ranks the "
-                "batches alike runs light to dark with it, one that ranks them in reverse runs "
-                "dark to light. Each row is labelled with its Spearman ρ to the first.\n\n"
+                "Pick a site. The report lists only the groups and their members. Tick a group "
+                "to draw a scatterplot of every pair of its parameters, one dot per batch with "
+                "a value for both; tick parameters to add them. Parameters that rank the "
+                "batches alike lie along a rising or falling curve. ⊘ marks a parameter the "
+                f"screening register already excludes here as *{correlation.REASON}*.\n\n"
+                "To keep only a group's representative, tick the group and open *Propose a "
+                "screening decision*: exclude, with the representative chosen under "
+                "*Represented by*. Download the proposal and run `ml screening add`. Every "
+                "new task file then lists the other members under `exclude`, with the "
+                "decision as the reason. A group you do not propose stays whole.\n\n"
                 "#### Why rank correlation\n\n"
                 "A decision tree splits on the order of a parameter's values, not on the values: "
                 "two parameters that order the batches alike offer it the same splits, and it "
@@ -655,7 +663,7 @@ def _correlation_help(run: BuildRun) -> dict | None:
                 "information: the highest *representative score*, the mean over the other "
                 "members of |ρ| × the share of that member's batches the candidate has a value "
                 "on too, since it stands in for another only where it was measured. Ties go to "
-                "the most batches with a value. It is drawn first, so the plot is ordered by it."
+                "the most batches with a value. It is drawn first."
             ),
             md(
                 "#### Screening\n\n"

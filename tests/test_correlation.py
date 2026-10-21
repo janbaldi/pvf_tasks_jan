@@ -34,17 +34,16 @@ def test_parameters_that_rank_the_batches_alike_group_whatever_the_transform():
     (group,) = report.groups
     assert sorted(group.members) == ["a", "b", "c", "f"]
     assert group.weakest > 0.99 and group.max_q < 1e-6 and group.min_batches == 89
-    assert report.left_out == ["e"] and "e" not in report.ranks
+    assert report.left_out == ["e"] and "e" not in report.values
     # The representative carries the others where they were measured: not b, with gaps.
     assert group.members[0] == group.representative != "b" and group.score > 0.9
     by_name = {row["Parameter"]: row for row in rows}
     assert by_name["d"]["Group"] == "" and by_name["b"]["Batches with a value"] == 89
-    # The strip: the lowest value is level 0, the highest the top level, no value ".".
-    assert report.ranks["b"][:31] == "." * 31
-    assert {report.ranks["a"][int(np.argmin(x))], report.ranks["a"][int(np.argmax(x))]} == {
-        "0",
-        np.base_repr(correlation.LEVELS - 1, 36).lower(),
-    }
+    # The scatterplots: each member's value per batch, None where it has none.
+    assert set(report.values) == set(group.members)
+    assert report.values["b"][:31] == [None] * 31 and report.values["a"][40] == float(
+        f"{x[40]:.4g}"
+    )
 
 
 SITES = ("North", "South")
@@ -157,13 +156,13 @@ def test_the_build_writes_the_correlation_report_over_the_missingness_batches(bu
     for site in viewer["sites"]:
         # The same batches as the missingness statistics, and only numerical parameters.
         assert sorted(site["batches"]) == sorted(counted[site["label"]])
-        assert set(site["patterns"]) == set(site["similarity"]["parameters"])
-        assert all(len(bits) == len(site["batches"]) for bits in site["patterns"].values())
-        for group, members in site["groups"].items():
-            assert len(members) >= 2 and set(members) <= set(site["patterns"])
+        members = {m for group in site["groups"].values() for m in group}
+        assert set(site["values"]) == members, "only the groups are shown"
+        assert {row[0] for row in site["rows"]} == members
+        assert all(len(values) == len(site["batches"]) for values in site["values"].values())
     # Screened out at site A for missingness, so not compared there.
     first = {site["label"]: site for site in viewer["sites"]}[names.site("a")]
-    assert dummy_data.screened_parameter() not in first["patterns"]
+    assert dummy_data.screened_parameter() not in first["values"]
     # Each group is drawn from its suggested representative.
     for site in viewer["sites"]:
         for row in site["group_rows"]:

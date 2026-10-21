@@ -154,8 +154,8 @@ def missing_viewer(sites: Sequence[dict[str, Any]], kind: str = "missing_viewer"
     for the parameters with any blank; ``groups``, name → members; and the
     parameter table as ``headers``, ``rows`` and ``formats``, to pick rows from.
 
-    ``kind="rank_viewer"`` draws percentile ranks instead: ``patterns`` holds one
-    base-36 digit per batch, and each site adds ``rho``, the rank correlations.
+    ``kind="rank_viewer"`` draws scatterplots of each pair instead, from each
+    site's ``values``: parameter → its value per batch.
     """
     kept = [site for site in sites if site["batches"]]
     if not kept:

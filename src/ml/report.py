@@ -405,6 +405,8 @@ def _missing_viewer(run: BuildRun) -> dict | None:
     """The pattern viewer, with the group and parameter tables to pick what it draws."""
     sites = []
     for number, (site, (rows, analysis)) in enumerate(run.missingness.items(), start=1):
+        # A parameter recorded in every batch has no pattern to show.
+        rows = [row for row in rows if row["Parameter"] in analysis.missing]
         if not rows:
             continue
         headers = list(rows[0])
@@ -1158,7 +1160,9 @@ def build_missingness_payload(run: BuildRun) -> dict[str, Any]:
     return {
         "title": "Batch table missingness",
         "lead": f"How each of the {run.merge.total_columns:,} parameters goes missing, per site, "
-        "batch by batch: its pattern over time and the parameters missing with it."
+        "batch by batch: its pattern over time and the parameters missing with it. A parameter "
+        "recorded in every batch of a site is left out; one missing in every batch is excluded "
+        "in the screening register by the build."
         + (" Batches described — " + "; ".join(cohorts) + "." if cohorts else ""),
         "subtitle": f"CAR-T manufacturing data · run {stamp}",
         "sections": [section for section in sections if section],

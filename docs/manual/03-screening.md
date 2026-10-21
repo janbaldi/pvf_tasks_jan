@@ -39,7 +39,6 @@ Good candidates for screening:
 
 | What you see | Reason to record |
 |---|---|
-| *Never recorded* at a site | `never recorded` |
 | *Retired*, with no value in the latest batches | `retired` |
 | *Introduced late*, with too little history yet | `introduced late` |
 | Mostly missing, or a value in too few batches to learn from | `too sparse` |
@@ -49,6 +48,12 @@ Good candidates for screening:
 | A member of a group in the shifts report, represented by another member | `shifts with group`, with `Represented by` |
 | Values you know to be wrong or incomparable | `data quality` |
 | Anything else | `other`, and say why |
+
+A parameter missing on every batch at a site needs no decision: each build
+excludes it there itself, as `never recorded`, with `ml build` as the author and
+one decision ID per site. It does so only once, and never for a parameter the
+register already decides on at that site, so a reinstatement stands. Parameters
+that are never missing are left out of the missingness report altogether.
 
 Screen at the site where the problem is. A parameter that is fine at Raritan and
 never recorded at Ghent is excluded at Ghent; only tasks that include Ghent

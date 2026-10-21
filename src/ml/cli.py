@@ -484,7 +484,7 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
             analysed=analysed,
         )
         missing_by_site[site][1].cohort = "; ".join(filter(None, (cohort, counted)))
-    standing = _mark_screened(missing_by_site, config)
+    standing, register, never_recorded = _mark_screened(missing_by_site, config)
     # Over the same batches, without what the register already leaves out.
     correlated_by_site = {}
     for site, (batches, analysed) in cohorts.items():
@@ -521,6 +521,7 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
             f"{target_table.name}, as a task will read it",
         )
         content_digest = provenance.frame_digest(io.read_table(files["batch table"]))
+        _write_never_recorded(config, register, never_recorded, content_digest, staged)
         if write_parquet:
             with _preparing("the batch table (Parquet)", staged / parquet_name, folder):
                 parquet = _write_parquet(result, staged / parquet_name)
@@ -708,14 +709,33 @@ def _register(config: dict[str, Any]) -> screening.Register | None:
     return screening.read(workspace.location(config, "screening"), names.sites())
 
 
-def _mark_screened(missing_by_site: dict[str, tuple], config: dict[str, Any]) -> dict:
-    """Add each parameter's standing screening decision to the missingness rows; the state."""
+def _mark_screened(
+    missing_by_site: dict[str, tuple], config: dict[str, Any]
+) -> tuple[dict, screening.Register | None, list[screening.Decision]]:
+    """Add each parameter's standing screening decision to the missingness rows.
+
+    The parameters missing in every batch of a site are excluded there on the
+    build's own account (:func:`ml.screening.never_recorded`); those decisions
+    count from here on, and :func:`_write_never_recorded` adds them to the register.
+    Returns the state, the register as read, and those decisions.
+    """
     try:
         register = _register(config)
     except Exception as exc:  # the report is still worth having without the column
         log.warn(MODULE, f"The screening register could not be read: {exc}")
-        return {}
-    state = screening.current(register.decisions, names.sites()) if register else {}
+        return {}, None, []
+    sites = names.sites()
+    automatic = (
+        screening.never_recorded(
+            register.decisions,
+            {site: rows for site, (rows, _) in missing_by_site.items()},
+            "",
+            sites,
+        )
+        if register
+        else []
+    )
+    state = screening.current(register.decisions + automatic, sites) if register else {}
     for site, (rows, analysis) in missing_by_site.items():
         for row in rows:
             decision = state.get((row["Parameter"], site))
@@ -729,7 +749,25 @@ def _mark_screened(missing_by_site: dict[str, tuple], config: dict[str, Any]) ->
                     "Review by": decision.review_by,
                     "Represented by": decision.represented_by,
                 }
-    return state
+    return state, register, automatic
+
+
+def _write_never_recorded(
+    config: dict[str, Any],
+    register: screening.Register | None,
+    automatic: list[screening.Decision],
+    content_digest: str,
+    staged: Path,
+) -> None:
+    """Append the build's own exclusions to the register, citing the batch table."""
+    if register is None or not automatic:
+        return
+    added = [replace(d, batch_table=content_digest) for d in automatic]
+    where = workspace.location(config, "screening")
+    path = staged / where.name
+    screening.write(register.decisions + added, path)
+    share.upload({"screening register": path}, where.folder)
+    screening.log_added(added)
 
 
 def _write_evidence(

@@ -296,14 +296,15 @@ def test_the_missingness_report_analyses_each_site_on_its_own_batches(built):
     ):
         site = sites[name]
         rows = {row[0]: dict(zip(site["headers"], row)) for row in site["rows"]}
-        assert set(rows) == {str(column) for column in batch_table.columns}
+        # Only the parameters missing somewhere: one recorded in every batch has no pattern.
+        gappy = {str(column) for column in batch_table.columns if batches[column].isna().any()}
+        assert set(rows) == gappy and "Site Merged" not in rows
         # Within one site the site is constant, and no condition column is reported.
-        assert rows["Site Merged"]["Pattern"] == "Complete"
         assert not {"Condition", "Condition score", "Same split as"} & set(site["headers"])
         # Rates over this site's completed batches only; the strip draws every batch.
         assert sorted(site["batches"]) == sorted(batches["Patient Lot/Batch #"].astype(str))
         completed = batches[batches[c("manufacturing_completed")] == v("completed_yes")]
-        for column in batch_table.columns:
+        for column in gappy:
             expected = 100 * completed[column].isna().mean()
             assert abs(rows[str(column)]["Missing %"] - expected) < 0.06, column
             bits = site["patterns"].get(str(column), "0" * len(batches))

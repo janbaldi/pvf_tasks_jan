@@ -458,6 +458,62 @@ def add(
     return added
 
 
+#: Who the register names for the decisions the build makes on its own.
+BUILD_AUTHOR = "ml build"
+
+
+def never_recorded(
+    decisions: list[Decision],
+    missing_by_site: dict[str, list[dict]],
+    batch_table: str,
+    sites: tuple[str, ...],
+    today: date | None = None,
+) -> list[Decision]:
+    """The exclusions the build adds on its own: parameters missing in every batch of a site.
+
+    A parameter that is never recorded at a site has nothing to predict with
+    there, so it needs no judgement. One decision ID per site covers them all.
+    A parameter the register already decides on at that site is left alone, so
+    a reinstatement stands until someone excludes it again.
+    """
+    today = today or date.today()
+    state = current(decisions, sites)
+    numbers = [int(d.id.split("-")[-1]) for d in decisions if d.id.split("-")[-1].isdigit()]
+    next_number = max(numbers, default=0) + 1
+    added: list[Decision] = []
+    for site, rows in missing_by_site.items():
+        found = [
+            row
+            for row in rows
+            if pd.to_numeric(row.get("Missing %"), errors="coerce") == 100
+            and (row["Parameter"], site) not in state
+        ]
+        if not found:
+            continue
+        identifier = f"S-{next_number:04d}"
+        next_number += 1
+        for row in found:
+            added.append(
+                Decision(
+                    id=identifier,
+                    date=today.isoformat(),
+                    author=BUILD_AUTHOR,
+                    action=EXCLUDE,
+                    parameter=row["Parameter"],
+                    site=site,
+                    group="",
+                    reason="never recorded",
+                    rationale=f"missing in every batch at {site}; excluded by the build",
+                    missing=_text(row.get("Missing %")),
+                    pattern=_text(row.get("Pattern")),
+                    last_measured=_text(row.get("Last measured")),
+                    batch_table=batch_table,
+                    review_by=(today + REVIEW_AFTER).isoformat(),
+                )
+            )
+    return added
+
+
 # ---------------------------------------------------------------------------
 # Looking again
 # ---------------------------------------------------------------------------

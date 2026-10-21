@@ -109,8 +109,8 @@ Pick a site in the sidebar. The page opens on the plot, and has these parts:
 - **Screened out at this site.** The screening register's standing exclusions:
   decision, date, reason, rationale and review date. Tick one to draw it, or to
   reinstate it.
-- **The parameter table** (collapsed). Every parameter with its **pattern**, its
-  statistics and, in the **Screening** column, the decision standing for it at
+- **The parameter table** (collapsed). Every parameter missing on at least one
+  batch at this site, with its **pattern**, its statistics and, in the **Screening** column, the decision standing for it at
   this site. Tick parameters to add them to the plot.
 - **Propose a screening decision.** Turns everything you ticked into a
   `proposal.csv` ([chapter 3](03-screening.md#recording-a-decision)).
@@ -119,8 +119,7 @@ The pattern says how a parameter goes missing:
 
 | Pattern | Meaning | Usually |
 |---|---|---|
-| Complete | Never missing. | Fine. |
-| Never recorded | Missing on every batch. | Screen out at that site. |
+| Never recorded | Missing on every batch. | Nothing to do: the build screens it out at that site. |
 | Introduced late | Measured from some batch on. | Keep it, or screen it out until there is enough history. |
 | Retired | No longer measured. | Screen out: new batches will never have it. |
 | Measured in a window | Missing at the start and the end. | Look closer. |

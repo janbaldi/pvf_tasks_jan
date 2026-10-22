@@ -9,7 +9,8 @@ in or out, a report, and copies of everything it read.
 This chapter walks through one task on the demo data (start with
 `uv run python -m ml.demo demo && cd demo`, and build it as in the
 [README](../../README.md#try-it-in-ten-minutes)). Your numbers can differ
-slightly from the ones shown.
+slightly from the ones shown. The *New task* and *Reproduce a run* routes of
+[the workflow map](../workflow.html) show what a task reads and writes.
 
 ## 1. Create a task
 

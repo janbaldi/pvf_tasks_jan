@@ -27,6 +27,13 @@ Append one `Feature(…)` to the registry in `src/ml/features.py`:
   to the catalog, a hand-computed case to `tests/test_features.py`, and its formula
   to `CALCULATED_FEATURES.md`.
 
+## The workflow map
+
+`docs/workflow.html` is drawn by hand: one self-contained page, no build step.
+When you add or rename a command, an input, an output file or a setting, update
+it in the same change. Its `NODES`, `EDGES` and `PATHS` lists hold the boxes, the
+arrows and the routes, and `INFO` the text each box shows when clicked.
+
 ## The code
 
 ```

@@ -1,5 +1,9 @@
 # 5. Reference
 
+[The workflow map](../workflow.html) draws this chapter: every command, the files
+it reads and writes, and how the stages connect. Open it in a browser and click a
+box for its details.
+
 ## Commands
 
 Run as `uv run ml [--config FILE] [--debug] [--quiet] COMMAND …`.
@@ -31,7 +35,7 @@ The config is found in this order: `--config`, the `config:` line of the task,
 | Stage | Reads | Writes, into |
 |---|---|---|
 | `ml check-catalog` | vocabulary, catalog, both sites' batch records, parameter mapping, investigations | the catalog's folder |
-| `ml build` | vocabulary and corrections, catalog, every source, site maps, the catalog manifest, the screening register (for the report) | the batch table's folder |
+| `ml build` | vocabulary and corrections, catalog, every source, site maps, the catalog manifest, the screening register (for the reports and the task catalog) | the batch table's folder; the screening register (its `never recorded` exclusions) |
 | `ml screening add` | vocabulary, screening register, the latest `missingness.xlsx` (with each parameter's correlation and shift group) | the screening register |
 | `ml task run` | vocabulary, batch table, catalog, both manifests, screening register | the run folder |
 

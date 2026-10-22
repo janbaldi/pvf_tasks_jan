@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ml Workflow Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one wide schematic, columns follow the data from catalog to run folder; details live in its empty lower-left corner. */
+:root {
+  --bg: #f3f5f8;
+  --paper: #ffffff;
+  --surface: #eef1f6;
+  --line: #c9d0da;
+  --ink: #1d2733;
+  --muted: #5f6b7a;
+  --accent: #0047ab;
+  --accent-soft: #e3ecf8;
+  --cmd: #13294b;
+  --cmd-fg: #ffffff;
+  --human: #a8620c;
+  --human-soft: #fbf1e3;
+  --screen: #0f766e;
+  --screen-soft: #e3f3f1;
+  --edge: #8a96a6;
+  --band: #f7f9fb;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f141b; --paper: #18202b; --surface: #1d2633; --line: #334155; --ink: #e5eaf1;
+    --muted: #93a0b2; --accent: #6ea8ff; --accent-soft: #1b2c47; --cmd: #2f5fae; --cmd-fg: #ffffff;
+    --human: #e3a24e; --human-soft: #2e2416; --screen: #4cc3b6; --screen-soft: #12302d;
+    --edge: #66758a; --band: #131a23; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f141b; --paper: #18202b; --surface: #1d2633; --line: #334155; --ink: #e5eaf1;
+  --muted: #93a0b2; --accent: #6ea8ff; --accent-soft: #1b2c47; --cmd: #2f5fae; --cmd-fg: #ffffff;
+  --human: #e3a24e; --human-soft: #2e2416; --screen: #4cc3b6; --screen-soft: #12302d;
+  --edge: #66758a; --band: #131a23; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 14px; line-height: 1.5;
+  padding-block: 28px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1640px; margin: 0 auto; display: grid; gap: 18px; }
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 32px; }
+header .eyebrow { font-family: var(--mono); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px; }
+h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -.01em; text-wrap: balance; }
+header p.lead { margin: 6px 0 0; max-width: 68ch; color: var(--muted); }
+.paths { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.paths span { font-size: 12px; color: var(--muted); margin-right: 2px; }
+.chip {
+  font: 500 13px var(--sans); color: var(--ink); background: var(--paper); border: 1px solid var(--line);
+  border-radius: 999px; padding: 6px 13px; cursor: pointer;
+}
+.chip:hover { border-color: var(--accent); }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chip:focus-visible, .node:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.canvas { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; }
+svg.map { display: block; width: 100%; min-width: 1240px; height: auto; font-family: var(--sans); }
+
+/* diagram */
+.colhead { font: 600 13px var(--sans); fill: var(--ink); }
+.colhead .num { fill: var(--accent); font-family: var(--mono); }
+.grouplabel { font: 500 10.5px var(--mono); fill: var(--muted); }
+.group rect { fill: var(--band); stroke: var(--line); stroke-width: 1; }
+.band { fill: var(--screen-soft); opacity: .45; }
+.bandline { fill: none; stroke: var(--screen); stroke-width: 1; stroke-dasharray: 2 4; opacity: .7; }
+.node { cursor: pointer; }
+.node text { pointer-events: none; }
+.node .lbl { font-size: 12.5px; font-weight: 500; fill: var(--ink); }
+.node .sub { font: 400 10.5px var(--mono); fill: var(--muted); }
+.k-source rect.body { fill: var(--paper); stroke: var(--line); }
+.k-source rect.bar { fill: var(--muted); }
+.k-store rect.body { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.4; }
+.k-store rect.bar { fill: var(--accent); }
+.k-cmd rect.body { fill: var(--cmd); stroke: var(--cmd); }
+.k-cmd .lbl { font-family: var(--mono); font-size: 12.5px; fill: var(--cmd-fg); font-weight: 500; }
+.k-cmd .sub { fill: var(--cmd-fg); opacity: .72; font-family: var(--sans); }
+.k-check rect.body { fill: var(--paper); stroke: var(--cmd); stroke-width: 1.4; }
+.k-check .lbl { font-family: var(--mono); }
+.k-step rect.body { fill: var(--paper); stroke: var(--line); }
+.k-step .num { font: 600 11px var(--mono); fill: var(--accent); }
+.k-file path.body { fill: var(--paper); stroke: var(--line); }
+.k-file path.fold { fill: var(--surface); stroke: var(--line); }
+.k-file .lbl { font: 400 11.5px var(--mono); }
+.k-file.key path.body { stroke: var(--accent); stroke-width: 1.4; }
+.k-human rect.body { fill: var(--human-soft); stroke: var(--human); stroke-dasharray: 5 3; stroke-width: 1.3; }
+.k-human .lbl { fill: var(--ink); }
+.k-register rect.body { fill: var(--screen-soft); stroke: var(--screen); stroke-width: 1.6; }
+.k-register rect.bar { fill: var(--screen); }
+.node:hover rect.body, .node:hover path.body { stroke: var(--accent); stroke-width: 2; }
+.node.sel rect.body, .node.sel path.body { stroke: var(--accent); stroke-width: 2.4; }
+
+.edge path.halo { fill: none; stroke: var(--paper); stroke-width: 6; }
+.edge path.line { fill: none; stroke: var(--edge); stroke-width: 1.4; marker-end: url(#arr); }
+.edge.both path.line { marker-start: url(#arrs); }
+.edge.dash path.line { stroke-dasharray: 4 3; }
+.edge.screen path.line { stroke: var(--screen); marker-end: url(#arr-s); }
+.edge.screen.both path.line { marker-start: url(#arrs-s); }
+.edge text { font: 400 10.5px var(--sans); fill: var(--muted); paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
+.edge.on path.line { stroke: var(--accent); stroke-width: 2; marker-end: url(#arr-a); }
+.edge.on.both path.line { marker-start: url(#arrs-a); }
+.edge.on text { fill: var(--ink); }
+svg.focus .node:not(.on), svg.focus .edge:not(.on) { opacity: .16; }
+svg.focus .group:not(.on) rect { opacity: .5; }
+.node, .edge { transition: opacity .18s ease; }
+@media (prefers-reduced-motion: reduce) { .node, .edge { transition: none; } }
+.update text { font: 400 11px var(--sans); fill: var(--muted); }
+.update text tspan.m { font-family: var(--mono); fill: var(--ink); }
+.update path { fill: none; stroke: var(--line); stroke-width: 1.2; }
+
+/* details panel (inside the svg) */
+.panel { height: 100%; overflow: auto; font-family: var(--sans); color: var(--ink); background: var(--paper);
+  border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; font-size: 12.5px; line-height: 1.5; }
+.panel .kind { font: 500 10.5px var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--accent); margin: 0 0 3px; }
+.panel h2 { font-size: 15.5px; margin: 0 0 6px; font-weight: 600; text-wrap: balance; }
+.panel p { margin: 0 0 7px; }
+.panel code { font-family: var(--mono); font-size: 11.5px; background: var(--surface); padding: 0 3px; border-radius: 3px; }
+.panel dl { margin: 6px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 3px 10px; }
+.panel dt { font: 500 10.5px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; padding-top: 2px; }
+.panel dd { margin: 0; }
+.panel ul { margin: 2px 0 7px; padding-left: 17px; }
+.panel li { margin: 1px 0; }
+.legend { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 14px; margin-top: 8px; }
+.legend div { display: flex; gap: 8px; align-items: center; font-size: 12px; }
+.sw { width: 28px; height: 16px; border-radius: 3px; flex: none; border: 1px solid var(--line); background: var(--paper); }
+.sw.cmd { background: var(--cmd); border-color: var(--cmd); border-radius: 8px; }
+.sw.check { border: 1.4px solid var(--cmd); border-radius: 8px; }
+.sw.source { border-left: 4px solid var(--muted); }
+.sw.store { background: var(--accent-soft); border-color: var(--accent); border-left: 4px solid var(--accent); }
+.sw.file { clip-path: polygon(0 0, 75% 0, 100% 35%, 100% 100%, 0 100%); }
+.sw.human { background: var(--human-soft); border: 1.3px dashed var(--human); border-radius: 5px; }
+.sw.reg { background: var(--screen-soft); border-color: var(--screen); border-left: 4px solid var(--screen); }
+.sw.step { position: relative; }
+.sw.edge { border: 0; background: none; height: 2px; background: var(--edge); border-radius: 0; }
+.hint { color: var(--muted); font-size: 12px; margin-top: 9px; }
+footer { color: var(--muted); font-size: 12.5px; display: flex; flex-wrap: wrap; gap: 6px 22px; }
+footer code { font-family: var(--mono); font-size: 12px; color: var(--ink); }
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header>
+    <div>
+      <p class="eyebrow">CAR-T manufacturing data · ml pipeline</p>
+      <h1>From catalog to batch table to task</h1>
+      <p class="lead">Every command, input and output of <code style="font-family:var(--mono)">ml</code>, left to right in the order the data moves. Click any box for what it reads, writes and which options change it.</p>
+    </div>
+    <nav class="paths" aria-label="Highlight a route">
+      <span>Show a route</span>
+      <button class="chip" type="button" id="p-all" data-path="" aria-pressed="true">Everything</button>
+      <button class="chip" type="button" id="p-monthly" data-path="monthly" aria-pressed="false">Monthly update</button>
+      <button class="chip" type="button" id="p-screening" data-path="screening" aria-pressed="false">Screening loop</button>
+      <button class="chip" type="button" id="p-newtask" data-path="newtask" aria-pressed="false">New task</button>
+      <button class="chip" type="button" id="p-reproduce" data-path="reproduce" aria-pressed="false">Reproduce a run</button>
+    </nav>
+  </header>
+
+  <div class="canvas">
+    <svg class="map" id="map" viewBox="0 -26 1504 900" role="img" aria-label="Workflow of the ml pipeline from the catalog and sources, through check-catalog and build, screening, to tasks and their run folders">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--edge)"/></marker>
+        <marker id="arrs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--edge)"/></marker>
+        <marker id="arr-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--accent)"/></marker>
+        <marker id="arrs-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--accent)"/></marker>
+        <marker id="arr-s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--screen)"/></marker>
+        <marker id="arrs-s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--screen)"/></marker>
+      </defs>
+      <g id="layer-back"></g>
+      <g id="layer-edges"></g>
+      <g id="layer-nodes"></g>
+      <foreignObject x="20" y="540" width="460" height="330">
+        <div xmlns="http://www.w3.org/1999/xhtml" class="panel" id="panel" aria-live="polite"></div>
+      </foreignObject>
+    </svg>
+  </div>
+
+  <footer>
+    <span>Run every command as <code>uv run ml …</code> from the repository; <code>--config</code>, <code>--debug</code> and <code>--quiet</code> work on all of them.</span>
+    <span>Before pushing code: <code>ml check-leaks</code> searches the repository for any name the private vocabulary holds.</span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.getElementById("map");
+  const back = document.getElementById("layer-back");
+  const edgeLayer = document.getElementById("layer-edges");
+  const nodeLayer = document.getElementById("layer-nodes");
+  const panel = document.getElementById("panel");
+
+  const el = (tag, attrs, parent) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+  const text = (parent, x, y, str, cls) => { const t = el("text", { x, y, class: cls || "" }, parent); t.textContent = str; return t; };
+
+  // ── Groups: containers that edges can start from or end at ──────────────
+  const GROUPS = [
+    { id: "g_src", x: 20, y: 70, w: 212, h: 460, label: "" },
+    { id: "g_cat", x: 255, y: 212, w: 230, h: 144, label: "Data/catalog/" },
+    { id: "g_build", x: 505, y: 70, w: 250, h: 420, label: "" },
+    { id: "g_out", x: 785, y: 70, w: 230, h: 392, label: "Data/batch_data/" },
+    { id: "g_run", x: 1300, y: 70, w: 185, h: 300, label: "runs/<run id>/" },
+  ];
+
+  // ── Nodes ─────────────────────────────────────────────────────────────────
+  const S = (y, id, label, sub, extra) => Object.assign({ id, kind: "source", x: 32, y, w: 188, h: 36, label, sub }, extra || {});
+  const F = (x, y, w, id, label, extra) => Object.assign({ id, kind: "file", x, y, w, h: 32, label }, extra || {});
+  const NODES = [
+    S(80, "catalog", "Catalog", "catalog.xlsx", { kind: "store" }),
+    S(124, "vocab", "Vocabulary", "names + corrections"),
+    S(168, "phfA", "Site A batch records", "phf_site_a"),
+    S(212, "phfB", "Site B batch records", "phf_site_b"),
+    S(256, "mapping", "Parameter mapping", "site B → site A names"),
+    S(300, "remfg", "Re-manufacturing", "remfg · site B"),
+    S(344, "lvcoa", "Vector certificates", "lv_coa · per lot"),
+    S(388, "raw", "Raw materials", "lots and consumables"),
+    S(432, "sitemaps", "Clinical site maps", "site_maps"),
+    S(476, "extra", "Databricks · Investigations", "optional sources"),
+
+    { id: "validate", kind: "check", x: 265, y: 80, w: 210, h: 40, label: "ml validate", sub: "checks; writes nothing" },
+    { id: "check", kind: "cmd", x: 265, y: 146, w: 210, h: 44, label: "ml check-catalog", sub: "sources vs catalog" },
+    F(265, 236, 210, "cat_report", "catalog_report.html"),
+    F(265, 274, 210, "new_params", "new_parameters.csv"),
+    F(265, 312, 210, "cat_manifest", "catalog_manifest.json"),
+    { id: "h_catalog", kind: "human", x: 265, y: 380, w: 210, h: 44, label: "Add rows to the catalog", sub: "or leave out on purpose" },
+
+    { id: "build", kind: "cmd", x: 520, y: 82, w: 220, h: 42, label: "ml build", sub: "one batch table, both sites" },
+    { id: "b1", kind: "step", x: 530, y: 140, w: 200, h: 32, num: "01", label: "Load sources" },
+    { id: "b2", kind: "step", x: 530, y: 182, w: 200, h: 32, num: "02", label: "Clean and correct" },
+    { id: "b3", kind: "step", x: 530, y: 224, w: 200, h: 32, num: "03", label: "Join other systems" },
+    { id: "b4", kind: "step", x: 530, y: 266, w: 200, h: 32, num: "04", label: "Calculate features" },
+    { id: "b5", kind: "step", x: 530, y: 308, w: 200, h: 32, num: "05", label: "Merge sites, check" },
+    { id: "b6", kind: "step", x: 530, y: 350, w: 200, h: 32, num: "06", label: "Analyse per site" },
+    { id: "b7", kind: "step", x: 530, y: 392, w: 200, h: 32, num: "07", label: "Write and upload" },
+
+    F(795, 96, 210, "batch_data", "batch_data.xlsx · .parquet", { key: true }),
+    F(795, 136, 210, "build_report", "build_report.html"),
+    F(795, 176, 210, "miss_report", "missingness_report.html"),
+    F(795, 216, 210, "miss_xlsx", "missingness.xlsx"),
+    F(795, 256, 210, "corr_report", "correlation_report.html"),
+    F(795, 296, 210, "shifts_report", "shifts_report.html"),
+    F(795, 336, 210, "shifts_xlsx", "shifts.xlsx"),
+    F(795, 376, 210, "task_catalog", "task_catalog.xlsx"),
+    F(795, 416, 210, "build_manifest", "batch_table_manifest.json"),
+
+    { id: "h_propose", kind: "human", x: 795, y: 600, w: 210, h: 48, label: "Click to draw, tick to propose", sub: "missingness · correlation" },
+    F(795, 680, 210, "proposal", "proposal.csv"),
+    { id: "add", kind: "cmd", x: 795, y: 744, w: 210, h: 44, label: "ml screening add", sub: "checks, then appends" },
+    { id: "register", kind: "register", x: 1060, y: 744, w: 200, h: 44, label: "Screening register", sub: "parameter_screening.xlsx" },
+    { id: "status", kind: "cmd", x: 1300, y: 744, w: 185, h: 44, label: "ml screening status", sub: "what to look at again" },
+
+    { id: "task_new", kind: "cmd", x: 1060, y: 96, w: 200, h: 44, label: "ml task new <folder>", sub: "an annotated task file" },
+    { id: "task_yaml", kind: "human", x: 1060, y: 176, w: 200, h: 40, label: "task.yaml", sub: "you write the question" },
+    { id: "run", kind: "cmd", x: 1060, y: 256, w: 200, h: 44, label: "ml task run", sub: "one dataset per run" },
+
+    F(1310, 96, 165, "r_data", "data/dataset.csv"),
+    F(1310, 134, 165, "r_enc", "dataset_encoded.csv"),
+    F(1310, 172, 165, "r_meta", "metadata/*.csv"),
+    F(1310, 210, 165, "r_encoding", "encoding.json"),
+    F(1310, 248, 165, "r_report", "report/report.html"),
+    F(1310, 286, 165, "r_inputs", "inputs/ copies"),
+    F(1310, 324, 165, "r_manifest", "manifest.json"),
+    { id: "rerun", kind: "cmd", x: 1310, y: 400, w: 165, h: 40, label: "ml task rerun", sub: "same inputs, same result?" },
+    { id: "encode", kind: "cmd", x: 1310, y: 456, w: 165, h: 40, label: "ml task encode", sub: "new batches, fitted coding" },
+    F(1310, 516, 120, "encoded", "encoded .csv"),
+  ];
+  const byId = Object.fromEntries(NODES.map(n => [n.id, n]));
+
+  // ── Edges: from, to, points, label ────────────────────────────────────────
+  const EDGES = [
+    { f: "g_src", t: "validate", p: [[232, 100], [265, 100]], cls: "dash" },
+    { f: "g_src", t: "check", p: [[232, 168], [265, 168]] },
+    { f: "check", t: "g_cat", p: [[370, 190], [370, 212]] },
+    { f: "g_cat", t: "h_catalog", p: [[370, 356], [370, 380]], lab: ["to-do list", 378, 372] },
+    { f: "h_catalog", t: "catalog", p: [[265, 402], [246, 402], [246, 98], [220, 98]] },
+    { f: "cat_manifest", t: "g_build", p: [[475, 328], [505, 328]] },
+    { f: "g_src", t: "g_build", p: [[232, 466], [505, 466]], lab: ["every source, the catalog, the vocabulary", 258, 459] },
+    { f: "build", t: "b1", p: [[630, 124], [630, 140]] },
+    { f: "b1", t: "b2", p: [[630, 172], [630, 182]] },
+    { f: "b2", t: "b3", p: [[630, 214], [630, 224]] },
+    { f: "b3", t: "b4", p: [[630, 256], [630, 266]] },
+    { f: "b4", t: "b5", p: [[630, 298], [630, 308]] },
+    { f: "b5", t: "b6", p: [[630, 340], [630, 350]] },
+    { f: "b6", t: "b7", p: [[630, 382], [630, 392]] },
+    { f: "b7", t: "g_out", p: [[730, 408], [785, 408]] },
+    { f: "g_out", t: "h_propose", p: [[900, 462], [900, 600]], cls: "screen", lab: ["read the reports", 908, 535] },
+    { f: "h_propose", t: "proposal", p: [[900, 648], [900, 680]], cls: "screen" },
+    { f: "proposal", t: "add", p: [[900, 712], [900, 744]], cls: "screen" },
+    { f: "miss_xlsx", t: "add", p: [[795, 232], [771, 232], [771, 766], [795, 766]], cls: "screen", lab: ["evidence", 764, 600, false, "end"] },
+    { f: "add", t: "register", p: [[1005, 766], [1060, 766]], cls: "screen" },
+    { f: "register", t: "status", p: [[1260, 766], [1300, 766]], cls: "screen" },
+    { f: "g_build", t: "register", p: [[748, 490], [748, 824], [1160, 824], [1160, 788]], cls: "screen both", lab: ["build reads it, and excludes never-recorded parameters itself", 790, 816] },
+    { f: "register", t: "run", p: [[1160, 744], [1160, 300]], cls: "screen", lab: ["exclusions at the cohort's sites", 1152, 520, false, "end"] },
+    { f: "register", t: "task_new", p: [[1236, 744], [1236, 722], [1282, 722], [1282, 110], [1260, 110]], cls: "screen" },
+    { f: "batch_data", t: "run", p: [[1005, 112], [1046, 112], [1046, 284], [1060, 284]] },
+    { f: "shifts_xlsx", t: "task_new", p: [[1005, 352], [1026, 352], [1026, 124], [1060, 124]] },
+    { f: "task_catalog", t: "task_yaml", p: [[1005, 392], [1036, 392], [1036, 200], [1060, 200]], cls: "dash" },
+    { f: "task_new", t: "task_yaml", p: [[1160, 140], [1160, 176]] },
+    { f: "task_yaml", t: "run", p: [[1160, 216], [1160, 256]] },
+    { f: "run", t: "g_run", p: [[1260, 272], [1300, 272]] },
+    { f: "g_run", t: "rerun", p: [[1392, 370], [1392, 400]] },
+    { f: "g_run", t: "encode", p: [[1485, 230], [1497, 230], [1497, 476], [1475, 476]] },
+    { f: "encode", t: "encoded", p: [[1370, 496], [1370, 516]] },
+  ];
+
+  // ── Routes the chips highlight ────────────────────────────────────────────
+  const SRC = ["catalog", "vocab", "phfA", "phfB", "mapping", "remfg", "lvcoa", "raw", "sitemaps", "extra", "g_src"];
+  const BUILD = ["build", "b1", "b2", "b3", "b4", "b5", "b6", "b7", "g_build"];
+  const OUT = ["g_out", "batch_data", "build_report", "miss_report", "miss_xlsx", "corr_report", "shifts_report", "shifts_xlsx", "task_catalog", "build_manifest"];
+  const RUN = ["g_run", "r_data", "r_enc", "r_meta", "r_encoding", "r_report", "r_inputs", "r_manifest"];
+  const PATHS = {
+    monthly: [...SRC, "validate", "check", "g_cat", "cat_report", "new_params", "cat_manifest", "h_catalog", ...BUILD, ...OUT, "register", "status", "batch_data", "run", ...RUN],
+    screening: ["g_out", "miss_report", "corr_report", "miss_xlsx", "h_propose", "proposal", "add", "register", "status", "g_build", "run", "task_new"],
+    newtask: ["g_out", "batch_data", "shifts_xlsx", "task_catalog", "register", "task_new", "task_yaml", "run", ...RUN],
+    reproduce: [...RUN, "rerun", "encode", "encoded"],
+  };
+
+  // ── Drawing ───────────────────────────────────────────────────────────────
+  function rounded(points, r) {
+    let d = `M${points[0][0]} ${points[0][1]}`;
+    for (let i = 1; i < points.length - 1; i++) {
+      const [px, py] = points[i - 1], [x, y] = points[i], [nx, ny] = points[i + 1];
+      const d1 = Math.hypot(x - px, y - py), d2 = Math.hypot(nx - x, ny - y), k = Math.min(r, d1 / 2, d2 / 2);
+      d += ` L${x - (x - px) / d1 * k} ${y - (y - py) / d1 * k} Q${x} ${y} ${x + (nx - x) / d2 * k} ${y + (ny - y) / d2 * k}`;
+    }
+    const last = points[points.length - 1];
+    return d + ` L${last[0]} ${last[1]}`;
+  }
+
+  // Column heads and the ml update bracket.
+  const heads = [[20, "", "Inputs on SharePoint"], [265, "1", "Check the catalog"], [505, "2", "Build the batch table"],
+    [785, "", "What the build writes"], [1060, "4", "Run a task"], [1300, "", "Run folder"]];
+  for (const [x, num, label] of heads) {
+    const t = el("text", { x, y: 54, class: "colhead" }, back);
+    if (num) { const s = el("tspan", { class: "num" }, t); s.textContent = num + "  "; }
+    t.appendChild(document.createTextNode(label));
+  }
+  const upd = el("g", { class: "update" }, back);
+  el("path", { d: "M265 14 V4 H1260 V14" }, upd);
+  const ut = el("text", { x: 762, y: -6, "text-anchor": "middle" }, upd);
+  const um = el("tspan", { class: "m" }, ut); um.textContent = "ml update [--task T]";
+  ut.appendChild(document.createTextNode("  runs check-catalog, build and the given tasks in one go"));
+
+  // Screening band.
+  el("rect", { x: 495, y: 560, width: 1000, height: 304, rx: 10, class: "band" }, back);
+  el("rect", { x: 495, y: 560, width: 1000, height: 304, rx: 10, class: "bandline" }, back);
+  const bh = el("text", { x: 512, y: 586, class: "colhead" }, back);
+  const bn = el("tspan", { class: "num" }, bh); bn.textContent = "3  ";
+  bh.appendChild(document.createTextNode("Screen parameters"));
+  text(back, 512, 604, "out of every task, with a reason", "grouplabel");
+
+  const groupEls = {};
+  for (const g of GROUPS) {
+    const ge = el("g", { class: "group", "data-id": g.id }, back);
+    el("rect", { x: g.x, y: g.y, width: g.w, height: g.h, rx: 8 }, ge);
+    if (g.label) text(ge, g.x + 10, g.y + 16, g.label, "grouplabel");
+    groupEls[g.id] = ge;
+  }
+
+  const edgeEls = [];
+  for (const e of EDGES) {
+    const g = el("g", { class: "edge " + (e.cls || "") }, edgeLayer);
+    const d = rounded(e.p, 8);
+    el("path", { d, class: "halo" }, g);
+    el("path", { d, class: "line" }, g);
+    if (e.lab) {
+      const [str, lx, ly, vertical, anchor] = e.lab;
+      const t = text(g, lx, ly, str);
+      if (anchor) t.setAttribute("text-anchor", anchor);
+      if (vertical) {
+        t.setAttribute("transform", `rotate(90 ${lx} ${ly})`);
+        t.setAttribute("text-anchor", "middle");
+      }
+    }
+    edgeEls.push({ e, g });
+  }
+
+  const nodeEls = {};
+  for (const n of NODES) {
+    const g = el("g", { class: `node k-${n.kind}${n.key ? " key" : ""}`, "data-id": n.id, tabindex: 0, role: "button", "aria-label": n.label + (n.sub ? ", " + n.sub : "") }, nodeLayer);
+    const { x, y, w, h } = n;
+    if (n.kind === "file") {
+      const c = 9;
+      el("path", { class: "body", d: `M${x} ${y}H${x + w - c}L${x + w} ${y + c}V${y + h}H${x}Z` }, g);
+      el("path", { class: "fold", d: `M${x + w - c} ${y}V${y + c}H${x + w}` }, g);
+      text(g, x + 11, y + h / 2 + 4, n.label, "lbl");
+    } else {
+      const rx = n.kind === "cmd" || n.kind === "check" ? h / 2 : n.kind === "human" ? 10 : 5;
+      el("rect", { class: "body", x, y, width: w, height: h, rx }, g);
+      if (["source", "store", "register"].includes(n.kind)) el("rect", { class: "bar", x, y: y + 5, width: 3, height: h - 10, rx: 1.5 }, g);
+      const pad = n.kind === "cmd" || n.kind === "check" ? 16 : 12;
+      if (n.kind === "step") {
+        text(g, x + 10, y + h / 2 + 4, n.num, "num");
+        text(g, x + 36, y + h / 2 + 4, n.label, "lbl");
+      } else if (n.sub) {
+        text(g, x + pad, y + h / 2 - 2, n.label, "lbl");
+        text(g, x + pad, y + h / 2 + 12, n.sub, "sub");
+      } else {
+        text(g, x + pad, y + h / 2 + 4, n.label, "lbl");
+      }
+    }
+    nodeEls[n.id] = g;
+  }
+
+  // ── What each box is ──────────────────────────────────────────────────────
+  const KIND = { source: "Input", store: "Input · the schema", cmd: "Command", check: "Command · read only", step: "Build step", file: "Output file", human: "Your decision", register: "Shared log" };
+  const C = s => `<code>${s}</code>`;
+  const DL = rows => "<dl>" + rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("") + "</dl>";
+  const INFO = {
+    catalog: ["Catalog", `<p>The schema of the batch table: one row per parameter the batch table may hold. ${C("Value Type")} says how it is cleaned (numeric, categorical, datetime, duration, ratio, or an ordered list in brackets). A calculated feature is only made when its name is listed.</p><p>Every other column is metadata a task can select by (${C("exclude_by_catalog")}).</p>` + DL([["Read by", "check-catalog, build, task run"], ["Changed by", "you, from check-catalog's to-do list"]])],
+    vocab: ["Vocabulary workbook", `<p>Private. Its <b>Names</b> sheet gives the real name of every column, category, site and worksheet the code refers to by key; its <b>Corrections</b> sheet holds the known data corrections the build applies.</p>` + DL([["Read by", "every command"], ["Switch off", C("cleaning.disable")]])],
+    phfA: ["Site A batch records", "<p>The first site's batch record workbook: one row per batch. Its column names are the names the catalog uses.</p>" + DL([["Config", C("sharepoint.phf_site_a")]])],
+    phfB: ["Site B batch records", "<p>The second site's workbook. Its columns are renamed to site A's names through the parameter mapping before anything else happens.</p>" + DL([["Config", C("sharepoint.phf_site_b")]])],
+    mapping: ["Parameter mapping", `<p>Site B name → site A name. Rows known to be wrong are listed under ${C("mapping.exclude")}.</p>`],
+    remfg: ["Re-manufacturing supplement", "<p>Site B's extra rows for re-manufactured batches, joined onto its batch records.</p>"],
+    lvcoa: ["Vector certificates of analysis", `<p>One row per vector lot, joined to each batch by its lot. The loader also derives, prefixed ${C("LV CoA")}: delivered dose per G-Rex, titer adjustment factor, specific infectivity, E1b share of residual DNA, pH and osmolality deviations, donor MAX/MIN/DIFF/DIFF Rel, and below-LOQ flags.</p>` + DL([["Settings", C("lv_coa.ph_nominal") + ", " + C("osmo_nominal")]])],
+    raw: ["Raw materials and consumables", "<p>Lot numbers of media, reagents and kits per batch. They change as lots run out, which is what the shifts report looks for.</p>"],
+    sitemaps: ["Clinical site maps", "<p>Turn clinical site acronyms into institutions and countries. Acronyms with no match stay as they are and are listed in the build report.</p>"],
+    extra: ["Optional sources", `<ul><li><b>Databricks</b>: Acridine Orange viability readings, joined when ${C("sources.databricks: true")}.</li><li><b>Investigations</b> Power Query workbook: only compared by check-catalog, never built into the table.</li></ul>`],
+
+    validate: ["ml validate", `<p>Checks ${C("config.yaml")}, the vocabulary, the corrections, the screening register and any tasks named. Reads, writes nothing. Run it first, and after every config change.</p>` + DL([["Options", C("--task T")]])],
+    check: ["ml check-catalog", `<p>Compares every source's columns with the catalog: what do the sources record that the catalog has never been told about? Names match with case and spacing flattened; site B through the mapping.</p>` + DL([["Writes", "the catalog's folder"], ["Settings", C("catalog.write_new_parameters")]])],
+    cat_report: ["catalog_report.html", "<p>The new names, source by source, and which sources could not be read.</p>"],
+    new_params: ["new_parameters.csv", "<p>The distinct new names, one per row, in the shape of the catalog's Parameter column: your to-do list.</p>"],
+    cat_manifest: ["catalog_manifest.json", "<p>What check-catalog read (with digests) and found. The build reads it back to warn when the catalog is unchecked or the sources hold parameters it lacks.</p>"],
+    h_catalog: ["Add rows to the catalog", `<p>For each new name: add a row with at least ${C("Parameter")} and ${C("Value Type")}, or leave it out on purpose. A column the catalog does not list never reaches the batch table.</p><p>Upload the catalog to SharePoint, then build.</p>`],
+
+    build: ["ml build", "<p>Every batch from both sites in one checked table, plus the reports that tell you which parameters to screen. Steps 01 to 07 run in order.</p>" + DL([["Reads", "every source, catalog, vocabulary, catalog manifest, screening register"], ["Writes", "the batch table's folder"]])],
+    b1: ["01 · Load sources", "<p>The catalog, both sites' batch records (site B renamed through the mapping), the re-manufacturing supplement, vector certificates and raw materials.</p>"],
+    b2: ["02 · Clean and correct", `<p>Known corrections from the vocabulary, then by value type: text stripped, dates and durations parsed, ratios and percentages checked, categories compared across sites.</p>` + DL([["Settings", `${C("cleaning.censored")} (limit · half · missing), ${C("censored_flags")}, ${C("duration_unit")}, ${C("yes_no_defaults")}, ${C("disable")}`]])],
+    b3: ["03 · Join other systems", "<p>Databricks viability readings, vector certificates by lot, raw material lots, clinical sites and countries.</p>"],
+    b4: ["04 · Calculate features", `<p>The feature registry, in order. A feature is made only when the catalog lists it and its inputs are there; otherwise the run log says <i>not in catalog</i> or <i>blocked</i>.</p>` + DL([["Settings", `${C("features.*")} setpoints; ${C("moi_target")}, ${C("medium_glucose")}, ${C("impurity_spec_limits")} unblock features`]])],
+    b5: ["05 · Merge sites, check", `<p>Both sites into one table with a ${C("Site Merged")} column; sanity checks and which catalog parameters the table still lacks.</p>`],
+    b6: ["06 · Analyse per site", `<p>Over each site's batches (${C("build.missingness_cohort")}): how parameters go missing, which rank the batches alike, and which run in groups over time per manufacturing site. Parameters never recorded at a site are excluded in the register automatically.</p>` + DL([["Settings", `${C("build.date_column")}, ${C("correlation_threshold")} (0.9)`]])],
+    b7: ["07 · Write and upload", `<p>Writes every file into a staging folder, then uploads them together with the manifest. ${C("build.write_parquet")} adds the Parquet copy.</p>`],
+
+    batch_data: ["The batch table", "<p>One row per batch, both sites, cleaned, with the calculated features. The Parquet copy keeps column types; tasks read it.</p>"],
+    build_report: ["build_report.html", "<p>Overview, sources, every cleaning change, catalog coverage (and why a parameter is absent), joined sources, the run log and provenance.</p>"],
+    miss_report: ["missingness_report.html", "<p>Per site: how each parameter goes missing and which go missing together. Click a row to draw its pattern; tick groups and parameters to propose a screening decision.</p>"],
+    miss_xlsx: ["missingness.xlsx", "<p>Every parameter per site: missing %, pattern, last measured, and its missingness, correlation and shift group with the suggested representative. What <code>ml screening add</code> checks a proposal against and cites.</p>"],
+    corr_report: ["correlation_report.html", "<p>Numerical parameters grouped by Spearman |ρ|, each group with a suggested representative. Ticked groups exclude every member but the one you keep.</p>"],
+    shifts_report: ["shifts_report.html", "<p>Parameters whose value runs in groups over time, as a lot does, grouped by the days they change, per manufacturing site. Click a row to see its groups on a timeline.</p>"],
+    shifts_xlsx: ["shifts.xlsx", `<p>Every parameter that runs in groups over time, grouped or not. ${C("ml task new --exclude-shifting")} lists them all under ${C("predictors.exclude")}.</p>`],
+    task_catalog: ["task_catalog.xlsx", "<p>The catalog cut to what a task can still use after screening: <i>Usable at</i> per site, and what each representative stands for. Pick predictors from it.</p>"],
+    build_manifest: ["batch_table_manifest.json", "<p>What the build read (with digests), wrote and warned about. A task copies it, and warns if the batch table it read is a different one.</p>"],
+
+    h_propose: ["Propose a screening decision", `<p>In the missingness or correlation report: <b>click</b> a row to draw it, <b>tick</b> rows in any table to propose. Choose exclude or reinstate, a reason, an optional rationale and your name; for a correlated group, the member that represents it.</p><p>Downloads ${C("proposal.csv")}. You can also write one by hand.</p>`],
+    proposal: ["proposal.csv", `<p>One decision per row: ${C("Action, Parameter, Group, Site, Reason, Rationale, Author, Represented by")}. A Group with no Parameter stands for every member at that site.</p>`],
+    add: ["ml screening add", `<p>Checks every row against the latest build's ${C("missingness.xlsx")}; one problem and nothing is added. Gives each decision an ID, the evidence, and a review date three months on.</p>` + DL([["Options", `${C("--author NAME")}, ${C("--new")} (start a register)`]])],
+    register: ["Screening register", "<p>An append-only log of decisions: exclude or reinstate a parameter at a site, with reason and evidence. The last decision per parameter and site stands. A digest shows edits made outside <code>ml screening</code>.</p>" + DL([["Read by", "build (marks ⊘), task new, task run"], ["Config", C("sharepoint.screening")]])],
+    status: ["ml screening status", "<p>What is excluded today, and the decisions the latest build gives a reason to revisit: review date passed, measured again, missing % moved, representative excluded too. Reinstate or re-exclude with a new proposal.</p>"],
+
+    task_new: ["ml task new &lt;folder&gt;", `<p>Creates a task folder with an annotated ${C("task.yaml")}. It already lists what the register excludes under ${C("predictors.exclude")}.</p>` + DL([["Options", `${C("--target COL")}, ${C("--question TEXT")}, ${C("--exclude-shifting")}, ${C("--force")}`]])],
+    task_yaml: ["task.yaml", "<p>The question, in settings you edit:</p><ul><li><b>cohort</b>: sites, filters, date range</li><li><b>target</b>: numeric, binary or two periods</li><li><b>roles</b>: id, group (e.g. vector lot), patient</li><li><b>predictors</b>: include, exclude, by catalog column</li><li><b>clustering</b>: off · describe · keep_one · residualise · summarise</li><li><b>encoding</b>, <b>quality</b>, <b>missingness</b>, <b>report</b></li></ul>"],
+    run: ["ml task run", "<p>1 selects the cohort, 2 chooses predictors (minus target, roles, your excludes, catalog rules, register exclusions, features made from the target), 3 fits the preprocessing, 4 writes the dataset, 5 checks the counts agree. A failed run keeps its folder as <code>….failed</code>.</p>" + DL([["Reads", "batch table, catalog, both manifests, register"], ["Options", `${C("--task T")}, repeatable`]])],
+    r_data: ["data/dataset.csv", "<p>The training dataset: id, group, raw predictors and target. One row per batch, no split.</p>"],
+    r_enc: ["dataset_encoded.csv", "<p>The same rows as numbers, ready for a model: categories encoded, groups acted on.</p>"],
+    r_meta: ["metadata/", "<ul><li><b>parameters.csv</b>: every parameter, in or out, and why</li><li><b>batches.csv</b>: every batch, in or out, and why</li><li><b>dataset_columns.csv</b>, <b>encoded_columns.csv</b></li><li><b>clusters.csv</b>, <b>groups.json</b>, <b>missingness.csv</b></li></ul>"],
+    r_encoding: ["encoding.json", "<p>The fitted preprocessing: how each column was encoded. Refit it inside every cross-validation fold; <code>ml task encode</code> applies it to new batches.</p>"],
+    r_report: ["report/report.html", "<p>The cohort funnel, what each parameter became, quality flags, correlated groups and the dataset itself.</p>"],
+    r_inputs: ["inputs/", "<p>Copies of the batch table, catalog, vocabulary and screening register the run read, and the catalog and build manifests, so a rerun reads exactly the same.</p>"],
+    r_manifest: ["manifest.json", "<p>What the run read, decided and wrote, with every warning.</p>"],
+    rerun: ["ml task rerun RUN_FOLDER", "<p>Redoes a run from its own inputs and says whether <code>dataset.csv</code> came out identical.</p>"],
+    encode: ["ml task encode", `<p>Encodes the batch table's batches with a run's fitted encoding, for scoring new batches the way the model saw them.</p>` + DL([["Options", `${C("--run RUN_FOLDER")}, ${C("--out FILE")}`]])],
+    encoded: ["Encoded batches", "<p>The batch table's batches in the run's encoded columns.</p>"],
+  };
+  const GROUP_INFO = {
+    g_src: ["Inputs on SharePoint", `<p>Every input is read from SharePoint at the location in ${C("config.yaml")} (addresses in ${C(".env")}). There is no local data option.</p>`],
+    g_cat: ["The catalog's folder", "<p>Where check-catalog writes: the folder the catalog is in.</p>"],
+    g_out: ["What the build writes", "<p>Everything goes into the batch table's folder on SharePoint, together, with its manifest.</p>"],
+    g_run: ["Run folder", "<p>One folder per run under the task's <code>runs/</code>: the dataset and everything that explains and reproduces it.</p>"],
+  };
+
+  const LEGEND = `<p class="kind">How to read this map</p><h2>Data moves left to right</h2>
+    <p>Pick a route above, or click any box for what it reads, writes and which settings change it.</p>
+    <div class="legend">
+      <div><span class="sw cmd"></span>Command</div>
+      <div><span class="sw check"></span>Read-only command</div>
+      <div><span class="sw source"></span>Input</div>
+      <div><span class="sw store"></span>Catalog (schema)</div>
+      <div><span class="sw file"></span>File written</div>
+      <div><span class="sw human"></span>Your decision</div>
+      <div><span class="sw reg"></span>Screening register</div>
+      <div><span class="sw edge"></span>Read by / feeds</div>
+    </div>
+    <p class="hint">Dashed lines are optional. Green is the screening loop.</p>`;
+
+  function show(id) {
+    const n = byId[id];
+    const info = INFO[id] || GROUP_INFO[id];
+    if (!info) { panel.innerHTML = LEGEND; return; }
+    const kind = n ? KIND[n.kind] : "Folder";
+    panel.innerHTML = `<p class="kind">${kind}</p><h2>${info[0]}</h2>${info[1]}<p class="hint">Click an empty spot to go back to the legend.</p>`;
+    panel.scrollTop = 0;
+  }
+
+  // ── Focus and routes ──────────────────────────────────────────────────────
+  let selected = null, route = "";
+  function apply() {
+    const on = new Set();
+    if (route) PATHS[route].forEach(id => on.add(id));
+    if (selected) {
+      on.add(selected);
+      for (const { e } of edgeEls) if (e.f === selected || e.t === selected) { on.add(e.f); on.add(e.t); }
+    }
+    svg.classList.toggle("focus", on.size > 0);
+    for (const id in nodeEls) nodeEls[id].classList.toggle("on", on.has(id));
+    for (const id in groupEls) groupEls[id].classList.toggle("on", on.has(id));
+    for (const { e, g } of edgeEls) {
+      const lit = selected ? (e.f === selected || e.t === selected) : (on.has(e.f) && on.has(e.t));
+      g.classList.toggle("on", lit && on.size > 0);
+    }
+    for (const id in nodeEls) nodeEls[id].classList.toggle("sel", id === selected);
+  }
+  function select(id) { selected = id; show(id); apply(); }
+
+  nodeLayer.addEventListener("click", ev => {
+    const g = ev.target.closest(".node"); if (!g) return;
+    ev.stopPropagation(); select(g.dataset.id);
+  });
+  nodeLayer.addEventListener("keydown", ev => {
+    const g = ev.target.closest(".node");
+    if (g && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); select(g.dataset.id); }
+  });
+  back.addEventListener("click", ev => {
+    const g = ev.target.closest(".group");
+    if (g && GROUP_INFO[g.dataset.id]) { selected = null; show(g.dataset.id); apply(); }
+  });
+  svg.addEventListener("click", ev => {
+    if (!ev.target.closest(".node, .group, foreignObject")) { selected = null; show(null); apply(); }
+  });
+  document.querySelectorAll(".chip").forEach(chip => chip.addEventListener("click", () => {
+    route = chip.dataset.path; selected = null; show(null);
+    document.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", String(c === chip)));
+    apply();
+  }));
+
+  GROUP_INFO.g_build = ["ml build", INFO.build[1]];
+  show(null);
+})();
+</script>
+
+</body>
+</html>

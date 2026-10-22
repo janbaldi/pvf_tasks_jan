@@ -9,6 +9,10 @@ represents it), until you decide otherwise. Parameters that run in groups over
 time, as a lot does (the shifts report), are left out per task instead, with
 `ml task new --exclude-shifting` ([chapter 4](04-tasks.md#1-create-a-task)).
 
+The *Screening loop* route of [the workflow map](../workflow.html) shows the
+whole cycle: reports, proposal, register, and back into the next build and
+every task.
+
 ## How it works
 
 - **One register.** `parameter_screening.xlsx` on SharePoint
@@ -28,6 +32,13 @@ time, as a lot does (the shifts report), are left out per task instead, with
   and `inputs/screening.xlsx` is a copy of that register. `ml task rerun` applies
   the copy, so a rerun applies exactly the same decisions however the register
   has changed since.
+- **Every build reads it.** The missingness report shows each decision (⊘ in the
+  plot, the *Screening* column, the *Screened out at this site* table). The
+  correlation report leaves out what the register excludes at the site, except
+  parameters excluded as `correlated with group`, which stay marked ⊘ so they can
+  be reinstated. The shifts report leaves out what the register excludes at the
+  plant's data source. `task_catalog.xlsx` is cut by it. And the build adds its
+  own `never recorded` exclusions to it (below).
 - **Nothing is deleted.** The batch table and the reports keep every parameter.
   Screening only decides what a task may use. `task_catalog.xlsx`, written by
   every build, lists what is left.

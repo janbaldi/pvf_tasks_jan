@@ -15,6 +15,8 @@ Allow an hour the first time and a quarter of an hour after that.
 7. Rerun the tasks you maintain ([chapter 4](04-tasks.md)).
 
 Run every command from the repository (or any folder below it), as `uv run ml …`.
+The *Monthly update* route of [the workflow map](../workflow.html) shows these
+steps, and what each reads and writes.
 
 ## 1. Validate
 

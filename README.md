@@ -24,6 +24,12 @@ table, and the means to refit the preprocessing inside every fold.
                        reason (and representative)
 ```
 
+The full picture is [`docs/workflow.html`](docs/workflow.html): an interactive
+map of every command, input and output, from the catalog to a task's run
+folder. Download it and open it in a browser; click any box for what it reads,
+writes and which settings change it, or pick a route (monthly update, screening
+loop, new task, reproduce a run) to highlight it.
+
 | Word | What it is |
 |---|---|
 | **catalog** | `catalog.xlsx` on SharePoint: every parameter the batch table may hold, with its type, stage and availability |
@@ -86,7 +92,8 @@ Then open, in a browser:
 | [5. Reference](docs/manual/05-reference.md) | You need the exact meaning of a command, a setting or an output file. |
 | [6. Development](docs/manual/06-development.md) | You change the code: tests, adding a calculated feature, the code layout. |
 
-`CALCULATED_FEATURES.md` lists every calculated column with its formula.
+`docs/workflow.html` maps the whole workflow, and `CALCULATED_FEATURES.md` lists
+every calculated column with its formula.
 
 ## License
 

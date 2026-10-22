@@ -186,7 +186,7 @@ def test_a_ticked_pair_excludes_the_closest_represented_by_the_parameter():
 
     # As the report's proposal builds it for a ticked parameter W whose closest is Z.
     rows, _ = _proposal_rows()(
-        ["Z"], {}, {}, "North", "exclude", correlation.REASON, "same order", "2027-01-01", "A", "W"
+        ["Z"], {}, {}, "North", "exclude", correlation.REASON, "same order", "A", "W"
     )
     (added,) = screening.add([], pd.DataFrame(rows), EVIDENCE, "", "", SITES)
     assert (added.parameter, added.represented_by, added.reason) == ("Z", "W", correlation.REASON)

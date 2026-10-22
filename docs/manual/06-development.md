@@ -27,10 +27,6 @@ Append one `Feature(…)` to the registry in `src/ml/features.py`:
   to the catalog, a hand-computed case to `tests/test_features.py`, and its formula
   to `CALCULATED_FEATURES.md`.
 
-The build checks every feature against the catalog's `Available From Day`: a
-feature the catalog says is known before one of its inputs is listed in the build
-report.
-
 ## The code
 
 ```

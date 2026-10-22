@@ -570,7 +570,7 @@ def load_lv_coa(
 
     # Titer adjustment factor = adjusted / unadjusted.
     #   How hard release titer was corrected; large corrections can flag assay
-    #   drift. Defined only where BOTH exist; NaN elsewhere (Block 4b flags it).
+    #   drift. Defined only where BOTH exist; NaN elsewhere.
     if titer_adj and titer_unadj:
         add(
             col("coa_titer_adjustment"),
@@ -648,19 +648,6 @@ def load_lv_coa(
         # average if present (it reconciles with the donor mean); else compute.
         if find(col("coa_donor_average", metric=metric)) is None:
             add(f"{metric} Donor AVG", pair.mean(axis=1), d1, d2)
-
-    # ================================================================== #
-    # BLOCK 4b — assay-missingness indicators (distinct from below-LOQ).
-    # "Not run" != "below LOQ". Which lots got the full panel can be informative,
-    # so flag genuine NaN explicitly instead of relying only on the default branch.
-    # Skip unadjusted titer (dropped below; its missingness is already encoded by
-    # the delivered-dose fallback flag).
-    # ================================================================== #
-    for c in numeric_cols:
-        if c == titer_unadj:
-            continue
-        if df[c].isna().any():
-            add(f"{c} missing", df[c].isna().astype("int8"), c)
 
     # ------------------------------------------------------------------ #
     # Drop identifiers / consumed raw columns, then namespace.

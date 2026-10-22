@@ -101,10 +101,6 @@ features:
   medium_lactate: null                  # fresh medium lactate (g/L)
   impurity_spec_limits: null            # release limits of the vector impurities, in the
                                         # vocabulary's coa_impurities order (5 numbers)
-  # When each parameter becomes known: a feature the catalog places earlier than
-  # one of its inputs is reported in the build report.
-  availability_column: "Available From Day"
-  availability_order: null              # null: the column holds day numbers
 
 lv_coa:
   ph_nominal: 7.2       # release-spec midpoints, never a data mean

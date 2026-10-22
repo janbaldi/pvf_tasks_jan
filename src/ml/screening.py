@@ -77,7 +77,6 @@ PROPOSAL_COLUMNS = (
     "Site",
     "Reason",
     "Rationale",
-    "Review by",
     "Author",
     "Represented by",
 )
@@ -104,7 +103,7 @@ REASONS = (
     "data quality",
     "other",
 )
-#: A decision without a review date is looked at again after this long.
+#: A decision is looked at again after this long.
 REVIEW_AFTER = timedelta(days=91)
 #: The register column behind each Decision field, in order.
 FIELDS = dict(
@@ -315,7 +314,7 @@ def add(
     The author is the proposal's ``Author`` column, or ``author`` where it is empty.
     """
     today = today or date.today()
-    missing = [c for c in ("Action", "Site", "Reason", "Rationale") if c not in proposal.columns]
+    missing = [c for c in ("Action", "Site", "Reason") if c not in proposal.columns]
     if missing:
         raise ScreeningError(f"The proposal has no {', '.join(missing)} column")
     numbers = [int(d.id.split("-")[-1]) for d in decisions if d.id.split("-")[-1].isdigit()]
@@ -337,8 +336,6 @@ def add(
             problems.append(f"Site '{site}' is not {ALL} or one of {', '.join(sites)}")
         if reason not in REASONS:
             problems.append(f"Reason '{reason}' is not one of: {', '.join(REASONS)}")
-        if not fields["Rationale"]:
-            problems.append("Rationale is empty: say why, in words")
         if not fields["Parameter"] and not fields["Group"]:
             problems.append("give a Parameter, a Group, or both")
         who = fields["Author"] or author.strip()
@@ -420,7 +417,7 @@ def add(
             identifier = f"S-{next_number:04d}"
             next_number += 1
             shared[together] = identifier
-        review = fields["Review by"] or (today + REVIEW_AFTER).isoformat()
+        review = (today + REVIEW_AFTER).isoformat()
         for member in members:
             added.append(
                 Decision(

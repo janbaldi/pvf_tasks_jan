@@ -73,6 +73,10 @@ table can be traced back to the sources it came from.
 
 If it warns that the last `ml check-catalog` found parameters the catalog
 doesn't list, that's step 2's list: the build goes ahead without them.
+If it warns that no catalog manifest could be read although step 2 ran, the
+warning just above it says why the read failed. The build reads
+`catalog_manifest.json` back with `io_sharepoint.download_file_from_sharepoint`;
+an `io_sharepoint` without that function reads workbooks only.
 
 ## 4. Read the build report
 
@@ -83,8 +87,7 @@ and 10 to 30 seconds to start. Look at these sections:
 |---|---|
 | **Overview** | The batch and column counts per site: do they match what you expect for the month? |
 | **Cleaning** | Every correction that changed something, and every value that could not be read (a date that isn't a date, a number written as text). A new kind of error here usually means a new correction rule. |
-| **Catalog coverage** | Catalog parameters that are not in the batch table, and why. |
-| **Derived features** | Calculated features that were blocked (an input missing, or a setting it waits for), and the data checks: doublings against cell counts, seeding and formulation arithmetic, features the catalog says are known before their inputs. Each names batches or catalog rows to look at. |
+| **Catalog coverage** | Catalog parameters that are not in the batch table, and why: no source supplies it, or a calculated feature is blocked (an input missing, or a setting it waits for). |
 | **Run log** | Every warning of the run. |
 
 ## 5. Read the missingness report
@@ -97,25 +100,27 @@ plot but counted nowhere else. Both rules are `build.missingness_cohort` in
 `config.yaml`. **About this report** in the sidebar says how many batches each
 site's analysis covers.
 
-Pick a site in the sidebar. The page opens on the plot, and has these parts:
+Pick a site in the sidebar. The tables work the same way in all three reports:
+**click a row** to draw it (the row is shaded), and **tick the box** at the
+start of rows, in any of the tables, to propose a screening decision about
+them. The page has these parts:
 
-- **The pattern plot.** It shows the largest group until you tick something.
+- **The pattern plot.** Empty until you click a row in a table.
   One row per parameter, one cell per batch in date order,
   newest on the right. Missing cells are blue, or **green for a batch whose
   manufacturing is not completed**: a gap there may just mean "not measured
   yet". A ⊘ before a name marks a parameter screened out at this site. Hover a
   cell for its batch and date.
-- **The group table.** Parameters that go missing together. Tick a group to draw
-  all its members. *Screened members* counts the ones already screened out.
+- **The group table.** Parameters that go missing together. Click a group to
+  draw all its members. *Screened members* counts the ones already screened out.
 - **Screened out at this site.** The screening register's standing exclusions:
-  decision, date, reason, rationale and review date. Tick one to draw it, or to
-  reinstate it.
+  decision, date, reason, rationale. Click one to draw it; tick it to reinstate
+  it.
 - **The parameter table** (collapsed). Every parameter missing on at least one
   batch at this site and in no group (those are in the group table), with its
   **pattern**, its statistics and, in the **Screening** column, the decision
-  standing for it at this site. Tick parameters to add them to the plot. The CSV
-  download still has every parameter.
-- **Propose a screening decision.** Turns everything you ticked into a
+  standing for it at this site. Click one to draw it.
+- **Propose a screening decision.** Turns everything you ticked, in every table, into a
   `proposal.csv` ([chapter 3](03-screening.md#recording-a-decision)).
 
 The pattern says how a parameter goes missing:
@@ -131,9 +136,9 @@ The pattern says how a parameter goes missing:
 | Random gaps | As many gaps as chance would give. | Usually fine. |
 | Regular skipping | Every n-th batch skipped. | Look closer: a sampling plan? |
 
-The *Help* button in the sidebar explains every statistic. The parameter table
-downloads as a CSV, and `missingness.xlsx` in the same folder holds all of it,
-for both sites.
+The *Help* button in the sidebar explains every statistic. `missingness.xlsx`
+in the same folder holds every parameter's row, for both sites. The tables have
+no CSV download; the only download is the proposal.
 
 When you decide that a parameter or a group should not be used by any task,
 record it now: [chapter 3](03-screening.md).
@@ -148,7 +153,7 @@ the site. It groups the parameters that **put the batches in the same order**
 so to a tree the members of a group are interchangeable.
 
 The parameter table lists only the parameters in no group, each with its closest
-parameter; the plot shows the last one you ticked against its closest. Tick
+parameter; click one to draw it against its closest. Tick
 several to propose, for each, that its closest parameter is excluded as
 `correlated with group`, represented by the ticked one. The **Register** column
 says what the register already holds: *excluded (S-…), represented by …*, or
@@ -168,8 +173,9 @@ not the parameter table.
   (Benjamini-Hochberg adjusted p-value). A group is drawn from its representative.
 - **Screened out at this site, the parameter table and the proposal** work as in
   the missingness report. To **represent a group by one parameter**, tick the
-  group: the proposal form sets the reason `correlated with group` and *Represented
-  by* to the suggestion (change it if you know better). The proposal excludes
+  group (or several groups): the proposal form sets the reason `correlated with
+  group` and, per group, *Represented by* to the suggestion (change it if you
+  know better). The proposal excludes
   every other member and records the representative in the register; the
   representative stays usable. Excluded members stay in this report, marked ⊘,
   so they can be reinstated; a parameter screened out for any other reason is
@@ -205,15 +211,16 @@ not).
   tell neighbours apart; a blank stretch has no value. Thin grey lines mark the
   days the first row changes value, so the rows that change with it line up.
 - **The group table.** Groups of parameters that change on the same days: every
-  pair in a group shares at least 80% of its change days. Tick one to draw it.
+  pair in a group shares at least 80% of its change days. Click one to draw it.
   Names end with the plant (`Shifting 01 @ …`).
-- **The parameter table.** Every parameter that runs in groups: its groups, days
-  per group, the permutation p, and the parameter it shares most change days
-  with.
+- **The parameter table.** Every parameter that runs in groups and is in no
+  group of the group table: its groups, days per group, the permutation p, and
+  the parameter it shares most change days with. Click one to draw it.
 
-To leave all of them out of a task, create it with `ml task new <folder>
---exclude-shifting` ([chapter 4](04-tasks.md#1-create-a-task)): it reads the
-same table from `shifts.xlsx`. Parameters the register already screens out are
+This report has no proposal, so its tables have no boxes to tick. To leave all
+of them out of a task, the grouped ones too, create it with `ml task new <folder>
+--exclude-shifting` ([chapter 4](04-tasks.md#1-create-a-task)): it reads every
+parameter from `shifts.xlsx`. Parameters the register already screens out are
 not looked at.
 
 ### The task catalog

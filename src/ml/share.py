@@ -99,7 +99,7 @@ class _IoSharepoint:
     def read_bytes(self, location: Location) -> bytes | None:
         fetch = getattr(self.module, DOWNLOAD, None)
         if fetch is None:
-            return None
+            raise ShareError(f"io_sharepoint has no {DOWNLOAD}(), so it reads workbooks only")
         content = fetch(sharepoint_path=location.path, drive_id=location.drive_id)
         if hasattr(content, "read"):
             content = content.read()
@@ -168,13 +168,13 @@ def read_text(location: Location) -> str | None:
     """A text file on the share (a manifest), or None when it is not there.
 
     ``io_sharepoint`` reads workbooks; it fetches other files only if it has
-    :data:`DOWNLOAD`. Without it the caller is told the file could not be read,
-    which is a finding rather than a failure.
+    :data:`DOWNLOAD`. Without it, or when the fetch fails, the reason is logged
+    and the caller is told the file could not be read: a finding, not a failure.
     """
     try:
         content = backend().read_bytes(location)
     except Exception as exc:  # an absent file is a finding here, not a failure
-        log.info(MODULE, f"{location.name} could not be read from SharePoint: {exc}")
+        log.warn(MODULE, f"{location.name} could not be read from SharePoint", str(exc))
         return None
     return content.decode("utf-8") if content is not None else None
 

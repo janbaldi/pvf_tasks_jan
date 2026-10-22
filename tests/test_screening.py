@@ -176,7 +176,7 @@ def test_a_proposal_with_problems_adds_nothing_and_names_them():
                     "Action": "exclude",
                     "Parameter": "X",
                     "Site": "North",
-                    "Reason": "retired",
+                    "Reason": "nope",
                     "Rationale": "",
                 },
                 {
@@ -201,7 +201,8 @@ def test_a_proposal_with_problems_adds_nothing_and_names_them():
         )
     message = str(caught.value)
     assert "row 2: 'nope' is not a column" in message
-    assert "row 3: Rationale is empty" in message
+    assert "row 3: Reason 'nope' is not one of" in message
+    assert "Rationale" not in message, "a rationale is optional"
     assert "row 4: nothing to reinstate" in message
     assert "row 5: a Group is numbered per site" in message
     row = {
@@ -356,7 +357,6 @@ def test_the_report_writes_a_proposal_that_ml_screening_add_accepts():
         "exclude",
         "retired",
         " old assay ",
-        "2027-01-01",
         "A. Reviewer",
     )
     assert skipped == []
@@ -370,7 +370,7 @@ def test_the_report_writes_a_proposal_that_ml_screening_add_accepts():
         ("S-0002", "Z"),
     ]
     assert {d.author for d in added} == {"A. Reviewer"}
-    assert added[0].review_by == "2027-01-01"
+    assert added[0].review_by, "the register still dates a review of every exclusion"
 
 
 def test_the_report_only_reinstates_what_is_screened_out():
@@ -384,11 +384,9 @@ def test_the_report_only_reinstates_what_is_screened_out():
         "reinstate",
         "other",
         "back in use",
-        "2027-01-01",
         "A. Reviewer",
     )
     assert [r["Parameter"] for r in rows] == ["X"] and skipped == ["Z"]
-    assert rows[0]["Review by"] == "", "a reinstatement has no review date"
     log = [decision(1, "exclude", "X", "North")]
     (added,) = screening.add(log, pd.DataFrame(rows), EVIDENCE, "", "", SITES)
     assert added.action == "reinstate"

@@ -21,12 +21,11 @@ are `config.yaml` settings, with their default in brackets.
 - **Calculated By** (catalog) says who calculates it: `pipeline (feature registry)`,
   `pipeline (vector certificate loader)`, or `source record` (a column the batch
   records already deliver calculated).
-- **Day** is the feature's process day. **Known** is the catalog's `Available From Day`;
-  the build now checks that a feature is never known before its inputs
-  (`features.availability_column`).
+- **Day** is the feature's process day. **Known** is the catalog's `Available From Day`.
 - A feature is computed only when the catalog lists it and every input is there.
-  Otherwise the build report lists it as *not in catalog*, *blocked* (with what is
-  missing, including a config setting it waits for) or *present* (a source supplies it).
+  Otherwise the build's run log says it is *not in catalog*, *blocked* (with what is
+  missing, including a config setting it waits for) or *present* (a source supplies
+  it); the build report's *Catalog coverage* lists the blocked ones too.
 - Division by zero gives a missing value, never an infinity.
 - **Status** marks what changed in this revision (see the change log at the end).
 
@@ -51,10 +50,9 @@ are `config.yaml` settings, with their default in brackets.
 17. Vector certificate columns (loader)
 18. Censoring flags (cleaning stage)
 19. Task-stage derived columns
-20. Data checks (build report)
-21. Config settings the features read
-22. Change log
-23. Open questions
+20. Config settings the features read
+21. Change log
+22. Open questions
 
 ## 1. Flow and phenotype
 
@@ -245,8 +243,8 @@ The catalog lists 28 of them (family *Deviation from reference*).
 Built while the certificate workbook is read (`ml.io.load_lv_coa`), prefixed `LV CoA `.
 Their lineage is declared in `features.coa_lineage()`, so a task can check them for
 descent from its target. In the catalog these are *Calculated By* `pipeline (vector
-certificate loader)` where the catalog lists them (the donor summaries); the others are
-not catalog parameters.
+certificate loader)`. The catalog lists all of them but the `below LOQ` flags and the
+donor `AVG`, which the loader builds only when the certificate has no average of its own.
 
 | Column | Formula | Kind | Description |
 |---|---|---|---|
@@ -262,7 +260,6 @@ not catalog parameters.
 | `<metric> Donor DIFF` | max − min | Engineered | Disagreement between the donors. |
 | `<metric> Donor DIFF Rel` | DIFF / mean(donor 1, donor 2) | Normalization | Disagreement relative to the mean. |
 | `<metric> Donor AVG` | mean(donor 1, donor 2) | Engineered | Only when the certificate has no average of its own. |
-| `<column> missing` | 1 if the numeric certificate column is empty, else 0 | Engineered | "Not run" is not "below LOQ". |
 
 `LV CoA MFG Date` is no longer dropped by the loader: the vector age is computed
 from it. It is in the catalog as a datetime with *Shift Model Use* `Exclude (leakage)`.
@@ -283,19 +280,7 @@ Not in the batch table; created when a task runs.
 | `<column>_resid` (clustering `residualise`) | residual of a linear regression on the representative | Engineered | The part of a column the kept parameter does not explain. |
 | One-hot / binary / ordinal / target-mean / hashed encodings | see `ml.encode` | — | Encodings of categorical parameters; target means are fitted on training rows only. |
 
-## 20. Data checks (build report)
-
-Computed by `features.quality_checks()` and listed in the build report's *Derived
-features* section. They flag batches to look at; they are not model inputs.
-
-| Check | Flags a batch when |
-|---|---|
-| Doublings against cell counts | \|`cPDL (D3 to D10)` − log2(`Harvest Pre-Wash Viable Cell Count after Sampling (cells)` / `Total Viable Cells for Expansion after VSVg Sampling (cells)`)\| > 1 |
-| Seeding arithmetic | `Day 3 Actual Viable Cells Seeded G-Rex A` + `Day 3 Actual Viable Cells Seeded G-Rex B` > 1.01 × `Day 3 Total Viable Cells Available for Seeding G-Rex (cells)` |
-| Formulation balance | viable cells out of formulation > viable cells in |
-| Availability | the catalog says a feature is known before one of its inputs |
-
-## 21. Config settings the features read
+## 20. Config settings the features read
 
 All under `features:` in `config.yaml`.
 
@@ -311,9 +296,8 @@ All under `features:` in `config.yaml`.
 | `moi_target` | unset | `MOI_eff_pool_vs_target` (blocked while unset) |
 | `medium_glucose, medium_lactate` | unset | lactate yield on glucose (blocked while unset) |
 | `impurity_spec_limits` | unset | `LVCoA_Impurity_Index_spec` (blocked while unset) |
-| `availability_column, availability_order` | `Available From Day`, unset | the availability check |
 
-## 22. Change log
+## 21. Change log
 
 What this revision changed, following `FEATURE_RECOMMENDATIONS.md`.
 
@@ -333,8 +317,13 @@ What this revision changed, following `FEATURE_RECOMMENDATIONS.md`.
 were marked known at day 10 although they are calculated from final-product results (day 11),
 and `Shift` at day −1 although the thaw time is a day-0 reading; all three are corrected.
 
-**Added:** every row marked **new** above, the data checks, the availability check, a unit and
-a kind on every feature, and formula tests (`tests/test_features.py`).
+**Added:** every row marked **new** above, a unit and a kind on every feature, and formula
+tests (`tests/test_features.py`).
+
+**Removed later:** the build report's *Derived features* section with its data checks
+(doublings, seeding and formulation arithmetic) and the availability check
+(`features.availability_column`, `availability_order`), and the certificate loader's
+`<column> missing` indicators.
 
 **Overlap with source columns.** Some new features measure what the batch records already
 deliver calculated. They are in the catalog in the same redundancy group, not representative,
@@ -348,7 +337,7 @@ so the source column stays the default; compare the two before relying on either
 | `Out_of_incubator_D8_min` | `Day 8 Processing Time (inc out to inc in)` |
 | `LOVO_wash_recovery_fraction` | `LOVO Step Yield (%) (as a fraction rather than %)` |
 
-## 23. Open questions
+## 22. Open questions
 
 1. **The `1e9` factor** in the metabolites per cell is kept as the source spreadsheets
    define it; its exact unit derivation is **not sure**.

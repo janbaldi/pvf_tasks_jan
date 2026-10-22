@@ -88,21 +88,6 @@ features:
   - 5.0
   - 3.0
   - 3.0
-  availability_column: Available At
-  availability_order:
-  - D0
-  - D1
-  - D3
-  - D6
-  - D8
-  - D10
-  - Harvest
-  - Post-thaw
-  - Wash
-  - Formulation
-  - Final product
-  - Release
-  - Post-release
 lv_coa:
   ph_nominal: 7.2
   osmo_nominal: 300.0

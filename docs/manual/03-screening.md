@@ -63,17 +63,18 @@ batches lose it.
 ## Recording a decision
 
 **1. Write the proposal from the report.** In the report (`missingness_report.html`
-or `correlation_report.html`), pick the site and tick what
-the decision is about: a group in the group table,
+or `correlation_report.html`), pick the site and tick, with the box at the
+start of a row, what the decision is about: groups in the group table,
 parameters in the parameter table, or (to reinstate them) rows of *Screened out
-at this site*. Open **Propose a screening decision** below the tables and fill in:
+at this site*. You can tick rows in several tables at once. Clicking a row
+elsewhere only draws it. Open **Propose a screening decision** below the tables
+and fill in:
 
 - **Action**: exclude or reinstate;
 - **Reason**: one of the list above;
-- **Rationale**: why, in a sentence;
-- **Review by**: three months from today unless you change it;
+- **Rationale** (optional): why, in a sentence;
 - **Author**: your name;
-- **Represented by** (correlation report, exclude only): the member
+- **Represented by** (correlation report, per ticked group): the member
   that stays, starting on the report's suggestion;
 - **Leave out of the proposal**: ticked parameters the proposal should skip.
 
@@ -81,15 +82,15 @@ The form shows the rows it will write, and **Download proposal.csv** saves them,
 one row per parameter with every column filled in:
 
 ```
-Action,Parameter,Group,Site,Reason,Rationale,Review by,Author,Represented by
-exclude,Day 3 clump observation,Missing 05,Northfield,missing with group,clump observations recorded on some batches only,2027-01-19,S. Degroeve,
-exclude,D3 clumps present,Missing 05,Northfield,missing with group,clump observations recorded on some batches only,2027-01-19,S. Degroeve,
+Action,Parameter,Group,Site,Reason,Rationale,Author,Represented by
+exclude,Day 3 clump observation,Missing 05,Northfield,missing with group,clump observations recorded on some batches only,S. Degroeve,
+exclude,D3 clumps present,Missing 05,Northfield,missing with group,clump observations recorded on some batches only,S. Degroeve,
 ```
 
 Only parameters that are screened out at that site can be reinstated; the form
 says which ticked ones it leaves out, and why.
 
-From the correlation report, a ticked group becomes an exclusion of every member
+From the correlation report, each ticked group becomes an exclusion of every member
 but its representative, with the representative in the `Represented by` column.
 `ml screening status` lists such an exclusion again when its representative is
 screened out later, since the group would then have no parameter left.
@@ -103,8 +104,7 @@ You can also write the file by hand, in Excel or a text editor:
 | `Group` | A group from a report's group table, such as `Missing 05`, `Correlated 02` or `Shifting 01`. With no `Parameter`, the row stands for every member of the group at that site; with one, it is context |
 | `Site` | A site's name, or `all` (not with a group and no `Parameter`: groups are found per site). A `Shifting` group is found per manufacturing site: name the data source its batches come from, or `all` |
 | `Reason` | One of the reasons in the table above |
-| `Rationale` | Why, in a sentence. Required |
-| `Review by` | Optional date (`YYYY-MM-DD`) to look at it again; empty means three months from today |
+| `Rationale` | Why, in a sentence. Optional |
 | `Author` | Who decides; or leave it empty and pass `--author` |
 | `Represented by` | The parameter that stands in for the excluded ones; it is never excluded itself and must be usable at the site. Required with `correlated with group` and `shifts with group`: left empty, it is that report's suggestion for the group |
 
@@ -128,15 +128,16 @@ Screening register updated
 
 `ml screening add` checks the whole proposal against the latest build before it
 writes anything. It refuses a proposal with an unknown parameter or group, a
-reason that isn't on the list, an empty rationale, or a reinstatement of
+reason that isn't on the list, or a reinstatement of
 something that isn't excluded. It names every problem at once and adds nothing.
 
 Each decision gets an ID (`S-0002`). The rows of one group with the same action,
-reason, rationale, review date and author share one ID: they are one decision.
+reason, rationale and author share one ID: they are one decision.
 A group is stored as its members, because group numbers can change with the next
 build and the members are what was decided. The tool fills in the date,
-the author, and the evidence from the latest build: missing %, pattern, last
-measurement, and the digest of the batch table it was decided on.
+the author, the evidence from the latest build (missing %, pattern, last
+measurement, and the digest of the batch table it was decided on) and, for an
+exclusion, a review date three months on.
 
 The first time, there is no register yet: add `--new` to start one.
 
@@ -161,8 +162,8 @@ For each one, decide:
 
 - **Reinstate it:** a proposal row with `Action: reinstate`, the same parameter
   and site, and why. The parameter is back in every task from the next run.
-- **Keep it, and look again later:** add an `exclude` row with fresh evidence and
-  a new `Review by` date. The old row stays in the log.
+- **Keep it, and look again later:** add an `exclude` row; it gets fresh evidence
+  and a new review date. The old row stays in the log.
 - **Change the scope:** to move an exclusion from `all` to one site, reinstate at
   the site where the parameter is fine.
 
@@ -184,8 +185,9 @@ records that in its manifest.
   task needs, if it is nearly as good.
 - **One reason per decision, in words someone else understands in a year.** "Not
   recorded since the new batch record template" beats "sparse".
-- **Use review dates.** Three months is the default; use a shorter one for
-  *introduced late* parameters that are gaining history.
+- **Let the review dates work.** Every exclusion is due for review three months
+  on, and `ml screening status` lists it then; reinstate an *introduced late*
+  parameter sooner if it gains history.
 - **Review the status every month** (checklist step 6), even when nothing seems
   to have changed.
 - **When a task must use a screened parameter** for a specific question, it can't

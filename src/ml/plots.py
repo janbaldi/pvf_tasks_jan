@@ -4,16 +4,14 @@ One function per figure, each returning ``None`` when there is nothing to draw,
 so the section it belongs to drops out rather than rendering an empty axis.
 This module imports :mod:`ml.blocks` and nothing else from the project.
 
-Colour is spent only where it carries something: the two sites share an axis and
-get one colour each, and the registry outcomes are a severity scale. Everything
-single-series is neutral ink. The colours and sizes are the CAR-T manufacturing
+Colour is spent only where it carries something: everything single-series is
+neutral ink. The colours and sizes are the CAR-T manufacturing
 dashboard's, so a figure here reads like one there.
 """
 
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
 
 import numpy as np
 import plotly.graph_objects as go
@@ -24,15 +22,6 @@ from .blocks import Block, figure
 INK = "#2c3e50"
 MUTED = "#9aa5b1"
 GRID = "rgba(44,62,80,0.12)"
-SITE_COLOURS = ("#0047ab", "#9aa5b1")
-#: created, already present, blocked, not in catalog, errored
-STATUS_COLOURS = {
-    "created": "#2c3e50",
-    "present": "#d3d2cc",
-    "blocked": "#d18b00",
-    "not in catalog": "#2a78d6",
-    "errored": "#eb6834",
-}
 #: the dashboard's categorical palette: no dark blue, red, pink or orange
 CATEGORY_COLOURS = ("#7a8b00", "#35a02c", "#e5b400", "#12a4b6", "#6a3fb5", "#8c6239")
 #: correlation, -1 to 1: orange through near-white to blue (no red)
@@ -86,108 +75,6 @@ def _style(fig: go.Figure, title: str, x: str = "", y: str = "", height: int = 3
     fig.update_xaxes(showgrid=False, zeroline=False)
     fig.update_yaxes(showgrid=True, gridcolor=GRID, zeroline=False)
     return fig
-
-
-def profile_distribution(
-    profiles: Mapping[str, Mapping[str, Mapping[str, int]]],
-    column: str,
-    order: Sequence[str],
-) -> Block | None:
-    """Batches per profile class, one bar group per site.
-
-    ``profiles`` is ``{site: {column: {class: count}}}``. Sites share the axis,
-    which is what earns them a colour each.
-    """
-    counts = {site: by_column.get(column, {}) for site, by_column in profiles.items()}
-    counts = {site: values for site, values in counts.items() if values}
-    if not counts:
-        return None
-
-    classes = [c for c in order if any(c in values for values in counts.values())]
-    classes += sorted({c for values in counts.values() for c in values if c not in order})
-
-    fig = go.Figure()
-    for colour, (site, values) in zip(SITE_COLOURS, counts.items()):
-        fig.add_bar(
-            name=site,
-            x=classes,
-            y=[values.get(c, 0) for c in classes],
-            marker_color=colour,
-            hovertemplate="%{x}: %{y} batches<extra>" + site + "</extra>",
-        )
-    fig.update_layout(barmode="group", showlegend=True)
-    return _fig(_style(fig, f"{column} — batches per class", y="batches"), "")
-
-
-def registry_outcome(reports: Sequence) -> Block | None:
-    """How each feature group fared, stacked by status.
-
-    One bar per group, so a group that is entirely blocked for want of one input
-    is visible without reading the table under it.
-    """
-    entries = [entry for report in reports for entry in report.entries]
-    if not entries:
-        return None
-
-    groups = sorted({entry["group"] for entry in entries})
-    fig = go.Figure()
-    for status, colour in STATUS_COLOURS.items():
-        counts = [
-            sum(1 for e in entries if e["group"] == group and e["status"] == status)
-            for group in groups
-        ]
-        if not any(counts):
-            continue
-        fig.add_bar(
-            name=status,
-            x=groups,
-            y=counts,
-            marker_color=colour,
-            hovertemplate="%{x}: %{y} " + status + "<extra></extra>",
-        )
-    fig.update_layout(barmode="stack", showlegend=True)
-    return _fig(
-        _style(fig, "Feature outcomes by group", y="features", height=400),
-        "Counted across sites, so a feature computed at both sites appears twice.",
-    )
-
-
-def coverage_bars(report, limit: int = 30) -> Block | None:
-    """The created features with the least data behind them.
-
-    A feature that computed cleanly over three batches is still an empty column,
-    and that only shows up as coverage.
-    """
-    created = [
-        (entry["name"], 100 * entry["non_null"] / report.rows)
-        for entry in report.entries
-        if entry["status"] == "created" and report.rows
-    ]
-    if not created:
-        return None
-
-    created.sort(key=lambda item: item[1])
-    shown = created[:limit]
-    fig = go.Figure(
-        go.Bar(
-            x=[pct for _, pct in shown],
-            y=[name for name, _ in shown],
-            orientation="h",
-            marker_color=INK,
-            hovertemplate="%{y}: %{x:.1f}% of batches<extra></extra>",
-        )
-    )
-    fig.update_xaxes(range=[0, 100], showgrid=True, gridcolor=GRID)
-    fig.update_yaxes(showgrid=False, autorange="reversed")
-    return _fig(
-        _style(
-            fig,
-            f"{report.site} — thinnest features by coverage",
-            x="% of batches with a value",
-            height=max(320, 22 * len(shown) + 80),
-        ),
-        f"The {len(shown)} sparsest of {len(created)} features created at {report.site}.",
-    )
 
 
 # ---------------------------------------------------------------------------

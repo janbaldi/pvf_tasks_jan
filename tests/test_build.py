@@ -5,8 +5,6 @@ the cleaning had to correct, sources joined on, features computed or reported as
 blocked, and the catalog gap in both directions.
 """
 
-import io
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -14,7 +12,6 @@ import pytest
 import dummy_data
 from conftest import (
     facts,
-    figures,
     row_named,
     rows_naming,
     section,
@@ -23,7 +20,7 @@ from conftest import (
     tables,
 )
 from dummy_data import c, cs, v, vs
-from ml import missingness, names, stlite
+from ml import missingness, names, plots, stlite
 
 
 # ---------------------------------------------------------------------------
@@ -287,7 +284,14 @@ def test_batches_still_in_production_are_drawn_but_not_counted(built):
 
 
 def test_the_missingness_report_analyses_each_site_on_its_own_batches(built):
+    from conftest import shared
+    from ml import screening
+
     payload = _missingness_payload(built)
+    evidence = pd.read_excel(
+        shared(built["directory"], built["config"], "batch_table", screening.EVIDENCE_FILE),
+        sheet_name=screening.EVIDENCE_SHEET,
+    ).fillna({"Group": ""})
     assert payload["sections"][0]["id"] == "viewer", "the viewer is on top"
     viewer = next(b for b in payload["sections"][0]["blocks"] if b["kind"] == "missing_viewer")
     batch_table = built["batch_table"]
@@ -297,14 +301,14 @@ def test_the_missingness_report_analyses_each_site_on_its_own_batches(built):
         (names.site("b"), site_b(batch_table)),
     ):
         site = sites[name]
-        # Every parameter in the CSV; the table leaves out those in the group table.
-        full = pd.read_csv(io.StringIO(site["csv"])).fillna({"Group": ""})
-        rows = {row["Parameter"]: row for row in full.to_dict("records")}
-        grouped = {m for members in site["groups"].values() for m in members}
-        assert {row[0] for row in site["rows"]} == set(rows) - grouped
         # Only the parameters missing somewhere: one recorded in every batch has no pattern.
         gappy = {str(column) for column in batch_table.columns if batches[column].isna().any()}
-        assert set(rows) == gappy and "Site Merged" not in rows
+        assert set(site["patterns"]) == gappy and "Site Merged" not in gappy
+        at_site = evidence[evidence["Site"] == name].to_dict("records")
+        rows = {row["Parameter"]: row for row in at_site if row["Parameter"] in gappy}
+        # The table leaves out those in the group table.
+        grouped = {m for members in site["groups"].values() for m in members}
+        assert {row[0] for row in site["rows"]} == gappy - grouped
         # Within one site the site is constant, and no condition column is reported.
         assert not {"Condition", "Condition score", "Same split as"} & set(site["headers"])
         # Rates over this site's completed batches only; the strip draws every batch.
@@ -328,7 +332,7 @@ def test_the_missingness_report_analyses_each_site_on_its_own_batches(built):
     # The groups table lists every group, and the method is help, not a section.
     for site in viewer["sites"]:
         assert [row[0] for row in site["group_rows"]] == list(site["groups"])
-        assert site["csv"].startswith("Site,Parameter,")
+        assert "csv" not in site, "no CSV download but the proposal"
     assert [section["id"] for section in payload["sections"]] == ["viewer", "provenance"]
     assert payload["help"]["title"] == "Method"
 
@@ -353,17 +357,6 @@ def test_the_report_lists_catalog_parameters_the_batch_table_does_not_have(built
     # A blocked feature is a different kind of gap, and says so.
     assert c("f_log_pt_cd4_cd8") in names
     assert "blocked" in str(row_named(missing, c("f_log_pt_cd4_cd8")))
-
-
-def test_the_inventory_says_where_every_parameter_came_from(built):
-    inventory = section(built["payloads"]["build"], "inventory")["blocks"][0]
-    origins = {row[0]: row[1] for row in inventory["rows"]}
-    assert origins[c("f_growth_profile")].startswith("Derived")
-    assert origins[c("coa_prefix") + c("coa_titer")] == "Vector certificate of analysis"
-    assert origins[c("media_lot")] == "Raw materials and consumables"
-    assert origins["Site Merged"] == "Merge"
-    assert origins[c("site_a_comment")] == f"{names.site('a')} batch records only"
-    assert len(origins) == built["batch_table"].shape[1]
 
 
 def test_columns_the_catalog_does_not_list_are_reported_too(built):
@@ -394,20 +387,16 @@ def test_the_report_is_one_file_with_its_provenance_in_it(built):
     assert all(len(row[3]) == 64 for name, row in sources.items() if "site_map" not in name)
     titles = [s["title"] for s in built["payloads"]["build"]["sections"]]
     assert titles[0] == "Overview"
-    assert {"Cleaning", "Parameter inventory", "Catalog coverage", "Derived features"} <= set(
-        titles
-    )
+    assert {"Cleaning", "Catalog coverage"} <= set(titles)
+    assert not {"Parameter inventory", "Derived features"} & set(titles)
 
 
-def test_a_legend_has_a_row_of_its_own_under_the_title(built):
+def test_a_legend_has_a_row_of_its_own_under_the_title():
     """The bug this covers: legends sat in the title's margin and were drawn over it."""
-    with_legend = [
-        figure["spec"]["layout"]
-        for figure in figures(built["payloads"]["build"])
-        if figure["spec"]["layout"].get("showlegend")
-    ]
-    assert with_legend
-    for layout in with_legend:
+    import plotly.graph_objects as go
+
+    fig = go.Figure(go.Bar(x=[1], y=[1], name="a"), layout={"showlegend": True})
+    for layout in [plots._style(fig, "title").to_plotly_json()["layout"]]:
         assert layout["legend"]["yanchor"] == "bottom" and layout["legend"]["y"] >= 1
         assert layout["title"]["yref"] == "container" and layout["title"]["yanchor"] == "top"
         assert layout["margin"]["t"] >= 72

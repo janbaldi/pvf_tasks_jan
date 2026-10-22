@@ -460,10 +460,8 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
 
     # ── Features: calculated from the parameters above ────────────────────
     log.section("04 · Derived features")
-    known = features.availability(catalog_frame, params)
     feature_reports = {
-        site: features.apply(df, catalog_cols, params, site=site, known=known)
-        for site, df in phf.items()
+        site: features.apply(df, catalog_cols, params, site=site) for site, df in phf.items()
     }
 
     # ── Merge ──────────────────────────────────────────────────────────────
@@ -776,7 +774,6 @@ def _mark_screened(
                     "Date": decision.date,
                     "Reason": decision.reason,
                     "Rationale": decision.rationale,
-                    "Review by": decision.review_by,
                     "Represented by": decision.represented_by,
                 }
     return state, register, automatic
@@ -936,7 +933,7 @@ def _check_catalog_is_current(config: dict[str, Any]) -> None:
         log.warn(
             MODULE,
             "No catalog manifest could be read from SharePoint, so the catalog is unchecked "
-            "— run `ml check-catalog`",
+            "— run `ml check-catalog`; if it has run, a warning above says why the read failed",
             str(folder.file(CATALOG_OUTPUTS["manifest"])),
         )
         return

@@ -23,6 +23,7 @@ everything the catalog needs to accept them.
 from __future__ import annotations
 
 import re
+import warnings
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -99,18 +100,12 @@ class Params:
     #: Release-spec limits of the certificate impurities, in the vocabulary's
     #: ``coa_impurities`` order; unset, the spec-normalised impurity index is blocked.
     impurity_spec_limits: tuple[float, ...] | None = None
-    #: The catalog column that says when a parameter becomes known, and — for a
-    #: column of labels rather than day numbers — the labels in time order. A
-    #: feature known earlier than one of its inputs is reported.
-    availability_column: str = ""
-    availability_order: tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
-        # YAML gives lists; the dataclass is frozen and its fields are tuples.
-        for name in ("impurity_spec_limits", "availability_order"):
-            value = getattr(self, name)
-            if value is not None and not isinstance(value, tuple):
-                object.__setattr__(self, name, tuple(value))
+        # YAML gives a list; the dataclass is frozen and the field is a tuple.
+        value = self.impurity_spec_limits
+        if value is not None and not isinstance(value, tuple):
+            object.__setattr__(self, "impurity_spec_limits", tuple(value))
 
 
 @dataclass
@@ -125,10 +120,6 @@ class FeatureReport:
     site: str = ""
     rows: int = 0
     entries: list[dict] = field(default_factory=list)
-    profiles: dict[str, dict] = field(default_factory=dict)
-    #: Consistency checks over the batch records and availability problems with
-    #: the features: one dict per finding, with "check", "batches" and "detail".
-    checks: list[dict] = field(default_factory=list)
 
     def count(self, status: str) -> int:
         return sum(1 for e in self.entries if e["status"] == status)
@@ -235,12 +226,13 @@ def slope(df: pd.DataFrame, days: Sequence[float], columns: Sequence[str]) -> pd
     mask = ~np.isnan(values)
     n = mask.sum(axis=1)
     xs = np.where(mask, x, np.nan)
-    x_mean = np.nanmean(xs, axis=1)
-    y_mean = np.nanmean(values, axis=1)
-    dx = xs - x_mean[:, None]
-    dy = values - y_mean[:, None]
-    variance = np.nansum(dx * dx, axis=1)
+    # A row with no readings divides 0 by 0 here; it is masked out below.
     with np.errstate(invalid="ignore", divide="ignore"):
+        x_mean = np.nansum(xs, axis=1) / n
+        y_mean = np.nansum(values, axis=1) / n
+        dx = xs - x_mean[:, None]
+        dy = values - y_mean[:, None]
+        variance = np.nansum(dx * dx, axis=1)
         out = np.nansum(dx * dy, axis=1) / variance
     return pd.Series(np.where((n >= 2) & (variance > 0), out, np.nan), index=df.index)
 
@@ -1623,30 +1615,6 @@ def _growth_profile(df: pd.DataFrame, params: Params) -> pd.Series:
 # ---------------------------------------------------------------------------
 # Derived columns this registry does not build
 # ---------------------------------------------------------------------------
-def coa_measured() -> tuple[str, ...]:
-    """Every certificate column the loader coerces, and therefore may flag as absent."""
-    donors = []
-    for metric in (col("coa_car_metric"), col("coa_ifng_metric")):
-        donors += [
-            col("coa_donor", metric=metric, donor=1),
-            col("coa_donor", metric=metric, donor=2),
-            col("coa_donor_average", metric=metric),
-        ]
-    impurities = cols("coa_impurities")
-    return (
-        col("coa_titer"),
-        col("coa_p24"),
-        col("coa_pi_ratio"),
-        *donors,
-        col("coa_ph"),
-        col("coa_osmolality"),
-        col("coa_volume"),
-        col("coa_dna_size"),
-        *impurities,
-        *(col("coa_calc_prefix") + name for name in impurities),
-    )
-
-
 def coa_lineage() -> dict[str, tuple[str, ...]]:
     """What every certificate-derived column is computed from.
 
@@ -1677,8 +1645,6 @@ def coa_lineage() -> dict[str, tuple[str, ...]]:
             lineage[f"{prefix}{metric} Donor {statistic}"] = donors
     for name in impurities:
         lineage[f"{prefix}{name} below LOQ"] = (f"{prefix}{name}",)
-    for name in coa_measured():
-        lineage[f"{prefix}{name} missing"] = (f"{prefix}{name}",)
     return lineage
 
 
@@ -1713,10 +1679,6 @@ CREATED, PRESENT, NOT_IN_CATALOG, BLOCKED, ERRORED = (
 )
 
 
-def profile_columns() -> tuple[str, str]:
-    return col("f_growth_profile"), col("f_cd4_profile")
-
-
 def _requirement_text(requirement: Requirement) -> str:
     return requirement if isinstance(requirement, str) else " or ".join(requirement)
 
@@ -1731,127 +1693,11 @@ def _missing(df: pd.DataFrame, requires: Sequence[Requirement]) -> list[str]:
     return unmet
 
 
-def availability(catalog: pd.DataFrame, params: Params) -> dict[str, Any]:
-    """When each catalog parameter becomes known, by the catalog's own column.
-
-    Empty when config names no ``features.availability_column`` or the catalog
-    lacks it; blank cells are left out rather than read as "known at once".
-    """
-    column = params.availability_column
-    if not column:
-        return {}
-    if column not in catalog.columns:
-        log.warn(MODULE, f"features.availability_column: the catalog has no '{column}' column")
-        return {}
-    known = {}
-    for parameter, stage in zip(catalog["Parameter"].astype(str), catalog[column]):
-        if pd.isna(stage) or not str(stage).strip():
-            continue
-        known[parameter] = stage
-    return known
-
-
-def _rank(stage: Any, params: Params) -> float | None:
-    """A stage as a number that orders in time, or None when it cannot be placed."""
-    if params.availability_order:
-        order = [str(s).strip() for s in params.availability_order]
-        text = str(stage).strip()
-        return float(order.index(text)) if text in order else None
-    try:
-        return float(stage)
-    except (TypeError, ValueError):
-        return None
-
-
-def _input_names(df: pd.DataFrame, feature: Feature) -> list[str]:
-    """Every column of the frame a feature may have read.
-
-    A choice of columns counts all of the ones present: checking one that was not
-    used costs a false alarm, missing one that was costs a leak.
-    """
-    used = []
-    for requirement in feature.requires:
-        options = (requirement,) if isinstance(requirement, str) else requirement
-        used += [name for name in options if name in df.columns]
-    return used
-
-
-def availability_problems(
-    df: pd.DataFrame, feature: Feature, known: dict[str, Any], params: Params
-) -> list[str]:
-    """Inputs that become known later than the catalog says the feature does.
-
-    A feature cannot be known before the last of its inputs. When the catalog says
-    otherwise, a task that drops parameters by stage keeps the feature and so lets a
-    later measurement in by the back door.
-    """
-    if feature.name not in known:
-        return []
-    own = _rank(known[feature.name], params)
-    if own is None:
-        return []
-    later = []
-    for name in _input_names(df, feature):
-        if name in known:
-            theirs = _rank(known[name], params)
-            if theirs is not None and theirs > own:
-                later.append(f"{name} ({known[name]})")
-    return later
-
-
-def quality_checks(df: pd.DataFrame) -> list[dict]:
-    """Arithmetic the batch records should satisfy, and the batches that do not.
-
-    These are checks on the data rather than model inputs: each names a likely
-    transcription or unit error for someone to look at.
-    """
-    found: list[dict] = []
-
-    def record(check: str, flagged: pd.Series, detail: str) -> None:
-        count = int(flagged.fillna(False).sum())
-        if count:
-            found.append({"check": check, "batches": count, "detail": detail})
-
-    have = set(df.columns)
-    if {col("cpdl"), col("harvest_cells"), col("vsvg_cells")} <= have:
-        counted = np.log2(safe_div(df[col("harvest_cells")], df[col("vsvg_cells")]))
-        gap = (_num(df[col("cpdl")]) - counted).abs()
-        record(
-            "Doublings against cell counts",
-            gap > 1.0,
-            "recorded doublings differ by more than one from log2(harvest cells / cells "
-            "for expansion)",
-        )
-    if {col("cells_available"), col("cells_seeded_a")} <= have:
-        seeded = _row_sum(df, (col("cells_seeded_a"), col("cells_seeded_b")))
-        record(
-            "Seeding arithmetic",
-            seeded > _num(df[col("cells_available")]) * 1.01,
-            "more cells seeded into the vessels than were recorded as available",
-        )
-    formulation = (
-        col("washed_concentration"),
-        col("formulation_cell_volume"),
-        col("formulated_concentration"),
-        col("formulation_medium_volume"),
-    )
-    if set(formulation) <= have:
-        into = _num(df[formulation[0]]) * _num(df[formulation[1]])
-        out = _num(df[formulation[2]]) * _num(df[formulation[3]])
-        record(
-            "Formulation balance",
-            out > into,
-            "more viable cells out of formulation than went in: a volume or unit error",
-        )
-    return found
-
-
 def apply(
     df: pd.DataFrame,
     catalog_cols: Sequence[str],
     params: Params,
     site: str = "",
-    known: dict[str, Any] | None = None,
 ) -> FeatureReport:
     """Compute every feature this frame can support, in registry order.
 
@@ -1870,19 +1716,14 @@ def apply(
         Setpoints and thresholds from config.
     site
         Name used in the log lines and carried on the report.
-    known
-        When each parameter becomes known (:func:`availability`); a feature the
-        catalog places earlier than one of its inputs is reported.
 
     Returns
     -------
     FeatureReport
-        One entry per registry feature, the class counts of the profile columns,
-        and the consistency and availability findings.
+        One entry per registry feature.
     """
     log.step(MODULE, f"[{site}] Computing derived features")
     catalog = set(catalog_cols)
-    known = known or {}
     report = FeatureReport(site=site, rows=len(df))
 
     for feature in registry(params, df.columns):
@@ -1917,7 +1758,11 @@ def apply(
                 entry["note"] = "missing: " + ", ".join(unmet)
                 continue
             try:
-                df[feature.name] = feature.compute(df)
+                # One column at a time, since later features read earlier ones; the
+                # merge concatenates the sites right after, which defragments.
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", pd.errors.PerformanceWarning)
+                    df[feature.name] = feature.compute(df)
             except Exception as exc:  # a bad column beats the whole registry otherwise
                 entry["status"] = ERRORED
                 entry["note"] = str(exc)
@@ -1925,29 +1770,6 @@ def apply(
                 continue
             entry["status"] = CREATED
             entry["non_null"] = int(df[feature.name].notna().sum())
-
-        later = availability_problems(df, feature, known, params)
-        if later:
-            detail = (
-                f"{feature.name} is known at {known[feature.name]}, but it is computed from "
-                + ", ".join(later)
-            )
-            entry["note"] = "; ".join(filter(None, [entry["note"], "available too early"]))
-            report.checks.append({"check": "Availability", "batches": None, "detail": detail})
-            log.warn(MODULE, f"[{site}] availability: {detail}")
-
-    report.profiles = {
-        column: df[column].value_counts().to_dict()
-        for column in profile_columns()
-        if column in df.columns
-    }
-    for finding in quality_checks(df):
-        report.checks.append(finding)
-        log.warn(
-            MODULE,
-            f"[{site}] {finding['check']}: {finding['batches']} batches",
-            finding["detail"],
-        )
 
     log.info(
         MODULE,

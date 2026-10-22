@@ -1258,8 +1258,6 @@ def write_config(
             "medium_glucose": 4.5,
             "medium_lactate": 0.1,
             "impurity_spec_limits": [5.0, 10.0, 5.0, 3.0, 3.0],
-            "availability_column": "Available At",
-            "availability_order": list(STAGES),
         },
         # Spec midpoints for the made-up product, so the two-sided deviation
         # features are built rather than skipped.

@@ -43,6 +43,8 @@ CSS = """
 [data-testid="stWidgetLabel"] {min-height: 1.1rem; margin-bottom: 0.1rem;}
 [data-testid="stWidgetLabel"] p {font-size: 0.85rem;}
 [data-testid^="stBaseButton"] {min-height: 1.9rem; padding: 0.1rem 0.7rem;}
+/* No CSV download in a data grid's toolbar; the page offers the downloads it means to. */
+[data-testid="stElementToolbarButton"]:has(button[aria-label="Download as CSV"]) {display: none;}
 
 .batch_table-name {font-size: 1rem; font-weight: 600; line-height: 1.35; margin: .3rem 0 .2rem;}
 .batch_table-title {font-size: 1.25rem; font-weight: 600; line-height: 1.4; margin: .4rem 0 0;}
@@ -288,26 +290,73 @@ if (D.axis) scroller.scrollLeft = scroller.scrollWidth;
 """
 
 
-def _pick_table(headers, rows, formats, mode: str, key: str):
-    """A data grid whose rows the reader ticks; the frame and the ticked row numbers."""
+#: The background of the row that is drawn: the theme's blue, faint.
+PLOTTED = "background-color: rgba(0, 102, 204, .12)"
+
+
+def _clicked(key: str, plot: str) -> None:
+    """A click on a cell draws its row: remember which table and row, the last click wins.
+
+    A click in one table clears the clicked cell in the others.
+    """
+    cells = [tuple(c) for c in st.session_state[key]["selection"].get("cells", [])]
+    before = st.session_state.get(f"cells{key}", [])
+    st.session_state[f"cells{key}"] = cells
+    if cells == before:  # a box ticked, no cell clicked
+        return
+    if not cells:
+        if (st.session_state.get(plot) or ("",))[0] == key:
+            st.session_state[plot] = None
+        return
+    st.session_state[plot] = (key, cells[0][0])
+    for other in st.session_state.get(f"tables{plot}", ()):
+        selection = (st.session_state.get(other) or {}).get("selection") or {}
+        if other != key and selection.get("cells"):
+            rows = list(selection.get("rows", []))
+            st.session_state[other] = {"selection": {"rows": rows, "columns": [], "cells": []}}
+            st.session_state[f"cells{other}"] = []
+
+
+def _pick_table(headers, rows, formats, key: str, plot: str, tick: bool = True):
+    """A data grid: click a row to draw it, tick rows for a proposal.
+
+    Returns the frame and the ticked row numbers. The drawn row is shaded.
+    """
     frame = pd.DataFrame(rows, columns=headers)
     config = {}
     for header, fmt in zip(headers, formats):
         if fmt:
             config[header] = st.column_config.NumberColumn(header, format=fmt)
             frame[header] = pd.to_numeric(frame[header], errors="coerce")
+    st.session_state.setdefault(f"tables{plot}", set()).add(key)
+    data, shown = frame, st.session_state.get(plot)
+    if shown and shown[0] == key:
+        data = frame.style.apply(
+            lambda row: [PLOTTED if row.name == shown[1] else ""] * len(row), axis=1
+        )
     event = st.dataframe(
-        frame,
+        data,
         column_config=config,
         hide_index=True,
         width="stretch",
         row_height=ROW_HEIGHT,
         height=ROW_HEIGHT * (min(len(frame), MAX_GRID_ROWS) + 1) + GUTTER,
-        on_select="rerun",
-        selection_mode=mode,
+        on_select=lambda: _clicked(key, plot),
+        selection_mode=["multi-row", "single-cell"] if tick else "single-cell",
         key=key,
     )
     return frame, event.selection.rows
+
+
+def _drawn(plot: str, draw: dict) -> list:
+    """The parameters of the row clicked last, from ``draw``: table key → row → parameters."""
+    shown = st.session_state.get(plot)
+    if not shown or shown[0] not in draw:
+        return []
+    try:
+        return draw[shown[0]](shown[1])
+    except IndexError:  # the table changed under the click
+        return []
 
 
 def proposal_rows(
@@ -318,7 +367,6 @@ def proposal_rows(
     action: str,
     reason: str,
     rationale: str,
-    review_by: str,
     author: str,
     represented_by: str = "",
 ) -> tuple:
@@ -345,7 +393,6 @@ def proposal_rows(
                 "Site": site,
                 "Reason": reason,
                 "Rationale": rationale.strip(),
-                "Review by": review_by if action == "exclude" else "",
                 "Author": author.strip(),
                 "Represented by": represented_by,
             }
@@ -353,39 +400,39 @@ def proposal_rows(
     return rows, skipped
 
 
-def render_proposal(form: dict, site: dict, picked: list, key: str, pairs: list = ()) -> None:
-    """Turn the ticked parameters into a proposal.csv for `ml screening add`.
+def render_proposal(
+    form: dict, site: dict, picked: list, key: str, groups: list = (), pairs: list = ()
+) -> None:
+    """Turn the ticked rows into a proposal.csv for `ml screening add`.
 
-    ``pairs`` are (parameter, closest parameter) ticked in the correlation report's
-    parameter table: each excludes the closest, represented by the parameter.
+    ``picked`` are parameters to exclude or reinstate. In the correlation report each
+    of ``groups`` is excluded but for the member that represents it, and each
+    (parameter, closest parameter) of ``pairs`` excludes the closest, represented by
+    the parameter.
     """
     group_of = {m: g for g, members in site["groups"].items() for m in members}
-    ticked = len(pairs) or len(picked)
+    screened = site["screened"]
+    ticked = len(picked) + len(groups) + len(pairs)
     with st.expander(f"Propose a screening decision ({ticked} ticked)", expanded=False):
         if not ticked:
             st.caption(
-                "Tick a group, parameters, or screened parameters above; they are what the "
-                "proposal is about."
+                "Tick groups or parameters in the tables above, with the box at the start of "
+                "a row; they are what the proposal is about."
             )
             return
-        action, reason, instead = "exclude", form.get("reason") or "", ""
-        if pairs:
-            done = [
-                (p, c) for p, c in pairs if site["screened"].get(c, {}).get("Represented by") == p
-            ]
-            if done:
-                st.caption(
-                    "Already in the register, so left out: "
-                    + "; ".join(f"{c} represented by {p}" for p, c in done)
-                )
-            pairs = [pair for pair in pairs if pair not in done]
-            st.markdown(
-                f"Exclude each pair's closest parameter as *{reason}*, represented by the "
-                "ticked parameter:\n"
-                + "".join(f"\n- {c} → represented by **{p}**" for p, c in pairs)
-            )
-        else:
-            # A correlated group keeps one representative: the reader leaves it out here.
+        represented = []  # (members, the one that represents the others)
+        if groups or pairs:
+            st.markdown(f"Exclude as *{form['reason']}*, represented by the parameter named:")
+            for group in groups:
+                # A group lists its suggested representative first.
+                members = site["groups"][group]
+                chosen = st.selectbox(f"{group}: represented by", members, key=f"rep{key}-{group}")
+                represented.append((members, chosen))
+            if pairs:
+                st.markdown("".join(f"\n- {c} → represented by **{p}**" for p, c in pairs))
+            represented += [([p, c], p) for p, c in pairs]
+        action = reason = ""
+        if picked:
             kept = st.multiselect("Leave out of the proposal", picked, key=f"keep{key}")
             picked = [p for p in picked if p not in kept]
             left, right = st.columns(2)
@@ -396,49 +443,29 @@ def render_proposal(form: dict, site: dict, picked: list, key: str, pairs: list 
                 index=form["reasons"].index(form["reason"]) if form.get("reason") else 0,
                 key=f"why{key}",
             )
-        if form.get("represent") and action == "exclude" and picked and not pairs:
-            # Ticking a group puts its suggested representative first.
-            instead = st.selectbox(
-                "Represented by: stays usable, the others are excluded",
-                picked,
-                key=f"rep{key}",
-            )
-        rationale = st.text_area("Rationale: why, in words", key=f"text{key}")
-        left, right = st.columns(2)
-        review = left.date_input(
-            "Review by",
-            datetime.date.today() + datetime.timedelta(days=form["review_days"]),
-            key=f"when{key}",
-            disabled=action != "exclude",
-        )
-        author = right.text_input("Author", key=f"who{key}")
-        common = (
-            group_of,
-            site["screened"],
-            site["label"],
-            action,
-            reason,
-            rationale,
-            review.isoformat(),
-            author,
-        )
-        if pairs:
-            rows = [row for p, c in pairs for row in proposal_rows([c], *common, p)[0]]
-            skipped = []
-        else:
-            rows, skipped = proposal_rows(picked, *common, instead)
+        rationale = st.text_area("Rationale: why, in words (optional)", key=f"text{key}")
+        author = st.text_input("Author", key=f"who{key}")
+        if not author.strip():
+            st.info("Fill in an author to write the proposal.")
+            return
+        common = (group_of, screened, site["label"])
+        rows, done = [], []
+        for members, instead in represented:
+            done += [m for m in members if screened.get(m, {}).get("Represented by") == instead]
+            fresh = [m for m in members if m not in done]
+            rows += proposal_rows(
+                fresh, *common, "exclude", form["reason"], rationale, author, instead
+            )[0]
+        if done:
+            st.caption("Already in the register, so left out: " + ", ".join(done))
+        skipped = []
+        if picked:
+            more, skipped = proposal_rows(picked, *common, action, reason, rationale, author)
+            rows += more
         if skipped:
             st.warning(
                 f"Not screened out at this site, so nothing to reinstate: {', '.join(skipped)}"
             )
-        missing = [
-            name
-            for name, value in (("a rationale", rationale), ("an author", author))
-            if not value.strip()
-        ]
-        if missing:
-            st.info(f"Fill in {' and '.join(missing)} to write the proposal.")
-            return
         if not rows:
             return
         frame = pd.DataFrame(rows, columns=form["columns"])
@@ -457,20 +484,15 @@ def render_proposal(form: dict, site: dict, picked: list, key: str, pairs: list 
         )
 
 
-def _last_ticked(ticked: list, key: str) -> int | None:
-    """The row ticked most recently: a grid reports its ticked rows, not their order."""
-    before, last = st.session_state.get(key, ([], None))
-    new = [i for i in ticked if i not in before]
-    last = new[-1] if new else last if last in ticked else (ticked[-1] if ticked else None)
-    st.session_state[key] = (list(ticked), last)
-    return last
+#: Shown above the tables until a row is clicked.
+CLICK_A_ROW = "Click a row in a table below to draw it here."
 
 
 def render_missing_viewer(block: dict, key: str) -> None:
-    """The strip on top; below it the groups (one to draw) and the parameters (any to add).
+    """The plot on top; below it the groups and the parameters: click one to draw it.
 
-    A ``rank_viewer`` draws a scatterplot of every pair of the parameters instead
-    of the strip, from each site's ``values``.
+    A ``rank_viewer`` draws scatterplots of the parameters instead of the strip,
+    from each site's ``values``.
     """
     mode = "rank" if block["kind"] == "rank_viewer" else "missing"
     together = "that rank the batches alike" if mode == "rank" else "missing together"
@@ -482,21 +504,31 @@ def render_missing_viewer(block: dict, key: str) -> None:
     site = block["sites"][labels.index(chosen)]
     screened = site.get("screened") or {}
     top = st.container()
+    plot = f"plot{key}-{chosen}"
+    draw: dict = {}
 
     picked: list[str] = []
+    groups_ticked: list[str] = []
     with st.expander(f"Groups of parameters {together} ({len(site['groups'])})", expanded=True):
         if site["groups"]:
+            table = f"groups{key}-{chosen}"
             groups, ticked = _pick_table(
                 site["group_headers"],
                 site["group_rows"],
                 site["group_formats"],
-                "single-row",
-                f"groups{key}-{chosen}",
+                table,
+                plot,
             )
-            picked += [m for i in ticked for m in site["groups"][groups.iloc[i]["Group"]]]
+            names = [groups.iloc[i]["Group"] for i in ticked]
+            if mode == "rank":
+                groups_ticked = names
+            else:
+                picked += [m for name in names for m in site["groups"][name]]
+            draw[table] = lambda i: site["groups"][groups.iloc[i]["Group"]]
             st.markdown(
-                '<p class="batch_table-caption">Tick a group to draw all its parameters. '
-                "<i>Screened members</i> counts the ones already screened out here.</p>",
+                '<p class="batch_table-caption">Click a group to draw all its parameters; tick '
+                "groups to propose a screening decision. <i>Screened members</i> counts the ones "
+                "already screened out here.</p>",
                 unsafe_allow_html=True,
             )
         else:
@@ -505,99 +537,80 @@ def render_missing_viewer(block: dict, key: str) -> None:
         if screened:
             headers = ["Parameter", *next(iter(screened.values()))]
             rows = [[name, *decision.values()] for name, decision in screened.items()]
-            frame, ticked = _pick_table(
-                headers, rows, [None] * len(headers), "multi-row", f"screened{key}-{chosen}"
-            )
-            picked += [frame.iloc[i]["Parameter"] for i in ticked]
+            table = f"screened{key}-{chosen}"
+            listed, ticked = _pick_table(headers, rows, [None] * len(headers), table, plot)
+            picked += [listed.iloc[i]["Parameter"] for i in ticked]
+            draw[table] = lambda i: [listed.iloc[i]["Parameter"]]
             st.markdown(
                 '<p class="batch_table-caption">The screening register\'s standing exclusions '
-                "at this site. Every task leaves these out. Tick them to draw them, or to "
+                "at this site. Every task leaves these out. Click one to draw it; tick them to "
                 "reinstate them.</p>",
                 unsafe_allow_html=True,
             )
         else:
             st.caption("Nothing is screened out at this site.")
-    pair: list[str] = []
     pairs: list[tuple] = []
     with st.expander(f"Parameters in no group ({len(site['rows'])})", expanded=mode == "rank"):
-        frame, ticked = _pick_table(
-            site["headers"], site["rows"], site["formats"], "multi-row", f"rows{key}-{chosen}"
-        )
+        table = f"rows{key}-{chosen}"
+        frame, ticked = _pick_table(site["headers"], site["rows"], site["formats"], table, plot)
         if mode == "rank":
-            # Each ticked parameter with its closest; the plot shows the last one ticked.
+            # Each ticked parameter with its closest; a click draws the two.
             pairs = [
                 (r["Parameter"], r["Closest parameter"])
                 for r in (frame.iloc[i] for i in ticked)
                 if r["Closest parameter"]
             ]
-            last = _last_ticked(ticked, f"last{key}-{chosen}")
-            if last is not None:
-                row = frame.iloc[last]
-                pair = [p for p in (row["Parameter"], row["Closest parameter"]) if p]
+            draw[table] = lambda i: [
+                p for p in (frame.iloc[i]["Parameter"], frame.iloc[i]["Closest parameter"]) if p
+            ]
         else:
             picked += [frame.iloc[i]["Parameter"] for i in ticked]
+            draw[table] = lambda i: [frame.iloc[i]["Parameter"]]
         st.markdown(
             '<p class="batch_table-caption">'
             + (
-                "Tick parameters to keep each and exclude its closest parameter; the plot "
-                "shows the last one ticked against its closest. "
+                "Click a parameter to draw it against its closest parameter; tick parameters "
+                "to keep each and exclude its closest. "
                 if mode == "rank"
-                else "Tick parameters to add them to the plot. "
+                else "Click a parameter to draw it; tick parameters to propose a screening "
+                "decision. "
             )
             + "The ones in a group are in the group table. Sort by a column header; search "
             "with the magnifier at the table's top right.</p>",
             unsafe_allow_html=True,
         )
-        st.download_button(
-            f"Download {site['csv_name']}",
-            data=site["csv"],
-            file_name=site["csv_name"],
-            mime="text/csv",
-            key=f"dl{key}-{chosen}",
-        )
 
     picked = list(dict.fromkeys(picked))
     if block.get("proposal"):
-        render_proposal(block["proposal"], site, picked, f"{key}-{chosen}", pairs)
+        render_proposal(block["proposal"], site, picked, f"{key}-{chosen}", groups_ticked, pairs)
     n = len(site["batches"])
     with top:
-        drawn = pair or picked
+        drawn = _drawn(plot, draw)
         if not drawn:
-            # Open on a plot: the first group, until the reader ticks something.
-            first = next(iter(site["groups"]), None)
-            drawn = site["groups"][first] if first else []
-            st.caption(
-                f"Showing {first}, the largest group. Tick a group or parameters below to "
-                "draw them instead."
-                if first
-                else "Tick parameters in the tables below to draw them here."
-            )
-            if not drawn:
-                return
-        if mode == "rank":
-            render_pairs(site, drawn, screened, f"{key}-{chosen}")
+            st.caption(CLICK_A_ROW)
             return
-        # A parameter with no blank at this site has no pattern stored: all measured.
-        bits = [site["patterns"].get(p, "0" * n) for p in drawn]
-        names = [("⊘ " if p in screened else "") + p for p in drawn]
-        order = list(range(n))
-        data = {
-            "batches": [site["batches"][i] for i in order],
-            "dates": [site["dates"][i] for i in order],
-            "analysed": site.get("in_statistics") or "",
-            "axis": True,
-            "rows": [
-                {"name": name, "bits": "".join(b[i] for i in order)} for name, b in zip(names, bits)
-            ],
-        }
-        page = STRIP % {
-            "legend": MISSING_LEGEND,
-            "data": json.dumps(data).replace("<", "\\u003c"),
-            "cell": CELL,
-            "row": ROW,
-            "labels": LABELS,
-        }
-        components.html(page, height=len(drawn) * (ROW + 2) + 22 + 40, scrolling=False)
+        with st.spinner("Drawing…"):
+            if mode == "rank":
+                render_pairs(site, drawn, screened, f"{key}-{chosen}")
+                return
+            # A parameter with no blank at this site has no pattern stored: all measured.
+            bits = [site["patterns"].get(p, "0" * n) for p in drawn]
+            names = [("⊘ " if p in screened else "") + p for p in drawn]
+            data = {
+                "batches": site["batches"],
+                "dates": site["dates"],
+                "analysed": site.get("in_statistics") or "",
+                "axis": True,
+                "rows": [{"name": name, "bits": b} for name, b in zip(names, bits)],
+            }
+            page = STRIP % {
+                "legend": MISSING_LEGEND,
+                "data": json.dumps(data).replace("<", "\\u003c"),
+                "cell": CELL,
+                "row": ROW,
+                "labels": LABELS,
+            }
+            components.html(page, height=len(drawn) * (ROW + 2) + 22 + 40, scrolling=False)
 
 
 #: Up to this many parameters a group is drawn as every pair; beyond, the labels do not fit.
@@ -733,59 +746,57 @@ def render_timeline(segments: dict, drawn: list, key: str) -> None:
 
 
 def render_shift_viewer(block: dict, key: str) -> None:
-    """The groups over time of the parameters picked; below, the groups and parameters to pick."""
+    """The groups over time of the row clicked; below, the groups and parameters to click."""
     labels = [site["label"] for site in block["sites"]]
     with SLOTS.get("site") or st.sidebar:
         chosen = st.radio(block["site_label"], labels, horizontal=True, key=f"site{key}")
     site = block["sites"][labels.index(chosen)]
     top = st.container()
+    plot = f"plot{key}-{chosen}"
+    draw: dict = {}
 
-    picked: list[str] = []
     together = "Groups of parameters that change on the same days"
     with st.expander(f"{together} ({len(site['groups'])})", expanded=True):
         if site["groups"]:
-            groups, ticked = _pick_table(
+            table = f"groups{key}-{chosen}"
+            groups, _ = _pick_table(
                 site["group_headers"],
                 site["group_rows"],
                 site["group_formats"],
-                "single-row",
-                f"groups{key}-{chosen}",
+                table,
+                plot,
+                tick=False,
             )
-            picked += [m for i in ticked for m in site["groups"][groups.iloc[i]["Group"]]]
-            st.caption("Tick a group to draw its parameters.")
+            draw[table] = lambda i: site["groups"][groups.iloc[i]["Group"]]
+            st.caption("Click a group to draw its parameters.")
         else:
             st.caption("No two parameters change on the same days at this site.")
-    with st.expander(f"Parameters that run in groups over time ({len(site['rows'])})"):
-        frame, ticked = _pick_table(
-            site["headers"], site["rows"], site["formats"], "multi-row", f"rows{key}-{chosen}"
-        )
-        picked += [frame.iloc[i]["Parameter"] for i in ticked]
-        st.caption(
-            "Tick parameters to add them to the plot. Sort by a column header; search with "
-            "the magnifier at the table's top right."
-        )
-        st.download_button(
-            f"Download {site['csv_name']}",
-            data=site["csv"],
-            file_name=site["csv_name"],
-            mime="text/csv",
-            key=f"dl{key}-{chosen}",
-        )
+    with st.expander(f"Parameters that run in groups over time, in no group ({len(site['rows'])})"):
+        if site["rows"]:
+            table = f"rows{key}-{chosen}"
+            frame, _ = _pick_table(
+                site["headers"], site["rows"], site["formats"], table, plot, tick=False
+            )
+            draw[table] = lambda i: [frame.iloc[i]["Parameter"]]
+            st.caption(
+                "Click a parameter to draw it. The ones in a group are in the group table. Sort "
+                "by a column header; search with the magnifier at the table's top right."
+            )
+        else:
+            st.caption("Every parameter that runs in groups over time is in a group above.")
     st.markdown(
         '<p class="batch_table-caption"><code>uv run ml task new &lt;folder&gt; '
-        "--exclude-shifting</code> lists every parameter in this table, at any site, under "
-        "<code>predictors.exclude</code> in the new task file, with why.</p>",
+        "--exclude-shifting</code> lists every parameter in these two tables, at any site, "
+        "under <code>predictors.exclude</code> in the new task file, with why.</p>",
         unsafe_allow_html=True,
     )
     with top:
-        drawn = list(dict.fromkeys(picked))
+        drawn = list(dict.fromkeys(_drawn(plot, draw)))
         if not drawn:
-            # Open on a plot: the largest group, until the reader ticks something.
-            first = next(iter(site["groups"]), None)
-            drawn = site["groups"][first] if first else [site["rows"][0][0]]
-            shown = f"{first}, the largest group" if first else "the first parameter"
-            st.caption(f"Showing {shown}. Tick a group or parameters below to draw them instead.")
-        render_timeline(site["segments"], drawn, f"{key}-{chosen}")
+            st.caption(CLICK_A_ROW)
+            return
+        with st.spinner("Drawing…"):
+            render_timeline(site["segments"], drawn, f"{key}-{chosen}")
         st.markdown(
             '<p class="batch_table-caption">One bar per group: one value, from the first day it '
             "was used to the last. A row's bars alternate dark and light only to tell "
@@ -802,7 +813,8 @@ def render_block(block: dict, key: str) -> None:
     elif kind == "table":
         render_table(block, key)
     elif kind == "figure":
-        st.plotly_chart(go.Figure(block["spec"]), width="stretch", key=f"fig{key}")
+        with st.spinner("Drawing…"):
+            st.plotly_chart(go.Figure(block["spec"]), width="stretch", key=f"fig{key}")
         if block.get("caption"):
             st.markdown(
                 f'<p class="batch_table-caption">{html.escape(block["caption"])}</p>',

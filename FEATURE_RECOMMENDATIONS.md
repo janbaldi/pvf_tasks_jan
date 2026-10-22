@@ -176,6 +176,7 @@ Compute these in the build report, not as model inputs.
    catalog, and nothing checks it against its inputs. Add a build-time check that each
    feature's stage is no earlier than the latest stage of its `requires`. Without it,
    one wrong catalog cell puts a post-harvest quantity into the expression model.
+   *(Implemented, then removed with the build report's Derived features section.)*
 2. **A `unit` field on `Feature`,** shown in the report. Most problems in §2 are unit
    problems.
 3. **Formula tests.** One small test per group with hand-computed inputs and outputs.

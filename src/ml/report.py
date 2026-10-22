@@ -48,21 +48,10 @@ from .blocks import (
 from .blocks import (
     frame as frame_block,
 )
-from .features import BLOCKED, CREATED, ERRORED, NOT_IN_CATALOG, PRESENT, FeatureReport, Params
-from .names import col, values
+from .features import BLOCKED, CREATED, NOT_IN_CATALOG, FeatureReport, Params
 from .names import site as site_name
 
 DERIVED = "Derived"
-
-
-def _profile_order(key: str) -> tuple[str, str, str]:
-    """A profile's classes from low to high (the vocabulary lists low, high, middle)."""
-    low, high, middle = values(key)
-    return low, middle, high
-
-
-#: Below this share of batches, a column is drawn as a warning in the inventory.
-THIN_COVERAGE = 5.0
 
 
 @dataclass
@@ -335,8 +324,8 @@ def _cleaning(run: BuildRun) -> dict | None:
 def _origin_index(run: BuildRun) -> dict[str, str]:
     """Where each column in the batch table came from.
 
-    Derived features name their group, so the inventory distinguishes a
-    calculation from a measurement at a glance.
+    Derived features name their group, so a calculation is told from a
+    measurement at a glance.
     """
     origins: dict[str, str] = {}
     for label, columns in run.origins.items():
@@ -347,46 +336,6 @@ def _origin_index(run: BuildRun) -> dict[str, str]:
             if entry["status"] == CREATED:
                 origins[entry["name"]] = f"{DERIVED} · {entry['group']}"
     return origins
-
-
-def _inventory(run: BuildRun) -> dict | None:
-    """One row per batch table parameter: where it came from and how much of it there is."""
-    origins = _origin_index(run)
-    sites = list(run.phf)
-    rows = []
-    for column in run.result.columns:
-        coverage = 100 * run.result[column].notna().mean() if len(run.result) else 0.0
-        rows.append(
-            [
-                str(column),
-                origins.get(column, "batch records"),
-                str(run.catalog_mapping.get(column, "—")),
-                "yes" if column in set(run.catalog_cols) else "no",
-                *["yes" if column in run.phf[site].columns else "—" for site in sites],
-                round(float(coverage), 1),
-            ]
-        )
-    if not rows:
-        return None
-
-    derived = sum(1 for row in rows if row[1].startswith(DERIVED))
-    return _section(
-        "inventory",
-        "Parameter inventory",
-        [
-            sortable(
-                ["Parameter", "Origin", "Value type", "In catalog", *sites, "Coverage %"],
-                rows,
-                formats=[None, None, None, None, *[None] * len(sites), "%.1f"],
-                flag={"column": "Coverage %", "below": THIN_COVERAGE},
-                filter_column="Parameter",
-                note=f"{len(rows):,} parameters, of which {derived:,} are calculated "
-                "from other parameters. Coverage is the share of merged batches that "
-                "have a value; anything under "
-                f"{THIN_COVERAGE:.0f}% is marked. Click a column header to sort.",
-            )
-        ],
-    )
 
 
 #: Display formats of the parameter table's numeric columns.
@@ -404,7 +353,7 @@ _MISSING_FORMATS = {
 def _missing_viewer(run: BuildRun) -> dict | None:
     """The pattern viewer, with the group and parameter tables to pick what it draws."""
     sites = []
-    for number, (site, (rows, analysis)) in enumerate(run.missingness.items(), start=1):
+    for site, (rows, analysis) in run.missingness.items():
         # A parameter recorded in every batch has no pattern to show.
         rows = [row for row in rows if row["Parameter"] in analysis.missing]
         if not rows:
@@ -435,8 +384,6 @@ def _missing_viewer(run: BuildRun) -> dict | None:
                 # The parameter table: those in a group are in the group table already.
                 "rows": [[row[h] for h in headers] for row in rows if not row["Group"]],
                 "formats": [_MISSING_FORMATS.get(h) for h in headers],
-                "csv_name": f"missingness_site_{number}.csv",
-                "csv": csv_text([{"Site": site, **row} for row in rows]),
             }
         )
     block = missing_viewer(sites)
@@ -446,7 +393,6 @@ def _missing_viewer(run: BuildRun) -> dict | None:
             "columns": list(screening.PROPOSAL_COLUMNS),
             "actions": list(screening.ACTIONS),
             "reasons": list(screening.REASONS),
-            "review_days": screening.REVIEW_AFTER.days,
         }
     return _section("viewer", "Missingness pattern", [block])
 
@@ -471,8 +417,9 @@ def _missingness_help(run: BuildRun) -> dict | None:
         "blocks": [
             md(
                 "#### Reading the report\n\n"
-                "Pick a site. Tick a group in the group table to draw all its parameters, and "
-                "tick parameters in the parameter table to add them. Each row of the plot is a "
+                "Pick a site. Click a row of a table to draw it: a group draws all its "
+                "parameters. Tick the box at the start of rows, in any table, to propose a "
+                "screening decision about them. Each row of the plot is a "
                 "parameter, each cell a batch in date order, newest on the right: scroll left "
                 "to go back in time, hover a cell for its batch id and date. Batches with no "
                 "date come last.\n\n#### How the numbers are decided"
@@ -542,7 +489,6 @@ def _grouped_viewer(
     results: dict[str, tuple[list[dict], Any]],
     kind: str,
     title: str,
-    stem: str,
     measure: str,
     reason: str,
 ) -> dict | None:
@@ -563,7 +509,7 @@ def _grouped_viewer(
         "Screened members": "%d",
     }
     sites = []
-    for number, (site, (rows, analysis)) in enumerate(results.items(), start=1):
+    for site, (rows, analysis) in results.items():
         if not rows:
             continue
         rows = [
@@ -601,8 +547,6 @@ def _grouped_viewer(
                 # The parameter table holds those in no group.
                 "rows": [[row[h] for h in headers] for row in rows if not row["Group"]],
                 "formats": [_GROUPED_FORMATS.get(h) for h in headers],
-                "csv_name": f"{stem}_site_{number}.csv",
-                "csv": csv_text([{"Site": site, **row} for row in rows]),
             }
         )
     block = missing_viewer(sites, kind=kind)
@@ -612,7 +556,6 @@ def _grouped_viewer(
             "columns": list(screening.PROPOSAL_COLUMNS),
             "actions": list(screening.ACTIONS),
             "reasons": list(screening.REASONS),
-            "review_days": screening.REVIEW_AFTER.days,
             # A group is represented by one member rather than excluded whole.
             "reason": reason,
             "represent": True,
@@ -629,18 +572,18 @@ def _correlation_help(run: BuildRun) -> dict | None:
         "blocks": [
             md(
                 "#### Reading the report\n\n"
-                "Pick a site. Tick a group to draw its parameters against each other, one dot "
+                "Pick a site. Click a group to draw its parameters against each other, one dot "
                 "per batch with a value for both. The parameter table lists the parameters in no "
-                "group; the plot shows the last one ticked against its closest parameter, and a "
-                "proposal excludes each ticked one's closest, represented by it. Its *Register* "
+                "group; click one to draw it against its closest parameter. Tick parameters and "
+                "a proposal excludes each one's closest, represented by it. Its *Register* "
                 "column says what the register holds already. Up to four "
                 "parameters show every pair; more show the parameter picked in *Against* "
                 "(the representative by default) against each of the others. Parameters "
                 "that rank the batches alike lie along a rising or falling curve. ⊘ marks a "
                 "parameter the "
                 f"screening register already excludes here as *{correlation.REASON}*.\n\n"
-                "To keep only a group's representative, tick the group and open *Propose a "
-                "screening decision*: exclude, with the representative chosen under "
+                "To keep only a group's representative, tick the group (or several) and open "
+                "*Propose a screening decision*: exclude, with the representative chosen under "
                 "*Represented by*. Download the proposal and run `ml screening add`. Every "
                 "new task file then lists the other members under `exclude`, with the "
                 "decision as the reason. A group you do not propose stays whole.\n\n"
@@ -679,7 +622,7 @@ def _correlation_help(run: BuildRun) -> dict | None:
             md(
                 "#### Screening\n\n"
                 "To represent a group by one parameter, tick the group and open *Propose a "
-                "screening decision*: *Represented by* starts on the suggested representative. "
+                "screening decision*: its *Represented by* starts on the suggested representative. "
                 "The proposal excludes every other member with the reason "
                 f"*{correlation.REASON}* and records the representative in the register, which "
                 "stays usable in every task. The build's *task_catalog.xlsx* lists what a task "
@@ -692,7 +635,7 @@ def _correlation_help(run: BuildRun) -> dict | None:
 def _shift_viewer(run: BuildRun) -> dict | None:
     """Per plant: the groups over time of the parameters picked, and the tables to pick them."""
     sites = []
-    for number, (plant, (rows, analysis)) in enumerate(run.shifts.items(), start=1):
+    for plant, (rows, analysis) in run.shifts.items():
         if not rows:
             continue
         headers = list(rows[0])
@@ -713,10 +656,9 @@ def _shift_viewer(run: BuildRun) -> dict | None:
                 ],
                 "group_formats": [None, "%d", "%.2f", "%.2f"],
                 "headers": headers,
-                "rows": [[row[h] for h in headers] for row in rows],
+                # The parameter table holds those in no group.
+                "rows": [[row[h] for h in headers] for row in rows if not row["Shift group"]],
                 "formats": [_GROUPED_FORMATS.get(h) for h in headers],
-                "csv_name": f"shifts_site_{number}.csv",
-                "csv": csv_text([{"Manufacturing site": plant, **row} for row in rows]),
             }
         )
     block = {"kind": "shift_viewer", "sites": sites, "site_label": "Manufacturing site"}
@@ -731,8 +673,8 @@ def _shifts_help(run: BuildRun) -> dict | None:
         "blocks": [
             md(
                 "#### Reading the report\n\n"
-                "Pick a manufacturing site. Tick a group to draw its parameters, or tick "
-                "parameters to add them. Each row of the plot is a parameter; each bar is one "
+                "Pick a manufacturing site. Click a group to draw its parameters, or a "
+                "parameter to draw it. Each row of the plot is a parameter; each bar is one "
                 "of its groups: one value, from the first day it was used to the last, with "
                 "the value written in it where it fits (hover for it, and the batches). The "
                 "bars of a row alternate dark and light only so that neighbours are told "
@@ -740,10 +682,10 @@ def _shifts_help(run: BuildRun) -> dict | None:
                 "row changes value: the rows of a group change on those days too.\n\n"
                 "#### Leaving them out of a task\n\n"
                 "`ml task new <folder> --exclude-shifting` lists every parameter in the "
-                "parameter table, at any manufacturing site, under `predictors.exclude` in "
-                "the new task file, each with why: how many groups it runs in, where, and "
-                "the group of parameters it changes with. It reads the latest build's "
-                "`shifts.xlsx`, which holds the same table.\n\n"
+                "group and parameter tables, at any manufacturing site, under "
+                "`predictors.exclude` in the new task file, each with why: how many groups it "
+                "runs in, where, and the group of parameters it changes with. It reads the "
+                "latest build's `shifts.xlsx`, which holds them all.\n\n"
                 "#### What runs in groups\n\n"
                 "A raw material or consumable lot, its certificate values, a vector lot and "
                 "its titre each keep one value for as long as a lot lasts, then change to "
@@ -858,159 +800,6 @@ def _catalog_coverage(run: BuildRun) -> dict | None:
         )
 
     return _section("catalog-coverage", "Catalog coverage", blocks)
-
-
-def _feature_status_table(entries: list[dict], status: str, note: str) -> Block | None:
-    rows = [
-        [entry["site"], entry["name"], entry["group"], entry["process_day"], entry["note"]]
-        for entry in entries
-        if entry["status"] == status
-    ]
-    if not rows:
-        return None
-    return sortable(
-        ["Site", "Feature", "Group", "Day", "Detail"],
-        rows,
-        filter_column="Feature",
-        note=note,
-    )
-
-
-def _profile_table(
-    profiles: dict[str, dict[str, dict[str, int]]], column: str, order: tuple[str, ...]
-) -> Block | None:
-    """Batches per profile class and their share, per site."""
-    rows = []
-    for site, by_column in profiles.items():
-        counts = by_column.get(column) or {}
-        total = sum(counts.values())
-        classes = list(order) + sorted(c for c in counts if c not in order)
-        for name in classes:
-            if name in counts:
-                rows.append(
-                    [
-                        esc(site),
-                        esc(name),
-                        f"{counts[name]:,}",
-                        f"{100 * counts[name] / total:.1f}%" if total else "—",
-                    ]
-                )
-    if not rows:
-        return None
-    return table(
-        ["Site", esc(column), "Batches", "Share"],
-        rows,
-        note="Batches with no reading get no profile, so the shares are of the "
-        "batches that have one.",
-    )
-
-
-def _features(run: BuildRun) -> dict | None:
-    entries = _entries(run)
-    if not entries:
-        return None
-
-    blocks: list[Block | None] = [
-        plots.registry_outcome(list(run.features.values())),
-        sortable(
-            ["Site", "Feature", "Group", "Day", "Type", "Coverage %"],
-            [
-                [
-                    entry["site"],
-                    entry["name"],
-                    entry["group"],
-                    entry["process_day"],
-                    entry["value_type"],
-                    round(100 * entry["non_null"] / run.features[entry["site"]].rows, 1)
-                    if run.features[entry["site"]].rows
-                    else 0.0,
-                ]
-                for entry in entries
-                if entry["status"] == CREATED
-            ],
-            formats=[None, None, None, None, None, "%.1f"],
-            flag={"column": "Coverage %", "below": THIN_COVERAGE},
-            filter_column="Feature",
-            note="Features the run computed, with the share of that site's batches "
-            "that ended up with a value.",
-        ),
-        _feature_status_table(
-            entries,
-            BLOCKED,
-            "Computed as soon as the inputs named here reach the batch table. "
-            "Nothing else is needed.",
-        ),
-        _feature_status_table(
-            entries,
-            NOT_IN_CATALOG,
-            "The calculation is written and its inputs may well be there, but the catalog "
-            "does not list the parameter, so the run does not create it. Add the row to "
-            "the catalog and the next run picks it up.",
-        ),
-        _feature_status_table(entries, ERRORED, "The calculation raised. These need looking at."),
-        _feature_status_table(
-            entries, PRESENT, "A source already supplies these, so the registry stood aside."
-        ),
-    ]
-
-    catalogue = collapsed(
-        f"What each feature is for ({len({e['name'] for e in entries})})",
-        [
-            sortable(
-                ["Feature", "Group", "Kind", "Day", "Type", "Unit", "Inputs", "Why"],
-                [
-                    [
-                        entry["name"],
-                        entry["group"],
-                        entry.get("kind", ""),
-                        entry["process_day"],
-                        entry["value_type"],
-                        entry.get("unit", ""),
-                        entry["inputs"],
-                        entry["rationale"],
-                    ]
-                    for entry in {e["name"]: e for e in entries}.values()
-                ],
-                filter_column="Feature",
-                note="The registry as it stands, whatever each site managed to compute. "
-                "These columns are what the catalog needs to accept a new parameter.",
-            )
-        ],
-    )
-    blocks.append(catalogue)
-
-    findings = [dict(f, site=site) for site, r in run.features.items() for f in r.checks]
-    if findings:
-        blocks.append(
-            sortable(
-                ["Site", "Check", "Batches", "What it means"],
-                [
-                    [
-                        f["site"],
-                        f["check"],
-                        "" if f["batches"] is None else f["batches"],
-                        f["detail"],
-                    ]
-                    for f in findings
-                ],
-                filter_column="Check",
-                note="Arithmetic the batch records should satisfy, and features the catalog "
-                "says are known before one of their inputs is. Data checks, not model inputs: "
-                "each names something to look at in the source or the catalog.",
-            )
-        )
-
-    profiles = {site: report.profiles for site, report in run.features.items()}
-    for column, order in (
-        (col("f_growth_profile"), _profile_order("growth_profile_classes")),
-        (col("f_cd4_profile"), _profile_order("cd4_profile_classes")),
-    ):
-        blocks.append(_profile_table(profiles, column, order))
-        blocks.append(plots.profile_distribution(profiles, column, order))
-    for report in run.features.values():
-        blocks.append(plots.coverage_bars(report))
-
-    return _section("features", "Derived features", blocks)
 
 
 def _enrichment(run: BuildRun) -> dict | None:
@@ -1168,9 +957,7 @@ def build_batch_table_payload(run: BuildRun) -> dict[str, Any]:
         _overview(run),
         _sources(run),
         _cleaning(run),
-        _inventory(run),
         _catalog_coverage(run),
-        _features(run),
         _enrichment(run),
         _log(run),
         _provenance(run),
@@ -1237,7 +1024,7 @@ def _grouped_payload(
 def build_correlation_payload(run: BuildRun) -> dict[str, Any]:
     """The build's correlation report."""
     viewer = _grouped_viewer(
-        run.correlation, "rank_viewer", "Rank correlation", "correlation", "|ρ|", correlation.REASON
+        run.correlation, "rank_viewer", "Rank correlation", "|ρ|", correlation.REASON
     )
     return _grouped_payload(
         run,

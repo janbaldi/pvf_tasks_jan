@@ -114,8 +114,10 @@ def test_the_build_writes_the_shifts_report_and_table_and_finds_the_demo_lots(bu
     for site in viewer["sites"]:
         # The medium and cytokine lots change on the same days at both sites.
         assert {c("media_lot"), c("cytokine_lot")} in [set(g) for g in site["groups"].values()]
+        grouped = {m for members in site["groups"].values() for m in members}
         for row in site["rows"]:
             assert site["segments"][row[0]], "every parameter in the table has its groups"
+            assert row[0] not in grouped, "the parameter table leaves out the grouped ones"
     table = pd.read_excel(
         shared(built["directory"], built["config"], "batch_table", "shifts.xlsx"),
         sheet_name=screening.EVIDENCE_SHEET,

@@ -71,7 +71,7 @@ lv_coa:     {ph_nominal: 7.2, osmo_nominal: 300.0}
 | `cleaning.disable` | Names of corrections to switch off. |
 | `cleaning.yes_no_defaults` | Yes/no columns whose blanks may be filled, and with what. |
 | `mapping.exclude` | Rows of the site mapping known to be wrong. |
-| `features.*` | Setpoints and thresholds of the calculated features. Some features need a process fact (`moi_target`, `medium_glucose`, `medium_lactate`, `impurity_spec_limits`) and are blocked until it is set. `availability_column` is the catalog column the build checks feature availability against. See `CALCULATED_FEATURES.md`. |
+| `features.*` | Setpoints and thresholds of the calculated features. Some features need a process fact (`moi_target`, `medium_glucose`, `medium_lactate`, `impurity_spec_limits`) and are blocked until it is set. See `CALCULATED_FEATURES.md`. |
 | `lv_coa.ph_nominal`, `osmo_nominal` | Spec midpoints for the certificate's deviation features. |
 
 Unknown keys, wrong types and incomplete SharePoint entries are refused before
@@ -186,10 +186,10 @@ parameter:
 | `Action` | you | `exclude` or `reinstate` |
 | `Parameter`, `Site` | you (tool, for a group) | What, and where (a site's name or `all`) |
 | `Group` | you | The report's group label, as context |
-| `Reason`, `Rationale` | you | One of the fixed reasons, and why in words |
+| `Reason`, `Rationale` | you | One of the fixed reasons, and why in words (optional) |
 | `Missing %`, `Pattern`, `Last measured` | tool | The evidence, from the latest build |
 | `Batch table` | tool | Digest of the batch table the decision was made on |
-| `Review by` | you, or three months on | When to look again |
+| `Review by` | tool | When to look again: three months after an exclusion |
 | `Represented by` | you, or the report's suggestion | The parameter that stands in for this one; required with `correlated with group` and `shifts with group`. Registers from before this column read as before |
 
 The `Check` sheet holds the digest the register was last written with. Reasons:
@@ -205,7 +205,7 @@ The `Check` sheet holds the digest the register was last written with. Reasons:
 | `task_catalog.xlsx` | The catalog rows for the batch table's parameters that the register (as the build read it) leaves usable at some site, with *Usable at* (sites) and *Represents* (what each representative stands for, per site). |
 | `correlation_report.html` | Per site: numerical parameters grouped by Spearman \|ρ\| (complete linkage: every pair ≥ `build.correlation_threshold`, default 0.9; pairs need 20 shared batches), each group with a suggested representative and BH-adjusted q. |
 | `shifts_report.html` | Per manufacturing site (the `Manufacturing Site` column): parameters whose exact value runs in groups over time, dates by the day (groups ≥ 2 days with a value on average, permutation p ≤ 0.01; pairs need 20 shared batches), grouped by the days they change (complete linkage: every pair shares ≥ 0.8 of its change days). |
-| `shifts.xlsx` | The shifts report's parameter table, one row per manufacturing site and parameter, and when it was built: what `ml task new --exclude-shifting` lists. |
+| `shifts.xlsx` | Every parameter that runs in groups over time, grouped or not, one row per manufacturing site and parameter, and when it was built: what `ml task new --exclude-shifting` lists. |
 
 The Help page of each report gives the method in full.
 

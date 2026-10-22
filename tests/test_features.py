@@ -212,44 +212,6 @@ def test_vector_age_in_days():
     assert df[col("f_vector_age")].iloc[0] == pytest.approx(10.0)
 
 
-def test_a_feature_known_before_its_input_is_reported():
-    params = features.Params(availability_column="Available From Day")
-    df = one(cells_available=[1e8], culture_bags=[2])
-    name = col("f_cells_per_bag")
-    catalog = pd.DataFrame(
-        {
-            "Parameter": [name, col("cells_available"), col("culture_bags")],
-            "Available From Day": [0, 3, 3],
-        }
-    )
-    report = features.apply(df, [name], params, known=features.availability(catalog, params))
-    assert any(c["check"] == "Availability" and name in c["detail"] for c in report.checks)
-
-
-def test_a_feature_known_with_its_inputs_is_not_reported():
-    params = features.Params(availability_column="Stage", availability_order=("D0", "D3"))
-    df = one(cells_available=[1e8], culture_bags=[2])
-    name = col("f_cells_per_bag")
-    catalog = pd.DataFrame({"Parameter": [name, col("cells_available")], "Stage": ["D3", "D3"]})
-    report = features.apply(df, [name], params, known=features.availability(catalog, params))
-    assert not [c for c in report.checks if c["check"] == "Availability"]
-
-
-def test_the_quality_checks_flag_impossible_arithmetic():
-    df = one(
-        cpdl=[5.0, 5.0],
-        harvest_cells=[3.2e9, 3.2e9],
-        vsvg_cells=[1e8, 1e7],
-        cells_available=[1e8, 1e8],
-        cells_seeded_a=[6e7, 4e7],
-        cells_seeded_b=[6e7, 4e7],
-    )
-    found = {c["check"]: c["batches"] for c in features.quality_checks(df)}
-    # log2(3.2e9 / 1e8) = 5, log2(3.2e9 / 1e7) ≈ 8.3
-    assert found["Doublings against cell counts"] == 1
-    assert found["Seeding arithmetic"] == 1
-
-
 def test_every_feature_says_what_kind_of_calculation_it_is():
     for feature in features.registry(PARAMS):
         assert feature.kind in (features.ENGINEERED, features.NORMALISATION), feature.name

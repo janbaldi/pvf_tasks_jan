@@ -147,14 +147,20 @@ def validate(record: dict[str, Any]) -> list[str]:
     return problems
 
 
-def write(path: str | Path, record: dict[str, Any]) -> Path:
-    """Write a manifest, refusing one that does not follow the format."""
+def dumps(record: dict[str, Any], where: str | Path = "this") -> str:
+    """A manifest as the JSON text written out, refusing one that does not follow the format."""
     problems = validate(record)
     if problems:
-        raise ValueError(f"{path} would not be a valid manifest: " + "; ".join(problems))
+        raise ValueError(f"{where} would not be a valid manifest: " + "; ".join(problems))
+    return json.dumps(record, indent=2, default=str)
+
+
+def write(path: str | Path, record: dict[str, Any]) -> Path:
+    """Write a manifest, refusing one that does not follow the format."""
+    text = dumps(record, path)
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(record, indent=2, default=str), encoding="utf-8")
+    path.write_text(text, encoding="utf-8")
     return path
 
 

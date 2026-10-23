@@ -35,6 +35,8 @@ sources:
 #
 # catalog and batch_table are also where the stages write: each stage's outputs
 # go into the folder of its file. A `sheet:` here overrides the vocabulary's.
+# A path ending in .csv is read as a CSV file (raw_materials, the consumables
+# export, is one): its delimiter is detected, or given as `sep: ";"`.
 sharepoint:
   vocabulary:     {path: "${SHAREPOINT_VOCABULARY}", drive_id: "${SHAREPOINT_DRIVE_A}"}
   catalog:        {path: "${SHAREPOINT_CATALOG}", drive_id: "${SHAREPOINT_DRIVE_A}"}

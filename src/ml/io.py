@@ -68,7 +68,7 @@ class Source:
 
     def read(self) -> pd.DataFrame:
         if self.location is not None:
-            return share.read_excel(self.location, self.header)
+            return share.read_table(self.location, self.header)
         if not self.path:
             raise FileNotFoundError(f"No SharePoint location is configured for '{self.label}'")
         return read_table(self.path, 0, self.header)
@@ -97,7 +97,7 @@ def as_source(value: str | Path | Source, label: str) -> Source:
 def _read(source: Source, what: str) -> pd.DataFrame:
     if source.location is not None:
         detail = f"{source.location.name}  ·  {source.location.where}"
-        if source.location.sheet not in (0, "", None):
+        if source.location.sheet not in (0, "", None) and not source.location.is_csv:
             detail += f"  ·  sheet {source.location.sheet}"
     else:
         detail = source.path

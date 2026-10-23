@@ -39,7 +39,7 @@ SHAREPOINT_ENV = {
     "SHAREPOINT_PARAM_MAPPING": "Team%20Site/mapping.xlsx",
     "SHAREPOINT_REMFG": "General/remfg.xlsx",
     "SHAREPOINT_LV_COA": "Team%20Site/Data/coa.xlsx",
-    "SHAREPOINT_RAW_MATERIALS": "Team%20Site/Data/consumables.xlsx",
+    "SHAREPOINT_RAW_MATERIALS": "Team%20Site/Data/consumables.csv",
     "SHAREPOINT_INVESTIGATIONS": "Investigations/power_query.xlsx",
     "SHAREPOINT_SCREENING": "Team%20Site/Data/catalog/parameter_screening.xlsx",
     "SHAREPOINT_SITE_MAPS_FOLDER": "Team%20Site/Data/mappings/",
@@ -149,7 +149,10 @@ def _fake_io_sharepoint(monkeypatch) -> list:
     calls: list = []
     module = types.ModuleType("io_sharepoint")
     module.load_excel_from_sharepoint = lambda **kw: calls.append(("read", kw)) or pd.DataFrame()
+    module.load_csv_from_sharepoint = lambda **kw: calls.append(("read csv", kw)) or pd.DataFrame()
     module.upload_file_to_sharepoint = lambda **kw: calls.append(("upload", kw))
+    module.write_text_to_sharepoint = lambda **kw: calls.append(("write text", kw))
+    module.download_file_from_sharepoint = lambda **kw: calls.append(("download", kw)) or b"{}"
     monkeypatch.setitem(sys.modules, "io_sharepoint", module)
     monkeypatch.delenv(share.STANDIN_ENV, raising=False)
     return calls
@@ -187,6 +190,59 @@ def test_outputs_are_uploaded_into_the_folder_of_their_stage(tmp_path, monkeypat
     assert calls[0][1]["sharepoint_target_path"].endswith("/Data/batch_data/")
     assert calls[0][1]["drive_id"] == "DRIVE_FOR_A"
     assert "Team Site/Data/batch_data/" in where.where, "shown decoded, as a person reads it"
+
+
+def test_a_csv_source_is_read_as_csv(tmp_path, monkeypatch):
+    calls = _fake_io_sharepoint(monkeypatch)
+    config = workspace.load(ROOT / "config.yaml")
+    workspace.source(config, "raw_materials").read()
+    [(kind, kwargs)] = calls
+    assert kind == "read csv", "the consumables export is a CSV file, not a workbook"
+    assert kwargs["sharepoint_path"] == "Team%20Site/Data/consumables.csv"
+    assert kwargs["drive_id"] == "DRIVE_FOR_A" and kwargs["header"] == 0
+    assert kwargs["sep"] is None, "the delimiter is detected when config.yaml gives none"
+    assert kwargs["encoding"] == "utf-8-sig"
+
+    config["sharepoint"]["raw_materials"]["sep"] = ";"
+    calls.clear()
+    workspace.source(config, "raw_materials").read()
+    assert calls[0][1]["sep"] == ";"
+
+
+def test_a_csv_delimiter_must_be_text(tmp_path):
+    text = CONFIG_TEXT.replace(
+        'raw_materials:  {path: "${SHAREPOINT_RAW_MATERIALS}",',
+        'raw_materials:  {sep: 3, path: "${SHAREPOINT_RAW_MATERIALS}",',
+    )
+    (tmp_path / "config.yaml").write_text(text)
+    with pytest.raises(workspace.ConfigError, match=r"sharepoint\.raw_materials\.sep"):
+        workspace.load(tmp_path / "config.yaml")
+
+
+def test_a_manifest_is_written_and_read_back_through_io_sharepoint(tmp_path, monkeypatch):
+    from ml import share
+
+    calls = _fake_io_sharepoint(monkeypatch)
+    config = workspace.load(ROOT / "config.yaml")
+    target = workspace.batch_table_folder(config).file("batch_table_manifest.json")
+    assert share.write_text("the manifest", "{}", target) == target
+    assert calls[0] == (
+        "write text",
+        {
+            "text": "{}",
+            "sharepoint_target_folder_path": "Team%20Site/Data/batch_data/",
+            "file_name": "batch_table_manifest.json",
+            "drive_id": "DRIVE_FOR_A",
+        },
+    )
+    assert share.read_text(target) == "{}"
+    assert calls[1] == (
+        "download",
+        {
+            "sharepoint_path": "Team%20Site/Data/batch_data/batch_table_manifest.json",
+            "drive_id": "DRIVE_FOR_A",
+        },
+    )
 
 
 def test_without_io_sharepoint_a_run_stops_and_says_why(monkeypatch):

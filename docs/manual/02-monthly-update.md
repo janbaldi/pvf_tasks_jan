@@ -77,8 +77,9 @@ If it warns that the last `ml check-catalog` found parameters the catalog
 doesn't list, that's step 2's list: the build goes ahead without them.
 If it warns that no catalog manifest could be read although step 2 ran, the
 warning just above it says why the read failed. The build reads
-`catalog_manifest.json` back with `io_sharepoint.download_file_from_sharepoint`;
-an `io_sharepoint` without that function reads workbooks only.
+`catalog_manifest.json` back with `io_sharepoint.download_file_from_sharepoint`
+(and writes the manifests with `io_sharepoint.write_text_to_sharepoint`); an
+older `io_sharepoint` without them cannot, and the warning says so.
 
 ## 4. Read the build report
 

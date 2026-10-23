@@ -90,7 +90,10 @@ The build report lists every rule that ran and the rows it changed.
 
 ## Step 5: install `io_sharepoint`, and check
 
-Install `io_sharepoint` in the same environment (`uv pip install …`), then:
+Install `io_sharepoint` in the same environment (`uv pip install …`). It needs
+a version with `load_csv_from_sharepoint` (the consumables export is a CSV
+file), `download_file_from_sharepoint` and `write_text_to_sharepoint` (the
+manifests). Then:
 
 ```bash
 uv run ml validate

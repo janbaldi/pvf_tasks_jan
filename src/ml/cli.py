@@ -274,11 +274,8 @@ def run_catalog(config: dict[str, Any], config_path: str | Path | None = None) -
                 staged / CATALOG_OUTPUTS["report"],
             )
         warnings, errors = _events(mark)
-        log.step(
-            MODULE, "Preparing the manifest", f"{CATALOG_OUTPUTS['manifest']}  →  {folder.where}"
-        )
-        files["manifest"] = manifest.write(
-            staged / CATALOG_OUTPUTS["manifest"],
+        # Checked before anything is uploaded; written last, once the outputs it lists are there.
+        record = manifest.dumps(
             manifest.envelope(
                 "catalog",
                 run_id=package.run_id(run_start),
@@ -286,9 +283,7 @@ def run_catalog(config: dict[str, Any], config_path: str | Path | None = None) -
                 config_path=str(config.get("__path__") or config_path or ""),
                 prov=prov,
                 sources=sources,
-                written=manifest.outputs(
-                    staged, {what: path for what, path in files.items() if what != "manifest"}
-                ),
+                written=manifest.outputs(staged, files),
                 warnings=warnings,
                 errors=errors,
                 written_to=str(folder),
@@ -297,9 +292,11 @@ def run_catalog(config: dict[str, Any], config_path: str | Path | None = None) -
                 sources_not_read=found.sources_absent,
                 not_in_catalog=found.by_source,
                 new_parameters=found.new_parameters,
-            ),
+            )
         )
         uploaded = share.upload(files, folder)
+        target = folder.file(CATALOG_OUTPUTS["manifest"])
+        uploaded.append(("manifest", share.write_text("the manifest", record, target)))
 
     for label, columns in found.by_source.items():
         if columns:
@@ -610,11 +607,8 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
                 report.build_correlation_payload(build_run), correlation_report
             )
         warnings, errors = _events(mark)
-        log.step(
-            MODULE, "Preparing the manifest", f"{BUILD_OUTPUTS['manifest']}  →  {folder.where}"
-        )
-        files["manifest"] = manifest.write(
-            staged / BUILD_OUTPUTS["manifest"],
+        # Checked before anything is uploaded; written last, once the outputs it lists are there.
+        record = manifest.dumps(
             manifest.envelope(
                 "batch_table",
                 run_id=package.run_id(run_start),
@@ -622,9 +616,7 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
                 config_path=str(config.get("__path__") or config_path or ""),
                 prov=prov,
                 sources=sources,
-                written=manifest.outputs(
-                    staged, {what: path for what, path in files.items() if what != "manifest"}
-                ),
+                written=manifest.outputs(staged, files),
                 warnings=warnings,
                 errors=errors,
                 written_to=str(folder),
@@ -644,9 +636,11 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
                     str(c) for c in result.columns if c not in set(catalog_cols)
                 ],
                 duplicate_batches=merge_report.duplicate_batches,
-            ),
+            )
         )
         uploaded = share.upload(files, folder)
+        target = folder.file(BUILD_OUTPUTS["manifest"])
+        uploaded.append(("manifest", share.write_text("the manifest", record, target)))
 
     log.names("Catalog parameters that are not in the batch table", merge_report.catalog_missing)
     _show_written(

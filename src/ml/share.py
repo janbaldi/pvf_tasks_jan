@@ -28,6 +28,12 @@ MODULE = "sharepoint"
 STANDIN_ENV = "ML_SHAREPOINT_STANDIN"
 #: The ``io_sharepoint`` function that fetches a file as bytes (a manifest, say).
 DOWNLOAD = "download_file_from_sharepoint"
+#: The ``io_sharepoint`` function that writes a string as a file (a manifest, say).
+WRITE_TEXT = "write_text_to_sharepoint"
+#: The ``io_sharepoint`` function that reads a CSV file as a table.
+READ_CSV = "load_csv_from_sharepoint"
+#: File endings read as CSV; anything else is read as a workbook.
+CSV_SUFFIXES = (".csv", ".txt")
 
 
 class ShareError(RuntimeError):
@@ -41,16 +47,26 @@ def readable(path: str) -> str:
 
 @dataclass(frozen=True)
 class Location:
-    """A file — or, ending in ``/``, a folder — on SharePoint."""
+    """A file — or, ending in ``/``, a folder — on SharePoint.
+
+    ``sheet`` is the worksheet of a workbook; ``sep`` the delimiter of a CSV
+    file, None to let it be detected.
+    """
 
     drive_id: str
     path: str
     sheet: str | int = 0
+    sep: str | None = None
 
     @property
     def name(self) -> str:
         """The file name, decoded."""
         return readable(self.path).rstrip("/").rsplit("/", 1)[-1]
+
+    @property
+    def is_csv(self) -> bool:
+        """Whether the file is read as CSV rather than as a workbook."""
+        return self.name.lower().endswith(CSV_SUFFIXES)
 
     @property
     def folder(self) -> Location:
@@ -73,7 +89,7 @@ class Location:
         return f"{self.drive_id} › {readable(folder) or '/'}"
 
     def __str__(self) -> str:
-        sheet = f" [{self.sheet}]" if self.sheet not in (0, "", None) else ""
+        sheet = f" [{self.sheet}]" if self.sheet not in (0, "", None) and not self.is_csv else ""
         return f"SharePoint {self.drive_id}: {readable(self.path)}{sheet}"
 
 
@@ -96,19 +112,41 @@ class _IoSharepoint:
             kwargs["header"] = header
         return self.module.load_excel_from_sharepoint(**kwargs)
 
+    def read_csv(self, location: Location, header: int = 0) -> pd.DataFrame:
+        load = self._function(READ_CSV, "reads no CSV files")
+        return load(
+            sharepoint_path=location.path,
+            header=header,
+            drive_id=location.drive_id,
+            **csv_options(location.sep),
+        )
+
     def read_bytes(self, location: Location) -> bytes | None:
-        fetch = getattr(self.module, DOWNLOAD, None)
-        if fetch is None:
-            raise ShareError(f"io_sharepoint has no {DOWNLOAD}(), so it reads workbooks only")
+        fetch = self._function(DOWNLOAD, "reads workbooks only")
         content = fetch(sharepoint_path=location.path, drive_id=location.drive_id)
         if hasattr(content, "read"):
             content = content.read()
         return content.encode("utf-8") if isinstance(content, str) else content
 
+    def write_text(self, text: str, location: Location) -> None:
+        write = self._function(WRITE_TEXT, "cannot write a manifest")
+        write(
+            text=text,
+            sharepoint_target_folder_path=location.folder.path,
+            file_name=location.name,
+            drive_id=location.drive_id,
+        )
+
     def upload(self, local: Path, folder: Location) -> None:
         self.module.upload_file_to_sharepoint(
             local_path=local, sharepoint_target_path=folder.path, drive_id=folder.drive_id
         )
+
+    def _function(self, name: str, without: str):
+        found = getattr(self.module, name, None)
+        if found is None:
+            raise ShareError(f"io_sharepoint has no {name}(), so it {without}; update it")
+        return found
 
 
 class _Standin:
@@ -126,9 +164,20 @@ class _Standin:
             raise FileNotFoundError(f"{location} does not exist")
         return pd.read_excel(path, sheet_name=location.sheet, header=header)
 
+    def read_csv(self, location: Location, header: int = 0) -> pd.DataFrame:
+        path = self._file(location)
+        if not path.is_file():
+            raise FileNotFoundError(f"{location} does not exist")
+        return pd.read_csv(path, header=header, **csv_options(location.sep))
+
     def read_bytes(self, location: Location) -> bytes | None:
         path = self._file(location)
         return path.read_bytes() if path.is_file() else None
+
+    def write_text(self, text: str, location: Location) -> None:
+        target = self._file(location)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8", newline="")
 
     def upload(self, local: Path, folder: Location) -> None:
         target = self._file(folder.file(Path(local).name))
@@ -164,12 +213,26 @@ def read_excel(location: Location, header: int = 0) -> pd.DataFrame:
     return backend().read_excel(location, header)
 
 
+def read_table(location: Location, header: int = 0) -> pd.DataFrame:
+    """A file on the share as a table: a CSV file by its ending, else a worksheet."""
+    if location.is_csv:
+        return backend().read_csv(location, header)
+    return backend().read_excel(location, header)
+
+
+def csv_options(sep: str | None) -> dict:
+    """How a CSV file is parsed: a byte-order mark dropped, the delimiter detected unless given."""
+    if sep:
+        return {"sep": sep, "encoding": "utf-8-sig"}
+    return {"sep": None, "engine": "python", "encoding": "utf-8-sig"}
+
+
 def read_text(location: Location) -> str | None:
     """A text file on the share (a manifest), or None when it is not there.
 
-    ``io_sharepoint`` reads workbooks; it fetches other files only if it has
-    :data:`DOWNLOAD`. Without it, or when the fetch fails, the reason is logged
-    and the caller is told the file could not be read: a finding, not a failure.
+    It is fetched with ``io_sharepoint``'s :data:`DOWNLOAD`. When the fetch fails
+    (an older ``io_sharepoint`` without it, say), the reason is logged and the
+    caller is told the file could not be read: a finding, not a failure.
     """
     try:
         content = backend().read_bytes(location)
@@ -177,6 +240,14 @@ def read_text(location: Location) -> str | None:
         log.warn(MODULE, f"{location.name} could not be read from SharePoint", str(exc))
         return None
     return content.decode("utf-8") if content is not None else None
+
+
+def write_text(what: str, text: str, location: Location) -> Location:
+    """Write a text file (a manifest) straight to the share; returns where it went."""
+    log.step(MODULE, f"Writing {what}", f"{location.name}  →  {location.where}")
+    backend().write_text(text, location)
+    log.success(MODULE, f"Wrote {location.name} ({_bytes(len(text.encode()))})", location.where)
+    return location
 
 
 def upload(files: dict[str, Path], folder: Location) -> list[tuple[str, Location]]:
@@ -194,7 +265,11 @@ def upload(files: dict[str, Path], folder: Location) -> list[tuple[str, Location
 
 def size(path: Path) -> str:
     """A file's size as a person reads it: 812 KB, 3.4 MB."""
-    count = float(path.stat().st_size) if path.is_file() else 0.0
+    return _bytes(path.stat().st_size if path.is_file() else 0)
+
+
+def _bytes(count: float) -> str:
+    count = float(count)
     for unit in ("B", "KB", "MB", "GB"):
         if count < 1024 or unit == "GB":
             return f"{count:.0f} {unit}" if unit in ("B", "KB") else f"{count:.1f} {unit}"

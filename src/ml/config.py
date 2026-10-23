@@ -239,13 +239,19 @@ def validate(config: dict[str, Any], source: str = "config") -> None:
                 errors.append(f"{where}.files: name the mapping workbooks in the folder")
             required = ("folder", "drive_id")
         else:
-            entry = _mapping(entry, where, ("path", "sheet", "drive_id"), errors)
+            entry = _mapping(entry, where, ("path", "sheet", "sep", "drive_id"), errors)
             required = ("path", "drive_id")
         for key in required:
             if entry and not str(entry.get(key) or "").strip():
                 errors.append(f"{where}.{key}: required for a SharePoint location")
         if entry and "sheet" in entry and not isinstance(entry["sheet"], (str, int)):
             errors.append(f"{where}.sheet: expected a sheet name or number")
+        if (
+            entry
+            and entry.get("sep") is not None
+            and not (isinstance(entry["sep"], str) and entry["sep"])
+        ):
+            errors.append(f"{where}.sep: expected the delimiter of a CSV file, such as ';'")
     if not sharepoint:
         errors.append("sharepoint: every input is read from SharePoint; add a sharepoint: block")
 
@@ -300,7 +306,7 @@ def validate(config: dict[str, Any], source: str = "config") -> None:
 # Where each input is read from, and each output written to
 # ---------------------------------------------------------------------------
 def location(config: dict[str, Any], label: str) -> share.Location:
-    """Where ``label`` is on SharePoint, with the sheet its data is on."""
+    """Where ``label`` is on SharePoint, with the sheet its data is on (or a CSV's delimiter)."""
     entry = (config.get("sharepoint") or {}).get(label)
     if not entry or label == "site_maps":
         raise ConfigError(
@@ -308,7 +314,8 @@ def location(config: dict[str, Any], label: str) -> share.Location:
             "every input is read from SharePoint"
         )
     sheet = entry.get("sheet", names.sheet(label, 0))
-    return share.Location(str(entry["drive_id"]), str(entry["path"]), sheet)
+    sep = entry.get("sep")
+    return share.Location(str(entry["drive_id"]), str(entry["path"]), sheet, sep)
 
 
 def source(config: dict[str, Any], label: str) -> io.Source:

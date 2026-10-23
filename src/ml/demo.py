@@ -1067,7 +1067,7 @@ FILES = {
     "param_mapping": "parameter_mapping.xlsx",
     "remfg": "remfg.xlsx",
     "lv_coa": "lv_coa.xlsx",
-    "raw_materials": "raw_materials.xlsx",
+    "raw_materials": "raw_materials.csv",
     "investigations": "investigations_power_query.xlsx",
     "vocabulary": "vocabulary.xlsx",
     "screening": "parameter_screening.xlsx",
@@ -1078,7 +1078,8 @@ SITE_MAP_FILES = ("site_map_first.xlsx", "site_map_second.xlsx")
 def write_sources(directory: Path, seed: int = SEED) -> dict[str, object]:
     """Write one complete set of sources into a folder, and return their paths.
 
-    Each workbook's data goes on the sheet the vocabulary in use names for it.
+    Each workbook's data goes on the sheet the vocabulary in use names for it; the
+    consumables export is a CSV file.
     """
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
@@ -1103,7 +1104,8 @@ def write_sources(directory: Path, seed: int = SEED) -> dict[str, object]:
     remanufacturing().to_excel(paths["remfg"], sheet_name=sheet("remfg"), index=False)
     # Two rows of workbook furniture above the header, as the real file has.
     lv_coa().to_excel(paths["lv_coa"], sheet_name=sheet("lv_coa"), index=False, startrow=2)
-    raw_materials().to_excel(paths["raw_materials"], sheet_name=sheet("raw_materials"), index=False)
+    # A CSV export, as the real one is: semicolon-separated, with a byte-order mark.
+    raw_materials().to_csv(paths["raw_materials"], sep=";", index=False, encoding="utf-8-sig")
     investigations().to_excel(
         paths["investigations"], sheet_name=sheet("investigations"), index=False
     )

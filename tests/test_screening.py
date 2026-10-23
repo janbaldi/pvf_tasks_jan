@@ -407,6 +407,27 @@ def test_the_missingness_report_shows_what_is_screened_out(built):
     assert "Screened members" in first["group_headers"]
 
 
+def test_each_report_shows_only_its_own_screening(monkeypatch):
+    from types import SimpleNamespace
+
+    log = [
+        decision(1, "exclude", "Old", "North"),
+        decision(2, "exclude", "Twin", "North", reason=screening.CORRELATED, represented_by="X"),
+        decision(3, "exclude", "Lot", "North", reason=screening.SHIFTED, represented_by="Y"),
+    ]
+    monkeypatch.setattr(cli, "_register", lambda config: screening.Register(log, "register"))
+    monkeypatch.setattr(names, "sites", lambda: SITES)
+    rows = [{"Parameter": p, "Missing %": 0.0} for p in ("Old", "Twin", "Lot", "X")]
+    analysis = SimpleNamespace(screened={})
+    missing = {"North": (rows, analysis), "South": ([], SimpleNamespace(screened={}))}
+    *_, excluded = cli._mark_screened(missing, {})
+    # The missingness report shows its own decision, not the correlation's or the shifts'.
+    assert list(analysis.screened) == ["Old"]
+    assert [r["Screening"] for r in rows] == ["excluded S-0001", "", "", ""]
+    # The correlation and shifts still leave out everything excluded at the site.
+    assert set(excluded["North"]) == {"Old", "Twin", "Lot"} and excluded["South"] == {}
+
+
 # ---------------------------------------------------------------------------
 # A new task file lists what the register excludes
 # ---------------------------------------------------------------------------

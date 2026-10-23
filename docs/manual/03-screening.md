@@ -32,8 +32,10 @@ every task.
   and `inputs/screening.xlsx` is a copy of that register. `ml task rerun` applies
   the copy, so a rerun applies exactly the same decisions however the register
   has changed since.
-- **Every build reads it.** The missingness report shows each decision (⊘ in the
-  plot, the *Screening* column, the *Screened out at this site* table). The
+- **Every build reads it.** Each report shows only the decisions made on its own
+  evidence. The missingness report shows every decision except `correlated with
+  group` and `shifts with group` (⊘ in the plot, the *Screening* column, the
+  *Screened out at this site* table). The
   correlation report leaves out what the register excludes at the site, except
   parameters excluded as `correlated with group`, which stay marked ⊘ so they can
   be reinstated. The shifts report leaves out what the register excludes at the

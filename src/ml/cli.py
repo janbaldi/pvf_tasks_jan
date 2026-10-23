@@ -480,11 +480,11 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
             analysed=analysed,
         )
         missing_by_site[site][1].cohort = "; ".join(filter(None, (cohort, counted)))
-    standing, register, never_recorded = _mark_screened(missing_by_site, config)
+    standing, register, never_recorded, excluded_by_site = _mark_screened(missing_by_site, config)
     # Over the same batches, without what the register already leaves out.
     correlated_by_site = {}
     for site, (batches, analysed) in cohorts.items():
-        screened = missing_by_site[site][1].screened
+        screened = excluded_by_site[site]
         rows, analysis = correlation.for_build(
             batches,
             catalog_mapping,
@@ -499,7 +499,7 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
         analysis.cohort = missing_by_site[site][1].cohort
         analysis.screened = {p: d for p, d in screened.items() if d["Reason"] == correlation.REASON}
         correlated_by_site[site] = rows, analysis
-    shifted_by_site = _shifts_by_plant(cohorts, missing_by_site, names.col(date_column))
+    shifted_by_site = _shifts_by_plant(cohorts, excluded_by_site, names.col(date_column))
 
     # ── Write ──────────────────────────────────────────────────────────────
     log.section("06 · Output")
@@ -653,7 +653,7 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
 
 def _shifts_by_plant(
     cohorts: dict[str, tuple[pd.DataFrame, pd.Series | None]],
-    missing_by_site: dict[str, tuple],
+    excluded_by_site: dict[str, dict[str, dict]],
     order_column: str,
 ) -> dict[str, tuple[list[dict], Any]]:
     """The shifts analysis per manufacturing site, over the missingness report's batches.
@@ -684,7 +684,7 @@ def _shifts_by_plant(
         sources = sorted(set(source[here]))
         screened: dict[str, dict] = {}
         for site in sources:
-            for parameter, decision in missing_by_site[site][1].screened.items():
+            for parameter, decision in excluded_by_site[site].items():
                 screened.setdefault(parameter, decision)
         rows, found = shifts.for_build(
             every[here],
@@ -733,19 +733,23 @@ def _register(config: dict[str, Any]) -> screening.Register | None:
 
 def _mark_screened(
     missing_by_site: dict[str, tuple], config: dict[str, Any]
-) -> tuple[dict, screening.Register | None, list[screening.Decision]]:
+) -> tuple[dict, screening.Register | None, list[screening.Decision], dict[str, dict[str, dict]]]:
     """Add each parameter's standing screening decision to the missingness rows.
 
-    The parameters missing in every batch of a site are excluded there on the
+    The missingness report shows only the decisions made on its own evidence
+    (:data:`ml.screening.MISSINGNESS_REASONS`); the correlation and shifts reports
+    show theirs. The parameters missing in every batch of a site are excluded there on the
     build's own account (:func:`ml.screening.never_recorded`); those decisions
     count from here on, and :func:`_write_never_recorded` adds them to the register.
-    Returns the state, the register as read, and those decisions.
+    Returns the state, the register as read, those decisions, and per site every
+    parameter excluded there for any reason, which the correlation and shifts leave out.
     """
+    excluded_by_site: dict[str, dict[str, dict]] = {site: {} for site in missing_by_site}
     try:
         register = _register(config)
     except Exception as exc:  # the report is still worth having without the column
         log.warn(MODULE, f"The screening register could not be read: {exc}")
-        return {}, None, []
+        return {}, None, [], excluded_by_site
     sites = names.sites()
     automatic = (
         screening.never_recorded(
@@ -761,16 +765,19 @@ def _mark_screened(
     for site, (rows, analysis) in missing_by_site.items():
         for row in rows:
             decision = state.get((row["Parameter"], site))
-            row["Screening"] = screening.note(decision)
+            own = decision is not None and decision.reason in screening.MISSINGNESS_REASONS
+            row["Screening"] = screening.note(decision if own else None)
             if decision is not None and decision.action == screening.EXCLUDE:
-                analysis.screened[row["Parameter"]] = {
+                excluded_by_site[site][row["Parameter"]] = {
                     "Decision": decision.id,
                     "Date": decision.date,
                     "Reason": decision.reason,
                     "Rationale": decision.rationale,
                     "Represented by": decision.represented_by,
                 }
-    return state, register, automatic
+                if own:
+                    analysis.screened[row["Parameter"]] = excluded_by_site[site][row["Parameter"]]
+    return state, register, automatic, excluded_by_site
 
 
 def _write_never_recorded(

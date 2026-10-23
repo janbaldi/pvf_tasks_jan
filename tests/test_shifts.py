@@ -147,18 +147,13 @@ def test_a_new_task_can_leave_out_every_parameter_that_runs_in_groups(built, tmp
 
 
 def test_the_shifts_run_per_manufacturing_site():
-    from types import SimpleNamespace
-
     plant = names.col("manufacturing_site")
     frame = _lots().rename(columns={"id": "Patient Lot/Batch #"})
     north, south = frame.iloc[:120].copy(), frame.iloc[120:].copy()
     north[plant] = ["P1"] * 60 + ["P2"] * 60
     south[plant] = "P2"
     cohorts = {"North": (north, None), "South": (south, None)}
-    missing = {
-        "North": (None, SimpleNamespace(screened={"lot": {"Reason": "retired"}})),
-        "South": (None, SimpleNamespace(screened={})),
-    }
+    missing = {"North": {"lot": {"Reason": "retired"}}, "South": {}}
     found = cli._shifts_by_plant(cohorts, missing, "date")
     assert set(found) == {"P1", "P2"}
     p1, p2 = found["P1"][1], found["P2"][1]

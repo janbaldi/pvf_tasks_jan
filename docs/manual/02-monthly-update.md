@@ -116,8 +116,9 @@ them. The page has these parts:
   cell for its batch and date.
 - **The group table.** Parameters that go missing together. Click a group to
   draw all its members. *Screened members* counts the ones already screened out.
-- **Screened out at this site.** The screening register's standing exclusions:
-  decision, date, reason, rationale. Click one to draw it; tick it to reinstate
+- **Screened out at this site.** The screening register's standing exclusions
+  made on missingness evidence: decision, date, reason, rationale. Exclusions as
+  `correlated with group` or `shifts with group` are shown in their own reports. Click one to draw it; tick it to reinstate
   it.
 - **The parameter table** (collapsed). Every parameter missing on at least one
   batch at this site and in no group (those are in the group table), with its

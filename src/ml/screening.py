@@ -103,6 +103,9 @@ REASONS = (
     "data quality",
     "other",
 )
+#: The reasons the missingness report shows: all but those the correlation and shifts
+#: reports decide on, which each show their own.
+MISSINGNESS_REASONS = tuple(r for r in REASONS if r not in REPRESENTED)
 #: A decision is looked at again after this long.
 REVIEW_AFTER = timedelta(days=91)
 #: The register column behind each Decision field, in order.

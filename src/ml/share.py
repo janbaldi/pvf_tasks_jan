@@ -257,7 +257,17 @@ def upload(files: dict[str, Path], folder: Location) -> list[tuple[str, Location
     for what, local in files.items():
         name = Path(local).name
         log.step(MODULE, f"Uploading {what}", f"{name}  →  {folder.where}")
-        share.upload(Path(local), folder)
+        try:
+            share.upload(Path(local), folder)
+        except Exception as exc:
+            response = getattr(exc, "response", None)
+            if getattr(response, "status_code", None) == 409:
+                raise ShareError(
+                    f"SharePoint refused to replace {name} in {folder.where} (409 Conflict): it "
+                    "is open in Excel (desktop or browser, yours or a colleague's) or checked "
+                    "out. Close it everywhere, check it in, wait a minute and run this again"
+                ) from exc
+            raise
         log.success(MODULE, f"Uploaded {name} ({size(Path(local))})", folder.where)
         done.append((what, folder.file(name)))
     return done

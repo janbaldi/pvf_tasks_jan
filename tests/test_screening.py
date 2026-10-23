@@ -68,12 +68,69 @@ def test_the_last_decision_on_a_parameter_and_site_stands():
         decision(3, "exclude", "Y", "South"),
     ]
     state = screening.current(log, SITES)
-    assert state[("X", "North")].action == "exclude"
-    assert state[("X", "South")].action == "reinstate"
+    assert state[("X", "North", "missingness")].action == "exclude"
+    assert state[("X", "South", "missingness")].action == "reinstate"
     assert set(screening.excluded(log, SITES, ("North",))) == {"X"}
     assert set(screening.excluded(log, SITES, ("South",))) == {"Y"}
     # A task over both sites leaves out what either site excludes.
     assert set(screening.excluded(log, SITES)) == {"X", "Y"}
+
+
+def test_each_report_keeps_its_own_decisions_and_a_parameter_is_out_when_either_excludes():
+    log = [
+        decision(1, "exclude", "X", "North"),
+        decision(2, "exclude", "X", "North", reason=screening.CORRELATED, represented_by="W"),
+        # Reinstated in the correlation report: the missingness exclusion still stands.
+        decision(3, "reinstate", "X", "North", reason=screening.CORRELATED, report="correlation"),
+        decision(4, "exclude", "Y", "North", reason=screening.CORRELATED, represented_by="W"),
+    ]
+    assert [d.id for d in screening.standing(log, SITES)[("X", "North")]] == ["S-0001"]
+    assert [d.id for d in screening.excluded(log, SITES)["X"]] == ["S-0001"]
+    assert screening.excluded(log, SITES)["Y"][0].track == "correlation"
+    # Both reports' exclusions stand side by side.
+    both = log[:2]
+    assert [d.track for d in screening.excluded(both, SITES)["X"]] == [
+        "missingness",
+        "correlation",
+    ]
+    assert screening.labels(screening.excluded(both, SITES)["X"]) == (
+        "S-0001: retired (North); S-0002: correlated with group (North), represented by 'W'"
+    )
+    own, other = screening.at_site(both, SITES, "North", "missingness")
+    assert own["X"]["Decision"] == "S-0001" and other["X"]["Decision"] == "S-0002"
+
+
+def test_a_row_without_a_report_belongs_to_the_report_of_its_reason():
+    assert decision(1, "exclude", "X", "North").track == "missingness"
+    assert decision(1, "exclude", "X", "North", reason=screening.CORRELATED).track == "correlation"
+    frame = screening.to_frame([decision(1, "exclude", "X", "North", report="correlation")])
+    with pytest.raises(screening.ScreeningError, match="not decided in the correlation report"):
+        screening.from_frame(frame, SITES)
+    old = screening.to_frame([decision(1, "exclude", "X", "North")]).drop(columns="Report")
+    assert screening.from_frame(old, SITES)[0].track == "missingness"
+
+
+def test_a_representative_that_is_excluded_is_a_conflict():
+    log = [
+        decision(1, "exclude", "X", "North", reason=screening.CORRELATED, represented_by="W"),
+        decision(2, "exclude", "W", "North", reason="never recorded"),
+    ]
+    (conflict,) = screening.conflicts(log, SITES)
+    assert (conflict["Representative"], conflict["Represents"]) == ("W", "X")
+    assert "but is excluded itself (S-0002: never recorded (North))" in (
+        screening.conflict_line(conflict)
+    )
+    out, stands_for = screening.standing(log, SITES), screening.represented(log, SITES)
+    assert screening.note("W", "North", out, stands_for) == (
+        "excluded S-0002 (missingness: never recorded); represents X (S-0001); "
+        "CONFLICT: a representative that is excluded"
+    )
+    assert screening.note("X", "North", out, stands_for) == (
+        "excluded S-0001 (correlation: correlated with group, represented by W)"
+    )
+    assert screening.conflicts(log, SITES[1:]) == [] or all(
+        c["Site"] == "North" for c in screening.conflicts(log, SITES)
+    )
 
 
 def test_a_register_with_a_bad_row_is_refused_by_row():
@@ -203,7 +260,7 @@ def test_a_proposal_with_problems_adds_nothing_and_names_them():
     assert "row 2: 'nope' is not a column" in message
     assert "row 3: Reason 'nope' is not one of" in message
     assert "Rationale" not in message, "a rationale is optional"
-    assert "row 4: nothing to reinstate" in message
+    assert "row 4: nothing to reinstate, not excluded in the missingness report" in message
     assert "row 5: a Group is numbered per site" in message
     row = {
         "Action": "exclude",
@@ -217,7 +274,11 @@ def test_a_proposal_with_problems_adds_nothing_and_names_them():
 
 
 def test_the_build_excludes_what_a_site_never_records_unless_the_register_decided():
-    log = [decision(1, "reinstate", "Y", "North")]
+    # Y reinstated in the missingness report stays in; X's correlation decision is not that.
+    log = [
+        decision(1, "reinstate", "Y", "North"),
+        decision(9, "exclude", "X", "North", reason=screening.CORRELATED, represented_by="Z"),
+    ]
     missing = {
         "North": [
             {"Parameter": "X", "Missing %": 100.0, "Pattern": "Never recorded"},
@@ -228,11 +289,11 @@ def test_the_build_excludes_what_a_site_never_records_unless_the_register_decide
     }
     added = screening.never_recorded(log, missing, "abc", SITES, today=date(2026, 10, 1))
     assert [(d.id, d.parameter, d.site) for d in added] == [
-        ("S-0002", "X", "North"),
-        ("S-0003", "X", "South"),
+        ("S-0010", "X", "North"),
+        ("S-0011", "X", "South"),
     ], "one decision per site; a reinstatement stands"
-    assert {(d.action, d.reason, d.author, d.batch_table) for d in added} == {
-        ("exclude", "never recorded", screening.BUILD_AUTHOR, "abc")
+    assert {(d.action, d.reason, d.author, d.batch_table, d.track) for d in added} == {
+        ("exclude", "never recorded", screening.BUILD_AUTHOR, "abc", "missingness")
     }
     assert added[0].review_by == "2026-12-31"
     assert screening.never_recorded(log + added, missing, "abc", SITES) == [], "only once"
@@ -287,12 +348,12 @@ def test_the_build_writes_the_evidence_and_marks_screened_parameters(built):
     path = shared(built["directory"], built["config"], "batch_table", screening.EVIDENCE_FILE)
     table = pd.read_excel(path, sheet_name=screening.EVIDENCE_SHEET)
     marked = table[table["Screening"].fillna("") != ""]
-    by_hand = marked[marked["Screening"] == "excluded S-0001"]
+    by_hand = marked[marked["Screening"] == "excluded S-0001 (missingness: irregular)"]
     assert by_hand[["Site", "Parameter"]].values.tolist() == [
         [names.site("a"), dummy_data.screened_parameter()]
     ]
     # Everything else marked is what the build excluded: missing in every batch of its site.
-    automatic = marked[marked["Screening"] != "excluded S-0001"]
+    automatic = marked[~marked["Screening"].str.startswith("excluded S-0001 ")]
     assert not automatic.empty and (automatic["Missing %"] == 100).all()
     assert (table.loc[table["Missing %"] == 100, "Screening"].fillna("") != "").all()
     about = pd.read_excel(path, sheet_name=screening.ABOUT_SHEET)
@@ -328,6 +389,17 @@ def test_adding_a_proposal_and_asking_for_the_status(built, tmp_path):
     )
     assert {d.parameter for d in register.decisions} == members
     assert cli.run_screening_status(config) == []
+    # Starting over needs a yes, and keeps the old register next to the new, empty one.
+    assert cli.main(["--config", str(built["config_path"]), "screening", "reset"]) == 2
+    cli.run_screening_reset(config)
+    assert screening.read(where, names.sites()).decisions == []
+    kept = list(
+        shared(built["directory"], config, "screening").parent.glob(
+            "parameter_screening_before_reset_*.xlsx"
+        )
+    )
+    assert len(kept) == 1
+    assert {d.id for d in screening.read_copy(kept[0], names.sites()).decisions} == {"S-0001"}
 
 
 # ---------------------------------------------------------------------------
@@ -387,6 +459,7 @@ def test_the_report_only_reinstates_what_is_screened_out():
         "A. Reviewer",
     )
     assert [r["Parameter"] for r in rows] == ["X"] and skipped == ["Z"]
+    assert rows[0]["Report"] == ""
     log = [decision(1, "exclude", "X", "North")]
     (added,) = screening.add(log, pd.DataFrame(rows), EVIDENCE, "", "", SITES)
     assert added.action == "reinstate"
@@ -399,33 +472,48 @@ def test_the_missingness_report_shows_what_is_screened_out(built):
     page = shared(built["directory"], built["config"], "batch_table", "missingness_report.html")
     payload = stlite.read_payload(page.read_text(encoding="utf-8"))
     viewer = next(b for b in payload["sections"][0]["blocks"] if b["kind"] == "missing_viewer")
-    assert viewer["proposal"]["reasons"] == list(screening.REASONS)
+    assert viewer["proposal"]["reasons"] == list(screening.TRACK_REASONS["missingness"])
+    assert viewer["proposal"]["report"] == "missingness"
     sites = {site["label"]: site for site in viewer["sites"]}
     first = sites[names.site("a")]
     assert first["screened"][dummy_data.screened_parameter()]["Decision"] == "S-0001"
     assert {d["Reason"] for d in sites[names.site("b")]["screened"].values()} == {"never recorded"}
-    assert "Screened members" in first["group_headers"]
+    assert first["elsewhere"] == {} and first["conflicts"] == []
+    assert first["group_headers"][-2:] == ["Excluded here", "Excluded elsewhere"]
 
 
-def test_each_report_shows_only_its_own_screening(monkeypatch):
+def test_both_reports_show_every_decision_and_the_conflicts(monkeypatch):
     from types import SimpleNamespace
 
     log = [
         decision(1, "exclude", "Old", "North"),
         decision(2, "exclude", "Twin", "North", reason=screening.CORRELATED, represented_by="X"),
-        decision(3, "exclude", "Lot", "North", reason=screening.SHIFTED, represented_by="Y"),
+        decision(3, "exclude", "X", "North", reason="never recorded"),
     ]
-    monkeypatch.setattr(cli, "_register", lambda config: screening.Register(log, "register"))
     monkeypatch.setattr(names, "sites", lambda: SITES)
-    rows = [{"Parameter": p, "Missing %": 0.0} for p in ("Old", "Twin", "Lot", "X")]
-    analysis = SimpleNamespace(screened={})
-    missing = {"North": (rows, analysis), "South": ([], SimpleNamespace(screened={}))}
-    *_, excluded = cli._mark_screened(missing, {})
-    # The missingness report shows its own decision, not the correlation's or the shifts'.
-    assert list(analysis.screened) == ["Old"]
-    assert [r["Screening"] for r in rows] == ["excluded S-0001", "", "", ""]
-    # The correlation and shifts still leave out everything excluded at the site.
-    assert set(excluded["North"]) == {"Old", "Twin", "Lot"} and excluded["South"] == {}
+
+    def analysis():
+        return SimpleNamespace(screened={}, elsewhere={}, conflicts=[])
+
+    rows = [{"Parameter": p} for p in ("Old", "Twin", "X", "Y")]
+    missing = {"North": (rows, analysis()), "South": ([], analysis())}
+    ranked = [{"Parameter": p} for p in ("Old", "Twin", "X")]
+    correlated = {"North": (ranked, analysis()), "South": ([], analysis())}
+    cli._show_register(log, missing, correlated)
+    here, there = missing["North"][1], correlated["North"][1]
+    assert set(here.screened) == {"Old", "X"} and set(here.elsewhere) == {"Twin"}
+    assert set(there.screened) == {"Twin"} and set(there.elsewhere) == {"Old", "X"}
+    assert (
+        [c["Representative"] for c in here.conflicts]
+        == ["X"]
+        == [c["Representative"] for c in there.conflicts]
+    )
+    assert missing["South"][1].conflicts == []
+    assert rows[1]["Screening"] == (
+        "excluded S-0002 (correlation: correlated with group, represented by X)"
+    )
+    assert ranked[0]["Register"] == "excluded S-0001 (missingness: retired)"
+    assert rows[3]["Screening"] == ""
 
 
 # ---------------------------------------------------------------------------
@@ -434,8 +522,9 @@ def test_each_report_shows_only_its_own_screening(monkeypatch):
 def test_a_new_task_file_lists_the_screened_parameters_as_exclusions(built, tmp_path):
     from ml import scaffold, taskconfig
 
-    screened, as_of = cli._screened_for_new_task(built["config"])
+    screened, as_of, conflicts = cli._screened_for_new_task(built["config"])
     assert as_of == "S-0003", "the build's own exclusions come after the demo's S-0001"
+    assert conflicts == []
     assert (
         dummy_data.screened_parameter(),
         f"screened out by S-0001: irregular ({names.site('a')})",
@@ -454,6 +543,16 @@ def test_a_new_task_file_lists_the_screened_parameters_as_exclusions(built, tmp_
     # Without a register there is nothing to list, and the template is as it was.
     plain = scaffold.init(tmp_path / "plain", dummy_data.target())
     assert "  exclude: []" in plain.read_text(encoding="utf-8")
+    flagged = scaffold.init(
+        tmp_path / "flagged",
+        dummy_data.target(),
+        screened=screened,
+        screened_as_of=as_of,
+        conflicts=["'W' at North represents X (S-0002) but is excluded itself"],
+    )
+    text = flagged.read_text(encoding="utf-8")
+    assert "# CONFLICT:" in text and "#   'W' at North represents X" in text
+    assert dict(taskconfig.load(flagged).predictors.exclude) == dict(screened)
 
 
 def test_a_run_warns_when_a_listed_exclusion_was_reinstated(caplog):

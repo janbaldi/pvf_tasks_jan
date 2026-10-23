@@ -1,19 +1,28 @@
 """The screening register: parameters left out of every task, and why.
 
-The build's missingness, correlation and shifts reports show how each parameter
-goes missing, which rank the batches alike, and which move in the same level
-groups. Deciding that a parameter (or a group of them) is not fit to predict
-with, or is represented by another, is a judgement, and
-this module keeps those judgements in one place, the register: a workbook on
-SharePoint next to the catalog (``sharepoint.screening`` in config.yaml).
+The build's missingness and correlation reports show how each parameter goes
+missing, and which rank the batches alike. Deciding that a parameter (or a
+group of them) is not fit to predict with, or is represented by another, is a
+judgement, and this module keeps those judgements in one place, the register: a
+workbook on SharePoint next to the catalog (``sharepoint.screening`` in
+config.yaml). The shifts report has no part in it.
 
 The register is a log, not a list. Each row is one decision — exclude or
 reinstate one parameter at one site (or ``all``) — with who made it, when, why,
-and the evidence it was made on. An exclusion can name the parameter that
-represents it: a member of a correlated group is left out because another
-member, which stays usable, carries its information. Rows are only ever added, by ``ml screening
+and the evidence it was made on, and the report it was made from: its track
+(:data:`TRACKS`). An exclusion can name the parameter that represents it: a
+member of a correlated group is left out because another member, which stays
+usable, carries its information. Rows are only ever added, by ``ml screening
 add``; a change of mind is a new row. The state today is the log replayed in
-order: per parameter and site, the last decision stands.
+order: per parameter, site and track, the last decision stands, so a
+missingness exclusion and a correlation exclusion stand side by side, and
+reinstating one leaves the other. A parameter is excluded when any track
+excludes it.
+
+A representative that is itself excluded leaves its group with nothing: that
+is a conflict (:func:`conflicts`). ``ml screening add`` refuses to make one;
+the build's own exclusions can, and every report, ``ml screening status`` and
+every task names it.
 
 Every task applies that state when it picks its predictors, records which
 decisions it applied, and keeps a copy of the register in its run folder, so a
@@ -44,9 +53,6 @@ EVIDENCE_SHEET = "Parameters"
 CORRELATION_GROUP = "Correlation group"
 #: The evidence column naming the member the correlation report suggests for its group.
 SUGGESTED = "Suggested representative"
-#: The same two for the shifts report.
-SHIFT_GROUP = "Shift group"
-SHIFT_SUGGESTED = "Suggested shift representative"
 ABOUT_SHEET = "About"
 
 #: The register's columns, in order.
@@ -66,9 +72,10 @@ COLUMNS = (
     "Batch table",
     "Review by",
     "Represented by",
+    "Report",
 )
 #: Columns a register written before they existed may lack.
-OPTIONAL = ("Represented by",)
+OPTIONAL = ("Represented by", "Report")
 #: What a proposal holds; ``ml screening add`` fills in the rest.
 PROPOSAL_COLUMNS = (
     "Action",
@@ -79,6 +86,7 @@ PROPOSAL_COLUMNS = (
     "Rationale",
     "Author",
     "Represented by",
+    "Report",
 )
 
 EXCLUDE, REINSTATE = "exclude", "reinstate"
@@ -86,10 +94,11 @@ ACTIONS = (EXCLUDE, REINSTATE)
 ALL = "all"
 #: The reason of a correlated group's members, each represented by another member.
 CORRELATED = "correlated with group"
-#: The reason of the members of a group that shifts value together, likewise.
-SHIFTED = "shifts with group"
 #: The reasons whose exclusions need a representative: its evidence group and suggestion columns.
-REPRESENTED = {CORRELATED: (CORRELATION_GROUP, SUGGESTED), SHIFTED: (SHIFT_GROUP, SHIFT_SUGGESTED)}
+REPRESENTED = {CORRELATED: (CORRELATION_GROUP, SUGGESTED)}
+#: The reports a decision is made from. Each keeps its own state, and shows the other's.
+MISSINGNESS, CORRELATION = "missingness", "correlation"
+TRACKS = (MISSINGNESS, CORRELATION)
 #: Why a parameter is left out. Fixed, so decisions can be counted and compared.
 REASONS = (
     "never recorded",
@@ -99,13 +108,14 @@ REASONS = (
     "irregular",
     "missing with group",
     CORRELATED,
-    SHIFTED,
     "data quality",
     "other",
 )
-#: The reasons the missingness report shows: all but those the correlation and shifts
-#: reports decide on, which each show their own.
-MISSINGNESS_REASONS = tuple(r for r in REASONS if r not in REPRESENTED)
+#: The reasons each report decides on.
+TRACK_REASONS = {
+    MISSINGNESS: tuple(r for r in REASONS if r != CORRELATED),
+    CORRELATION: (CORRELATED,),
+}
 #: A decision is looked at again after this long.
 REVIEW_AFTER = timedelta(days=91)
 #: The register column behind each Decision field, in order.
@@ -127,6 +137,7 @@ FIELDS = dict(
             "batch_table",
             "review_by",
             "represented_by",
+            "report",
         ),
         COLUMNS,
     )
@@ -158,12 +169,28 @@ class Decision:
     batch_table: str
     review_by: str
     represented_by: str = ""
+    report: str = ""
+
+    @property
+    def track(self) -> str:
+        """The report the decision belongs to; a row without one, by its reason."""
+        return self.report or track_of(self.reason)
 
     @property
     def label(self) -> str:
         """How a task names the decision it applied: ``S-0003: retired (Ghent)``."""
         instead = f", represented by '{self.represented_by}'" if self.represented_by else ""
         return f"{self.id}: {self.reason} ({self.site}){instead}"
+
+
+def track_of(reason: str) -> str:
+    """The report a reason is decided in."""
+    return CORRELATION if reason in TRACK_REASONS[CORRELATION] else MISSINGNESS
+
+
+def labels(decisions: list[Decision]) -> str:
+    """How a task names the decisions that leave one parameter out."""
+    return "; ".join(d.label for d in decisions)
 
 
 def _text(value: Any) -> str:
@@ -204,6 +231,13 @@ def from_frame(frame: pd.DataFrame, sites: tuple[str, ...], source: str = "") ->
             errors.append(f"{where}: Site '{fields['Site']}' is not {ALL} or a site name")
         if fields["Reason"] and fields["Reason"] not in REASONS:
             errors.append(f"{where}: Reason '{fields['Reason']}' is not one of the list")
+        elif fields["Report"] and fields["Report"] not in TRACKS:
+            errors.append(f"{where}: Report '{fields['Report']}' is not {' or '.join(TRACKS)}")
+        elif fields["Report"] and fields["Reason"] not in TRACK_REASONS[fields["Report"]]:
+            errors.append(
+                f"{where}: Reason '{fields['Reason']}' is not decided in the "
+                f"{fields['Report']} report"
+            )
         decisions.append(Decision(**{f: fields[c] for f, c in FIELDS.items()}))
     if errors:
         raise ScreeningError(f"{source} cannot be used:\n  - " + "\n  - ".join(errors))
@@ -238,28 +272,108 @@ def _sites(decision: Decision, sites: tuple[str, ...]) -> tuple[str, ...]:
     return sites if decision.site == ALL else (decision.site,)
 
 
-def current(decisions: list[Decision], sites: tuple[str, ...]) -> dict[tuple[str, str], Decision]:
-    """The decision that stands per (parameter, site): the last one that covers it."""
-    state: dict[tuple[str, str], Decision] = {}
+def current(
+    decisions: list[Decision], sites: tuple[str, ...]
+) -> dict[tuple[str, str, str], Decision]:
+    """The decision that stands per (parameter, site, track): the last one that covers it."""
+    state: dict[tuple[str, str, str], Decision] = {}
     for decision in decisions:
         for site in _sites(decision, sites):
-            state[(decision.parameter, site)] = decision
+            state[(decision.parameter, site, decision.track)] = decision
     return state
+
+
+def standing(
+    decisions: list[Decision], sites: tuple[str, ...]
+) -> dict[tuple[str, str], list[Decision]]:
+    """The exclusions that stand per (parameter, site), one per track that excludes it."""
+    out: dict[tuple[str, str], list[Decision]] = {}
+    state = current(decisions, sites)
+    for (parameter, site, track), decision in sorted(
+        state.items(), key=lambda item: (item[0][0], item[0][1], TRACKS.index(item[0][2]))
+    ):
+        if decision.action == EXCLUDE:
+            out.setdefault((parameter, site), []).append(decision)
+    return out
+
+
+def represented(
+    decisions: list[Decision], sites: tuple[str, ...]
+) -> dict[tuple[str, str], list[Decision]]:
+    """Per (representative, site), the standing exclusions it stands in for."""
+    out: dict[tuple[str, str], list[Decision]] = {}
+    for (_, site), found in standing(decisions, sites).items():
+        for decision in found:
+            if decision.represented_by:
+                out.setdefault((decision.represented_by, site), []).append(decision)
+    return out
+
+
+def conflicts(decisions: list[Decision], sites: tuple[str, ...]) -> list[dict]:
+    """Representatives that are excluded themselves, so their group is left out whole."""
+    out = standing(decisions, sites)
+    return [
+        {
+            "Site": site,
+            "Representative": parameter,
+            "Excluded by": labels(out[(parameter, site)]),
+            "Represents": ", ".join(d.parameter for d in members),
+            "Decisions": ", ".join(dict.fromkeys(d.id for d in members)),
+        }
+        for (parameter, site), members in sorted(represented(decisions, sites).items())
+        if (parameter, site) in out
+    ]
+
+
+def conflict_line(conflict: dict) -> str:
+    """One conflict, in words."""
+    return (
+        f"'{conflict['Representative']}' at {conflict['Site']} represents "
+        f"{conflict['Represents']} ({conflict['Decisions']}) but is excluded itself "
+        f"({conflict['Excluded by']}): all of them are left out"
+    )
 
 
 def excluded(
     decisions: list[Decision], sites: tuple[str, ...], cohort: tuple[str, ...] = ()
-) -> dict[str, Decision]:
-    """Parameter → the decision that excludes it, for a task over ``cohort``'s sites.
+) -> dict[str, list[Decision]]:
+    """Parameter → the decisions that exclude it, for a task over ``cohort``'s sites.
 
     A task over both sites leaves a parameter out when either site excludes it:
     a predictor that is unusable at one site would teach the model the site.
     """
-    out: dict[str, Decision] = {}
-    for (parameter, site), decision in current(decisions, sites).items():
-        if decision.action == EXCLUDE and (not cohort or site in cohort):
-            out.setdefault(parameter, decision)
+    out: dict[str, list[Decision]] = {}
+    for (parameter, site), found in standing(decisions, sites).items():
+        if not cohort or site in cohort:
+            out.setdefault(parameter, []).extend(found)
     return out
+
+
+def as_row(decision: Decision) -> dict[str, str]:
+    """A standing exclusion as a report's tables show it."""
+    return {
+        "Decision": decision.id,
+        "Date": decision.date,
+        "Report": decision.track,
+        "Reason": decision.reason,
+        "Rationale": decision.rationale,
+        "Represented by": decision.represented_by,
+    }
+
+
+def at_site(
+    decisions: list[Decision], sites: tuple[str, ...], site: str, track: str
+) -> tuple[dict[str, dict], dict[str, dict]]:
+    """Parameter → its standing exclusion at ``site``: the ones ``track``'s report made,
+    and the ones the other report made, which it shows but does not change."""
+    own: dict[str, dict] = {}
+    other: dict[str, dict] = {}
+    for (parameter, where), found in standing(decisions, sites).items():
+        if where != site:
+            continue
+        for decision in found:
+            (own if decision.track == track else other).setdefault(parameter, as_row(decision))
+    return own, other
 
 
 # ---------------------------------------------------------------------------
@@ -314,6 +428,11 @@ def add(
     a reason in :data:`REPRESENTED` needs one; left empty, it is the build's
     suggestion for the members' group in that report.
 
+    A row's ``Report`` is the track it decides in; left empty, the report its
+    reason belongs to. A reinstatement only undoes an exclusion of its own track.
+    Neither order of a conflict is accepted: a representative that is excluded,
+    or an exclusion of a parameter that represents others.
+
     The author is the proposal's ``Author`` column, or ``author`` where it is empty.
     """
     today = today or date.today()
@@ -337,8 +456,13 @@ def add(
             problems.append(f"Action '{action}' is not {' or '.join(ACTIONS)}")
         if site not in (ALL, *sites):
             problems.append(f"Site '{site}' is not {ALL} or one of {', '.join(sites)}")
+        track = fields["Report"] or track_of(reason)
         if reason not in REASONS:
             problems.append(f"Reason '{reason}' is not one of: {', '.join(REASONS)}")
+        elif track not in TRACKS:
+            problems.append(f"Report '{track}' is not {' or '.join(TRACKS)}")
+        elif reason not in TRACK_REASONS[track]:
+            problems.append(f"Reason '{reason}' is not decided in the {track} report")
         if not fields["Parameter"] and not fields["Group"]:
             problems.append("give a Parameter, a Group, or both")
         who = fields["Author"] or author.strip()
@@ -352,13 +476,10 @@ def add(
         covered = sites if site == ALL else (site,)
         known = set(evidence.loc[evidence["Site"].isin(covered), "Parameter"])
         if fields["Group"] and not fields["Parameter"]:
-            at_site = evidence[evidence["Site"] == site]
-            named = at_site[
-                [c for c in ("Group", CORRELATION_GROUP, SHIFT_GROUP) if c in at_site.columns]
-            ]
-            # A cell may name several groups (one per plant), joined by "; ".
+            here = evidence[evidence["Site"] == site]
+            named = here[[c for c in ("Group", CORRELATION_GROUP) if c in here.columns]]
             hit = named.map(lambda cell: fields["Group"] in _text(cell).split("; ")).any(axis=1)
-            members = at_site[hit]["Parameter"].tolist()
+            members = here[hit]["Parameter"].tolist()
             if not members:
                 errors.append(
                     f"{where}: the latest build has no group '{fields['Group']}' at {site}"
@@ -375,10 +496,16 @@ def add(
             idle = [
                 m
                 for m in members
-                if not any((state.get((m, s)) and state[(m, s)].action == EXCLUDE) for s in covered)
+                if not any(
+                    state.get((m, s, track)) and state[(m, s, track)].action == EXCLUDE
+                    for s in covered
+                )
             ]
             if idle:
-                errors.append(f"{where}: nothing to reinstate, not excluded: {', '.join(idle)}")
+                errors.append(
+                    f"{where}: nothing to reinstate, not excluded in the {track} report: "
+                    f"{', '.join(idle)}"
+                )
                 continue
         if action == EXCLUDE and reason in REPRESENTED and not fields["Represented by"]:
             found = evidence[evidence["Parameter"].isin(members) & evidence["Site"].isin(covered)]
@@ -401,14 +528,7 @@ def add(
                 if instead not in known
                 else "it is the only parameter in it: nothing is left to exclude"
                 if not members
-                else next(
-                    (
-                        f"'{instead}' is screened out at {s}, so it cannot represent others"
-                        for s in covered
-                        if state.get((instead, s)) and state[(instead, s)].action == EXCLUDE
-                    ),
-                    "",
-                )
+                else ""
             )
             if problem:
                 errors.append(f"{where}: Represented by: {problem}")
@@ -442,14 +562,16 @@ def add(
                     batch_table=batch_table,
                     review_by=review if action == EXCLUDE else "",
                     represented_by=instead if action == EXCLUDE else "",
+                    report=track,
                 )
             )
-    out = {(d.parameter, s) for d in added if d.action == EXCLUDE for s in _sites(d, sites)}
+    # Checked on the register as the proposal leaves it, so one proposal can move a group
+    # to another representative: reinstate it, and exclude the others represented by it.
+    before = {(c["Representative"], c["Site"]) for c in conflicts(decisions, sites)}
     errors += [
-        f"{d.id}: '{d.parameter}' is represented by '{d.represented_by}', which the proposal "
-        "excludes too"
-        for d in added
-        if any((d.represented_by, s) in out for s in _sites(d, sites))
+        f"{conflict_line(c)} — pick another representative, or leave it in"
+        for c in conflicts(decisions + added, sites)
+        if (c["Representative"], c["Site"]) not in before
     ]
     if errors:
         raise ScreeningError("The proposal was not added:\n  - " + "\n  - ".join(errors))
@@ -473,8 +595,8 @@ def never_recorded(
 
     A parameter that is never recorded at a site has nothing to predict with
     there, so it needs no judgement. One decision ID per site covers them all.
-    A parameter the register already decides on at that site is left alone, so
-    a reinstatement stands until someone excludes it again.
+    A parameter the missingness report already decides on at that site is left
+    alone, so a reinstatement stands until someone excludes it again.
     """
     today = today or date.today()
     state = current(decisions, sites)
@@ -486,7 +608,7 @@ def never_recorded(
             row
             for row in rows
             if pd.to_numeric(row.get("Missing %"), errors="coerce") == 100
-            and (row["Parameter"], site) not in state
+            and (row["Parameter"], site, MISSINGNESS) not in state
         ]
         if not found:
             continue
@@ -509,6 +631,7 @@ def never_recorded(
                     last_measured=_text(row.get("Last measured")),
                     batch_table=batch_table,
                     review_by=(today + REVIEW_AFTER).isoformat(),
+                    report=MISSINGNESS,
                 )
             )
     return added
@@ -529,13 +652,13 @@ def review(
     """
     today = today or date.today()
     findings = []
-    state = current(decisions, sites)
-    for (parameter, site), decision in sorted(state.items()):
-        if decision.action != EXCLUDE:
-            continue
+    out = standing(decisions, sites)
+    for (parameter, site), decision in (
+        (key, d) for key, found in sorted(out.items()) for d in found
+    ):
         reasons = []
         instead = decision.represented_by
-        if instead and state.get((instead, site)) and state[(instead, site)].action == EXCLUDE:
+        if instead and (instead, site) in out:
             reasons.append(f"its representative '{instead}' is screened out too")
         if decision.review_by and decision.review_by <= today.isoformat():
             reasons.append(f"review date {decision.review_by} has passed")
@@ -578,11 +701,12 @@ def _then(recorded: str, site: str) -> float | None:
 
 
 def summary(decisions: list[Decision], sites: tuple[str, ...]) -> pd.DataFrame:
-    """The standing exclusions, one row per parameter and site."""
+    """The standing exclusions, one row per parameter, site and report."""
     rows = [
         {
             "Parameter": parameter,
             "Site": site,
+            "Report": d.track,
             "Decision": d.id,
             "Date": d.date,
             "Reason": d.reason,
@@ -590,8 +714,8 @@ def summary(decisions: list[Decision], sites: tuple[str, ...]) -> pd.DataFrame:
             "Review by": d.review_by,
             "Represented by": d.represented_by,
         }
-        for (parameter, site), d in sorted(current(decisions, sites).items())
-        if d.action == EXCLUDE
+        for (parameter, site), found in sorted(standing(decisions, sites).items())
+        for d in found
     ]
     return pd.DataFrame(rows)
 
@@ -599,7 +723,7 @@ def summary(decisions: list[Decision], sites: tuple[str, ...]) -> pd.DataFrame:
 def task_catalog(
     catalog: pd.DataFrame,
     columns,
-    state: dict[tuple[str, str], Decision],
+    decisions: list[Decision],
     sites: tuple[str, ...],
 ) -> pd.DataFrame:
     """The catalog rows a task may still pick: in the batch table, and usable at some site.
@@ -608,11 +732,10 @@ def task_catalog(
     both sites needs both); ``Represents`` the parameters screened out because it
     carries their information, per site.
     """
-    excluded = {key for key, d in state.items() if d.action == EXCLUDE}
+    excluded = set(standing(decisions, sites))
     represents: dict[str, dict[str, list[str]]] = {}
-    for (parameter, site), d in sorted(state.items()):
-        if (parameter, site) in excluded and d.represented_by:
-            represents.setdefault(d.represented_by, {}).setdefault(site, []).append(parameter)
+    for (parameter, site), members in sorted(represented(decisions, sites).items()):
+        represents.setdefault(parameter, {})[site] = [d.parameter for d in members]
     rows = catalog[catalog["Parameter"].isin(set(columns))].copy()
     usable = rows["Parameter"].map(lambda p: [s for s in sites if (p, s) not in excluded])
     rows.insert(1, "Usable at", usable.map(", ".join))
@@ -634,11 +757,29 @@ def status_line(decisions: list[Decision], sites: tuple[str, ...]) -> str:
     return f"{count} {noun} excluded at some site; {len(decisions)} rows, last decision {last}"
 
 
-def note(decision: Decision | None) -> str:
-    """The missingness report's Screening cell for one parameter at one site."""
-    if decision is None:
-        return ""
-    return f"{decision.action}d {decision.id}" if decision.action == EXCLUDE else ""
+def note(
+    parameter: str,
+    site: str,
+    out: dict[tuple[str, str], list[Decision]],
+    stands_for: dict[tuple[str, str], list[Decision]],
+) -> str:
+    """What the register holds on one parameter at one site, every report's decisions:
+    ``excluded S-0004 (missingness: retired); represents A, B (S-0007)``."""
+    notes = [
+        f"excluded {d.id} ({d.track}: {d.reason}"
+        + (f", represented by {d.represented_by}" if d.represented_by else "")
+        + ")"
+        for d in out.get((parameter, site), [])
+    ]
+    members = stands_for.get((parameter, site), [])
+    if members:
+        notes.append(
+            f"represents {', '.join(d.parameter for d in members)} "
+            f"({', '.join(dict.fromkeys(d.id for d in members))})"
+        )
+    if members and (parameter, site) in out:
+        notes.append("CONFLICT: a representative that is excluded")
+    return "; ".join(notes)
 
 
 def log_added(added: list[Decision]) -> None:

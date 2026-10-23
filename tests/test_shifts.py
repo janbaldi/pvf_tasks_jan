@@ -27,7 +27,7 @@ def _lots(n: int = 240) -> pd.DataFrame:
             "rare flag": np.where(np.arange(n) % 37 == 5, "Yes", "No"),  # now and then
             "measured": rng.normal(size=n),
             "harvest": day + pd.Timedelta(days=9),  # one value a day
-            "screened": lot,
+            "lot copy": lot,
         }
     )
     frame.loc[10:30, "titre"] = np.nan
@@ -35,11 +35,11 @@ def _lots(n: int = 240) -> pd.DataFrame:
 
 
 def test_what_runs_in_groups_is_found_and_grouped_by_the_days_it_changes():
-    rows, report = shifts.for_build(_lots(), "id", "date", screened_out={"screened": "retired"})
-    assert set(report.analysed) == {"lot", "titre", "expiry", "other lot", "process"}
-    assert report.left_out == ["screened"] and report.tested == 9
+    rows, report = shifts.for_build(_lots(), "id", "date")
+    assert set(report.analysed) == {"lot", "titre", "expiry", "other lot", "process", "lot copy"}
+    assert report.tested == 10
     (group,) = report.groups
-    assert set(group.members) == {"lot", "titre", "expiry"} and group.weakest > 0.9
+    assert set(group.members) == {"lot", "titre", "expiry", "lot copy"} and group.weakest > 0.9
     by_name = {row["Parameter"]: row for row in rows}
     # A lot that changes during a day is one change: 24 lots, 24 groups.
     assert by_name["lot"]["Groups"] == 24 and by_name["lot"]["Shift group"] == group.name
@@ -77,32 +77,9 @@ def test_a_change_counts_on_the_next_day_both_have_a_value():
     assert shifts.shared_shifts(days, days[[4]], gap, days[[7]]) == 0.0
 
 
-def test_a_shift_group_can_still_be_represented_by_its_suggested_member():
-    evidence = pd.DataFrame(
-        {
-            "Site": ["North"] * 3,
-            "Parameter": ["Lot", "Titre", "Expiry"],
-            "Missing %": [0.0] * 3,
-            "Pattern": ["Complete"] * 3,
-            "Last measured": [""] * 3,
-            "Group": [""] * 3,
-            screening.SHIFT_GROUP: ["Shifting 01"] * 3,
-            screening.SHIFT_SUGGESTED: ["Lot"] * 3,
-        }
-    )
-    proposal = pd.DataFrame(
-        [
-            {
-                "Action": "exclude",
-                "Group": "Shifting 01",
-                "Site": "North",
-                "Reason": screening.SHIFTED,
-                "Rationale": "the lot's certificate values",
-            }
-        ]
-    )
-    added = screening.add([], proposal, evidence, "", "A", ("North", "South"))
-    assert [(d.parameter, d.represented_by) for d in added] == [("Titre", "Lot"), ("Expiry", "Lot")]
+def test_the_shifts_report_has_no_part_in_the_screening_register():
+    assert "shifts with group" not in screening.REASONS
+    assert all("shift" not in c.lower() for c in screening.PROPOSAL_COLUMNS)
 
 
 def test_the_build_writes_the_shifts_report_and_table_and_finds_the_demo_lots(built):
@@ -126,8 +103,7 @@ def test_the_build_writes_the_shifts_report_and_table_and_finds_the_demo_lots(bu
     assert len(lots) == 2 and lots["Shift group"].str.startswith("Shifting").all()
     path = shared(built["directory"], built["config"], "batch_table", screening.EVIDENCE_FILE)
     evidence = pd.read_excel(path, sheet_name=screening.EVIDENCE_SHEET)
-    at_a = evidence[evidence["Site"] == names.site("a")].set_index("Parameter")
-    assert at_a.loc[c("media_lot"), screening.SHIFT_GROUP].startswith("Shifting")
+    assert not any("shift" in column.lower() for column in evidence.columns)
 
 
 def test_a_new_task_can_leave_out_every_parameter_that_runs_in_groups(built, tmp_path):
@@ -153,46 +129,17 @@ def test_the_shifts_run_per_manufacturing_site():
     north[plant] = ["P1"] * 60 + ["P2"] * 60
     south[plant] = "P2"
     cohorts = {"North": (north, None), "South": (south, None)}
-    missing = {"North": {"lot": {"Reason": "retired"}}, "South": {}}
-    found = cli._shifts_by_plant(cohorts, missing, "date")
+    found = cli._shifts_by_plant(cohorts, "date")
     assert set(found) == {"P1", "P2"}
     p1, p2 = found["P1"][1], found["P2"][1]
     # P2 makes batches for both sources.
     assert (p1.sources, p2.sources) == (["North"], ["North", "South"])
     assert p2.cohort.startswith("180 batches")
-    # Screened out at North, so left out of every plant North's batches come from.
-    assert "lot" in p1.left_out and "lot" in p2.left_out
+    # The register has no part in it: every parameter takes part.
+    assert "lot" in p1.analysed and "lot" in p2.analysed
     assert all(g.name.endswith(" @ P2") for g in p2.groups)
     # Without the column, each data source is one plant.
     found = cli._shifts_by_plant(
-        {s: (b.drop(columns=plant), a) for s, (b, a) in cohorts.items()}, missing, "date"
+        {s: (b.drop(columns=plant), a) for s, (b, a) in cohorts.items()}, "date"
     )
     assert set(found) == {"North", "South"}
-
-
-def test_evidence_with_a_group_per_plant_still_names_the_members_and_the_suggestion():
-    evidence = pd.DataFrame(
-        {
-            "Site": ["North"] * 3,
-            "Parameter": ["Lot", "Titre", "Expiry"],
-            "Missing %": [0.0] * 3,
-            "Pattern": ["Complete"] * 3,
-            "Last measured": [""] * 3,
-            "Group": [None] * 3,
-            screening.SHIFT_GROUP: ["Shifting 01 @ P1; Shifting 02 @ P2"] * 2
-            + ["Shifting 02 @ P2"],
-            screening.SHIFT_SUGGESTED: ["Lot; Expiry"] * 2 + ["Expiry"],
-        }
-    )
-    row = {"Action": "exclude", "Site": "North", "Reason": screening.SHIFTED, "Rationale": "lots"}
-    added = screening.add(
-        [], pd.DataFrame([row | {"Group": "Shifting 02 @ P2"}]), evidence, "", "A", ("North",)
-    )
-    assert [(d.parameter, d.represented_by) for d in added] == [
-        ("Lot", "Expiry"),
-        ("Titre", "Expiry"),
-    ]
-    added = screening.add(
-        [], pd.DataFrame([row | {"Group": "Shifting 01 @ P1"}]), evidence, "", "A", ("North",)
-    )
-    assert [(d.parameter, d.represented_by) for d in added] == [("Titre", "Lot")]

@@ -7,7 +7,8 @@ gaps. Others are redundant: they rank the batches as another parameter does
 task, with the reason written down (and, for a redundant one, the parameter that
 represents it), until you decide otherwise. Parameters that run in groups over
 time, as a lot does (the shifts report), are left out per task instead, with
-`ml task new --exclude-shifting` ([chapter 4](04-tasks.md#1-create-a-task)).
+`ml task new --exclude-shifting` ([chapter 4](04-tasks.md#1-create-a-task)): the
+shifts report neither reads nor writes the register.
 
 The *Screening loop* route of [the workflow map](../workflow.html) shows the
 whole cycle: reports, proposal, register, and back into the next build and
@@ -20,9 +21,13 @@ every task.
   made.
 - **A log, not a list.** Each row is one decision: *exclude* or *reinstate* one
   parameter at one site (or `all`), with who, when, why, and the evidence. Rows
-  are only added, by `ml screening add`; a change of mind is a new row. Today's
-  state is the log read from top to bottom: per parameter and site, the last
-  decision stands.
+  are only added, by `ml screening add`; a change of mind is a new row.
+- **Two reports, two tracks.** Each row records the report it was made from in
+  its `Report` column: `missingness` (every reason but one) or `correlation`
+  (`correlated with group`). Today's state is the log read from top to bottom:
+  per parameter, site **and report**, the last decision stands. So a parameter
+  can be excluded in both reports at once, and reinstating it in one leaves the
+  other's exclusion standing. A parameter is out when either report excludes it.
 - **Every task applies it.** When a task picks its predictors, it leaves out
   every parameter the register excludes at the task's sites. A task over both
   sites leaves out what either site excludes. `ml task new` also lists them in the
@@ -32,15 +37,25 @@ every task.
   and `inputs/screening.xlsx` is a copy of that register. `ml task rerun` applies
   the copy, so a rerun applies exactly the same decisions however the register
   has changed since.
-- **Every build reads it.** Each report shows only the decisions made on its own
-  evidence. The missingness report shows every decision except `correlated with
-  group` and `shifts with group` (⊘ in the plot, the *Screening* column, the
-  *Screened out at this site* table). The
-  correlation report leaves out what the register excludes at the site, except
-  parameters excluded as `correlated with group`, which stay marked ⊘ so they can
-  be reinstated. The shifts report leaves out what the register excludes at the
-  plant's data source. `task_catalog.xlsx` is cut by it. And the build adds its
-  own `never recorded` exclusions to it (below).
+- **Every build shows it, and is not steered by it.** The missingness and
+  correlation reports each analyse every parameter, whatever the register says:
+  neither depends on the other's decisions. Both show the whole register. ⊘ marks
+  what the report itself excluded (listed under *Screened out at this site*,
+  where you can reinstate it), ◇ what the other report excluded (listed under
+  *Screened out by the … report*, read only), and the *Screening* / *Register*
+  column spells out every decision on a parameter, and what it represents. Each
+  report's lead names the register it shows (rows, last decision), or says why
+  none could be read; the build log counts the exclusions per site and report and
+  warns about decisions on parameters the batch table does not have.
+  `task_catalog.xlsx` is cut by it. And the build adds its own `never recorded`
+  exclusions to it (below).
+- **Conflicts are named, never resolved silently.** A representative that is
+  excluded itself would leave its whole group out. `ml screening add` refuses a
+  proposal that makes one, in either order. The build's own `never recorded`
+  exclusions can still make one: then a ⚠ banner names it in both reports, the
+  build log warns, `ml screening status` lists it, `ml task new` writes it as a
+  comment in `task.yaml`, and every task run warns. Resolve it in the correlation
+  report (below).
 - **Nothing is deleted.** The batch table and the reports keep every parameter.
   Screening only decides what a task may use. `task_catalog.xlsx`, written by
   every build, lists what is left.
@@ -59,14 +74,13 @@ Good candidates for screening:
 | *Regular skipping*, *Clumped*, *Gap in the middle* with no process reason | `irregular` |
 | A group that goes missing together, explained by one of the above | `missing with group` |
 | A member of a group in the correlation report, represented by another member | `correlated with group`, with `Represented by` |
-| A member of a group in the shifts report that no task should use (write the proposal by hand) | `shifts with group`, with `Represented by` |
 | Values you know to be wrong or incomparable | `data quality` |
 | Anything else | `other`, and say why |
 
 A parameter missing on every batch at a site needs no decision: each build
 excludes it there itself, as `never recorded`, with `ml build` as the author and
 one decision ID per site. It does so only once, and never for a parameter the
-register already decides on at that site, so a reinstatement stands. Parameters
+missingness report already decides on at that site, so a reinstatement stands. Parameters
 that are never missing are left out of the missingness report altogether.
 
 Screen at the site where the problem is. A parameter that is fine at Raritan and
@@ -95,18 +109,23 @@ The form shows the rows it will write, and **Download proposal.csv** saves them,
 one row per parameter with every column filled in:
 
 ```
-Action,Parameter,Group,Site,Reason,Rationale,Author,Represented by
-exclude,Day 3 clump observation,Missing 05,Northfield,missing with group,clump observations recorded on some batches only,S. Degroeve,
-exclude,D3 clumps present,Missing 05,Northfield,missing with group,clump observations recorded on some batches only,S. Degroeve,
+Action,Parameter,Group,Site,Reason,Rationale,Author,Represented by,Report
+exclude,Day 3 clump observation,Missing 05,Northfield,missing with group,clump observations recorded on some batches only,S. Degroeve,,missingness
+exclude,D3 clumps present,Missing 05,Northfield,missing with group,clump observations recorded on some batches only,S. Degroeve,,missingness
 ```
 
-Only parameters that are screened out at that site can be reinstated; the form
-says which ticked ones it leaves out, and why.
+Each report offers only its own reasons, and can only reinstate what it screened
+out itself at that site; the form says which ticked ones it leaves out, and why.
+To reinstate a parameter the other report excluded, do it in that report.
 
 From the correlation report, each ticked group becomes an exclusion of every member
 but its representative, with the representative in the `Represented by` column.
-`ml screening status` lists such an exclusion again when its representative is
-screened out later, since the group would then have no parameter left.
+The group table's *Best usable representative* is the best-scoring member the
+missingness report leaves in (`= suggested` when that is the suggestion): pick
+it when the suggestion is excluded there. The form refuses a representative the
+missingness report excludes. **To move a group to another representative**, tick
+the group and pick the new one: the proposal reinstates it (if this report
+excluded it) and excludes the others, represented by it, in one go.
 
 You can also write the file by hand, in Excel or a text editor:
 
@@ -114,12 +133,13 @@ You can also write the file by hand, in Excel or a text editor:
 |---|---|
 | `Action` | `exclude` or `reinstate` |
 | `Parameter` | The parameter's exact name, as in the report |
-| `Group` | A group from a report's group table, such as `Missing 05`, `Correlated 02` or `Shifting 01`. With no `Parameter`, the row stands for every member of the group at that site; with one, it is context |
-| `Site` | A site's name, or `all` (not with a group and no `Parameter`: groups are found per site). A `Shifting` group is found per manufacturing site: name the data source its batches come from, or `all` |
+| `Group` | A group from a report's group table, such as `Missing 05` or `Correlated 02`. With no `Parameter`, the row stands for every member of the group at that site; with one, it is context |
+| `Site` | A site's name, or `all` (not with a group and no `Parameter`: groups are found per site) |
 | `Reason` | One of the reasons in the table above |
 | `Rationale` | Why, in a sentence. Optional |
 | `Author` | Who decides; or leave it empty and pass `--author` |
-| `Represented by` | The parameter that stands in for the excluded ones; it is never excluded itself and must be usable at the site. Required with `correlated with group` and `shifts with group`: left empty, it is that report's suggestion for the group |
+| `Represented by` | The parameter that stands in for the excluded ones; it must stay usable at the site. Required with `correlated with group`: left empty, it is the report's suggestion for the group |
+| `Report` | `missingness` or `correlation`: the report the decision belongs to. Left empty, the report of its reason |
 
 **2. Add it.**
 
@@ -141,8 +161,12 @@ Screening register updated
 
 `ml screening add` checks the whole proposal against the latest build before it
 writes anything. It refuses a proposal with an unknown parameter or group, a
-reason that isn't on the list, or a reinstatement of
-something that isn't excluded. It names every problem at once and adds nothing.
+reason that isn't on the list or belongs to the other report, a reinstatement
+of something that report hasn't excluded, or a conflict: a representative that
+would be excluded, or an exclusion of a parameter that represents others. The
+conflict check is on the register as the whole proposal leaves it, so moving a
+group to another representative in one proposal is fine. It names every problem
+at once and adds nothing.
 
 Each decision gets an ID (`S-0002`). The rows of one group with the same action,
 reason, rationale and author share one ID: they are one decision.
@@ -153,6 +177,17 @@ measurement, and the digest of the batch table it was decided on) and, for an
 exclusion, a review date three months on.
 
 The first time, there is no register yet: add `--new` to start one.
+
+**Starting over.** `uv run ml screening reset --yes` replaces the register with
+an empty one. The old one is kept next to it on SharePoint, renamed
+`parameter_screening_before_reset_<date>.xlsx`. The next `ml build` adds the
+`never recorded` exclusions again; the reports propose the rest. Tasks already
+run keep their own copy, so their reruns are unchanged.
+
+If SharePoint answers that it cannot replace the register (409 Conflict), the
+file is open in Excel somewhere (desktop or browser, yours or a colleague's) or
+checked out: close it everywhere, check it in, wait a minute and run the command
+again. Nothing was written.
 
 **3. Check.**
 
@@ -189,10 +224,9 @@ records that in its manifest.
 
 - **Decide on the commercial cohort** the build's reports describe, not on a
   single task's cohort, so the decision holds for every task.
-- **Work through the reports in order:** missingness, then correlation, then
-  shifts. Each leaves out what is already screened out for another reason, so
-  after a missingness decision, the correlation and shifts groups of the next
-  build are the ones to decide on.
+- **The reports stand on their own,** so you can work through them in any
+  order. Missingness first is still the natural one: the correlation report then
+  shows those decisions as ◇, and its *Best usable representative* skips them.
 - **Check the representative.** The suggestion is the member that carries most
   of the others' information; prefer a parameter you can explain, or that a
   task needs, if it is nearly as good.

@@ -7,8 +7,9 @@ over the same batches as the missingness report:
 
 1. Every numerical catalog parameter (``Value Type`` numeric, duration or ratio)
    with at least :data:`MIN_BATCHES` values and two distinct ones takes part,
-   unless the screening register excludes it at the site for another reason
-   than :data:`REASON`: what is already left out needs no representative.
+   whatever the screening register says of it: the register is shown alongside,
+   never used to pick (:attr:`CorrelationReport.not_analysed` says why the others
+   do not take part).
 2. Two parameters are compared by Spearman's rank correlation over the batches
    where both have a value; the pair needs :data:`MIN_BATCHES` of them. The sign
    does not matter to a tree, so the similarity is |ρ|.
@@ -49,7 +50,7 @@ NUMERIC_TYPES = ("numeric", "duration", "ratio")
 THRESHOLD = 0.9
 #: Values a parameter needs, and batches in common a pair needs, to be compared.
 MIN_BATCHES = 20
-#: The screening reason that leaves this analysis's own decisions in it.
+#: The screening reason of this report's own decisions.
 REASON = CORRELATED
 
 
@@ -65,6 +66,8 @@ class CorrelationGroup:
     representative: str = ""
     #: The representative's mean |ρ| × shared coverage over the other members.
     score: float = 0.0
+    #: Every member's score, as the representative's: the order to pick another in.
+    scores: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
@@ -79,10 +82,14 @@ class CorrelationReport:
     #: ρ × 100, rounded, between the analysed parameters, in ``analysed`` order.
     rho: list[list[int | None]] = field(default_factory=list)
     cohort: str = ""
-    #: Parameter → the screening decision standing for it at this site.
+    #: Set by the build: parameter → its standing exclusion at this site, made in this
+    #: report (``screened``) or in the missingness report (``elsewhere``), and the
+    #: representatives here that are excluded themselves.
     screened: dict[str, dict] = field(default_factory=dict)
-    #: Parameters left out because the register already excludes them here.
-    left_out: list[str] = field(default_factory=list)
+    elsewhere: dict[str, dict] = field(default_factory=dict)
+    conflicts: list[dict] = field(default_factory=list)
+    #: Catalog parameters that do not take part, and why.
+    not_analysed: dict[str, str] = field(default_factory=dict)
     #: The |ρ| every pair in a group reaches.
     threshold: float = THRESHOLD
 
@@ -132,6 +139,7 @@ def grouped(
         scores = carried.sum(axis=1) / (len(idx) - 1)
         best = max(range(len(idx)), key=lambda k: (scores[k], sub_n[k, k]))
         # The representative first: the viewer draws the group from it and labels each row to it.
+        members = list(idx)
         idx = [idx[best]] + [i for k, i in enumerate(idx) if k != best]
         off = ~np.eye(len(idx), dtype=bool)
         sub, qs = similarity[np.ix_(idx, idx)][off], q[np.ix_(idx, idx)][off]
@@ -145,6 +153,7 @@ def grouped(
                 max_q=float(np.nanmax(qs)) if np.isfinite(qs).any() else float("nan"),
                 representative=names[idx[0]],
                 score=float(scores[best]),
+                scores={names[i]: float(scores[k]) for k, i in enumerate(members)},
             )
         )
     return out
@@ -156,41 +165,40 @@ def for_build(
     id_column: str,
     order_column: str,
     analysed: pd.Series | None = None,
-    screened_out: dict[str, str] | None = None,
     threshold: float = THRESHOLD,
 ) -> tuple[list[dict], CorrelationReport]:
     """Groups of numerical parameters that rank the batches alike, and one row per parameter.
 
     ``analysed`` marks the batches compared (default: all), as for the missingness
-    report. ``screened_out`` maps a parameter to the reason the register excludes
-    it at this site; it takes part only when that reason is :data:`REASON`.
-    ``threshold`` is the |ρ| every pair in a group must reach.
+    report. ``threshold`` is the |ρ| every pair in a group must reach.
     """
     frame, _ = _ordered(frame, order_column)
     if analysed is not None:
         frame = frame[analysed.reindex(frame.index).fillna(False).astype(bool)]
-    screened_out = screened_out or {}
     report = CorrelationReport(threshold=threshold)
-    report.left_out = sorted(c for c, why in screened_out.items() if why != REASON)
-    numeric = [
-        c
-        for c in frame.columns
-        if str(value_types.get(c, "")).strip() in NUMERIC_TYPES
-        and c not in report.left_out
-        and pd.api.types.is_numeric_dtype(frame[c])
-        and not pd.api.types.is_bool_dtype(frame[c])
-    ]
+    numeric = []
+    for c in frame.columns:
+        if c not in value_types:
+            continue
+        if str(value_types.get(c, "")).strip() not in NUMERIC_TYPES:
+            report.not_analysed[c] = "not numerical in the catalog"
+        elif not pd.api.types.is_numeric_dtype(frame[c]) or pd.api.types.is_bool_dtype(frame[c]):
+            report.not_analysed[c] = "its values are not numbers"
+        else:
+            numeric.append(c)
     values = frame[numeric].astype(float)
-    report.analysed = [
-        c
-        for c in numeric
-        if values[c].notna().sum() >= MIN_BATCHES and values[c].nunique(dropna=True) >= 2
-    ]
+    for c in numeric:
+        if values[c].notna().sum() < MIN_BATCHES:
+            report.not_analysed[c] = f"fewer than {MIN_BATCHES} values"
+        elif values[c].nunique(dropna=True) < 2:
+            report.not_analysed[c] = "one value only"
+        else:
+            report.analysed.append(c)
     log.step(
         MODULE,
         f"Ranking {len(report.analysed):,} numerical parameters against each other over "
         f"{len(frame):,} batches",
-        f"{len(report.left_out):,} left out as screened out",
+        f"{len(report.not_analysed):,} catalog parameters not compared",
     )
     report.batches = (
         frame[id_column].astype(str).tolist() if id_column in frame.columns else []

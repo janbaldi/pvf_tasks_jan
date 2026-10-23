@@ -112,18 +112,25 @@ them. The page has these parts:
   One row per parameter, one cell per batch in date order,
   newest on the right. Missing cells are blue, or **green for a batch whose
   manufacturing is not completed**: a gap there may just mean "not measured
-  yet". A ⊘ before a name marks a parameter screened out at this site. Hover a
-  cell for its batch and date.
+  yet". A ⊘ before a name marks a parameter this report screened out at this
+  site, ◇ one the correlation report screened out. Hover a cell for its batch and
+  date.
+- **⚠ Screening conflict** (only when there is one). A correlation
+  representative that is excluded itself, which leaves its whole group out:
+  resolve it in the correlation report ([chapter 3](03-screening.md#how-it-works)).
 - **The group table.** Parameters that go missing together. Click a group to
-  draw all its members. *Screened members* counts the ones already screened out.
-- **Screened out at this site.** The screening register's standing exclusions
-  made on missingness evidence: decision, date, reason, rationale. Exclusions as
-  `correlated with group` or `shifts with group` are shown in their own reports. Click one to draw it; tick it to reinstate
+  draw all its members. *Excluded here* counts the members this report already
+  screened out, *Excluded elsewhere* the ones the correlation report did.
+- **Screened out at this site.** This report's standing exclusions at the site:
+  decision, date, reason, rationale. Click one to draw it; tick it to reinstate
   it.
+- **Screened out by the correlation report** (collapsed). That report's
+  exclusions here, with their representative: shown, not changed here.
 - **The parameter table** (collapsed). Every parameter missing on at least one
   batch at this site and in no group (those are in the group table), with its
-  **pattern**, its statistics and, in the **Screening** column, the decision
-  standing for it at this site. Click one to draw it.
+  **pattern**, its statistics and, in the **Screening** column, every standing
+  decision on it at this site, from either report, and what it represents. Click
+  one to draw it.
 - **Propose a screening decision.** Turns everything you ticked, in every table, into a
   `proposal.csv` ([chapter 3](03-screening.md#recording-a-decision)).
 
@@ -151,8 +158,9 @@ record it now: [chapter 3](03-screening.md).
 
 Open `correlation_report.html` next. It looks and works like the missingness
 report, over the same batches, for the **numerical** parameters (catalog
-`Value Type` numeric, duration or ratio) that are not already screened out at
-the site. It groups the parameters that **put the batches in the same order**
+`Value Type` numeric, duration or ratio), **whatever the screening register says
+of them**: the groups and suggestions depend on the data alone. *Not compared*
+lists the other catalog parameters, and why. It groups the parameters that **put the batches in the same order**
 (Spearman rank correlation, sign ignored): a decision tree only uses that order,
 so to a tree the members of a group are interchangeable.
 
@@ -160,8 +168,8 @@ The parameter table lists only the parameters in no group, each with its closest
 parameter; click one to draw it against its closest. Tick
 several to propose, for each, that its closest parameter is excluded as
 `correlated with group`, represented by the ticked one. The **Register** column
-says what the register already holds: *excluded (S-…), represented by …*, or
-*represents …* (*its closest* when the closest parameter is among them). The same
+says what the register already holds, from either report: *excluded S-… (missingness:
+retired)*, *excluded S-… (correlation: …, represented by …)*, or *represents …*. The same
 goes for the missingness report: a parameter in a group is in the group table,
 not the parameter table.
 
@@ -174,16 +182,20 @@ not the parameter table.
   that carries most of the others' information: the highest mean |ρ| to the other
   members, weighted by how many of their batches it has a value on), mean and
   weakest |ρ|, the fewest batches a pair shares, and the weakest pair's q
-  (Benjamini-Hochberg adjusted p-value). A group is drawn from its representative.
-- **Screened out at this site, the parameter table and the proposal** work as in
-  the missingness report. To **represent a group by one parameter**, tick the
+  (Benjamini-Hochberg adjusted p-value), the **best usable representative** (the
+  best-scoring member the missingness report leaves in; `= suggested` when that
+  is the suggestion), and *Excluded here* / *Excluded elsewhere*. A group is
+  drawn from its representative.
+- **Screened out at this site, the other report's exclusions, the parameter
+  table and the proposal** work as in the missingness report, ⊘ and ◇ too. To
+  **represent a group by one parameter**, tick the
   group (or several groups): the proposal form sets the reason `correlated with
   group` and, per group, *Represented by* to the suggestion (change it if you
-  know better). The proposal excludes
-  every other member and records the representative in the register; the
-  representative stays usable. Excluded members stay in this report, marked ⊘,
-  so they can be reinstated; a parameter screened out for any other reason is
-  left out. A group you propose nothing for stays whole: tasks use all of it.
+  know better; it refuses one the missingness report excludes). The proposal
+  excludes every other member and records the representative in the register;
+  the representative stays usable. To move a group to another representative,
+  tick it and pick the new one: the proposal also reinstates it.
+  A group you propose nothing for stays whole: tasks use all of it.
   Every new task file lists the excluded members under `predictors.exclude`, each
   with its decision as the reason ([chapter 4](04-tasks.md)).
 
@@ -221,11 +233,13 @@ not).
   group of the group table: its groups, days per group, the permutation p, and
   the parameter it shares most change days with. Click one to draw it.
 
-This report has no proposal, so its tables have no boxes to tick. To leave all
-of them out of a task, the grouped ones too, create it with `ml task new <folder>
---exclude-shifting` ([chapter 4](04-tasks.md#1-create-a-task)): it reads every
-parameter from `shifts.xlsx`. Parameters the register already screens out are
-not looked at.
+This report stands apart from screening: it neither reads the register nor
+writes to it, so every parameter takes part and its tables have no boxes to
+tick. To leave all of them out of a task, the grouped ones too, create it with
+`ml task new <folder> --exclude-shifting`
+([chapter 4](04-tasks.md#1-create-a-task)): it reads every parameter from
+`shifts.xlsx`. One the register already screens out is listed once, as
+screened.
 
 ### The task catalog
 
@@ -244,7 +258,9 @@ uv run ml screening status
 
 ```
 Excluded today (1)
-  - Day 1 mixing cycles @ Northfield — S-0001, irregular
+  - Day 1 mixing cycles @ Northfield — S-0001, missingness: irregular
+
+Conflicts: representatives that are excluded themselves (0)
 
 Decisions to look at again (0)
 OK  The latest build gives no reason to revisit a decision

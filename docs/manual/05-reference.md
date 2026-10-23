@@ -14,7 +14,8 @@ Run as `uv run ml [--config FILE] [--debug] [--quiet] COMMAND …`.
 | `ml check-catalog` | Compare every source's columns with the catalog. Writes `catalog_report.html`, `catalog_manifest.json` and `new_parameters.csv` into the catalog's folder. |
 | `ml build` | Build the batch table. Writes `batch_data.xlsx`, `batch_data.parquet`, `build_report.html`, `missingness_report.html`, `missingness.xlsx`, `correlation_report.html`, `shifts_report.html`, `shifts.xlsx`, `task_catalog.xlsx` and `batch_table_manifest.json` into the batch table's folder. |
 | `ml screening add PROPOSAL [--author NAME] [--new]` | Check a proposal (written by the missingness or correlation report, or by hand) against the latest build and add its decisions to the screening register. `--author` fills an empty `Author` column. `--new` starts the register when there is none. |
-| `ml screening status` | List what the register excludes today, and the decisions the latest build gives a reason to look at again. |
+| `ml screening status` | List what the register excludes today (per report), the conflicts, and the decisions the latest build gives a reason to look at again. |
+| `ml screening reset --yes` | Start the register over, empty. The old one is kept next to it, renamed `<name>_before_reset_<date>.xlsx`. |
 | `ml task new FOLDER [--target COL] [--question TEXT] [--force] [--exclude-shifting]` | Create a task folder with an annotated `task.yaml`. It lists what the screening register excludes under `predictors.exclude`; `--exclude-shifting` also lists every parameter the latest build's `shifts.xlsx` holds, each with why. |
 | `ml task run [--task T]` | Run tasks; without `--task`, the task in the current folder. |
 | `ml task rerun RUN_FOLDER` | Redo a run from its own folder, and say whether `dataset.csv` came out identical. |
@@ -36,7 +37,8 @@ The config is found in this order: `--config`, the `config:` line of the task,
 |---|---|---|
 | `ml check-catalog` | vocabulary, catalog, both sites' batch records, parameter mapping, investigations | the catalog's folder |
 | `ml build` | vocabulary and corrections, catalog, every source, site maps, the catalog manifest, the screening register (for the reports and the task catalog) | the batch table's folder; the screening register (its `never recorded` exclusions) |
-| `ml screening add` | vocabulary, screening register, the latest `missingness.xlsx` (with each parameter's correlation and shift group) | the screening register |
+| `ml screening add` | vocabulary, screening register, the latest `missingness.xlsx` (with each parameter's correlation group) | the screening register |
+| `ml screening reset` | vocabulary, screening register | the screening register, and a renamed copy of the old one |
 | `ml task run` | vocabulary, batch table, catalog, both manifests, screening register | the run folder |
 
 Every command lists what it will read and write before it starts, and where each
@@ -194,21 +196,22 @@ parameter:
 | `Missing %`, `Pattern`, `Last measured` | tool | The evidence, from the latest build |
 | `Batch table` | tool | Digest of the batch table the decision was made on |
 | `Review by` | tool | When to look again: three months after an exclusion |
-| `Represented by` | you, or the report's suggestion | The parameter that stands in for this one; required with `correlated with group` and `shifts with group`. Registers from before this column read as before |
+| `Represented by` | you, or the report's suggestion | The parameter that stands in for this one; required with `correlated with group`. Registers from before this column read as before |
+| `Report` | the report's proposal, or the tool | `missingness` or `correlation`: the report the decision belongs to. Per parameter, site and report the last decision stands; a parameter is excluded when either report excludes it. Empty (registers from before this column): the report of its reason |
 
-The `Check` sheet holds the digest the register was last written with. Reasons:
-`never recorded`, `retired`, `introduced late`, `too sparse`, `irregular`,
-`missing with group`, `correlated with group`, `shifts with group`,
-`data quality`, `other`.
+The `Check` sheet holds the digest the register was last written with. Reasons
+decided in the missingness report: `never recorded`, `retired`, `introduced
+late`, `too sparse`, `irregular`, `missing with group`, `data quality`, `other`;
+in the correlation report: `correlated with group`.
 
 ## Build outputs for screening
 
 | File | Contents |
 |---|---|
-| `missingness.xlsx` | Per site and parameter: missing %, pattern, gaps, last measured, missingness group, *Correlation group* and *Suggested representative*, *Shift group* and *Suggested shift representative* (several, joined by `; `, when a source has several plants), and the standing screening decision. What `ml screening add` checks a proposal against and cites as evidence. |
+| `missingness.xlsx` | Per site and parameter: missing %, pattern, gaps, last measured, missingness group, *Correlation group* and *Suggested representative*, and every standing screening decision on it (from either report). What `ml screening add` checks a proposal against and cites as evidence. |
 | `task_catalog.xlsx` | The catalog rows for the batch table's parameters that the register (as the build read it) leaves usable at some site, with *Usable at* (sites) and *Represents* (what each representative stands for, per site). |
-| `correlation_report.html` | Per site: numerical parameters grouped by Spearman \|ρ\| (complete linkage: every pair ≥ `build.correlation_threshold`, default 0.9; pairs need 20 shared batches), each group with a suggested representative and BH-adjusted q. |
-| `shifts_report.html` | Per manufacturing site (the `Manufacturing Site` column): parameters whose exact value runs in groups over time, dates by the day (groups ≥ 2 days with a value on average, permutation p ≤ 0.01; pairs need 20 shared batches), grouped by the days they change (complete linkage: every pair shares ≥ 0.8 of its change days). |
+| `correlation_report.html` | Per site: numerical parameters grouped by Spearman \|ρ\| (complete linkage: every pair ≥ `build.correlation_threshold`, default 0.9; pairs need 20 shared batches), each group with a suggested representative, the best usable one, and BH-adjusted q. Every parameter takes part whatever the register says; the register is shown alongside. |
+| `shifts_report.html` | Per manufacturing site (the `Manufacturing Site` column): parameters whose exact value runs in groups over time, dates by the day (groups ≥ 2 days with a value on average, permutation p ≤ 0.01; pairs need 20 shared batches), grouped by the days they change (complete linkage: every pair shares ≥ 0.8 of its change days). Takes no part in screening. |
 | `shifts.xlsx` | Every parameter that runs in groups over time, grouped or not, one row per manufacturing site and parameter, and when it was built: what `ml task new --exclude-shifting` lists. |
 
 The Help page of each report gives the method in full.
@@ -225,7 +228,9 @@ The Help page of each report gives the method in full.
 | `The catalog changed after the batch table was built` | Run `ml build`, then the task again. |
 | `The proposal was not added: …` | Fix each listed row; nothing was added. |
 | `… name the parameter that represents it in Represented by` | The build has no single suggestion for these parameters (or the site is `all`): fill in `Represented by`. |
-| `Represented by: '…' is screened out at …` | A representative must stay usable: pick another, or reinstate it first. |
+| `'…' at … represents … but is excluded itself` | A conflict. From `ml screening add`: the proposal would make it; pick another representative (*Best usable representative*), or don't exclude it. From a build, status or task: the build's own `never recorded` exclusion made it; move the group to another representative in the correlation report. |
+| `Reason '…' is not decided in the … report` | Each report decides on its own reasons; leave `Report` empty or make it match. |
+| `SharePoint refused to replace … (409 Conflict)` | The file is open in Excel somewhere or checked out: close it everywhere, check it in, wait a minute, run again. Nothing was written. |
 | `The screening register could not be read … pass --new` | The first time: `ml screening add … --new`. Otherwise check `sharepoint.screening`. |
 | `The screening register was changed outside ml screening` | Someone edited the register by hand. Find out what changed (the run folders keep copies), and restore it. |
 | `The latest build's missingness.xlsx could not be read` | Run `ml build` first. |

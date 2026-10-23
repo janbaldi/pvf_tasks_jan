@@ -167,8 +167,8 @@ def task_screening(spec: taskconfig.TaskSpec, config: dict | None = None) -> dic
             )
         decisions = register.decisions if register else []
         _screenings[key] = {
-            parameter: decision.label
-            for parameter, decision in screening.excluded(
+            parameter: screening.labels(found)
+            for parameter, found in screening.excluded(
                 decisions, names.sites(), spec.cohort.sites
             ).items()
         }

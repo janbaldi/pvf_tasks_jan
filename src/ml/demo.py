@@ -1147,6 +1147,7 @@ def screening_decisions() -> list[screening.Decision]:
             last_measured="",
             batch_table="",
             review_by="2026-12-01",
+            report=screening.MISSINGNESS,
         )
     ]
 

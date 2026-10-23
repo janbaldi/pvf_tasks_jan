@@ -480,26 +480,27 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
             analysed=analysed,
         )
         missing_by_site[site][1].cohort = "; ".join(filter(None, (cohort, counted)))
-    standing, register, never_recorded, excluded_by_site = _mark_screened(missing_by_site, config)
-    # Over the same batches, without what the register already leaves out.
+    # Over the same batches, every parameter: the register is shown, never used to pick.
     correlated_by_site = {}
     for site, (batches, analysed) in cohorts.items():
-        screened = excluded_by_site[site]
         rows, analysis = correlation.for_build(
             batches,
             catalog_mapping,
             id_column="Patient Lot/Batch #",
             order_column=names.col(date_column),
             analysed=analysed,
-            screened_out={p: d["Reason"] for p, d in screened.items()},
             threshold=float(
                 (config.get("build") or {}).get("correlation_threshold", correlation.THRESHOLD)
             ),
         )
         analysis.cohort = missing_by_site[site][1].cohort
-        analysis.screened = {p: d for p, d in screened.items() if d["Reason"] == correlation.REASON}
         correlated_by_site[site] = rows, analysis
-    shifted_by_site = _shifts_by_plant(cohorts, excluded_by_site, names.col(date_column))
+    shifted_by_site = _shifts_by_plant(cohorts, names.col(date_column))
+    register, never_recorded, register_note = _read_register(
+        missing_by_site, list(result.columns), config
+    )
+    decisions = (register.decisions if register else []) + never_recorded
+    _show_register(decisions, missing_by_site, correlated_by_site)
 
     # ── Write ──────────────────────────────────────────────────────────────
     log.section("06 · Output")
@@ -540,6 +541,7 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
             missingness=missing_by_site,
             correlation=correlated_by_site,
             shifts=shifted_by_site,
+            register_note=register_note,
             events=log.since(mark),
             params=params,
             provenance=prov,
@@ -563,16 +565,6 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
                     (screening.CORRELATION_GROUP, screening.SUGGESTED): {
                         site: analysis.groups for site, (_, analysis) in correlated_by_site.items()
                     },
-                    # A plant's groups are evidence at each data source its batches come from.
-                    (screening.SHIFT_GROUP, screening.SHIFT_SUGGESTED): {
-                        site: [
-                            g
-                            for _, found in shifted_by_site.values()
-                            if site in found.sources
-                            for g in found.groups
-                        ]
-                        for site in names.sites()
-                    },
                 },
                 content_digest,
                 run_start,
@@ -587,9 +579,9 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
         with _preparing("the task catalog", catalog_for_tasks, folder):
             # shortcut: the register as this build read it; a later `ml screening add`
             # shows in it only after the next build.
-            screening.task_catalog(catalog_frame, result.columns, standing, names.sites()).to_excel(
-                catalog_for_tasks, index=False
-            )
+            screening.task_catalog(
+                catalog_frame, result.columns, decisions, names.sites()
+            ).to_excel(catalog_for_tasks, index=False)
             files["task catalog"] = catalog_for_tasks
         shifts_report = staged / BUILD_OUTPUTS["shifts report"]
         with _preparing("the shifts report", shifts_report, folder):
@@ -653,14 +645,13 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
 
 def _shifts_by_plant(
     cohorts: dict[str, tuple[pd.DataFrame, pd.Series | None]],
-    excluded_by_site: dict[str, dict[str, dict]],
     order_column: str,
 ) -> dict[str, tuple[list[dict], Any]]:
     """The shifts analysis per manufacturing site, over the missingness report's batches.
 
-    Time, and the lots, run per plant rather than per data source. A plant leaves
-    out what the register excludes at any data source its batches come from.
-    Without the column, each data source counts as one plant.
+    Time, and the lots, run per plant rather than per data source. Without the
+    column, each data source counts as one plant. The screening register has no
+    part in it.
     """
     every = pd.concat([batches for batches, _ in cohorts.values()])
     counted = pd.concat(
@@ -682,16 +673,11 @@ def _shifts_by_plant(
     for name in sorted(plant.dropna().unique()):
         here = (plant == name).fillna(False).astype(bool)
         sources = sorted(set(source[here]))
-        screened: dict[str, dict] = {}
-        for site in sources:
-            for parameter, decision in excluded_by_site[site].items():
-                screened.setdefault(parameter, decision)
         rows, found = shifts.for_build(
             every[here],
             id_column="Patient Lot/Batch #",
             order_column=order_column,
             analysed=counted[here],
-            screened_out={p: d["Reason"] for p, d in screened.items()},
             label=str(name),
         )
         found.sources = sources
@@ -731,53 +717,85 @@ def _register(config: dict[str, Any]) -> screening.Register | None:
     return screening.read(workspace.location(config, "screening"), names.sites())
 
 
-def _mark_screened(
-    missing_by_site: dict[str, tuple], config: dict[str, Any]
-) -> tuple[dict, screening.Register | None, list[screening.Decision], dict[str, dict[str, dict]]]:
-    """Add each parameter's standing screening decision to the missingness rows.
+def _read_register(
+    missing_by_site: dict[str, tuple], columns: list[str], config: dict[str, Any]
+) -> tuple[screening.Register | None, list[screening.Decision], str]:
+    """The register as this build reads it, the build's own exclusions, and a line
+    for the reports that says which register they show (or why none).
 
-    The missingness report shows only the decisions made on its own evidence
-    (:data:`ml.screening.MISSINGNESS_REASONS`); the correlation and shifts reports
-    show theirs. The parameters missing in every batch of a site are excluded there on the
+    The parameters missing in every batch of a site are excluded there on the
     build's own account (:func:`ml.screening.never_recorded`); those decisions
     count from here on, and :func:`_write_never_recorded` adds them to the register.
-    Returns the state, the register as read, those decisions, and per site every
-    parameter excluded there for any reason, which the correlation and shifts leave out.
+    Decisions on a parameter or site this build does not have are named, since
+    they can match nothing.
     """
-    excluded_by_site: dict[str, dict[str, dict]] = {site: {} for site in missing_by_site}
+    if not workspace.has(config, "screening"):
+        log.info(MODULE, "No screening register is configured; the reports show none")
+        return None, [], "No screening register is configured."
     try:
         register = _register(config)
-    except Exception as exc:  # the report is still worth having without the column
-        log.warn(MODULE, f"The screening register could not be read: {exc}")
-        return {}, None, [], excluded_by_site
+    except Exception as exc:  # the reports are still worth having without it
+        log.warn(MODULE, f"The screening register could not be read, so no report shows it: {exc}")
+        return None, [], f"The screening register could not be read: {exc}"
     sites = names.sites()
-    automatic = (
-        screening.never_recorded(
-            register.decisions,
-            {site: rows for site, (rows, _) in missing_by_site.items()},
-            "",
-            sites,
-        )
-        if register
-        else []
+    automatic = screening.never_recorded(
+        register.decisions, {site: rows for site, (rows, _) in missing_by_site.items()}, "", sites
     )
-    state = screening.current(register.decisions + automatic, sites) if register else {}
-    for site, (rows, analysis) in missing_by_site.items():
-        for row in rows:
-            decision = state.get((row["Parameter"], site))
-            own = decision is not None and decision.reason in screening.MISSINGNESS_REASONS
-            row["Screening"] = screening.note(decision if own else None)
-            if decision is not None and decision.action == screening.EXCLUDE:
-                excluded_by_site[site][row["Parameter"]] = {
-                    "Decision": decision.id,
-                    "Date": decision.date,
-                    "Reason": decision.reason,
-                    "Rationale": decision.rationale,
-                    "Represented by": decision.represented_by,
-                }
-                if own:
-                    analysis.screened[row["Parameter"]] = excluded_by_site[site][row["Parameter"]]
-    return state, register, automatic, excluded_by_site
+    unknown = sorted({d.parameter for d in register.decisions} - set(columns))
+    if unknown:
+        log.warn(
+            MODULE,
+            f"The screening register decides on {len(unknown)} parameters that are not columns "
+            "of this batch table, so they match nothing",
+            ", ".join(unknown[:10]),
+        )
+    out = screening.standing(register.decisions + automatic, sites)
+    for site in sites:
+        counts = {
+            track: sum(
+                d.track == track for (_, s), found in out.items() if s == site for d in found
+            )
+            for track in screening.TRACKS
+        }
+        log.info(
+            MODULE,
+            f"Screening register at {site}: "
+            + ", ".join(f"{n} excluded in the {track} report" for track, n in counts.items()),
+        )
+    last = register.decisions[-1].id if register.decisions else "none"
+    note = (
+        f"Screening register: {len(register.decisions)} rows, last decision {last}"
+        + (f", and {len(automatic)} never-recorded exclusions this build adds" if automatic else "")
+        + "."
+    )
+    return register, automatic, note
+
+
+def _show_register(
+    decisions: list[screening.Decision],
+    missing_by_site: dict[str, tuple],
+    correlated_by_site: dict[str, tuple],
+) -> None:
+    """Mark every parameter with what the register holds on it, in both reports.
+
+    Each report lists its own decisions (``screened``: what it can reinstate) and the
+    other report's (``elsewhere``), and the conflicts at the site.
+    """
+    sites = names.sites()
+    out = screening.standing(decisions, sites)
+    stands_for = screening.represented(decisions, sites)
+    found = screening.conflicts(decisions, sites)
+    for conflict in found:
+        log.warn(MODULE, "Screening conflict: " + screening.conflict_line(conflict))
+    for results, track, column in (
+        (missing_by_site, screening.MISSINGNESS, "Screening"),
+        (correlated_by_site, screening.CORRELATION, "Register"),
+    ):
+        for site, (rows, analysis) in results.items():
+            analysis.screened, analysis.elsewhere = screening.at_site(decisions, sites, site, track)
+            analysis.conflicts = [c for c in found if c["Site"] == site]
+            for row in rows:
+                row[column] = screening.note(row["Parameter"], site, out, stands_for)
 
 
 def _write_never_recorded(
@@ -893,8 +911,15 @@ def run_screening_status(config: dict[str, Any]) -> list[dict]:
         "Excluded today",
         level="INFO",
         names=[
-            f"{r.Parameter} @ {r.Site} — {r.Decision}, {r.Reason}" for r in standing.itertuples()
+            f"{r.Parameter} @ {r.Site} — {r.Decision}, {r.Report}: {r.Reason}"
+            for r in standing.itertuples()
         ],
+    )
+    found = screening.conflicts(register.decisions, sites)
+    log.names(
+        "Conflicts: representatives that are excluded themselves",
+        [screening.conflict_line(c) for c in found],
+        level="WARN",
     )
     evidence, _ = _latest_evidence(config)
     findings = screening.review(register.decisions, evidence, sites)
@@ -909,6 +934,39 @@ def run_screening_status(config: dict[str, Any]) -> list[dict]:
     if not findings:
         log.success(MODULE, "The latest build gives no reason to revisit a decision")
     return findings
+
+
+def run_screening_reset(config: dict[str, Any]) -> share.Location:
+    """Start the register over, empty; the old one is kept next to it, renamed."""
+    log.stage("Screening: starting over")
+    workspace.require(config, ("vocabulary", "screening"))
+    workspace.load_vocabulary(config)
+    where = workspace.location(config, "screening")
+    try:
+        old = share.backend().read_bytes(where)
+    except Exception as exc:  # nothing there to keep
+        log.info(MODULE, f"No register to keep: {exc}", str(where))
+        old = None
+    with tempfile.TemporaryDirectory(prefix="ml-screening-") as staging:
+        files = {}
+        if old:
+            stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
+            kept = Path(staging) / f"{Path(where.name).stem}_before_reset_{stamp}.xlsx"
+            kept.write_bytes(old)
+            files["previous screening register"] = kept
+        path = Path(staging) / where.name
+        screening.write([], path)
+        files["screening register"] = path
+        share.upload(files, where.folder)
+    log.facts(
+        "Screening register started over",
+        [
+            ("Register", str(where)),
+            ("Kept", files["previous screening register"].name if old else "nothing to keep"),
+            ("Next", "`ml build` adds the never-recorded exclusions; the reports propose the rest"),
+        ],
+    )
+    return where
 
 
 def _latest_evidence(config: dict[str, Any]) -> tuple[pd.DataFrame, str]:
@@ -1086,6 +1144,19 @@ VOCABULARY_COPY = f"inputs/{workspace.RUN_VOCABULARY}"
 SCREENING_COPY = "inputs/screening.xlsx"
 
 
+def _warn_conflicts(decisions: list[screening.Decision], cohort: tuple[str, ...] = ()) -> list[str]:
+    """Warn about every representative that is excluded itself, at the cohort's sites (default:
+    all); returns them in words."""
+    lines = [
+        screening.conflict_line(c)
+        for c in screening.conflicts(decisions, names.sites())
+        if not cohort or c["Site"] in cohort
+    ]
+    for line in lines:
+        log.warn(MODULE, f"Screening conflict: {line} — resolve it in the correlation report")
+    return lines
+
+
 def _check_listed_screening(spec: TaskSpec, screened: dict) -> None:
     """Warn about task-file exclusions copied from the register that it no longer makes."""
     for column, reason in spec.predictors.exclude:
@@ -1097,19 +1168,27 @@ def _check_listed_screening(spec: TaskSpec, screened: dict) -> None:
             )
 
 
-def _screened_for_new_task(config: dict[str, Any] | None) -> tuple[list[tuple[str, str]], str]:
-    """What the screening register excludes today, at any site, for a new task file."""
+def _screened_for_new_task(
+    config: dict[str, Any] | None,
+) -> tuple[list[tuple[str, str]], str, list[str]]:
+    """What the screening register excludes today, at any site, for a new task file;
+    its last decision; and its conflicts, in words."""
     if not config or not workspace.has(config, "screening"):
-        return [], ""
+        return [], "", []
     try:
         workspace.load_vocabulary(config)
         register = _register(config)
     except Exception as exc:  # the task is still worth making; its runs apply the register
         log.warn(MODULE, f"The screening register could not be read for the task file: {exc}")
-        return [], ""
+        return [], "", []
     excluded = screening.excluded(register.decisions, names.sites())
     last = register.decisions[-1].id if register.decisions else ""
-    return [(p, f"screened out by {d.label}") for p, d in sorted(excluded.items())], last
+    found = _warn_conflicts(register.decisions)
+    return (
+        [(p, f"screened out by {screening.labels(ds)}") for p, ds in sorted(excluded.items())],
+        last,
+        found,
+    )
 
 
 def _shifting_for_new_task(config: dict[str, Any] | None) -> tuple[list[tuple[str, str]], str]:
@@ -1253,11 +1332,13 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec) -> Path:
             else {}
         )
         _check_listed_screening(spec, screened)
+        if register is not None:
+            pkg.warnings += _warn_conflicts(register.decisions, spec.cohort.sites)
         final, result = dataset.build(
             batch_table,
             catalog_frame,
             spec,
-            screened={p: d.label for p, d in screened.items()},
+            screened={p: screening.labels(ds) for p, ds in screened.items()},
         )
         _check(result, final)
         upstream = _carry_upstream(
@@ -1715,6 +1796,10 @@ def _parser() -> argparse.ArgumentParser:
     )
     add.add_argument("--new", action="store_true", help="start the register if there is none")
     steps.add_parser("status", help="what is excluded today, and what to look at again")
+    reset = steps.add_parser(
+        "reset", help="start the register over, empty; the old one is kept next to it, renamed"
+    )
+    reset.add_argument("--yes", action="store_true", help="yes, start over")
 
     task = commands.add_parser("task", help="create, run, rerun and encode with tasks")
     actions = task.add_subparsers(dest="action", required=True, metavar="action")
@@ -1771,7 +1856,7 @@ def _run(args) -> int:
 
     if command == "task new":
         found = _config(args, start=args.folder, required=False)
-        screened, as_of = _screened_for_new_task(found)
+        screened, as_of, conflicts = _screened_for_new_task(found)
         shifting, built = _shifting_for_new_task(found) if args.exclude_shifting else ([], "")
         shifting = [(p, why) for p, why in shifting if p not in dict(screened)]
         path = scaffold.init(
@@ -1782,6 +1867,7 @@ def _run(args) -> int:
             config=found["__path__"] if found else None,
             screened=screened,
             screened_as_of=as_of,
+            conflicts=conflicts,
             shifting=shifting,
             shifting_built=built,
         )
@@ -1817,6 +1903,15 @@ def _run(args) -> int:
 
     if command == "screening status":
         run_screening_status(_config(args))
+        return 0
+
+    if command == "screening reset":
+        if not args.yes:
+            raise ConfigError(
+                "`ml screening reset` empties the screening register (the old one is kept "
+                "next to it, renamed): pass --yes to go ahead"
+            )
+        run_screening_reset(_config(args))
         return 0
 
     if command == "check-leaks":

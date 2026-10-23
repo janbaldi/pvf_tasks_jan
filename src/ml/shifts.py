@@ -34,8 +34,11 @@ day a lot runs out some of them can have the old lot and some the new one.
    (Jaccard: in common / of either).
 5. Groups of parameters by complete linkage on 1 - shared shifts: every pair in a
    group shares at least :data:`THRESHOLD` of its shift days. Each group suggests a
-   representative as in :mod:`ml.correlation`, for the screening register's
-   *shifts with group*.
+   representative as in :mod:`ml.correlation`.
+
+The screening register has no part in it: every parameter takes part, and
+nothing here is written to the register. ``ml task new --exclude-shifting``
+reads its table.
 
 This is description only. Nothing here changes the batch table.
 """
@@ -74,7 +77,6 @@ class ShiftReport:
     #: Per parameter, its groups in time order: [first day, last day, value, batches].
     segments: dict[str, list[list]] = field(default_factory=dict)
     cohort: str = ""
-    left_out: list[str] = field(default_factory=list)
 
 
 def count_groups(day: np.ndarray, code: np.ndarray) -> np.ndarray:
@@ -140,14 +142,13 @@ def for_build(
     id_column: str,
     order_column: str,
     analysed: pd.Series | None = None,
-    screened_out: dict[str, str] | None = None,
     label: str = "",
 ) -> tuple[list[dict], ShiftReport]:
     """The parameters that run in groups, one row each, grouped by their shift days.
 
-    ``analysed`` as for :func:`ml.correlation.for_build`; the parameters in
-    ``screened_out`` are left out. ``label`` (the manufacturing site) ends each group's
-    name, so names stay unique when one register site holds several plants.
+    ``analysed`` as for :func:`ml.correlation.for_build`. ``label`` (the manufacturing
+    site) ends each group's name, so names stay unique when one data source holds
+    several plants.
     """
     if analysed is not None:
         frame = frame[analysed.reindex(frame.index).fillna(False).astype(bool)]
@@ -157,12 +158,12 @@ def for_build(
         else pd.Series(pd.NaT, index=frame.index)
     )
     frame, dates = frame[dates.notna()], dates[dates.notna()]
-    report = ShiftReport(left_out=sorted(screened_out or {}))
+    report = ShiftReport()
 
     rng = np.random.default_rng(0)
     rows_of, days_of, shifts_of, present = {}, {}, {}, {}
     for column in frame.columns:
-        if column in (id_column, order_column) or column in report.left_out:
+        if column in (id_column, order_column):
             continue
         values = frame[column]
         has = values.notna().to_numpy()
@@ -200,7 +201,6 @@ def for_build(
         MODULE,
         f"{len(report.analysed):,} of {report.tested:,} parameters run in groups over "
         f"{len(frame):,} batches; comparing their shift days",
-        f"{len(report.left_out):,} left out as screened out",
     )
 
     k = len(report.analysed)

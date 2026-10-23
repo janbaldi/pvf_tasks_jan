@@ -87,7 +87,7 @@ Then open, in a browser:
 |---|---|
 | [1. Setting up](docs/manual/01-setup.md) | You connect `ml` to the real SharePoint data: `.env`, `config.yaml`, the vocabulary, corrections. |
 | [2. The monthly update](docs/manual/02-monthly-update.md) | New batches are in: check the catalog, build, read the reports. A checklist. |
-| [3. Screening parameters](docs/manual/03-screening.md) | The missingness, correlation or shifts report shows parameters you don't want in any task. |
+| [3. Screening parameters](docs/manual/03-screening.md) | The missingness or correlation report shows parameters you don't want in any task. |
 | [4. Tasks](docs/manual/04-tasks.md) | You have a question: create a task, narrow it, fit and explain a model, reproduce a run. |
 | [5. Reference](docs/manual/05-reference.md) | You need the exact meaning of a command, a setting or an output file. |
 | [6. Development](docs/manual/06-development.md) | You change the code: tests, adding a calculated feature, the code layout. |

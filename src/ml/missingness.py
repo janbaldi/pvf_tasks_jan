@@ -142,8 +142,12 @@ class MissingnessReport:
     missing: dict[str, str] = field(default_factory=dict)
     #: Per batch in ``batches`` order, 1 when it is in the statistics, 0 when only drawn.
     in_statistics: str = ""
-    #: Set by the build: parameter → the screening decision standing for it at this site.
+    #: Set by the build: parameter → its standing exclusion at this site, made in this
+    #: report (``screened``) or in the correlation report (``elsewhere``), and the
+    #: representatives here that are excluded themselves.
     screened: dict[str, dict] = field(default_factory=dict)
+    elsewhere: dict[str, dict] = field(default_factory=dict)
+    conflicts: list[dict] = field(default_factory=list)
 
 
 def _jaccard(matrix: np.ndarray) -> np.ndarray:

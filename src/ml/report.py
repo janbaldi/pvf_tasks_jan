@@ -81,6 +81,8 @@ class BuildRun:
     correlation: dict[str, tuple[list[dict], Any]] = field(default_factory=dict)
     #: site → :func:`ml.shifts.for_build` over the same batches
     shifts: dict[str, tuple[list[dict], Any]] = field(default_factory=dict)
+    #: Which screening register the missingness and correlation reports show, or why none.
+    register_note: str = ""
 
 
 def _section(section_id: str, title: str, blocks: list[Block | None]) -> dict | None:
@@ -366,7 +368,7 @@ def _missing_viewer(run: BuildRun) -> dict | None:
                 "dates": analysis.dates,
                 "patterns": analysis.missing,
                 "in_statistics": analysis.in_statistics,
-                "screened": analysis.screened,
+                **_register_view(analysis),
                 "groups": {g.name: g.members for g in analysis.groups},
                 "group_headers": list(_GROUP_FORMATS),
                 "group_rows": [
@@ -375,7 +377,7 @@ def _missing_viewer(run: BuildRun) -> dict | None:
                         len(g.members),
                         round(100 * g.group_rate, 1),
                         g.kind,
-                        sum(m in analysis.screened for m in g.members),
+                        *_excluded_counts(g.members, analysis),
                     ]
                     for g in analysis.groups
                 ],
@@ -392,9 +394,28 @@ def _missing_viewer(run: BuildRun) -> dict | None:
         block["proposal"] = {
             "columns": list(screening.PROPOSAL_COLUMNS),
             "actions": list(screening.ACTIONS),
-            "reasons": list(screening.REASONS),
+            "reasons": list(screening.TRACK_REASONS[screening.MISSINGNESS]),
+            "report": screening.MISSINGNESS,
         }
     return _section("viewer", "Missingness pattern", [block])
+
+
+def _register_view(analysis: Any) -> dict:
+    """What a report's viewer shows of the register at a site: its own exclusions (which it
+    can reinstate), the other report's, and the conflicts."""
+    return {
+        "screened": analysis.screened,
+        "elsewhere": analysis.elsewhere,
+        "conflicts": [screening.conflict_line(c) for c in analysis.conflicts],
+    }
+
+
+def _excluded_counts(members: list[str], analysis: Any) -> list[int]:
+    """How many of a group's members this report excludes, and how many the other one does."""
+    return [
+        sum(m in analysis.screened for m in members),
+        sum(m in analysis.elsewhere and m not in analysis.screened for m in members),
+    ]
 
 
 #: The group table's columns, with their display formats.
@@ -403,7 +424,8 @@ _GROUP_FORMATS = {
     "Members": "%d",
     "Batches missing ≥1 member %": "%.1f",
     "Pattern": None,
-    "Screened members": "%d",
+    "Excluded here": "%d",
+    "Excluded elsewhere": "%d",
 }
 
 
@@ -471,18 +493,14 @@ _GROUPED_FORMATS = {
 }
 
 
-def _register_note(row: dict, screened: dict[str, dict]) -> str:
-    """What the register already says about a parameter and its closest one, as correlated."""
-    parameter, closest = row["Parameter"], row.get("Closest parameter")
-    notes = []
-    if parameter in screened:
-        d = screened[parameter]
-        notes.append(f"excluded ({d['Decision']}), represented by {d['Represented by']}")
-    represents = [p for p, d in screened.items() if d.get("Represented by") == parameter]
-    if represents:
-        mark = " (its closest)" if closest in represents else ""
-        notes.append(f"represents {', '.join(represents)}{mark}")
-    return "; ".join(notes)
+def _usable_representative(group: Any, elsewhere: dict) -> str:
+    """The best-scoring member the other report does not exclude: ``= suggested`` when that
+    is the suggestion, empty when there is none."""
+    usable = [m for m in group.members if m not in elsewhere]
+    if not usable:
+        return ""
+    best = max(usable, key=lambda m: group.scores.get(m, 0.0))
+    return "= suggested" if best == group.representative else best
 
 
 def _grouped_viewer(
@@ -506,15 +524,16 @@ def _grouped_viewer(
         f"Weakest {measure}": "%.3f",
         "Fewest batches in common": "%d",
         "Weakest pair q": "%.2g",
-        "Screened members": "%d",
+        "Best usable representative": None,
+        "Excluded here": "%d",
+        "Excluded elsewhere": "%d",
     }
     sites = []
     for site, (rows, analysis) in results.items():
         if not rows:
             continue
         rows = [
-            {"Parameter": row["Parameter"], "Register": _register_note(row, analysis.screened)}
-            | row
+            {"Parameter": row["Parameter"], "Register": row.get("Register", "")} | row
             for row in rows
         ]
         headers = list(rows[0])
@@ -525,7 +544,9 @@ def _grouped_viewer(
                 "dates": analysis.dates,
                 # Drawn as scatterplots of the values.
                 "values": analysis.values,
-                "screened": analysis.screened,
+                **_register_view(analysis),
+                # Every catalog parameter not compared, with why: the report lists them all.
+                "not_analysed": [[p, why] for p, why in sorted(analysis.not_analysed.items())],
                 "groups": {g.name: g.members for g in analysis.groups},
                 "group_headers": list(group_formats),
                 "group_rows": [
@@ -538,7 +559,8 @@ def _grouped_viewer(
                         round(g.weakest, 3),
                         g.min_batches,
                         float(f"{g.max_q:.3g}"),
-                        sum(m in analysis.screened for m in g.members),
+                        _usable_representative(g, analysis.elsewhere),
+                        *_excluded_counts(g.members, analysis),
                     ]
                     for g in analysis.groups
                 ],
@@ -555,7 +577,8 @@ def _grouped_viewer(
         block["proposal"] = {
             "columns": list(screening.PROPOSAL_COLUMNS),
             "actions": list(screening.ACTIONS),
-            "reasons": list(screening.REASONS),
+            "reasons": list(screening.TRACK_REASONS[screening.CORRELATION]),
+            "report": screening.CORRELATION,
             # A group is represented by one member rather than excluded whole.
             "reason": reason,
             "represent": True,
@@ -580,8 +603,9 @@ def _correlation_help(run: BuildRun) -> dict | None:
                 "parameters show every pair; more show the parameter picked in *Against* "
                 "(the representative by default) against each of the others. Parameters "
                 "that rank the batches alike lie along a rising or falling curve. ⊘ marks a "
-                "parameter the "
-                f"screening register already excludes here as *{correlation.REASON}*.\n\n"
+                "parameter this report already excludes here (as "
+                f"*{correlation.REASON}*), ◇ one the missingness report excludes. "
+                "*Excluded here* and *Excluded elsewhere* count them per group.\n\n"
                 "To keep only a group's representative, tick the group (or several) and open "
                 "*Propose a screening decision*: exclude, with the representative chosen under "
                 "*Represented by*. Download the proposal and run `ml screening add`. Every "
@@ -600,9 +624,9 @@ def _correlation_help(run: BuildRun) -> dict | None:
                 "counts in its statistics. Batches it only draws are left out here.\n\n"
                 "- **Parameters.** Every parameter the catalog types as "
                 f"{', '.join(correlation.NUMERIC_TYPES)}, with at least "
-                f"{correlation.MIN_BATCHES} values and two distinct ones. A parameter the "
-                "screening register excludes at the site is left out, unless the reason is "
-                f"*{correlation.REASON}*: those stay, marked ⊘, so they can be reinstated.\n"
+                f"{correlation.MIN_BATCHES} values and two distinct ones, whatever the "
+                "screening register says of it: the groups and suggestions depend on the data "
+                "alone. *Not compared* lists the other catalog parameters, and why.\n"
                 "- **ρ** of a pair is computed over the batches where both have a value, and "
                 f"needs {correlation.MIN_BATCHES} of them (*Batches in common*).\n"
                 "- **q** is the p-value of ρ (t-test on n-2 degrees of freedom), "
@@ -626,7 +650,15 @@ def _correlation_help(run: BuildRun) -> dict | None:
                 "The proposal excludes every other member with the reason "
                 f"*{correlation.REASON}* and records the representative in the register, which "
                 "stays usable in every task. The build's *task_catalog.xlsx* lists what a task "
-                "can still use, and what each representative stands for."
+                "can still use, and what each representative stands for.\n\n"
+                "A representative the missingness report excludes would leave its whole group "
+                "out: a **conflict**. `ml screening add` refuses to make one; the build's own "
+                "never-recorded exclusions can, and then a ⚠ banner names it here, in the "
+                "missingness report, in `ml screening status` and in every task. *Best usable "
+                "representative* is the best-scoring member the missingness report leaves in: "
+                "pick it under *Represented by* to resolve one. To move a group to another "
+                "representative, tick the group and pick it: the proposal reinstates it and "
+                "excludes the others, represented by it."
             ),
         ],
     }
@@ -987,7 +1019,8 @@ def build_missingness_payload(run: BuildRun) -> dict[str, Any]:
         "lead": f"How each of the {run.merge.total_columns:,} parameters goes missing, per site, "
         "batch by batch: its pattern over time and the parameters missing with it. A parameter "
         "recorded in every batch of a site is left out; one missing in every batch is excluded "
-        "in the screening register by the build."
+        "in the screening register by the build. "
+        + run.register_note
         + (" Batches described — " + "; ".join(cohorts) + "." if cohorts else ""),
         "subtitle": f"CAR-T manufacturing data · run {stamp}",
         "sections": [section for section in sections if section],
@@ -1008,12 +1041,9 @@ def _grouped_payload(
     """The correlation or shifts report, laid out as the missingness report is."""
     sections = [viewer, _provenance(run)]
     cohorts = [f"{site}: {a.cohort}" for site, (_, a) in results.items() if a.cohort]
-    left_out = [f"{site} {len(a.left_out):,}" for site, (_, a) in results.items() if a.left_out]
     return {
         "title": title,
-        "lead": lead
-        + (" Batches compared — " + "; ".join(cohorts) + "." if cohorts else "")
-        + (" Screened out, so left out — " + ", ".join(left_out) + "." if left_out else ""),
+        "lead": lead + (" Batches compared — " + "; ".join(cohorts) + "." if cohorts else ""),
         "subtitle": f"CAR-T manufacturing data · run {run.run_start.strftime('%Y-%m-%d %H:%M')}",
         "sections": [section for section in sections if section],
         "help": help_,
@@ -1032,7 +1062,7 @@ def build_correlation_payload(run: BuildRun) -> dict[str, Any]:
         viewer,
         "Batch table rank correlation",
         "Which numerical parameters put the batches in the same order, per site: "
-        "redundant to a decision tree.",
+        "redundant to a decision tree. " + run.register_note,
         _correlation_help(run),
     )
 

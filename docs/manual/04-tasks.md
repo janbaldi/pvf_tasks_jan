@@ -33,9 +33,12 @@ predictors:
 
 To see what is still usable, open `task_catalog.xlsx` next to the batch table:
 the catalog minus what the register excludes, per site, with what each
-representative of a correlated or shifting group stands for. A parameter
-excluded as `correlated with group` or `shifts with group` names its
-representative in the line above, so use that one instead.
+representative of a correlated group stands for. A parameter excluded as
+`correlated with group` names its representative in the line above, so use that
+one instead. A parameter excluded in both reports lists both decisions, joined
+by `; `. When a representative is excluded itself (a conflict), `task.yaml` says
+so in a `# CONFLICT:` comment above the exclusions, and every run warns; resolve
+it in the correlation report ([chapter 3](03-screening.md#how-it-works)).
 
 Every run applies the register anyway; the lines make it visible in the task
 itself. If a decision is later reinstated, the run warns that the task still

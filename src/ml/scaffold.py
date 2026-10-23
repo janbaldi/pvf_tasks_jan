@@ -33,6 +33,7 @@ def init(
     screened_as_of: str = "",
     shifting: list[tuple[str, str]] = (),
     shifting_built: str = "",
+    conflicts: list[str] = (),
 ) -> Path:
     """Write ``<folder>/task.yaml``, pointing at ``config``. Returns its path.
 
@@ -40,7 +41,8 @@ def init(
     excludes when the task is made, and ``shifting`` for every parameter the latest
     build (run at ``shifting_built``) found running in groups over time, when asked
     for. They are written out as ``predictors.exclude`` entries, so the task file
-    itself says what it leaves out and why.
+    itself says what it leaves out and why; ``conflicts`` (representatives the
+    register excludes too) as comments above them.
     """
     path = (Path(folder).expanduser() / TASK_FILE).resolve()
     if path.exists() and not force:
@@ -60,7 +62,7 @@ def init(
         .replace("__TARGET_TYPE__", "numeric")
         .replace(
             "  exclude: []                     # single columns: [{column: ..., reason: ...}]\n",
-            _excludes(screened, screened_as_of, shifting, shifting_built),
+            _excludes(screened, screened_as_of, shifting, shifting_built, conflicts),
         )
     )
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -73,6 +75,7 @@ def _excludes(
     as_of: str,
     shifting: list[tuple[str, str]] = (),
     built: str = "",
+    conflicts: list[str] = (),
 ) -> str:
     """The ``predictors.exclude`` lines of a new task: empty, or the parameters left out."""
     if not screened and not shifting:
@@ -84,6 +87,13 @@ def _excludes(
             "    # Every run applies the register anyway; these lines make it visible here.",
             "    # A run warns when one of them has since been reinstated: then delete the line.",
         ]
+        if conflicts:
+            lines += [
+                "    # CONFLICT: a representative the register excludes too, so its group is",
+                "    # left out whole. Resolve it in the correlation report: pick another",
+                "    # representative.",
+            ]
+            lines += [f"    #   {line}" for line in conflicts]
         lines += [_exclude(column, reason) for column, reason in screened]
     if shifting:
         lines += [

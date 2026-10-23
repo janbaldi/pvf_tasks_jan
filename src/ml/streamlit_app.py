@@ -210,7 +210,8 @@ MISSING_LEGEND = """<b style="background:#d3d2cc;margin-left:0"></b>measured
   <b style="background:#0047ab"></b>missing
   <b style="background:#2e8b57"></b>missing, batch not in the statistics
   &nbsp;·&nbsp; one cell per batch, newest on the right; scroll left to go back in time;
-  ⊘ marks a parameter screened out at this site"""
+  ⊘ marks a parameter this report screened out at this site, ◇ one the correlation
+  report did"""
 
 # The pattern strip: a fixed size per batch, so a long history scrolls sideways
 # instead of being squeezed to the page. Drawn on a canvas in its own frame,
@@ -369,13 +370,15 @@ def proposal_rows(
     rationale: str,
     author: str,
     represented_by: str = "",
+    report: str = "",
 ) -> tuple:
     """The proposal rows for the ticked parameters, and the ones that cannot be in it.
 
     One row per parameter, with its group as context, in the columns
-    ``ml screening add`` reads. Only a parameter screened out at this site can
-    be reinstated; the others are returned as skipped. An exclusion with
-    ``represented_by`` leaves that parameter out of it: it stays, for the others.
+    ``ml screening add`` reads, made in ``report``. Only a parameter this report
+    screened out at this site can be reinstated; the others are returned as
+    skipped. An exclusion with ``represented_by`` leaves that parameter out of it:
+    it stays, for the others.
     """
     represented_by = represented_by if action == "exclude" else ""
     rows, skipped = [], []
@@ -395,6 +398,7 @@ def proposal_rows(
                 "Rationale": rationale.strip(),
                 "Author": author.strip(),
                 "Represented by": represented_by,
+                "Report": report,
             }
         )
     return rows, skipped
@@ -412,6 +416,8 @@ def render_proposal(
     """
     group_of = {m: g for g, members in site["groups"].items() for m in members}
     screened = site["screened"]
+    elsewhere = site.get("elsewhere") or {}
+    report = form.get("report", "")
     ticked = len(picked) + len(groups) + len(pairs)
     with st.expander(f"Propose a screening decision ({ticked} ticked)", expanded=False):
         if not ticked:
@@ -449,22 +455,39 @@ def render_proposal(
             st.info("Fill in an author to write the proposal.")
             return
         common = (group_of, screened, site["label"])
-        rows, done = [], []
+        rows, done, blocked = [], [], []
         for members, instead in represented:
+            if instead in elsewhere:
+                # A representative that is excluded would leave the group out whole.
+                blocked.append(instead)
+                continue
+            if instead in screened:
+                # Moving the group to it: it comes back, and stands in for the others.
+                rows += proposal_rows(
+                    [instead], *common, "reinstate", form["reason"], rationale, author, "", report
+                )[0]
             done += [m for m in members if screened.get(m, {}).get("Represented by") == instead]
             fresh = [m for m in members if m not in done]
             rows += proposal_rows(
-                fresh, *common, "exclude", form["reason"], rationale, author, instead
+                fresh, *common, "exclude", form["reason"], rationale, author, instead, report
             )[0]
+        if blocked:
+            st.warning(
+                "Excluded in the missingness report, so it cannot represent others — pick "
+                "another representative (see *Best usable representative*): " + ", ".join(blocked)
+            )
         if done:
             st.caption("Already in the register, so left out: " + ", ".join(done))
         skipped = []
         if picked:
-            more, skipped = proposal_rows(picked, *common, action, reason, rationale, author)
+            more, skipped = proposal_rows(
+                picked, *common, action, reason, rationale, author, "", report
+            )
             rows += more
         if skipped:
             st.warning(
-                f"Not screened out at this site, so nothing to reinstate: {', '.join(skipped)}"
+                "Not screened out at this site by this report, so nothing to reinstate here: "
+                + ", ".join(skipped)
             )
         if not rows:
             return
@@ -503,6 +526,13 @@ def render_missing_viewer(block: dict, key: str) -> None:
         )
     site = block["sites"][labels.index(chosen)]
     screened = site.get("screened") or {}
+    elsewhere = site.get("elsewhere") or {}
+    other = "the missingness report" if mode == "rank" else "the correlation report"
+    if site.get("conflicts"):
+        st.warning(
+            "⚠ **Screening conflict** — a representative that is excluded itself leaves its "
+            "whole group out:\n\n" + "\n".join(f"- {line}" for line in site["conflicts"])
+        )
     top = st.container()
     plot = f"plot{key}-{chosen}"
     draw: dict = {}
@@ -527,8 +557,9 @@ def render_missing_viewer(block: dict, key: str) -> None:
             draw[table] = lambda i: site["groups"][groups.iloc[i]["Group"]]
             st.markdown(
                 '<p class="batch_table-caption">Click a group to draw all its parameters; tick '
-                "groups to propose a screening decision. <i>Screened members</i> counts the ones "
-                "already screened out here.</p>",
+                "groups to propose a screening decision. <i>Excluded here</i> counts the members "
+                f"this report already screened out, <i>Excluded elsewhere</i> the ones {other} "
+                "did.</p>",
                 unsafe_allow_html=True,
             )
         else:
@@ -542,13 +573,28 @@ def render_missing_viewer(block: dict, key: str) -> None:
             picked += [listed.iloc[i]["Parameter"] for i in ticked]
             draw[table] = lambda i: [listed.iloc[i]["Parameter"]]
             st.markdown(
-                '<p class="batch_table-caption">The screening register\'s standing exclusions '
-                "at this site. Every task leaves these out. Click one to draw it; tick them to "
+                '<p class="batch_table-caption">The standing exclusions this report made at '
+                "this site (⊘). Every task leaves these out. Click one to draw it; tick them to "
                 "reinstate them.</p>",
                 unsafe_allow_html=True,
             )
         else:
-            st.caption("Nothing is screened out at this site.")
+            st.caption("This report has screened nothing out at this site.")
+    with st.expander(f"Screened out by {other} ({len(elsewhere)})", expanded=False):
+        if elsewhere:
+            headers = ["Parameter", *next(iter(elsewhere.values()))]
+            rows = [[name, *decision.values()] for name, decision in elsewhere.items()]
+            table = f"elsewhere{key}-{chosen}"
+            listed, _ = _pick_table(headers, rows, [None] * len(headers), table, plot, tick=False)
+            draw[table] = lambda i: [listed.iloc[i]["Parameter"]]
+            st.markdown(
+                '<p class="batch_table-caption">The standing exclusions '
+                f"{other} made at this site (◇). Every task leaves these out too; reinstate "
+                "them there.</p>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.caption(f"{other[0].upper() + other[1:]} has screened nothing out at this site.")
     pairs: list[tuple] = []
     with st.expander(f"Parameters in no group ({len(site['rows'])})", expanded=mode == "rank"):
         table = f"rows{key}-{chosen}"
@@ -580,6 +626,15 @@ def render_missing_viewer(block: dict, key: str) -> None:
             unsafe_allow_html=True,
         )
 
+    if mode == "rank" and site.get("not_analysed"):
+        with st.expander(f"Not compared ({len(site['not_analysed'])})", expanded=False):
+            st.dataframe(
+                pd.DataFrame(site["not_analysed"], columns=["Parameter", "Why"]),
+                hide_index=True,
+                width="stretch",
+            )
+            st.caption("Catalog parameters that take no part here, and why.")
+
     picked = list(dict.fromkeys(picked))
     if block.get("proposal"):
         render_proposal(block["proposal"], site, picked, f"{key}-{chosen}", groups_ticked, pairs)
@@ -591,11 +646,11 @@ def render_missing_viewer(block: dict, key: str) -> None:
             return
         with st.spinner("Drawing…"):
             if mode == "rank":
-                render_pairs(site, drawn, screened, f"{key}-{chosen}")
+                render_pairs(site, drawn, f"{key}-{chosen}")
                 return
             # A parameter with no blank at this site has no pattern stored: all measured.
             bits = [site["patterns"].get(p, "0" * n) for p in drawn]
-            names = [("⊘ " if p in screened else "") + p for p in drawn]
+            names = [_marked(p, site) for p in drawn]
             data = {
                 "batches": site["batches"],
                 "dates": site["dates"],
@@ -623,7 +678,16 @@ def _short(text: str) -> str:
     return text if len(text) <= TITLE else text[: TITLE - 1] + "…"
 
 
-def render_pairs(site: dict, drawn: list, screened: dict, key: str) -> None:
+def _marked(parameter: str, site: dict) -> str:
+    """A parameter's name, marked ⊘ when this report excludes it, ◇ when the other one does."""
+    if parameter in (site.get("screened") or {}):
+        return "⊘ " + parameter
+    if parameter in (site.get("elsewhere") or {}):
+        return "◇ " + parameter
+    return parameter
+
+
+def render_pairs(site: dict, drawn: list, key: str) -> None:
     """Scatterplots of the parameters drawn, one dot per batch, as SVG (no WebGL needed).
 
     Two parameters make one plot. A small group shows every pair. A larger one shows
@@ -634,7 +698,7 @@ def render_pairs(site: dict, drawn: list, screened: dict, key: str) -> None:
     if len(shown) < 2:
         st.caption("Tick at least two parameters of a group to draw them against each other.")
         return
-    label = {p: ("⊘ " if p in screened else "") + p for p in shown}
+    label = {p: _marked(p, site) for p in shown}
     if len(shown) <= ALL_PAIRS:
         pairs = [(x, y) for i, x in enumerate(shown) for y in shown[i + 1 :]]
     else:
@@ -677,8 +741,8 @@ def render_pairs(site: dict, drawn: list, screened: dict, key: str) -> None:
     st.plotly_chart(figure, width="stretch", key=f"pairs{key}")
     st.markdown(
         '<p class="batch_table-caption">One dot per batch with a value for both. In a group '
-        "the first parameter is its suggested representative; ⊘ marks one the register "
-        "already excludes here as correlated.</p>",
+        "the first parameter is its suggested representative; ⊘ marks one this report "
+        "already excludes here, ◇ one the missingness report does.</p>",
         unsafe_allow_html=True,
     )
 

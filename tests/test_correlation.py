@@ -22,26 +22,34 @@ def test_parameters_that_rank_the_batches_alike_group_whatever_the_transform():
             "b": np.exp(x),  # same order
             "c": -(x**3),  # reverse order: as redundant to a tree
             "d": rng.normal(size=120),
-            "e": 2 * x,  # screened out for missingness: left out
-            "f": x + 1,  # screened out as correlated: kept, to be reinstated
+            "e": 2 * x,
+            "f": x + 1,
+            "g": ["text"] * 120,  # not numerical in the catalog
+            "h": [1.0] * 10 + [np.nan] * 110,  # too few values
+            "i": [3.0] * 120,  # one value only
         }
     )
     frame.loc[:30, "b"] = np.nan
-    types = dict.fromkeys("abcdef", "numeric")
-    rows, report = correlation.for_build(
-        frame, types, "id", "date", screened_out={"e": "retired", "f": correlation.REASON}
-    )
+    types = dict.fromkeys("abcdefhi", "numeric") | {"g": "text"}
+    rows, report = correlation.for_build(frame, types, "id", "date")
     (group,) = report.groups
-    assert sorted(group.members) == ["a", "b", "c", "f"]
+    # Whatever the register says: the analysis never reads it.
+    assert sorted(group.members) == ["a", "b", "c", "e", "f"]
     assert report.threshold == correlation.THRESHOLD == 0.9 and group.weakest >= 0.9
     assert group.weakest > 0.99 and group.max_q < 1e-6 and group.min_batches == 89
-    assert report.left_out == ["e"] and "e" not in report.values
+    assert report.not_analysed == {
+        "g": "not numerical in the catalog",
+        "h": f"fewer than {correlation.MIN_BATCHES} values",
+        "i": "one value only",
+    }
     # The representative carries the others where they were measured: not b, with gaps.
     assert group.members[0] == group.representative != "b" and group.score > 0.9
+    assert set(group.scores) == set(group.members)
+    assert group.scores[group.representative] == group.score == max(group.scores.values())
     by_name = {row["Parameter"]: row for row in rows}
     assert by_name["d"]["Group"] == "" and by_name["b"]["Batches with a value"] == 89
     # The scatterplots: each member's value per batch, None where it has none.
-    assert set(report.values) == {"a", "b", "c", "d", "f"}
+    assert set(report.values) == {"a", "b", "c", "d", "e", "f"}
     assert report.values["b"][:31] == [None] * 31 and report.values["a"][40] == float(
         f"{x[40]:.4g}"
     )
@@ -82,16 +90,22 @@ def test_a_correlation_group_is_represented_by_the_suggested_member():
     assert [(d.parameter, d.represented_by) for d in added] == [("X", "W"), ("Y", "W")]
 
 
+def _retired(parameter: str) -> screening.Decision:
+    return screening.Decision(
+        *("S-0001", "2026-01-01", "A", "exclude", parameter, "North", "", "retired", "x"),
+        *("", "", "", "", ""),
+    )
+
+
 def test_a_representative_must_stay_usable():
-    standing = [
-        screening.Decision(
-            *("S-0001", "2026-01-01", "A", "exclude", "Z", "North", "", "retired", "x"),
-            *("", "", "", "", ""),
-        )
-    ]
-    with pytest.raises(screening.ScreeningError, match="'Z' is screened out at North"):
+    with pytest.raises(screening.ScreeningError, match="'Z' at North represents X .* excluded"):
         screening.add(
-            standing, _exclude(Parameter="X", **{"Represented by": "Z"}), EVIDENCE, "", "A", SITES
+            [_retired("Z")],
+            _exclude(Parameter="X", **{"Represented by": "Z"}),
+            EVIDENCE,
+            "",
+            "A",
+            SITES,
         )
     both = pd.concat(
         [
@@ -99,7 +113,7 @@ def test_a_representative_must_stay_usable():
             _exclude(Parameter="Y", **{"Represented by": "W"}, Rationale="other"),
         ]
     )
-    with pytest.raises(screening.ScreeningError, match="'Y', which the proposal excludes too"):
+    with pytest.raises(screening.ScreeningError, match="'Y' at North represents X"):
         screening.add([], both, EVIDENCE, "", "A", SITES)
     with pytest.raises(screening.ScreeningError, match="name the parameter that represents it"):
         screening.add([], _exclude(Parameter="Z"), EVIDENCE, "", "A", SITES)
@@ -115,24 +129,40 @@ def test_the_register_records_the_representative_and_still_reads_old_ones():
     plain = screening.from_frame(frame.drop(columns="Represented by"), SITES)
     assert plain[0].represented_by == ""
     assert screening.digest(plain) == screening.digest(screening.from_frame(old, SITES))
-    # Excluding the representative later is a reason to look again.
-    later = [
-        decision,
-        *screening.add(
+    # Excluding the representative later, in the missingness report, is refused ...
+    with pytest.raises(screening.ScreeningError, match="'Y' at North represents X"):
+        screening.add(
             [decision], _exclude(Parameter="Y", Reason="retired"), EVIDENCE, "", "A", SITES
-        ),
-    ]
+        )
+    # ... but the build's own never-recorded exclusion can make it: a reason to look again.
+    later = [decision, replace(_retired("Y"), id="S-0002", reason="never recorded")]
     (finding,) = [f for f in screening.review(later, EVIDENCE, SITES) if f["Parameter"] == "X"]
     assert "its representative 'Y' is screened out too" in finding["Why look again"]
+    assert [c["Representative"] for c in screening.conflicts(later, SITES)] == ["Y"]
+
+
+def test_a_group_moves_to_another_representative_in_one_proposal():
+    log = screening.add([], _exclude(Group="Correlated 01"), EVIDENCE, "", "A", SITES)
+    assert {d.parameter: d.represented_by for d in log} == {"X": "Y", "W": "Y"}
+    # As the report writes it: W comes back, and represents the others.
+    moved = pd.concat(
+        [
+            _exclude(Parameter="W", Action="reinstate"),
+            _exclude(Parameter="X", **{"Represented by": "W"}),
+            _exclude(Parameter="Y", **{"Represented by": "W"}),
+        ]
+    )
+    log += screening.add(log, moved, EVIDENCE, "", "A", SITES)
+    out = screening.excluded(log, SITES)
+    assert {p: ds[0].represented_by for p, ds in out.items()} == {"X": "W", "Y": "W"}
+    assert screening.conflicts(log, SITES) == []
 
 
 def test_the_task_catalog_lists_what_a_task_can_still_use():
     log = screening.add([], _exclude(Group="Correlated 01"), EVIDENCE, "", "A", SITES)
     log.append(replace(log[0], id="S-0002", parameter="Z", site="all", represented_by=""))
     catalog = pd.DataFrame({"Parameter": ["X", "Y", "W", "Z", "V"], "Value Type": ["numeric"] * 5})
-    table = screening.task_catalog(
-        catalog, ["X", "Y", "W", "Z"], screening.current(log, SITES), SITES
-    )
+    table = screening.task_catalog(catalog, ["X", "Y", "W", "Z"], log, SITES)
     rows = table.set_index("Parameter")
     assert list(rows.index) == ["X", "Y", "W"], "Z excluded everywhere, V not in the batch table"
     assert rows.loc["X", "Usable at"] == "South" and rows.loc["Y", "Usable at"] == "North, South"
@@ -145,7 +175,8 @@ def test_the_build_writes_the_correlation_report_over_the_missingness_batches(bu
     payload = stlite.read_payload(page.read_text(encoding="utf-8"))
     viewer = payload["sections"][0]["blocks"][0]
     assert viewer["kind"] == "rank_viewer"
-    assert viewer["proposal"]["reasons"] == list(screening.REASONS)
+    assert viewer["proposal"]["reasons"] == [correlation.REASON]
+    assert viewer["proposal"]["report"] == "correlation"
     missing_page = shared(
         built["directory"], built["config"], "batch_table", "missingness_report.html"
     )
@@ -164,11 +195,19 @@ def test_the_build_writes_the_correlation_report_over_the_missingness_batches(bu
         closest = site["headers"].index("Closest parameter")
         assert {row[closest] for row in site["rows"]} - {""} <= set(site["values"])
         assert all(len(values) == len(site["batches"]) for values in site["values"].values())
-    # Screened out at site A for missingness, so not compared there.
+    # Screened out at site A in the missingness report: still compared, shown as such.
     first = {site["label"]: site for site in viewer["sites"]}[names.site("a")]
-    assert dummy_data.screened_parameter() not in first["values"]
+    assert dummy_data.screened_parameter() in first["values"]
+    assert first["elsewhere"][dummy_data.screened_parameter()]["Decision"] == "S-0001"
+    assert first["screened"] == {} and first["conflicts"] == []
+    assert first["not_analysed"], "the catalog parameters not compared are listed, with why"
     # Each group is drawn from its suggested representative.
     for site in viewer["sites"]:
+        assert site["group_headers"][-3:] == [
+            "Best usable representative",
+            "Excluded here",
+            "Excluded elsewhere",
+        ]
         for row in site["group_rows"]:
             assert site["groups"][row[0]][0] == row[2]
 
@@ -186,17 +225,28 @@ def test_a_ticked_pair_excludes_the_closest_represented_by_the_parameter():
 
     # As the report's proposal builds it for a ticked parameter W whose closest is Z.
     rows, _ = _proposal_rows()(
-        ["Z"], {}, {}, "North", "exclude", correlation.REASON, "same order", "A", "W"
+        ["Z"], {}, {}, "North", "exclude", correlation.REASON, "same order", "A", "W", "correlation"
     )
     (added,) = screening.add([], pd.DataFrame(rows), EVIDENCE, "", "", SITES)
     assert (added.parameter, added.represented_by, added.reason) == ("Z", "W", correlation.REASON)
-    screened = {"Z": {"Decision": "S-0001", "Represented by": "W"}}
-    assert report._register_note({"Parameter": "W", "Closest parameter": "Z"}, screened) == (
-        "represents Z (its closest)"
+    assert added.report == "correlation"
+
+
+def test_the_best_usable_representative_skips_what_the_missingness_report_excludes():
+    group = correlation.CorrelationGroup(
+        name="Correlated 01",
+        members=["A", "B", "C"],
+        mean=0.95,
+        weakest=0.92,
+        min_batches=50,
+        max_q=0.0,
+        representative="A",
+        score=0.9,
+        scores={"A": 0.9, "B": 0.8, "C": 0.85},
     )
-    assert report._register_note({"Parameter": "Z"}, screened) == (
-        "excluded (S-0001), represented by W"
-    )
+    assert report._usable_representative(group, {}) == "= suggested"
+    assert report._usable_representative(group, {"A": {}}) == "C"
+    assert report._usable_representative(group, dict.fromkeys("ABC", {})) == ""
 
 
 def test_every_pair_in_a_group_reaches_the_threshold():

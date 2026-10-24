@@ -1343,8 +1343,11 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec) -> Path:
     try:
         vocabulary = workspace.task_vocabulary(config, spec.batch_table)
         spec = replace(spec, site=_task_site(config, spec))
-        site = names.site(spec.site)
-        log.info(MODULE, f"About {site} only (site: {spec.site})")
+        site = names.site(spec.site) if spec.site else ""
+        if site:
+            log.info(MODULE, f"About {site} only (site: {spec.site})")
+        else:
+            log.info(MODULE, "A run from before tasks were about one site: redone as it was")
         batch_table_source = workspace.table_source(config, "batch_table", spec.batch_table)
         catalog_source = workspace.table_source(config, "catalog", spec.catalog)
         _show_reads(
@@ -1386,13 +1389,14 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec) -> Path:
             "# copies this run read, so this file and ../inputs reproduce it.\n"
             + yaml.safe_dump(settings, sort_keys=False, allow_unicode=True),
         )
-        screened = (
-            screening.excluded(screening.for_site(register.decisions, site), (site,))
-            if register is not None
-            else {}
-        )
+        if register is None:
+            screened = {}
+        elif site:
+            screened = screening.excluded(screening.for_site(register.decisions, site), (site,))
+        else:  # as a run from before tasks were about one site applied it
+            screened = screening.excluded(register.decisions, names.sites(), spec.cohort.sites)
         _check_listed_screening(spec, screened)
-        if register is not None:
+        if register is not None and site:
             pkg.warnings += _warn_conflicts(register.decisions, site)
         final, result = dataset.build(
             batch_table,

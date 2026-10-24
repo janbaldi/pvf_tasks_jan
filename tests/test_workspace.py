@@ -788,3 +788,22 @@ def test_a_task_run_with_the_other_site_config_is_refused(built):
     assert spec.site == "a"
     with pytest.raises(dataset.TaskRefused, match="whose site: is a"):
         cli.run_task(built["config_b"], spec)
+
+
+def test_a_run_from_before_tasks_were_about_one_site_is_redone_as_it_was(built, tmp_path):
+    run = tmp_path / "workspace" / "runs" / "old"
+    shutil.copytree(built["packages"][PREDICTIVE], run)
+    settings_path = run / "config" / "task.yaml"
+    settings = yaml.safe_load(settings_path.read_text(encoding="utf-8"))
+    assert settings["site"] == "a", "a run records its site"
+    # As such a run wrote it: no site, and the cohort's sites.
+    del settings["site"]
+    settings["cohort"]["sites"] = [names.site("a")]
+    settings_path.write_text(yaml.safe_dump(settings, sort_keys=False), encoding="utf-8")
+    again = cli.rerun(run)
+    assert (again / "data" / "dataset.csv").read_bytes() == (
+        run / "data" / "dataset.csv"
+    ).read_bytes()
+    # A task file, rather than a run's, may not say it.
+    with pytest.raises(taskconfig.TaskConfigError, match="cohort.sites"):
+        taskconfig.load(settings_path)

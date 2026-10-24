@@ -224,6 +224,13 @@ def select_cohort(batch_table: pd.DataFrame, spec: TaskSpec, result: TaskResult)
         log.info(MODULE, f"{label}: {len(cohort)} of {before} batches left")
         return cohort
 
+    if spec.cohort.sites:  # only the rerun of a run from before tasks were about one site
+        step(
+            f"manufactured at {', '.join(spec.cohort.sites)}",
+            batch_table["Site Merged"].isin(list(spec.cohort.sites)),
+            "site",
+        )
+
     for number, rule in enumerate(spec.cohort.filters, start=1):
         if rule.column not in batch_table.columns:
             raise TaskRefused(
@@ -579,6 +586,8 @@ def task_site(spec: TaskSpec, configured: str | None, where: str = "config.yaml"
                 f" — add `site: {configured}` at its top",
             )
         return spec.site or configured
+    if not spec.site and spec.batch_table is not None:
+        return ""  # a run from before tasks were about one site: its rerun is as it was
     if not spec.site:
         raise TaskRefused(
             "task.yaml names no site (site: a or b), and there is no config.yaml to take it from"
@@ -587,7 +596,10 @@ def task_site(spec: TaskSpec, configured: str | None, where: str = "config.yaml"
 
 
 def check_batch_table_site(batch_table: pd.DataFrame, site: str) -> None:
-    """Refuse a batch table that is not the site's own: every batch must be from ``site``."""
+    """Refuse a batch table that is not the site's own: every batch must be from ``site``.
+    An empty ``site`` (the rerun of a run from before) takes the table as it was."""
+    if not site:
+        return
     found = sorted(map(str, batch_table["Site Merged"].dropna().unique()))
     if found != [site]:
         raise TaskRefused(

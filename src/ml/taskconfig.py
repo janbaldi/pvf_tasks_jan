@@ -90,6 +90,8 @@ class Filter:
 
 @dataclass(frozen=True)
 class Cohort:
+    #: Only a run from before tasks were about one site has these: its rerun keeps them.
+    sites: tuple[str, ...] = ()
     filters: tuple[Filter, ...] = ()
     date_column: str = ""
     date_from: str = ""
@@ -620,7 +622,7 @@ def parse(
         "cohort",
         errors,
     )
-    if cohort_raw.get("sites"):
+    if cohort_raw.get("sites") and not frozen:
         errors.append(
             "cohort.sites: no longer a setting — a task is about one site; name its key "
             "(a or b) under site: at the top, as config.yaml's site: does"
@@ -629,6 +631,7 @@ def parse(
     if site and site not in SITE_KEYS:
         errors.append(f"site: '{site}' is not a site key ({' or '.join(SITE_KEYS)})")
     cohort = Cohort(
+        sites=_names(cohort_raw, "sites", "cohort", errors) if frozen else (),
         filters=_filters(cohort_raw, "cohort", errors),
         date_column=_text(cohort_raw, "date_column", "cohort", errors),
         date_from=_text(cohort_raw, "date_from", "cohort", errors),

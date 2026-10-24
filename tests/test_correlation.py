@@ -158,16 +158,17 @@ def test_a_group_moves_to_another_representative_in_one_proposal():
     assert screening.conflicts(log, SITES) == []
 
 
-def test_the_task_catalog_lists_what_a_task_can_still_use():
+def test_the_task_catalog_lists_what_one_task_can_use():
     log = screening.add([], _exclude(Group="Correlated 01"), EVIDENCE, "", "A", SITES)
-    log.append(replace(log[0], id="S-0002", parameter="Z", site="all", represented_by=""))
     catalog = pd.DataFrame({"Parameter": ["X", "Y", "W", "Z", "V"], "Value Type": ["numeric"] * 5})
-    table = screening.task_catalog(catalog, ["X", "Y", "W", "Z"], log, SITES)
-    rows = table.set_index("Parameter")
-    assert list(rows.index) == ["X", "Y", "W"], "Z excluded everywhere, V not in the batch table"
-    assert rows.loc["X", "Usable at"] == "South" and rows.loc["Y", "Usable at"] == "North, South"
-    assert rows.loc["Y", "Represents"] == "North: W, X"
-    assert list(table.columns) == ["Parameter", "Usable at", "Represents", "Value Type"]
+    # The task's own predictor choice kept Y and Z; the catalog keeps its order.
+    table = screening.task_catalog(catalog, ["Z", "Y"], log, SITES)
+    assert list(table["Parameter"]) == ["Y", "Z"]
+    assert list(table.columns) == ["Parameter", "Represents", "Value Type"]
+    assert table.set_index("Parameter").loc["Y", "Represents"] == "North: W, X"
+    # A task over the other site: what Y stands in for at North is not its business.
+    south = screening.task_catalog(catalog, ["Y"], log, SITES, ("South",))
+    assert south.loc[0, "Represents"] == ""
 
 
 def test_the_build_writes_the_correlation_report_over_the_missingness_batches(built):
@@ -212,12 +213,50 @@ def test_the_build_writes_the_correlation_report_over_the_missingness_batches(bu
             assert site["groups"][row[0]][0] == row[2]
 
 
-def test_the_build_writes_the_task_catalog(built):
-    path = shared(built["directory"], built["config"], "batch_table", "task_catalog.xlsx")
-    table = pd.read_excel(path).set_index("Parameter")
-    # Screened out at site A only: still usable over site B.
-    assert table.loc[dummy_data.screened_parameter(), "Usable at"] == names.site("b")
+def test_a_new_task_gets_its_own_task_catalog(built, tmp_path):
+    from ml import cli, dataset, io, taskconfig
+    from ml import config as workspace
+
+    folder = tmp_path / "expression_inputs"
+    target = dummy_data.target()
+    config = str(built["config_path"])
+    assert cli.main(["--config", config, "task", "new", str(folder), "--target", target]) == 0
+    table = pd.read_excel(folder / "task_catalog.xlsx").set_index("Parameter")
+    # Not the target, and not what the register excludes at the task's sites.
+    assert target not in table.index
+    assert dummy_data.screened_parameter() not in table.index
     assert set(table.index) <= set(built["batch_table"].columns)
+    # The build no longer writes one: it belongs to a task.
+    assert not list((built["directory"] / "sharepoint").rglob("task_catalog.xlsx"))
+    # Exactly what a run of the task picks as its predictors.
+    spec = taskconfig.load(folder / "task.yaml")
+
+    batch_table = io.load_batch_table(workspace.table_source(built["config"], "batch_table", None))
+    catalog = io.read_catalog(workspace.table_source(built["config"], "catalog", None))
+    register = cli._register(built["config"])
+    screened = screening.excluded(register.decisions, names.sites(), spec.cohort.sites)
+    kept = dataset.candidate_predictors(
+        batch_table,
+        catalog,
+        spec,
+        dataset.TaskResult(spec),
+        {p: screening.labels(ds) for p, ds in screened.items()},
+    )
+    assert set(table.index) == set(kept)
+    # Written again from the task file as it is now.
+    text = (folder / "task.yaml").read_text(encoding="utf-8")
+    first = table.index[0]
+    (folder / "task.yaml").write_text(
+        text.replace(
+            "  exclude:",
+            f"  exclude:\n    - {{column: {first!r}, reason: not this time}}",
+            1,
+        ),
+        encoding="utf-8",
+    )
+    assert cli.main(["--config", config, "task", "catalog", str(folder)]) == 0
+    again = pd.read_excel(folder / "task_catalog.xlsx")
+    assert first not in set(again["Parameter"]) and len(again) == len(table) - 1
 
 
 def test_a_ticked_pair_excludes_the_closest_represented_by_the_parameter():

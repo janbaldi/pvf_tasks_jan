@@ -215,7 +215,7 @@ footer code { font-family: var(--mono); font-size: 12px; color: var(--ink); }
     { id: "g_src", x: 20, y: 70, w: 212, h: 460, label: "" },
     { id: "g_cat", x: 255, y: 212, w: 230, h: 144, label: "Data/catalog/" },
     { id: "g_build", x: 505, y: 70, w: 250, h: 420, label: "" },
-    { id: "g_out", x: 785, y: 70, w: 230, h: 392, label: "Data/batch_data/" },
+    { id: "g_out", x: 785, y: 70, w: 230, h: 352, label: "Data/batch_data/" },
     { id: "g_run", x: 1300, y: 70, w: 185, h: 300, label: "runs/<run id>/" },
   ];
 
@@ -257,8 +257,7 @@ footer code { font-family: var(--mono); font-size: 12px; color: var(--ink); }
     F(795, 256, 210, "corr_report", "correlation_report.html"),
     F(795, 296, 210, "shifts_report", "shifts_report.html"),
     F(795, 336, 210, "shifts_xlsx", "shifts.xlsx"),
-    F(795, 376, 210, "task_catalog", "task_catalog.xlsx"),
-    F(795, 416, 210, "build_manifest", "batch_table_manifest.json"),
+    F(795, 376, 210, "build_manifest", "batch_table_manifest.json"),
 
     { id: "h_propose", kind: "human", x: 795, y: 600, w: 210, h: 48, label: "Click to draw, tick to propose", sub: "missingness · correlation" },
     F(795, 680, 210, "proposal", "proposal.csv"),
@@ -267,8 +266,9 @@ footer code { font-family: var(--mono); font-size: 12px; color: var(--ink); }
     { id: "status", kind: "cmd", x: 1300, y: 744, w: 185, h: 44, label: "ml screening status", sub: "what to look at again" },
 
     { id: "task_new", kind: "cmd", x: 1060, y: 96, w: 200, h: 44, label: "ml task new <folder>", sub: "an annotated task file" },
-    { id: "task_yaml", kind: "human", x: 1060, y: 176, w: 200, h: 40, label: "task.yaml", sub: "you write the question" },
-    { id: "run", kind: "cmd", x: 1060, y: 256, w: 200, h: 44, label: "ml task run", sub: "one dataset per run" },
+    { id: "task_yaml", kind: "human", x: 1060, y: 166, w: 200, h: 40, label: "task.yaml", sub: "you write the question" },
+    F(1060, 222, 180, "task_catalog", "task_catalog.xlsx"),
+    { id: "run", kind: "cmd", x: 1060, y: 276, w: 200, h: 44, label: "ml task run", sub: "one dataset per run" },
 
     F(1310, 96, 165, "r_data", "data/dataset.csv"),
     F(1310, 134, 165, "r_enc", "dataset_encoded.csv"),
@@ -300,21 +300,21 @@ footer code { font-family: var(--mono); font-size: 12px; color: var(--ink); }
     { f: "b5", t: "b6", p: [[630, 340], [630, 350]] },
     { f: "b6", t: "b7", p: [[630, 382], [630, 392]] },
     { f: "b7", t: "g_out", p: [[730, 408], [785, 408]] },
-    { f: "g_out", t: "h_propose", p: [[900, 462], [900, 600]], cls: "screen", lab: ["read the reports", 908, 535] },
+    { f: "g_out", t: "h_propose", p: [[900, 422], [900, 600]], cls: "screen", lab: ["read the reports", 908, 535] },
     { f: "h_propose", t: "proposal", p: [[900, 648], [900, 680]], cls: "screen" },
     { f: "proposal", t: "add", p: [[900, 712], [900, 744]], cls: "screen" },
     { f: "miss_xlsx", t: "add", p: [[795, 232], [771, 232], [771, 766], [795, 766]], cls: "screen", lab: ["evidence", 764, 600, false, "end"] },
     { f: "add", t: "register", p: [[1005, 766], [1060, 766]], cls: "screen" },
     { f: "register", t: "status", p: [[1260, 766], [1300, 766]], cls: "screen" },
     { f: "g_build", t: "register", p: [[748, 490], [748, 824], [1160, 824], [1160, 788]], cls: "screen both", lab: ["build reads it, and excludes never-recorded parameters itself", 790, 816] },
-    { f: "register", t: "run", p: [[1160, 744], [1160, 300]], cls: "screen", lab: ["exclusions at the cohort's sites", 1152, 520, false, "end"] },
+    { f: "register", t: "run", p: [[1160, 744], [1160, 320]], cls: "screen", lab: ["exclusions at the cohort's sites", 1152, 520, false, "end"] },
     { f: "register", t: "task_new", p: [[1236, 744], [1236, 722], [1282, 722], [1282, 110], [1260, 110]], cls: "screen" },
-    { f: "batch_data", t: "run", p: [[1005, 112], [1046, 112], [1046, 284], [1060, 284]] },
+    { f: "batch_data", t: "run", p: [[1005, 112], [1046, 112], [1046, 298], [1060, 298]] },
     { f: "shifts_xlsx", t: "task_new", p: [[1005, 352], [1026, 352], [1026, 124], [1060, 124]] },
-    { f: "task_catalog", t: "task_yaml", p: [[1005, 392], [1036, 392], [1036, 200], [1060, 200]], cls: "dash" },
-    { f: "task_new", t: "task_yaml", p: [[1160, 140], [1160, 176]] },
-    { f: "task_yaml", t: "run", p: [[1160, 216], [1160, 256]] },
-    { f: "run", t: "g_run", p: [[1260, 272], [1300, 272]] },
+    { f: "task_new", t: "task_yaml", p: [[1160, 140], [1160, 166]] },
+    { f: "task_yaml", t: "task_catalog", p: [[1150, 206], [1150, 222]], cls: "dash" },
+    { f: "task_yaml", t: "run", p: [[1251, 206], [1251, 276]] },
+    { f: "run", t: "g_run", p: [[1260, 298], [1300, 298]] },
     { f: "g_run", t: "rerun", p: [[1392, 370], [1392, 400]] },
     { f: "g_run", t: "encode", p: [[1485, 230], [1497, 230], [1497, 476], [1475, 476]] },
     { f: "encode", t: "encoded", p: [[1370, 496], [1370, 516]] },
@@ -323,7 +323,7 @@ footer code { font-family: var(--mono); font-size: 12px; color: var(--ink); }
   // ── Routes the chips highlight ────────────────────────────────────────────
   const SRC = ["catalog", "vocab", "phfA", "phfB", "mapping", "remfg", "lvcoa", "raw", "sitemaps", "extra", "g_src"];
   const BUILD = ["build", "b1", "b2", "b3", "b4", "b5", "b6", "b7", "g_build"];
-  const OUT = ["g_out", "batch_data", "build_report", "miss_report", "miss_xlsx", "corr_report", "shifts_report", "shifts_xlsx", "task_catalog", "build_manifest"];
+  const OUT = ["g_out", "batch_data", "build_report", "miss_report", "miss_xlsx", "corr_report", "shifts_report", "shifts_xlsx", "build_manifest"];
   const RUN = ["g_run", "r_data", "r_enc", "r_meta", "r_encoding", "r_report", "r_inputs", "r_manifest"];
   const PATHS = {
     monthly: [...SRC, "validate", "check", "g_cat", "cat_report", "new_params", "cat_manifest", "h_catalog", ...BUILD, ...OUT, "register", "status", "batch_data", "run", ...RUN],
@@ -458,7 +458,6 @@ footer code { font-family: var(--mono); font-size: 12px; color: var(--ink); }
     corr_report: ["correlation_report.html", "<p>Numerical parameters grouped by Spearman |ρ|, each group with a suggested representative, whatever the register says. Ticked groups exclude every member but the one you keep.</p>"],
     shifts_report: ["shifts_report.html", "<p>Parameters whose value runs in groups over time, as a lot does, grouped by the days they change, per manufacturing site. Click a row to see its groups on a timeline. Takes no part in screening.</p>"],
     shifts_xlsx: ["shifts.xlsx", `<p>Every parameter that runs in groups over time, grouped or not. ${C("ml task new --exclude-shifting")} lists them all under ${C("predictors.exclude")}.</p>`],
-    task_catalog: ["task_catalog.xlsx", "<p>The catalog cut to what a task can still use after screening: <i>Usable at</i> per site, and what each representative stands for. Pick predictors from it.</p>"],
     build_manifest: ["batch_table_manifest.json", "<p>What the build read (with digests), wrote and warned about. A task copies it, and warns if the batch table it read is a different one.</p>"],
 
     h_propose: ["Propose a screening decision", `<p>In the missingness or correlation report: <b>click</b> a row to draw it, <b>tick</b> rows in any table to propose. Choose exclude or reinstate, a reason, an optional rationale and your name; for a correlated group, the member that represents it.</p><p>Downloads ${C("proposal.csv")}. You can also write one by hand.</p>`],
@@ -467,7 +466,8 @@ footer code { font-family: var(--mono); font-size: 12px; color: var(--ink); }
     register: ["Screening register", "<p>An append-only log of decisions: exclude or reinstate a parameter at a site, with reason and evidence. Each decision belongs to the report it was made in; the last decision per parameter, site and report stands, and either report's exclusion leaves a parameter out. A digest shows edits made outside <code>ml screening</code>.</p>" + DL([["Read by", "build (both reports show it: ⊘ own, ◇ the other's, ⚠ conflicts), task new, task run"], ["Config", C("sharepoint.screening")]])],
     status: ["ml screening status", "<p>What is excluded today, and the decisions the latest build gives a reason to revisit: review date passed, measured again, missing % moved, representative excluded too; and the conflicts. Reinstate or re-exclude with a new proposal.</p>"],
 
-    task_new: ["ml task new &lt;folder&gt;", `<p>Creates a task folder with an annotated ${C("task.yaml")}. It already lists what the register excludes under ${C("predictors.exclude")}.</p>` + DL([["Options", `${C("--target COL")}, ${C("--question TEXT")}, ${C("--exclude-shifting")}, ${C("--force")}`]])],
+    task_new: ["ml task new &lt;folder&gt;", `<p>Creates a task folder with an annotated ${C("task.yaml")} and its ${C("task_catalog.xlsx")}. It already lists what the register excludes under ${C("predictors.exclude")}.</p>` + DL([["Options", `${C("--target COL")}, ${C("--question TEXT")}, ${C("--exclude-shifting")}, ${C("--force")}`]])],
+    task_catalog: ["task_catalog.xlsx", `<p>In the task folder: the catalog rows of the parameters this task can use as input features, chosen exactly as ${C("ml task run")} chooses its predictors, and what each correlation representative stands for. ${C("ml task new")} writes it; ${C("ml task catalog")} writes it again after you edit ${C("task.yaml")}.</p>`],
     task_yaml: ["task.yaml", "<p>The question, in settings you edit:</p><ul><li><b>cohort</b>: sites, filters, date range</li><li><b>target</b>: numeric, binary or two periods</li><li><b>roles</b>: id, group (e.g. vector lot), patient</li><li><b>predictors</b>: include, exclude, by catalog column</li><li><b>clustering</b>: off · describe · keep_one · residualise · summarise</li><li><b>encoding</b>, <b>quality</b>, <b>missingness</b>, <b>report</b></li></ul>"],
     run: ["ml task run", "<p>1 selects the cohort, 2 chooses predictors (minus target, roles, your excludes, catalog rules, register exclusions, features made from the target), 3 fits the preprocessing, 4 writes the dataset, 5 checks the counts agree. A failed run keeps its folder as <code>….failed</code>.</p>" + DL([["Reads", "batch table, catalog, both manifests, register"], ["Options", `${C("--task T")}, repeatable`]])],
     r_data: ["data/dataset.csv", "<p>The training dataset: id, group, raw predictors and target. One row per batch, no split.</p>"],

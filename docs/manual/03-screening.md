@@ -46,9 +46,8 @@ every task.
   column spells out every decision on a parameter, and what it represents. Each
   report's lead names the register it shows (rows, last decision), or says why
   none could be read; the build log counts the exclusions per site and report and
-  warns about decisions on parameters the batch table does not have.
-  `task_catalog.xlsx` is cut by it. And the build adds its own `never recorded`
-  exclusions to it (below).
+  warns about decisions on parameters the batch table does not have. And the
+  build adds its own `never recorded` exclusions to it (below).
 - **Conflicts are named, never resolved silently.** A representative that is
   excluded itself would leave its whole group out. `ml screening add` refuses a
   proposal that makes one, in either order. The build's own `never recorded`
@@ -57,8 +56,9 @@ every task.
   comment in `task.yaml`, and every task run warns. Resolve it in the correlation
   report (below).
 - **Nothing is deleted.** The batch table and the reports keep every parameter.
-  Screening only decides what a task may use. `task_catalog.xlsx`, written by
-  every build, lists what is left.
+  Screening only decides what a task may use. A task's `task_catalog.xlsx`,
+  written by `ml task new`, lists what is left for that task
+  ([chapter 4](04-tasks.md#1-create-a-task)).
 
 ## Deciding: what to look at
 

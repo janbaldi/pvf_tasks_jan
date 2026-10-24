@@ -31,11 +31,29 @@ predictors:
     - {column: "Day 1 mixing cycles", reason: "screened out by S-0001: irregular (Northfield)"}
 ```
 
-To see what is still usable, open `task_catalog.xlsx` next to the batch table:
-the catalog minus what the register excludes, per site, with what each
-representative of a correlated group stands for. A parameter excluded as
-`correlated with group` names its representative in the line above, so use that
-one instead. A parameter excluded in both reports lists both decisions, joined
+Next to it, `ml task new` writes **`task_catalog.xlsx`**: the catalog rows of
+the parameters this task can use as input features. They are chosen exactly as
+`ml task run` chooses its predictors, on the latest batch table: everything the
+catalog lists and the batch table has, minus the target and what is computed
+from it, the roles (id, group, patient), the task file's own exclusions (the
+screened and, with `--exclude-shifting`, the shifting parameters among them),
+catalog-category rules, what the register excludes at the task's sites, and the
+site-relative features. Its *Represents* column names what each correlation
+representative stands in for at the task's sites; the other columns are the
+catalog's. Pick predictors from it.
+
+It is a snapshot. After you edit `task.yaml` (the cohort's sites, `exclude`,
+`include`, the target), after a new build, or after a new screening decision,
+write it again:
+
+```bash
+uv run ml task catalog          # in the task folder; or: ml task catalog <folder>
+```
+
+Without `--target`, `ml task new` warns that the list still holds the target
+and what is computed from it: set the target in `task.yaml`, then run `ml task
+catalog`. A parameter excluded as `correlated with group` names its
+representative in the line above, so use that one instead. A parameter excluded in both reports lists both decisions, joined
 by `; `. When a representative is excluded itself (a conflict), `task.yaml` says
 so in a `# CONFLICT:` comment above the exclusions, and every run warns; resolve
 it in the correlation report ([chapter 3](03-screening.md#how-it-works)).

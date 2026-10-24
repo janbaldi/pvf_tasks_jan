@@ -12,11 +12,12 @@ Run as `uv run ml [--config FILE] [--debug] [--quiet] COMMAND …`.
 |---|---|
 | `ml validate [--task T]` | Check `config.yaml`, the vocabulary, the corrections, the screening register and the given tasks. Writes nothing. Inside a task folder, also checks that task. |
 | `ml check-catalog` | Compare every source's columns with the catalog. Writes `catalog_report.html`, `catalog_manifest.json` and `new_parameters.csv` into the catalog's folder. |
-| `ml build` | Build the batch table. Writes `batch_data.xlsx`, `batch_data.parquet`, `build_report.html`, `missingness_report.html`, `missingness.xlsx`, `correlation_report.html`, `shifts_report.html`, `shifts.xlsx`, `task_catalog.xlsx` and `batch_table_manifest.json` into the batch table's folder. |
+| `ml build` | Build the batch table. Writes `batch_data.xlsx`, `batch_data.parquet`, `build_report.html`, `missingness_report.html`, `missingness.xlsx`, `correlation_report.html`, `shifts_report.html`, `shifts.xlsx` and `batch_table_manifest.json` into the batch table's folder. |
 | `ml screening add PROPOSAL [--author NAME] [--new]` | Check a proposal (written by the missingness or correlation report, or by hand) against the latest build and add its decisions to the screening register. `--author` fills an empty `Author` column. `--new` starts the register when there is none. |
 | `ml screening status` | List what the register excludes today (per report), the conflicts, and the decisions the latest build gives a reason to look at again. |
 | `ml screening reset --yes` | Start the register over, empty. The old one is kept next to it, renamed `<name>_before_reset_<date>.xlsx`. |
-| `ml task new FOLDER [--target COL] [--question TEXT] [--force] [--exclude-shifting]` | Create a task folder with an annotated `task.yaml`. It lists what the screening register excludes under `predictors.exclude`; `--exclude-shifting` also lists every parameter the latest build's `shifts.xlsx` holds, each with why. |
+| `ml task new FOLDER [--target COL] [--question TEXT] [--force] [--exclude-shifting]` | Create a task folder with an annotated `task.yaml` and its `task_catalog.xlsx` (the catalog rows of the parameters the task can use as input features). It lists what the screening register excludes under `predictors.exclude`; `--exclude-shifting` also lists every parameter the latest build's `shifts.xlsx` holds, each with why. |
+| `ml task catalog [FOLDER]` | Write the task's `task_catalog.xlsx` again from its `task.yaml` as it is now, the latest batch table and the current register. |
 | `ml task run [--task T]` | Run tasks; without `--task`, the task in the current folder. |
 | `ml task rerun RUN_FOLDER` | Redo a run from its own folder, and say whether `dataset.csv` came out identical. |
 | `ml task encode --run RUN_FOLDER [--out FILE]` | Encode the batch table's batches with a run's fitted encoding. |
@@ -36,8 +37,9 @@ The config is found in this order: `--config`, the `config:` line of the task,
 | Stage | Reads | Writes, into |
 |---|---|---|
 | `ml check-catalog` | vocabulary, catalog, both sites' batch records, parameter mapping, investigations | the catalog's folder |
-| `ml build` | vocabulary and corrections, catalog, every source, site maps, the catalog manifest, the screening register (for the reports and the task catalog) | the batch table's folder; the screening register (its `never recorded` exclusions) |
+| `ml build` | vocabulary and corrections, catalog, every source, site maps, the catalog manifest, the screening register (for the reports) | the batch table's folder; the screening register (its `never recorded` exclusions) |
 | `ml screening add` | vocabulary, screening register, the latest `missingness.xlsx` (with each parameter's correlation group) | the screening register |
+| `ml task new`, `ml task catalog` | vocabulary, batch table, catalog, screening register (`--exclude-shifting`: `shifts.xlsx`) | the task folder: `task.yaml` (`task new` only) and `task_catalog.xlsx` |
 | `ml screening reset` | vocabulary, screening register | the screening register, and a renamed copy of the old one |
 | `ml task run` | vocabulary, batch table, catalog, both manifests, screening register | the run folder |
 
@@ -209,7 +211,6 @@ in the correlation report: `correlated with group`.
 | File | Contents |
 |---|---|
 | `missingness.xlsx` | Per site and parameter: missing %, pattern, gaps, last measured, missingness group, *Correlation group* and *Suggested representative*, and every standing screening decision on it (from either report). What `ml screening add` checks a proposal against and cites as evidence. |
-| `task_catalog.xlsx` | The catalog rows for the batch table's parameters that the register (as the build read it) leaves usable at some site, with *Usable at* (sites) and *Represents* (what each representative stands for, per site). |
 | `correlation_report.html` | Per site: numerical parameters grouped by Spearman \|ρ\| (complete linkage: every pair ≥ `build.correlation_threshold`, default 0.9; pairs need 20 shared batches), each group with a suggested representative, the best usable one, and BH-adjusted q. Every parameter takes part whatever the register says; the register is shown alongside. |
 | `shifts_report.html` | Per manufacturing site (the `Manufacturing Site` column): parameters whose exact value runs in groups over time, dates by the day (groups ≥ 2 days with a value on average, permutation p ≤ 0.01; pairs need 20 shared batches), grouped by the days they change (complete linkage: every pair shares ≥ 0.8 of its change days). Takes no part in screening. |
 | `shifts.xlsx` | Every parameter that runs in groups over time, grouped or not, one row per manufacturing site and parameter, and when it was built: what `ml task new --exclude-shifting` lists. |

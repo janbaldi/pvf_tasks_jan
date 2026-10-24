@@ -65,7 +65,6 @@ Written to SharePoint — 70 batches × 230 columns
   correlation report     correlation_report.html
   shifts report          shifts_report.html
   shifts table           shifts.xlsx
-  task catalog           task_catalog.xlsx
   manifest               batch_table_manifest.json
 ```
 
@@ -240,15 +239,6 @@ tick. To leave all of them out of a task, the grouped ones too, create it with
 ([chapter 4](04-tasks.md#1-create-a-task)): it reads every parameter from
 `shifts.xlsx`. One the register already screens out is listed once, as
 screened.
-
-### The task catalog
-
-`task_catalog.xlsx` is the catalog cut down to what a task can still use: every
-catalog parameter in the batch table that the screening register (as this build
-read it) does not exclude at every site. *Usable at* names the sites that allow
-it (a task over both sites needs both), and *Represents* the parameters it stands
-in for. Pick predictors from it when you write a task. A decision added after the
-build shows in it from the next build.
 
 ## 6. Check the standing decisions
 

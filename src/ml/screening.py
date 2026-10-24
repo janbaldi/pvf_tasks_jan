@@ -722,31 +722,31 @@ def summary(decisions: list[Decision], sites: tuple[str, ...]) -> pd.DataFrame:
 
 def task_catalog(
     catalog: pd.DataFrame,
-    columns,
+    usable: list[str],
     decisions: list[Decision],
     sites: tuple[str, ...],
+    cohort: tuple[str, ...] = (),
 ) -> pd.DataFrame:
-    """The catalog rows a task may still pick: in the batch table, and usable at some site.
+    """The catalog rows of the parameters one task can use as input features, in catalog order.
 
-    ``Usable at`` names the sites that do not exclude the parameter (a task over
-    both sites needs both); ``Represents`` the parameters screened out because it
-    carries their information, per site.
+    ``usable`` is what the task's own predictor choice keeps
+    (:func:`ml.dataset.candidate_predictors`). ``Represents`` names the parameters
+    screened out at the task's sites (``cohort``; default: all) because this one
+    carries their information.
     """
-    excluded = set(standing(decisions, sites))
     represents: dict[str, dict[str, list[str]]] = {}
     for (parameter, site), members in sorted(represented(decisions, sites).items()):
-        represents.setdefault(parameter, {})[site] = [d.parameter for d in members]
-    rows = catalog[catalog["Parameter"].isin(set(columns))].copy()
-    usable = rows["Parameter"].map(lambda p: [s for s in sites if (p, s) not in excluded])
-    rows.insert(1, "Usable at", usable.map(", ".join))
+        if not cohort or site in cohort:
+            represents.setdefault(parameter, {})[site] = [d.parameter for d in members]
+    rows = catalog[catalog["Parameter"].isin(set(usable))].drop_duplicates("Parameter").copy()
     rows.insert(
-        2,
+        1,
         "Represents",
         rows["Parameter"].map(
             lambda p: "; ".join(f"{s}: {', '.join(ps)}" for s, ps in represents.get(p, {}).items())
         ),
     )
-    return rows[usable.map(bool)].reset_index(drop=True)
+    return rows.reset_index(drop=True)
 
 
 def status_line(decisions: list[Decision], sites: tuple[str, ...]) -> str:

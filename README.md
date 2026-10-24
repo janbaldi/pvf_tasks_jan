@@ -16,8 +16,8 @@ table, and the means to refit the preprocessing inside every fold.
  ml check-catalog   is the catalog still complete?
  ml build           every batch, both sites, in one table   ml task new <folder>
         │           + build report, missingness,            ml task run
-        │             correlation and shifts reports,              │
-        │             task catalog                          reads the batch table,
+        │             correlation and shifts reports               │
+        │                                                   reads the batch table,
         ▼                                                   applies the screening,
  ml screening add   leave unusable or redundant parameters  writes a run folder
  ml screening status   out of every task, with a recorded
@@ -37,7 +37,7 @@ loop, new task, reproduce a run) to highlight it.
 | **missingness report** | `missingness_report.html`: how every parameter goes missing, per site, batch by batch |
 | **correlation report** | `correlation_report.html`: which numerical parameters rank the batches alike, per site, and which one could represent each group |
 | **shifts report** | `shifts_report.html`: which parameters run in groups over time, as a lot does, and which change on the same days, per manufacturing site; `ml task new --exclude-shifting` leaves them out of a task |
-| **task catalog** | `task_catalog.xlsx`, next to the batch table: the catalog parameters a task can still use after screening |
+| **task catalog** | `task_catalog.xlsx`, in a task folder: the catalog parameters that task can use as input features, written by `ml task new` (again: `ml task catalog`) |
 | **screening register** | `parameter_screening.xlsx` on SharePoint: the log of parameters you decided to leave out of every task, and why |
 | **task** | one question, written as a `task.yaml` in a folder of its own |
 | **run** | one execution of a task: a folder holding the dataset, every decision behind it, and copies of its inputs |
@@ -78,7 +78,6 @@ Then open, in a browser:
 - `sharepoint/DEMO_DRIVE/Data/batch_data/missingness_report.html`: how each parameter goes missing.
 - `sharepoint/DEMO_DRIVE/Data/batch_data/correlation_report.html`: which numerical parameters rank the batches alike.
 - `sharepoint/DEMO_DRIVE/Data/batch_data/shifts_report.html`: which parameters run in groups over time, as the lots do, and which change on the same days.
-- `sharepoint/DEMO_DRIVE/Data/batch_data/task_catalog.xlsx`: the parameters a task can still use.
 - `tasks/expression/runs/<run id>/report/report.html`: the training dataset and every decision behind it.
 
 ## The manual

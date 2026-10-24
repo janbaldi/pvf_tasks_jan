@@ -113,9 +113,10 @@ BUILD_OUTPUTS = {
     "correlation report": "correlation_report.html",
     "shifts report": "shifts_report.html",
     "shifts table": "shifts.xlsx",
-    "task catalog": "task_catalog.xlsx",
     "manifest": "batch_table_manifest.json",
 }
+#: Written next to a new task's task.yaml: the catalog rows it can use as input features.
+TASK_CATALOG = "task_catalog.xlsx"
 
 
 def _provenance(config: dict[str, Any], sources: list[provenance.Source]) -> dict:
@@ -575,14 +576,6 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
             files["missingness report"] = report.write(
                 report.build_missingness_payload(build_run), missing_report
             )
-        catalog_for_tasks = staged / BUILD_OUTPUTS["task catalog"]
-        with _preparing("the task catalog", catalog_for_tasks, folder):
-            # shortcut: the register as this build read it; a later `ml screening add`
-            # shows in it only after the next build.
-            screening.task_catalog(
-                catalog_frame, result.columns, decisions, names.sites()
-            ).to_excel(catalog_for_tasks, index=False)
-            files["task catalog"] = catalog_for_tasks
         shifts_report = staged / BUILD_OUTPUTS["shifts report"]
         with _preparing("the shifts report", shifts_report, folder):
             files["shifts report"] = report.write(
@@ -1228,6 +1221,44 @@ def _shifting_for_new_task(config: dict[str, Any] | None) -> tuple[list[tuple[st
     return [(p, "runs in groups over time: " + "; ".join(w)) for p, w in why.items()], built
 
 
+def write_task_catalog(config: dict[str, Any], spec: TaskSpec) -> Path:
+    """``task_catalog.xlsx`` next to the task's task.yaml: the catalog rows of the
+    parameters this task can use as input features.
+
+    The same choice a run makes (:func:`ml.dataset.candidate_predictors`), on the
+    latest batch table and catalog, with the screening register as it is now at the
+    task's sites and the task file's own exclusions and roles. A later edit of
+    task.yaml, a new build or a new decision shows after ``ml task catalog``.
+    """
+    workspace.load_vocabulary(config)
+    batch_table_source = workspace.table_source(config, "batch_table", None)
+    catalog_source = workspace.table_source(config, "catalog", None)
+    _show_reads([batch_table_source, catalog_source], "Reading from SharePoint")
+    batch_table = io.load_batch_table(batch_table_source)
+    catalog_frame = io.read_catalog(catalog_source)
+    register = _register(config)
+    decisions = register.decisions if register else []
+    screened = screening.excluded(decisions, names.sites(), spec.cohort.sites)
+    usable = dataset.candidate_predictors(
+        batch_table,
+        catalog_frame,
+        spec,
+        dataset.TaskResult(spec),
+        screened={p: screening.labels(ds) for p, ds in screened.items()},
+    )
+    table = screening.task_catalog(
+        catalog_frame, usable, decisions, names.sites(), spec.cohort.sites
+    )
+    path = Path(spec.source).parent / TASK_CATALOG
+    table.to_excel(path, index=False)
+    log.success(
+        MODULE,
+        f"Task catalog: {len(table):,} parameters this task can use as input features",
+        str(path),
+    )
+    return path
+
+
 def _task_register(config: dict[str, Any] | None, spec: TaskSpec) -> screening.Register | None:
     """The register a task applies: its run's own copy for a rerun, else SharePoint's."""
     if spec.batch_table is not None:  # a rerun reads nothing but its own folder
@@ -1814,6 +1845,13 @@ def _parser() -> argparse.ArgumentParser:
         help="also exclude every parameter the latest build's shifts report finds running in "
         "groups over time, each with why",
     )
+    catalog_cmd = actions.add_parser(
+        "catalog",
+        help="write the task's task_catalog.xlsx again: the parameters it can use as inputs",
+    )
+    catalog_cmd.add_argument(
+        "folder", nargs="?", default=".", help="the task workspace (default: here)"
+    )
     run = actions.add_parser("run", help="run tasks, each into a new run folder")
     run.add_argument(
         "--task",
@@ -1871,10 +1909,26 @@ def _run(args) -> int:
             shifting=shifting,
             shifting_built=built,
         )
+        catalog = None
+        if found:
+            try:
+                catalog = write_task_catalog(found, taskconfig.load(path))
+            except Exception as exc:  # the task file stands; the list can be written later
+                log.warn(
+                    MODULE,
+                    f"{TASK_CATALOG} was not written: {exc} — fix it, then `ml task catalog`",
+                )
+        if not args.target:
+            log.warn(
+                MODULE,
+                f"No --target: {TASK_CATALOG} still lists the target and what is computed from "
+                "it; set target in task.yaml, then `ml task catalog`",
+            )
         log.facts(
             "Task workspace created",
             [
                 ("File", str(path)),
+                ("Usable inputs", str(catalog) if catalog else "not written (see above)"),
                 ("Config", found["__path__"] if found else "none found — set config: in the file"),
                 *(
                     [("Run in groups", f"{len(shifting)} parameters excluded (build {built})")]
@@ -1884,6 +1938,14 @@ def _run(args) -> int:
                 ("Next", f"cd {path.parent} && ml validate && ml task run"),
             ],
         )
+        return 0
+
+    if command == "task catalog":
+        task_file = Path(args.folder).expanduser() / TASK_FILE
+        if not task_file.is_file():
+            raise TaskConfigError(f"No {TASK_FILE} in {args.folder}: create one with `ml task new`")
+        spec = taskconfig.load(task_file)
+        write_task_catalog(_config(args, start=args.folder), spec)
         return 0
 
     if command == "task rerun":

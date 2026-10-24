@@ -199,7 +199,7 @@ def enrich_clinical_sites(
     phf: dict[str, pd.DataFrame],
     site_maps: list[Source | str],
 ) -> tuple[list[str], list[str]]:
-    """Give both sites a clinical site the other site would recognise.
+    """Give each site built (``phf``) a clinical site the other site would recognise.
 
     Site A encodes the clinical site in the patient identifier (a prefix, then
     the site); site B records an acronym that the mapping workbooks expand into
@@ -213,12 +213,15 @@ def enrich_clinical_sites(
     acronym, institution = col("site_map_acronym"), col("site_map_institution")
     prefix = value("patient_id_site_prefix")
 
-    first = phf[site("a")]
-    patient = first[col("patient_id")].fillna("Unknown")
-    first[site_id] = patient.map(
-        lambda x: x.split("-")[1] if isinstance(x, str) and x.startswith(prefix) else x
-    ).replace("Unknown", pd.NA)
-    log.info(MODULE, f"[{site('a')}] clinical site extracted from the patient identifier")
+    if site("a") in phf:
+        first = phf[site("a")]
+        patient = first[col("patient_id")].fillna("Unknown")
+        first[site_id] = patient.map(
+            lambda x: x.split("-")[1] if isinstance(x, str) and x.startswith(prefix) else x
+        ).replace("Unknown", pd.NA)
+        log.info(MODULE, f"[{site('a')}] clinical site extracted from the patient identifier")
+    if site("b") not in phf:
+        return [], [site_id]
 
     second = phf[site("b")]
     second[site_id] = second[clinical_site].copy()
@@ -277,6 +280,8 @@ def harmonise_countries(phf: dict[str, pd.DataFrame]) -> None:
     in the table, and the raw frame no longer carries the corrections cleaning
     made.
     """
+    if site("b") not in phf:
+        return
     log.step(MODULE, "Harmonising country names")
     second = phf[site("b")]
     country = col("country")

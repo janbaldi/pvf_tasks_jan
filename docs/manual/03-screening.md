@@ -22,6 +22,10 @@ every task.
 - **A log, not a list.** Each row is one decision: *exclude* or *reinstate* one
   parameter at one site (or `all`), with who, when, why, and the evidence. Rows
   are only added, by `ml screening add`; a change of mind is a new row.
+- **One register, seen one site at a time.** Both sites' decisions are in the
+  one register, but everything is about the site `config.yaml`'s `site:` names:
+  its build, reports, `ml screening status` and tasks see only the decisions at
+  that site and at `all`, and a proposal is about that site (or `all`) only.
 - **Two reports, two tracks.** Each row records the report it was made from in
   its `Report` column: `missingness` (every reason but one) or `correlation`
   (`correlated with group`). Today's state is the log read from top to bottom:
@@ -29,9 +33,9 @@ every task.
   can be excluded in both reports at once, and reinstating it in one leaves the
   other's exclusion standing. A parameter is out when either report excludes it.
 - **Every task applies it.** When a task picks its predictors, it leaves out
-  every parameter the register excludes at the task's sites. A task over both
-  sites leaves out what either site excludes. `ml task new` also lists them in the
-  new `task.yaml` under `predictors.exclude`, so the task file shows them.
+  every parameter the register excludes at the task's site. `ml task new` also
+  lists them in the new `task.yaml` under `predictors.exclude`, so the task file
+  shows them.
 - **Every run keeps the evidence.** The run's `parameters.csv` names the decision
   behind each exclusion, its `manifest.json` records which register it applied,
   and `inputs/screening.xlsx` is a copy of that register. `ml task rerun` applies
@@ -45,13 +49,13 @@ every task.
   *Screened out by the … report*, read only), and the *Screening* / *Register*
   column spells out every decision on a parameter, and what it represents. Each
   report's lead names the register it shows (rows, last decision), or says why
-  none could be read; the build log counts the exclusions per site and report and
-  warns about decisions on parameters the batch table does not have. And the
-  build adds its own `never recorded` exclusions to it (below).
+  none could be read; the build log counts the site's exclusions per report and
+  warns about decisions on parameters the batch table does not have. The build
+  never writes to the register.
 - **Conflicts are named, never resolved silently.** A representative that is
   excluded itself would leave its whole group out. `ml screening add` refuses a
-  proposal that makes one, in either order. The build's own `never recorded`
-  exclusions can still make one: then a ⚠ banner names it in both reports, the
+  proposal that makes one, in either order. A decision at `all` made from the
+  other site's build can still make one: then a ⚠ banner names it in both reports, the
   build log warns, `ml screening status` lists it, `ml task new` writes it as a
   comment in `task.yaml`, and every task run warns. Resolve it in the correlation
   report (below).
@@ -77,20 +81,19 @@ Good candidates for screening:
 | Values you know to be wrong or incomparable | `data quality` |
 | Anything else | `other`, and say why |
 
-A parameter missing on every batch at a site needs no decision: each build
-excludes it there itself, as `never recorded`, with `ml build` as the author and
-one decision ID per site. It does so only once, and never for a parameter the
-missingness report already decides on at that site, so a reinstatement stands. Parameters
-that are never missing are left out of the missingness report altogether.
+A parameter the site never records (empty in every one of its batches) needs no
+decision: it is not in the site's batch table at all, and the build report
+lists it. Parameters that are never missing are left out of the missingness
+report altogether.
 
-Screen at the site where the problem is. A parameter that is fine at Raritan and
-never recorded at Ghent is excluded at Ghent; only tasks that include Ghent
-batches lose it.
+Screen at the site where the problem is: the site the report is about. Use
+`all` only for a decision that holds at both sites whatever their data, and
+check it in the other site's reports after its next build.
 
 ## Recording a decision
 
 **1. Write the proposal from the report.** In the report (`missingness_report.html`
-or `correlation_report.html`), pick the site and tick, with the box at the
+or `correlation_report.html`) of the site, tick, with the box at the
 start of a row, what the decision is about: groups in the group table,
 parameters in the parameter table, or (to reinstate them) rows of *Screened out
 at this site*. You can tick rows in several tables at once. Clicking a row
@@ -134,7 +137,7 @@ You can also write the file by hand, in Excel or a text editor:
 | `Action` | `exclude` or `reinstate` |
 | `Parameter` | The parameter's exact name, as in the report |
 | `Group` | A group from a report's group table, such as `Missing 05` or `Correlated 02`. With no `Parameter`, the row stands for every member of the group at that site; with one, it is context |
-| `Site` | A site's name, or `all` (not with a group and no `Parameter`: groups are found per site) |
+| `Site` | The name of the site config.yaml is about, or `all` (not with a group and no `Parameter`: groups are found per site). Any other site is refused: run `ml screening add` with a config about it |
 | `Reason` | One of the reasons in the table above |
 | `Rationale` | Why, in a sentence. Optional |
 | `Author` | Who decides; or leave it empty and pass `--author` |
@@ -150,16 +153,14 @@ uv run ml screening add proposal.csv
 ```
 OK  screening  S-0002: exclude 2 parameters at Northfield — missing with group
                Day 3 clump observation, D3 clumps present
-OK  screening  S-0003: exclude 1 parameter at Southbank — never recorded
-               Seeding density vessel A
 
 Screening register updated
   Register  SharePoint DEMO_DRIVE: Data/catalog/parameter_screening.xlsx
-  State     4 parameters excluded at some site; 4 rows, last decision S-0003
+  State     3 parameters excluded at some site; 3 rows, last decision S-0002
   Next      every task run from now on leaves these parameters out
 ```
 
-`ml screening add` checks the whole proposal against the latest build before it
+`ml screening add` checks the whole proposal against the site's latest build before it
 writes anything. It refuses a proposal with an unknown parameter or group, a
 reason that isn't on the list or belongs to the other report, a reinstatement
 of something that report hasn't excluded, or a conflict: a representative that
@@ -179,10 +180,10 @@ exclusion, a review date three months on.
 The first time, there is no register yet: add `--new` to start one.
 
 **Starting over.** `uv run ml screening reset --yes` replaces the register with
-an empty one. The old one is kept next to it on SharePoint, renamed
-`parameter_screening_before_reset_<date>.xlsx`. The next `ml build` adds the
-`never recorded` exclusions again; the reports propose the rest. Tasks already
-run keep their own copy, so their reruns are unchanged.
+an empty one, for both sites: it is one register. The old one is kept next to it
+on SharePoint, renamed `parameter_screening_before_reset_<date>.xlsx`. The
+reports propose the decisions again. Tasks already run keep their own copy, so
+their reruns are unchanged.
 
 If SharePoint answers that it cannot replace the register (409 Conflict), the
 file is open in Excel somewhere (desktop or browser, yours or a colleague's) or

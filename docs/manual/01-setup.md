@@ -47,10 +47,19 @@ sharepoint:
   …
 ```
 
-The catalog's folder is where `ml check-catalog` writes, and the batch table's
-folder is where `ml build` writes. The rest of `config.yaml` holds the settings
-of the build (cleaning rules, feature thresholds, which batches the missingness,
-correlation and shifts reports describe). [The reference](05-reference.md#configyaml) lists them all.
+**`site:` says which site everything is about**: `a` or `b`, as the vocabulary
+names them (step 3). `ml check-catalog` and `ml build` read only that site's
+sources, and write into a folder named after it: `ml check-catalog` into
+`<catalog folder>/<site name>/`, `ml build` into `<batch table folder>/<site
+name>/`. Every task reads that site's batch table and only the screening
+decisions at that site (or `all`). To work on the other site, switch `site:`
+(or keep a second config that differs only in it): each site's outputs stay
+apart, and a task about one site refuses to run with a config about the other.
+
+The catalog, the vocabulary and the screening register are shared by both
+sites. The rest of `config.yaml` holds the settings of the build (cleaning
+rules, feature thresholds, which batches the missingness, correlation and
+shifts reports describe). [The reference](05-reference.md#configyaml) lists them all.
 
 ## Step 3: the vocabulary
 

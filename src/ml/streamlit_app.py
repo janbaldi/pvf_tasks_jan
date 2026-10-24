@@ -511,6 +511,16 @@ def render_proposal(
 CLICK_A_ROW = "Click a row in a table below to draw it here."
 
 
+def _pick_site(label: str, labels: list, key: str) -> str:
+    """The site (or plant) the viewer shows: picked in the sidebar, or named when it is the
+    only one."""
+    with SLOTS.get("site") or st.sidebar:
+        if len(labels) == 1:
+            st.markdown(f"**{html.escape(label)}:** {html.escape(str(labels[0]))}")
+            return labels[0]
+        return st.radio(label, labels, horizontal=True, key=f"site{key}")
+
+
 def render_missing_viewer(block: dict, key: str) -> None:
     """The plot on top; below it the groups and the parameters: click one to draw it.
 
@@ -520,10 +530,7 @@ def render_missing_viewer(block: dict, key: str) -> None:
     mode = "rank" if block["kind"] == "rank_viewer" else "missing"
     together = "that rank the batches alike" if mode == "rank" else "missing together"
     labels = [site["label"] for site in block["sites"]]
-    with SLOTS.get("site") or st.sidebar:
-        chosen = st.radio(
-            block.get("site_label") or "Site", labels, horizontal=True, key=f"site{key}"
-        )
+    chosen = _pick_site(block.get("site_label") or "Site", labels, key)
     site = block["sites"][labels.index(chosen)]
     screened = site.get("screened") or {}
     elsewhere = site.get("elsewhere") or {}
@@ -812,8 +819,7 @@ def render_timeline(segments: dict, drawn: list, key: str) -> None:
 def render_shift_viewer(block: dict, key: str) -> None:
     """The groups over time of the row clicked; below, the groups and parameters to click."""
     labels = [site["label"] for site in block["sites"]]
-    with SLOTS.get("site") or st.sidebar:
-        chosen = st.radio(block["site_label"], labels, horizontal=True, key=f"site{key}")
+    chosen = _pick_site(block["site_label"], labels, key)
     site = block["sites"][labels.index(chosen)]
     top = st.container()
     plot = f"plot{key}-{chosen}"

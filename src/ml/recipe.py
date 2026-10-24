@@ -22,6 +22,7 @@ things can be done with it here:
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -165,12 +166,12 @@ def task_screening(spec: taskconfig.TaskSpec, config: dict | None = None) -> dic
                 if workspace.has(config, "screening")
                 else None
             )
-        decisions = register.decisions if register else []
+        configured = workspace.site_key(config) if spec.batch_table is None else None
+        site = names.site(dataset.task_site(spec, configured))
+        decisions = screening.for_site(register.decisions, site) if register else []
         _screenings[key] = {
             parameter: screening.labels(found)
-            for parameter, found in screening.excluded(
-                decisions, names.sites(), spec.cohort.sites
-            ).items()
+            for parameter, found in screening.excluded(decisions, (site,)).items()
         }
     return _screenings[key]
 
@@ -187,9 +188,12 @@ def task_data(
     if config is None and spec.batch_table is None:
         config = _task_config(task)
     workspace.task_vocabulary(config, spec.batch_table)
+    configured = workspace.site_key(config) if config and spec.batch_table is None else None
+    spec = replace(spec, site=dataset.task_site(spec, configured))
     batch_table = io.load_batch_table(
         workspace.table_source(config, "batch_table", spec.batch_table)
     )
+    dataset.check_batch_table_site(batch_table, names.site(spec.site))
     result = TaskResult(spec=spec)
     cohort = dataset.select_cohort(batch_table, spec, result)
     target, labelled = dataset.prepare_target(cohort, spec, result)

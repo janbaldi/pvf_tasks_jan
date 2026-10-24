@@ -12,27 +12,27 @@ from dummy_data import c
 from ml import names
 
 
-def test_every_source_is_compared(built):
+def test_every_source_of_the_site_is_compared(built):
     rows = {row[0]: row for row in first_table(built["payloads"]["catalog"], "sources")["rows"]}
-    assert {
-        f"{names.site('a')} batch records",
-        f"{names.site('b')} batch records",
-        "Investigations Power Query",
-    } <= set(rows)
+    assert {f"{names.site('a')} batch records", "Investigations Power Query"} <= set(rows)
+    assert f"{names.site('b')} batch records" not in rows, "everything is about one site"
     assert all(row[3] == "read" for row in rows.values())
+    rows_b = first_table(built["payloads_b"]["catalog"], "sources")["rows"]
+    assert f"{names.site('b')} batch records" in {row[0] for row in rows_b}
 
 
 def test_the_columns_nobody_added_to_the_catalog_are_found(built):
     found = set(built["new_parameters"]["Parameter"])
-    # The two site comment columns, and the investigations team's own working ones.
-    assert {c("site_a_comment"), c("site_b_comment")} <= found
+    # Each site's comment column, in its own check, and the investigations team's own ones.
+    assert c("site_a_comment") in found and c("site_b_comment") not in found
+    assert c("site_b_comment") in set(built["new_parameters_b"]["Parameter"])
     assert any(c("investigation_id") in name for name in found)
     assert c("days_to_close") in found
 
 
 def test_a_site_b_column_is_judged_by_the_name_it_maps_to(built):
     """Site B's own names are not catalog parameters; what they map to is."""
-    found = set(built["new_parameters"]["Parameter"])
+    found = set(built["new_parameters_b"]["Parameter"])
     for own_name in dummy_data.site_b_names().values():
         assert own_name not in found, own_name
 
@@ -72,10 +72,16 @@ def test_the_catalog_check_writes_into_the_catalog_folder_on_sharepoint(built):
     from conftest import shared
 
     folder = shared(built["directory"], built["config"], "catalog").parent
+    # The catalog and the register are shared; each site's check has a folder of its own.
     assert {path.name for path in folder.iterdir()} == {
         "catalog.xlsx",
-        "catalog_report.html",
-        "catalog_manifest.json",
-        "new_parameters.csv",
         "parameter_screening.xlsx",
+        names.site("a"),
+        names.site("b"),
     }
+    for site in (names.site("a"), names.site("b")):
+        assert {path.name for path in (folder / site).iterdir()} == {
+            "catalog_report.html",
+            "catalog_manifest.json",
+            "new_parameters.csv",
+        }

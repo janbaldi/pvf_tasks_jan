@@ -234,7 +234,9 @@ def test_a_new_task_gets_its_own_task_catalog(built, tmp_path):
     batch_table = io.load_batch_table(workspace.table_source(built["config"], "batch_table", None))
     catalog = io.read_catalog(workspace.table_source(built["config"], "catalog", None))
     register = cli._register(built["config"])
-    screened = screening.excluded(register.decisions, names.sites(), spec.cohort.sites)
+    assert spec.site == "a", "task new names the config's site"
+    site = names.site(spec.site)
+    screened = screening.excluded(screening.for_site(register.decisions, site), (site,))
     kept = dataset.candidate_predictors(
         batch_table,
         catalog,

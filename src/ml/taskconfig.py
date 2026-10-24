@@ -52,6 +52,10 @@ CORRELATION_METHODS = ("spearman", "pearson")
 TASK_FILE = "task.yaml"
 
 
+#: The keys of the sites, as config.yaml's ``site:`` names them.
+SITE_KEYS = ("a", "b")
+
+
 class TaskConfigError(ValueError):
     """One or more problems with a task YAML, each naming its field."""
 
@@ -86,8 +90,6 @@ class Filter:
 
 @dataclass(frozen=True)
 class Cohort:
-    sites: tuple[str, ...] = ()
-    site_column: str = "Site Merged"
     filters: tuple[Filter, ...] = ()
     date_column: str = ""
     date_from: str = ""
@@ -179,6 +181,8 @@ class TaskSpec:
     name: str = "task"
     question: str = ""
     seed: int = 0
+    #: The key (``a`` or ``b``) of the site the task is about; empty: config.yaml's ``site:``.
+    site: str = ""
     #: A run's own copies (``ml task rerun``); None means SharePoint, via config.yaml.
     batch_table: Path | None = None
     catalog: Path | None = None
@@ -226,6 +230,7 @@ class TaskSpec:
             inputs["screening"] = str(self.screening)
         return {
             "task": {key: d[key] for key in ("name", "question", "seed")},
+            "site": self.site,
             "inputs": inputs,
             "cohort": d["cohort"],
             "target": d["target"],
@@ -587,6 +592,7 @@ def parse(
         (
             "config",
             "task",
+            "site",
             "inputs",
             "cohort",
             "target",
@@ -614,9 +620,15 @@ def parse(
         "cohort",
         errors,
     )
+    if cohort_raw.get("sites"):
+        errors.append(
+            "cohort.sites: no longer a setting — a task is about one site; name its key "
+            "(a or b) under site: at the top, as config.yaml's site: does"
+        )
+    site = str(raw.get("site") or "").strip()
+    if site and site not in SITE_KEYS:
+        errors.append(f"site: '{site}' is not a site key ({' or '.join(SITE_KEYS)})")
     cohort = Cohort(
-        sites=_names(cohort_raw, "sites", "cohort", errors),
-        site_column=_text(cohort_raw, "site_column", "cohort", errors, "Site Merged"),
         filters=_filters(cohort_raw, "cohort", errors),
         date_column=_text(cohort_raw, "date_column", "cohort", errors),
         date_from=_text(cohort_raw, "date_from", "cohort", errors),
@@ -765,6 +777,7 @@ def parse(
         name=name,
         question=_text(meta, "question", "task", errors),
         seed=seed,
+        site=site,
         batch_table=batch_table,
         catalog=catalog,
         screening=screened,

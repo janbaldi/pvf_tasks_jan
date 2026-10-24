@@ -20,7 +20,7 @@ import pytest
 import yaml
 
 import dummy_data
-from conftest import EXPLORATORY, PREDICTIVE, ROOT, artifact, csv, shared
+from conftest import EXPLORATORY, PREDICTIVE, ROOT, artifact, csv, on_share, shared
 from dummy_data import c, v
 from ml import cli, corrections, dataset, encode, manifest, names, recipe, scaffold, taskconfig
 from ml import config as workspace
@@ -96,8 +96,11 @@ def test_sharepoint_addresses_are_read_from_the_env_file(tmp_path, monkeypatch):
 def test_the_shipped_config_is_a_valid_config():
     config = workspace.load(ROOT / "config.yaml")
     assert workspace.location(config, "batch_table").name == "batch_data.xlsx"
-    assert workspace.catalog_folder(config).path.endswith("/Data/catalog/")
-    assert workspace.batch_table_folder(config).path.endswith("/Data/batch_data/")
+    # Each site's outputs go into a folder named after it.
+    site = names.site(config["site"])
+    assert workspace.catalog_folder(config).path.endswith(f"/Data/catalog/{site}/")
+    assert workspace.batch_table_folder(config).path.endswith(f"/Data/batch_data/{site}/")
+    assert workspace.location(config, "catalog").path.endswith("/Data/catalog/catalog.xlsx")
     # It names columns by key only, and the keys exist.
     assert cli._unknown_keys(config) == []
     config["build"] = {"date_column": "no_such_key"}
@@ -187,9 +190,11 @@ def test_outputs_are_uploaded_into_the_folder_of_their_stage(tmp_path, monkeypat
     report.write_text("<html></html>")
     [(what, where)] = share.upload({"report": report}, workspace.batch_table_folder(config))
     assert what == "report" and where.name == "build_report.html"
-    assert calls[0][1]["sharepoint_target_path"].endswith("/Data/batch_data/")
+    assert calls[0][1]["sharepoint_target_path"].endswith(f"/Data/batch_data/{names.site('a')}/")
     assert calls[0][1]["drive_id"] == "DRIVE_FOR_A"
-    assert "Team Site/Data/batch_data/" in where.where, "shown decoded, as a person reads it"
+    assert f"Team Site/Data/batch_data/{names.site('a')}/" in where.where, (
+        "shown decoded, as a person reads it"
+    )
 
 
 def test_a_csv_source_is_read_as_csv(tmp_path, monkeypatch):
@@ -230,7 +235,7 @@ def test_a_manifest_is_written_and_read_back_through_io_sharepoint(tmp_path, mon
         "write text",
         {
             "text": "{}",
-            "sharepoint_target_folder_path": "Team%20Site/Data/batch_data/",
+            "sharepoint_target_folder_path": f"Team%20Site/Data/batch_data/{names.site('a')}/",
             "file_name": "batch_table_manifest.json",
             "drive_id": "DRIVE_FOR_A",
         },
@@ -239,7 +244,9 @@ def test_a_manifest_is_written_and_read_back_through_io_sharepoint(tmp_path, mon
     assert calls[1] == (
         "download",
         {
-            "sharepoint_path": "Team%20Site/Data/batch_data/batch_table_manifest.json",
+            "sharepoint_path": (
+                f"Team%20Site/Data/batch_data/{names.site('a')}/batch_table_manifest.json"
+            ),
             "drive_id": "DRIVE_FOR_A",
         },
     )
@@ -511,7 +518,10 @@ def test_corrections_survive_the_round_trip_through_their_sheet(tmp_path):
 # ---------------------------------------------------------------------------
 def test_every_manifest_follows_the_one_format(built):
     paths = [
-        shared(built["directory"], built["config"], "catalog", "catalog_manifest.json"),
+        on_share(
+            built["directory"],
+            workspace.catalog_folder(built["config"]).file("catalog_manifest.json"),
+        ),
         shared(built["directory"], built["config"], "batch_table", "batch_table_manifest.json"),
         *(artifact(built, task, "manifest.json") for task in (PREDICTIVE, EXPLORATORY)),
     ]
@@ -534,7 +544,15 @@ def test_a_manifest_names_the_files_it_describes_relative_to_itself(built):
         and written["batch table (Parquet)"] == "batch_data.parquet"
     )
     assert record["batch_table"]["content_sha256"]
-    assert {entry["label"] for entry in record["inputs"]} >= {"catalog", "phf_site_a", "site_map_1"}
+    labels = {entry["label"] for entry in record["inputs"]}
+    assert labels >= {"catalog", "phf_site_a"} and not labels & {"phf_site_b", "site_map_1"}
+    # Site B's build reads its own records, and what only it needs.
+    record_b = manifest.read(
+        shared(built["directory"], built["config_b"], "batch_table", "batch_table_manifest.json")
+    )
+    labels_b = {entry["label"] for entry in record_b["inputs"]}
+    assert labels_b >= {"phf_site_b", "param_mapping", "remfg", "site_map_1"}
+    assert "phf_site_a" not in labels_b
 
 
 def test_a_changed_output_is_caught(built, tmp_path):
@@ -645,7 +663,9 @@ def test_the_task_transformer_uses_the_runs_groups_in_every_fold(built):
     run = built["packages"][EXPLORATORY]
     groups = json.loads((run / "metadata" / "groups.json").read_text(encoding="utf-8"))
     fixed = [set(g["parameters"]) for g in groups.values() if len(g["parameters"]) > 1]
-    X, y, _, spec = recipe.task_data(built["directory"] / dummy_data.TASK_FILES[1], built["config"])
+    X, y, _, spec = recipe.task_data(
+        built["directory"] / dummy_data.TASK_FILES[1], built["config_b"]
+    )
     half = X.iloc[: len(X) // 2 + 4]
     transformer = recipe.TaskTransformer(spec, run=run).fit(half, y.loc[half.index])
     used = [set(k["members"]) for k in transformer.preprocessor_.clusters["clusters"]]
@@ -694,3 +714,77 @@ def test_the_missingness_cohort_keeps_every_batch_at_a_site_that_records_no_kind
     kept, why = cli._missingness_cohort(second, names.site("b"), config)
     assert len(kept) == 2, "a blank kind at an all-batches site still counts"
     assert cli._missingness_cohort(first, names.site("a"), {})[0] is first
+
+
+# ---------------------------------------------------------------------------
+# Everything is about one site
+# ---------------------------------------------------------------------------
+def test_a_config_names_the_one_site_it_is_about(tmp_path):
+    for text, problem in (
+        (CONFIG_TEXT.replace("\nsite: a\n", "\n"), "site: required"),
+        (CONFIG_TEXT.replace("\nsite: a\n", "\nsite: c\n"), "site: required"),
+    ):
+        (tmp_path / "config.yaml").write_text(text)
+        with pytest.raises(workspace.ConfigError, match=problem):
+            workspace.load(tmp_path / "config.yaml")
+    (tmp_path / "config.yaml").write_text(CONFIG_TEXT.replace("\nsite: a\n", "\nsite: b\n"))
+    config = workspace.load(tmp_path / "config.yaml")
+    assert workspace.site_key(config) == "b" and workspace.site_name(config) == names.site("b")
+    assert workspace.batch_table_folder(config).path.endswith(f"/{names.site('b')}/")
+    # Its build reads its own records, and what only site B needs.
+    assert cli._build_inputs("b") == (
+        "catalog",
+        "phf_site_b",
+        "param_mapping",
+        "remfg",
+        "lv_coa",
+        "raw_materials",
+    )
+    assert cli._build_inputs("a") == ("catalog", "phf_site_a", "lv_coa", "raw_materials")
+
+
+def test_a_task_names_its_site_and_refuses_another(tmp_path, caplog):
+    base = {"task": {"name": "t"}, "target": {"column": "x"}}
+    assert taskconfig.parse({**base, "site": "b"}, tmp_path).site == "b"
+    with pytest.raises(taskconfig.TaskConfigError, match="cohort.sites: no longer a setting"):
+        taskconfig.parse({**base, "cohort": {"sites": [names.site("a")]}}, tmp_path)
+    with pytest.raises(taskconfig.TaskConfigError, match="site: 'c' is not a site key"):
+        taskconfig.parse({**base, "site": "c"}, tmp_path)
+    spec = taskconfig.parse({**base, "site": "b"}, tmp_path)
+    with pytest.raises(dataset.TaskRefused, match="run it with a config whose site: is b"):
+        dataset.task_site(spec, "a")
+    assert dataset.task_site(spec, None) == "b", "a rerun goes by its own"
+    # A task file from before takes the config's, and says so.
+    older = taskconfig.parse(base, tmp_path)
+    assert dataset.task_site(older, "a") == "a" and "add `site: a`" in caplog.text
+    with pytest.raises(dataset.TaskRefused, match="names no site"):
+        dataset.task_site(older, None)
+
+
+def test_a_task_refuses_a_batch_table_of_another_site_or_of_both():
+    table = pd.DataFrame({"Site Merged": [names.site("a"), names.site("a")]})
+    dataset.check_batch_table_site(table, names.site("a"))
+    for other in (names.site("b"), names.site("a")):
+        both = pd.DataFrame({"Site Merged": [names.site("a"), names.site("b")]})
+        with pytest.raises(dataset.TaskRefused, match="rebuild it with `ml build`"):
+            dataset.check_batch_table_site(both, other)
+    with pytest.raises(dataset.TaskRefused, match=f"is about {names.site('b')} only"):
+        dataset.check_batch_table_site(table, names.site("b"))
+
+
+def test_a_proposal_is_about_the_configured_site(built, tmp_path):
+    from ml import screening
+
+    path = tmp_path / "proposal.csv"
+    pd.DataFrame(
+        [{"Action": "exclude", "Parameter": "x", "Site": names.site("b"), "Reason": "retired"}]
+    ).to_csv(path, index=False)
+    with pytest.raises(screening.ScreeningError, match=f"config.yaml is about {names.site('a')}"):
+        cli.run_screening_add(built["config"], path, "A. Reviewer")
+
+
+def test_a_task_run_with_the_other_site_config_is_refused(built):
+    spec = taskconfig.load(built["directory"] / dummy_data.TASK_FILES[0])
+    assert spec.site == "a"
+    with pytest.raises(dataset.TaskRefused, match="whose site: is a"):
+        cli.run_task(built["config_b"], spec)

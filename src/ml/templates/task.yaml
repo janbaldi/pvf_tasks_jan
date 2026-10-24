@@ -12,13 +12,16 @@
 # The config.yaml that says where on SharePoint the batch table and catalog are.
 __CONFIG__
 
+# The site the task is about (a or b, as config.yaml's site: names it). Its runs
+# read that site's batch table, and refuse to run with a config about another site.
+site: __SITE__
+
 task:
   name: __NAME__
   question: "__QUESTION__"
   seed: 20260917
 
 cohort:
-  sites: []                       # e.g. [<site name>]; empty means every site
   filters: []                     # applied in order; operators: equals, not_equals, in,
                                   # not_in, min, max, is_null, not_null. For example:
   # - {column: <column>, op: equals, value: <value>, reason: <why>}
@@ -43,7 +46,7 @@ roles:
   # patient: <column>             # joins a patient's batches into one group
 
 # Which other batch table columns may be predictors. task_catalog.xlsx, next to
-# the batch table, lists the ones still usable, per site, after screening.
+# this file, lists the ones this task can use (`ml task catalog` writes it again).
 predictors:
   # include: []                   # an explicit predictor list, if you have one
   exclude: []                     # single columns: [{column: ..., reason: ...}]

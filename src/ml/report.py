@@ -122,6 +122,7 @@ def _overview(run: BuildRun) -> dict | None:
         ["Parameters in the batch table", f"{run.merge.total_columns:,}"],
         ["Catalog parameters", f"{len(run.catalog_cols):,}"],
         ["Catalog parameters the batch table does not have", f"{len(run.merge.catalog_missing):,}"],
+        ["Catalog parameters this site never records", f"{len(run.merge.never_recorded):,}"],
         ["Features computed", f"{created:,}"],
         ["Features blocked by a missing input", f"{blocked:,}"],
         ["Features waiting on the catalog", f"{absent:,}"],
@@ -142,7 +143,7 @@ def _sources(run: BuildRun) -> dict | None:
             [f"{esc(site)} batch records, as loaded", f"{n_rows:,}", f"{n_columns:,}", "loaded"]
         )
     merged = [[esc(site), f"{count:,}"] for site, count in run.merge.site_rows.items()] + [
-        [bold("Merged batch table"), bold(f"{run.merge.total_rows:,}")]
+        [bold("Batch table"), bold(f"{run.merge.total_rows:,}")]
     ]
 
     return _section(
@@ -439,7 +440,8 @@ def _missingness_help(run: BuildRun) -> dict | None:
         "blocks": [
             md(
                 "#### Reading the report\n\n"
-                "Pick a site. Click a row of a table to draw it: a group draws all its "
+                "The report is about one site (config.yaml's site:). Click a row of a table to "
+                "draw it: a group draws all its "
                 "parameters. Tick the box at the start of rows, in any table, to propose a "
                 "screening decision about them. Each row of the plot is a "
                 "parameter, each cell a batch in date order, newest on the right: scroll left "
@@ -447,7 +449,7 @@ def _missingness_help(run: BuildRun) -> dict | None:
                 "date come last.\n\n#### How the numbers are decided"
             ),
             md(
-                "Each site is analysed on its own batches, in date order. This is description "
+                "The site is analysed on its own batches, in date order. This is description "
                 "only: nothing here changes the batch table. Batches drawn with green gaps are "
                 "not in any statistic or group (About this report, in the sidebar, says "
                 "which ones).\n\n"
@@ -595,7 +597,8 @@ def _correlation_help(run: BuildRun) -> dict | None:
         "blocks": [
             md(
                 "#### Reading the report\n\n"
-                "Pick a site. Click a group to draw its parameters against each other, one dot "
+                "The report is about one site (config.yaml's site:). Click a group to draw its "
+                "parameters against each other, one dot "
                 "per batch with a value for both. The parameter table lists the parameters in no "
                 "group; click one to draw it against its closest parameter. Tick parameters and "
                 "a proposal excludes each one's closest, represented by it. Its *Register* "
@@ -620,7 +623,7 @@ def _correlation_help(run: BuildRun) -> dict | None:
             ),
             md(
                 "#### How the numbers are decided\n\n"
-                "Each site is analysed on its own batches: the batches the missingness report "
+                "The site is analysed on its own batches: the batches the missingness report "
                 "counts in its statistics. Batches it only draws are left out here.\n\n"
                 "- **Parameters.** Every parameter the catalog types as "
                 f"{', '.join(correlation.NUMERIC_TYPES)}, with at least "
@@ -653,8 +656,8 @@ def _correlation_help(run: BuildRun) -> dict | None:
                 "new`) lists what that task can still use, and what each representative stands "
                 "for.\n\n"
                 "A representative the missingness report excludes would leave its whole group "
-                "out: a **conflict**. `ml screening add` refuses to make one; the build's own "
-                "never-recorded exclusions can, and then a ⚠ banner names it here, in the "
+                "out: a **conflict**. `ml screening add` refuses to make one; a decision at `all` "
+                "made from the other site's build can, and then a ⚠ banner names it here, in the "
                 "missingness report, in `ml screening status` and in every task. *Best usable "
                 "representative* is the best-scoring member the missingness report leaves in: "
                 "pick it under *Represented by* to resolve one. To move a group to another "
@@ -790,12 +793,31 @@ def _catalog_coverage(run: BuildRun) -> dict | None:
                 ],
                 filter_column="Catalog parameter",
                 note=f"{len(missing):,} of {len(run.catalog_cols):,} catalog parameters are "
-                "absent from the merged batch table. A parameter no source supplies has to come "
+                "absent from the batch table. A parameter no source supplies has to come "
                 "from the source system; a blocked feature needs the inputs it names.",
             )
         )
     else:
-        blocks.append(md("Every catalog parameter is present in the merged batch table."))
+        blocks.append(md("Every catalog parameter is present in the batch table."))
+
+    if run.merge.never_recorded:
+        blocks.append(
+            collapsed(
+                f"Catalog parameters this site never records ({len(run.merge.never_recorded)})",
+                [
+                    sortable(
+                        ["Catalog parameter", "Value type"],
+                        [
+                            [str(p), str(run.catalog_mapping.get(p, "—"))]
+                            for p in run.merge.never_recorded
+                        ],
+                        filter_column="Catalog parameter",
+                        note="Empty in every batch of this site, so left out of its batch table: "
+                        "no task of this site can use them.",
+                    )
+                ],
+            )
+        )
 
     if extra:
         blocks.append(
@@ -999,7 +1021,7 @@ def build_batch_table_payload(run: BuildRun) -> dict[str, Any]:
     return {
         "title": "Batch table build",
         "lead": f"{run.merge.total_rows:,} batches and "
-        f"{run.merge.total_columns:,} parameters from {site_name('a')} and {site_name('b')}, built "
+        f"{run.merge.total_columns:,} parameters from {' and '.join(run.merge.site_rows)}, built "
         f"against {len(run.catalog_cols):,} catalog parameters.",
         "subtitle": f"CAR-T manufacturing data · run {stamp}",
         "sections": [section for section in sections if section],
@@ -1017,10 +1039,11 @@ def build_missingness_payload(run: BuildRun) -> dict[str, Any]:
     ]
     return {
         "title": "Batch table missingness",
-        "lead": f"How each of the {run.merge.total_columns:,} parameters goes missing, per site, "
+        "lead": f"How each of the {run.merge.total_columns:,} parameters goes missing at "
+        f"{' and '.join(run.merge.site_rows)}, "
         "batch by batch: its pattern over time and the parameters missing with it. A parameter "
-        "recorded in every batch of a site is left out; one missing in every batch is excluded "
-        "in the screening register by the build. "
+        "recorded in every batch is left out; one missing in every batch is not in the site's "
+        "batch table at all (the build report lists them). "
         + run.register_note
         + (" Batches described — " + "; ".join(cohorts) + "." if cohorts else ""),
         "subtitle": f"CAR-T manufacturing data · run {stamp}",
@@ -1062,7 +1085,8 @@ def build_correlation_payload(run: BuildRun) -> dict[str, Any]:
         run.correlation,
         viewer,
         "Batch table rank correlation",
-        "Which numerical parameters put the batches in the same order, per site: "
+        f"Which numerical parameters put {' and '.join(run.merge.site_rows)}'s batches in the "
+        "same order: "
         "redundant to a decision tree. " + run.register_note,
         _correlation_help(run),
     )
@@ -1269,7 +1293,7 @@ def _task_overview(run: TaskRun) -> dict | None:
             "Target",
             esc(_target_text(spec, result, unit)),
         ],
-        ["Cohort", esc(", ".join(spec.cohort.sites) or "every site")],
+        ["Site", esc(site_name(spec.site) if spec.site else "not named")],
         ["Batches in the dataset", f"{result.rows:,}"],
         ["Predictor columns", f"{result.feature_columns:,}"],
     ]

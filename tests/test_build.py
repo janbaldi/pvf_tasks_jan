@@ -1,8 +1,9 @@
 """The batch table the build produced, and the report that explains it.
 
-Every question here is about stage two: both sites under one set of names, values
-the cleaning had to correct, sources joined on, features computed or reported as
-blocked, and the catalog gap in both directions.
+Every question here is about stage two: each site's own batch table, under the
+catalog's names, values the cleaning had to correct, sources joined on, features
+computed or reported as blocked, and the catalog gap in both directions. The
+fixture builds site A from config.yaml and site B from its own config.
 """
 
 import numpy as np
@@ -16,7 +17,6 @@ from conftest import (
     rows_naming,
     section,
     site_a,
-    site_b,
     tables,
 )
 from dummy_data import c, cs, v, vs
@@ -26,15 +26,28 @@ from ml import missingness, names, plots, stlite
 # ---------------------------------------------------------------------------
 # Loading and name mapping
 # ---------------------------------------------------------------------------
-def test_both_sites_reach_the_batch_table_under_one_set_of_names(built):
-    batch_table = built["batch_table"]
-    assert len(batch_table) == dummy_data.SITE_A_BATCHES + dummy_data.SITE_B_BATCHES
-    assert set(batch_table["Site Merged"]) == {names.site("a"), names.site("b")}
+def test_each_site_has_a_batch_table_of_its_own_under_the_catalog_names(built):
+    first, second = built["batch_table"], built["batch_table_b"]
+    assert len(first) == dummy_data.SITE_A_BATCHES and len(second) == dummy_data.SITE_B_BATCHES
+    assert set(first["Site Merged"]) == {names.site("a")}
+    assert set(second["Site Merged"]) == {names.site("b")}
     # Site B records these under its own names; the mapping file renames them.
     for renamed in dummy_data.site_b_names():
-        assert site_b(batch_table)[renamed].notna().all(), renamed
+        assert second[renamed].notna().all(), renamed
     for own_name in dummy_data.site_b_names().values():
-        assert own_name not in batch_table.columns
+        assert own_name not in second.columns
+
+
+def test_a_parameter_a_site_never_records_is_not_in_its_batch_table(built):
+    for batch_table in (built["batch_table"], built["batch_table_b"]):
+        columns = [c_ for c_ in batch_table.columns if c_ != "Site Merged"]
+        assert not [c_ for c_ in columns if batch_table[c_].isna().all()]
+    # Empty in every batch of a site, so dropped, and the report says which.
+    frame = pd.DataFrame({"x": [1, 2], "empty": [None, None], "kept": [None, None]})
+    from ml import merge
+
+    assert merge.drop_never_recorded(frame, ["x", "empty"]) == ["empty"]
+    assert list(frame.columns) == ["x", "kept"], "only catalog parameters are dropped"
 
 
 def test_two_columns_claiming_one_name_are_both_kept_with_their_own_values(built):
@@ -44,9 +57,9 @@ def test_two_columns_claiming_one_name_are_both_kept_with_their_own_values(built
     column's values under the suffixed name and the second column's under the
     plain one, which no test of column presence can see.
     """
-    batch_table = built["batch_table"]
+    batch_table = built["batch_table_b"]
     assert c("country") + "_1" in batch_table.columns
-    rows = site_b(batch_table)
+    rows = batch_table
     # The country was site B's own column, harmonised to site A's spelling.
     assert set(rows[c("country")].dropna()) <= {v("country_harmonised"), v("foreign_country")}
     # Site B's second country column mapped onto the taken name and kept its own values.
@@ -54,21 +67,20 @@ def test_two_columns_claiming_one_name_are_both_kept_with_their_own_values(built
 
 
 def test_the_supplement_reaches_the_site_it_belongs_to(built):
-    batch_table = built["batch_table"]
-    assert site_b(batch_table)[c("prior_lines")].notna().all()
-    assert site_a(batch_table)[c("prior_lines")].isna().all()
+    assert built["batch_table_b"][c("prior_lines")].notna().all()
+    assert c("prior_lines") not in built["batch_table"].columns, "site A has no supplement"
 
 
 # ---------------------------------------------------------------------------
 # Cleaning
 # ---------------------------------------------------------------------------
 def test_cleaning_corrects_what_the_sources_got_wrong(built):
-    batch_table = built["batch_table"]
-    assert set(site_b(batch_table)[c("batch_type")]) == {v("type_commercial")}
+    batch_table, second = built["batch_table"], built["batch_table_b"]
+    assert set(second[c("batch_type")]) == {v("type_commercial")}
     assert set(site_a(batch_table)[c("mycoplasma")]) == {v("mycoplasma_clean")}
     # The correction is site B's; site A's own spelling is left alone.
-    assert vs("status_fix")[0] not in set(site_b(batch_table)[c("nonconformance")].dropna())
-    assert vs("status_fix")[1] in set(site_b(batch_table)[c("nonconformance")].dropna())
+    assert vs("status_fix")[0] not in set(second[c("nonconformance")].dropna())
+    assert vs("status_fix")[1] in set(second[c("nonconformance")].dropna())
     # A clump count that is really a mangled date.
     assert v("mangled_count") not in set(batch_table[c("clumps_mix_count")].astype(str))
 
@@ -106,7 +118,8 @@ def test_the_report_names_every_value_it_could_not_parse(built):
 def test_yes_no_blanks_are_filled_in_each_site_own_spelling(built):
     batch_table = built["batch_table"]
     assert site_a(batch_table)[c("pre_activation_clumps_yn")].notna().all()
-    assert set(site_b(batch_table)[c("pre_activation_clumps_yn")]) <= {"Y", "N"}
+    second = built["batch_table_b"][c("pre_activation_clumps_yn")]
+    assert len(second) and set(second) <= {"Y", "N"}
 
 
 # ---------------------------------------------------------------------------
@@ -125,20 +138,20 @@ def test_vector_certificates_join_where_there_is_one(built):
 
 
 def test_raw_materials_and_clinical_sites_are_resolved(built):
-    batch_table = built["batch_table"]
-    assert batch_table[c("media_lot")].notna().any()
-    assert vs("institutions_second")[1] in set(batch_table[c("clinical_site")])
-    assert vs("institutions_second")[0] in set(batch_table[c("clinical_site")])
+    batch_table, second = built["batch_table"], built["batch_table_b"]
+    assert batch_table[c("media_lot")].notna().any() and second[c("media_lot")].notna().any()
+    assert vs("institutions_second")[1] in set(second[c("clinical_site")])
+    assert vs("institutions_second")[0] in set(second[c("clinical_site")])
     # An acronym no mapping file covers stays as it is, and is reported.
-    assert dummy_data.UNMAPPED_ACRONYM in set(batch_table[c("clinical_site")])
-    assert rows_naming(built["payloads"]["build"], dummy_data.UNMAPPED_ACRONYM)
+    assert dummy_data.UNMAPPED_ACRONYM in set(second[c("clinical_site")])
+    assert rows_naming(built["payloads_b"]["build"], dummy_data.UNMAPPED_ACRONYM)
     assert site_a(batch_table)[c("clinical_site_id")].notna().all()
 
 
 def test_the_country_correction_survives_harmonisation(built):
-    batch_table = built["batch_table"]
-    assert v("foreign_country") in set(site_b(batch_table)[c("country")])
-    assert set(site_b(batch_table)[c("country")]) <= {
+    batch_table, second = built["batch_table"], built["batch_table_b"]
+    assert v("foreign_country") in set(second[c("country")])
+    assert set(second[c("country")]) <= {
         v("foreign_country"),
         v("country_harmonised"),
     }
@@ -185,14 +198,16 @@ def test_a_feature_missing_an_input_is_reported_and_not_invented(built):
     assert c("f_log_pt_cd4_cd8") not in batch_table.columns
     blocked = rows_naming(payload, c("f_log_pt_cd4_cd8"))
     assert any(dummy_data.blocked_input() in str(row) for row in blocked)
-    # Site B alone lacks harvest glucose, so the gap is reported for one site.
-    per_site = [
-        row
-        for row in rows_naming(payload, cs("f_glucose_per_cell")[2])
-        if any(str(cell).startswith("missing:") for cell in row)
-    ]
-    assert per_site
-    assert all(any(names.site("b") in str(cell) for cell in row) for row in per_site)
+
+    # Site B alone lacks harvest glucose, so its build reports the gap and site A's does not.
+    def gaps(report):
+        return [
+            row
+            for row in rows_naming(report, cs("f_glucose_per_cell")[2])
+            if any(str(cell).startswith("missing:") for cell in row)
+        ]
+
+    assert gaps(built["payloads_b"]["build"]) and not gaps(payload)
     assert batch_table[cs("f_glucose_per_cell")[2]].notna().any()  # site A still has it
 
 
@@ -240,10 +255,10 @@ def test_gaps_at_random_are_called_random_and_counted_against_chance():
     assert abs(stats["Missing after missing %"] - 25) < 3
 
 
-def _missingness_payload(built) -> dict:
+def _missingness_payload(built, config: str = "config") -> dict:
     from conftest import shared
 
-    page = shared(built["directory"], built["config"], "batch_table", "missingness_report.html")
+    page = shared(built["directory"], built[config], "batch_table", "missingness_report.html")
     return stlite.read_payload(page.read_text(encoding="utf-8"))
 
 
@@ -254,17 +269,21 @@ def _commercial(batches: pd.DataFrame) -> pd.DataFrame:
 def test_the_missingness_report_describes_commercial_batches_only(built):
     payload = _missingness_payload(built)
     viewer = next(b for b in payload["sections"][0]["blocks"] if b["kind"] == "missing_viewer")
-    sites = {site["label"]: site for site in viewer["sites"]}
-    batch_table = built["batch_table"]
-    first, second = site_a(batch_table), site_b(batch_table)
+    (site,) = viewer["sites"]
+    assert site["label"] == names.site("a"), "one site's report: its own batches only"
+    first, second = built["batch_table"], built["batch_table_b"]
     # Site A records the batch kind and has non-commercial batches; they are left out.
     assert len(_commercial(first)) < len(first)
-    assert sorted(sites[names.site("a")]["batches"]) == sorted(
-        _commercial(first)["Patient Lot/Batch #"].astype(str)
-    )
-    # Every site B batch counts, whatever its record says.
-    assert len(sites[names.site("b")]["batches"]) == len(second)
+    assert sorted(site["batches"]) == sorted(_commercial(first)["Patient Lot/Batch #"].astype(str))
     assert f"{len(_commercial(first))} of {len(first)} batches" in payload["lead"]
+    # Every site B batch counts, whatever its record says (all_batches_at: [b]).
+    viewer_b = next(
+        b
+        for b in _missingness_payload(built, "config_b")["sections"][0]["blocks"]
+        if b["kind"] == "missing_viewer"
+    )
+    (site_b_,) = viewer_b["sites"]
+    assert site_b_["label"] == names.site("b") and len(site_b_["batches"]) == len(second)
 
 
 def test_batches_still_in_production_are_drawn_but_not_counted(built):
@@ -287,20 +306,20 @@ def test_the_missingness_report_analyses_each_site_on_its_own_batches(built):
     from conftest import shared
     from ml import screening
 
-    payload = _missingness_payload(built)
-    evidence = pd.read_excel(
-        shared(built["directory"], built["config"], "batch_table", screening.EVIDENCE_FILE),
-        sheet_name=screening.EVIDENCE_SHEET,
-    ).fillna({"Group": ""})
-    assert payload["sections"][0]["id"] == "viewer", "the viewer is on top"
-    viewer = next(b for b in payload["sections"][0]["blocks"] if b["kind"] == "missing_viewer")
-    batch_table = built["batch_table"]
-    sites = {site["label"]: site for site in viewer["sites"]}
-    for name, batches in (
-        (names.site("a"), _commercial(site_a(batch_table))),
-        (names.site("b"), site_b(batch_table)),
+    for config, batch_table, name, batches in (
+        ("config", built["batch_table"], names.site("a"), _commercial(built["batch_table"])),
+        ("config_b", built["batch_table_b"], names.site("b"), built["batch_table_b"]),
     ):
-        site = sites[name]
+        payload = _missingness_payload(built, config)
+        evidence = pd.read_excel(
+            shared(built["directory"], built[config], "batch_table", screening.EVIDENCE_FILE),
+            sheet_name=screening.EVIDENCE_SHEET,
+        ).fillna({"Group": ""})
+        assert set(evidence["Site"]) == {name}
+        assert payload["sections"][0]["id"] == "viewer", "the viewer is on top"
+        viewer = next(b for b in payload["sections"][0]["blocks"] if b["kind"] == "missing_viewer")
+        (site,) = viewer["sites"]
+        assert site["label"] == name
         # Only the parameters missing somewhere: one recorded in every batch has no pattern.
         gappy = {str(column) for column in batch_table.columns if batches[column].isna().any()}
         assert set(site["patterns"]) == gappy and "Site Merged" not in gappy
@@ -324,17 +343,13 @@ def test_the_missingness_report_analyses_each_site_on_its_own_batches(built):
         assert dated == sorted(dated)
         for group, members in site["groups"].items():
             assert all(rows[m]["Group"] == group for m in members)
-    # Only site B's re-manufacturing supplement fills it.
-    assert sites[names.site("a")]["patterns"][c("prior_lines")] == "1" * len(
-        _commercial(site_a(batch_table))
-    )
-    assert c("prior_lines") not in sites[names.site("b")]["patterns"]
-    # The groups table lists every group, and the method is help, not a section.
-    for site in viewer["sites"]:
+        # The groups table lists every group, and the method is help, not a section.
         assert [row[0] for row in site["group_rows"]] == list(site["groups"])
         assert "csv" not in site, "no CSV download but the proposal"
-    assert [section["id"] for section in payload["sections"]] == ["viewer", "provenance"]
-    assert payload["help"]["title"] == "Method"
+        assert [section["id"] for section in payload["sections"]] == ["viewer", "provenance"]
+        assert payload["help"]["title"] == "Method"
+    # Only site B's re-manufacturing supplement fills it; site A's table has no such column.
+    assert c("prior_lines") not in built["batch_table"].columns
 
 
 def test_the_build_report_leaves_missingness_to_its_own_report(built):
@@ -362,7 +377,8 @@ def test_the_report_lists_catalog_parameters_the_batch_table_does_not_have(built
 def test_columns_the_catalog_does_not_list_are_reported_too(built):
     names = [row[0] for row in rows_naming(built["payloads"]["build"], c("site_a_comment"))]
     assert c("site_a_comment") in names
-    assert rows_naming(built["payloads"]["build"], c("site_b_comment"))
+    assert rows_naming(built["payloads_b"]["build"], c("site_b_comment"))
+    assert not rows_naming(built["payloads"]["build"], c("site_b_comment")), "site B's only"
 
 
 def test_the_streamlit_config_is_one_stlite_accepts():
@@ -382,7 +398,8 @@ def test_the_report_is_one_file_with_its_provenance_in_it(built):
     assert str(built["config_path"]) in recorded["Config"].replace("\\", "")
     # Every input was read from SharePoint, and every table it read is digested.
     sources = {row[0].replace("\\", ""): row for row in panel[1]["rows"]}
-    assert {"catalog", "phf_site_a", "phf_site_b", "lv_coa", "site_map_1"} <= set(sources)
+    assert {"catalog", "phf_site_a", "lv_coa"} <= set(sources)
+    assert not {"phf_site_b", "param_mapping", "site_map_1"} & set(sources), "site A's only"
     assert all(row[1] == "SharePoint" for row in sources.values())
     assert all(len(row[3]) == 64 for name, row in sources.items() if "site_map" not in name)
     titles = [s["title"] for s in built["payloads"]["build"]["sections"]]
@@ -425,7 +442,7 @@ def test_the_build_writes_everything_into_the_batch_table_folder_on_sharepoint(b
     kinds = {source["label"]: source["kind"] for source in record["provenance"]["sources"]}
     assert "investigations" not in kinds, "the build does not read it, so it does not record it"
     assert kinds["raw_materials"] == "SharePoint"
-    assert record["written_to"].endswith("Data/batch_data/")
+    assert record["written_to"].endswith(f"Data/batch_data/{names.site('a')}/")
     assert {entry["path"] for entry in record["outputs"]} == {
         "batch_data.xlsx",
         "batch_data.parquet",

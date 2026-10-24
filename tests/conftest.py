@@ -6,8 +6,10 @@ runs end to end. The demo's folder stands in for SharePoint
 per session: the stages are written to be run in this order, and running them
 separately would not test that.
 
-Two task files are run against the one batch table, because the claim worth testing is
-that a different question needs a different YAML and nothing else.
+Everything is about one site at a time: each site is built from its own config
+(``config.yaml`` about site A, ``config_site_b.yaml`` about site B), and each of the
+two task files is about one of them, because the claim worth testing is that a
+different question needs a different YAML and nothing else.
 
 Most questions are asked of the packages and the reports rather than of the
 frames, because those are what anyone actually reads. The report's numbers come
@@ -49,15 +51,21 @@ def built(tmp_path_factory) -> dict:
     config_path = dummy_data.write_config(directory)
     os.environ[share.STANDIN_ENV] = str(dummy_data.standin(directory))
     config = cli.load_config(config_path)
+    config_b = cli.load_config(directory / dummy_data.CONFIG_SITE_B)
 
     reports = {
         "catalog": on_share(directory, cli.run_catalog(config)),
         "build": on_share(directory, cli.run_build(config)),
     }
+    reports_b = {
+        "catalog": on_share(directory, cli.run_catalog(config_b)),
+        "build": on_share(directory, cli.run_build(config_b)),
+    }
     packages = {}
     for name in dummy_data.TASK_FILES:
         spec = taskconfig.load(directory / name)
-        packages[spec.name] = cli.run_task(config, spec)
+        about = config if spec.site == "a" else config_b
+        packages[spec.name] = cli.run_task(about, spec)
 
     catalog_folder = workspace.catalog_folder(config)
     return {
@@ -65,6 +73,18 @@ def built(tmp_path_factory) -> dict:
         "config": config,
         "config_path": Path(config["__path__"]),
         "batch_table": pd.read_excel(shared(directory, config, "batch_table")),
+        # The same, about site B.
+        "config_b": config_b,
+        "config_b_path": Path(config_b["__path__"]),
+        "batch_table_b": pd.read_excel(shared(directory, config_b, "batch_table")),
+        "reports_b": reports_b,
+        "new_parameters_b": pd.read_csv(
+            on_share(directory, workspace.catalog_folder(config_b).file("new_parameters.csv"))
+        ),
+        "payloads_b": {
+            stage: stlite.read_payload(path.read_text(encoding="utf-8"))
+            for stage, path in reports_b.items()
+        },
         "new_parameters": pd.read_csv(
             on_share(directory, catalog_folder.file("new_parameters.csv"))
         ),

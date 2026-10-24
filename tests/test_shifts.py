@@ -87,7 +87,8 @@ def test_the_build_writes_the_shifts_report_and_table_and_finds_the_demo_lots(bu
     payload = stlite.read_payload(page.read_text(encoding="utf-8"))
     viewer = payload["sections"][0]["blocks"][0]
     assert viewer["kind"] == "shift_viewer" and viewer["site_label"] == "Manufacturing site"
-    assert {s["label"] for s in viewer["sites"]} == {f"{names.site(k)} plant" for k in "ab"}
+    # Site A's own batches: its plant only.
+    assert {s["label"] for s in viewer["sites"]} == {f"{names.site('a')} plant"}
     for site in viewer["sites"]:
         # The medium and cytokine lots change on the same days at both sites.
         assert {c("media_lot"), c("cytokine_lot")} in [set(g) for g in site["groups"].values()]
@@ -100,7 +101,7 @@ def test_the_build_writes_the_shifts_report_and_table_and_finds_the_demo_lots(bu
         sheet_name=screening.EVIDENCE_SHEET,
     )
     lots = table[table["Parameter"] == c("media_lot")]
-    assert len(lots) == 2 and lots["Shift group"].str.startswith("Shifting").all()
+    assert len(lots) == 1 and lots["Shift group"].str.startswith("Shifting").all()
     path = shared(built["directory"], built["config"], "batch_table", screening.EVIDENCE_FILE)
     evidence = pd.read_excel(path, sheet_name=screening.EVIDENCE_SHEET)
     assert not any("shift" in column.lower() for column in evidence.columns)
@@ -114,8 +115,8 @@ def test_a_new_task_can_leave_out_every_parameter_that_runs_in_groups(built, tmp
     assert "Run in groups over time at a manufacturing site, as the build of" in text
     excluded = dict(taskconfig.load(folder / "task.yaml").predictors.exclude)
     why = excluded[c("media_lot")]
-    assert why.startswith("runs in groups over time: ") and why.count("changes with Shifting") == 2
-    assert all(f"at {names.site(k)} plant" in why for k in "ab")
+    assert why.startswith("runs in groups over time: ") and why.count("changes with Shifting") == 1
+    assert f"at {names.site('a')} plant" in why and names.site("b") not in why
     # Without the option, nothing that runs in groups is listed.
     plain = tmp_path / "plain"
     assert cli.main(["--config", config, "task", "new", str(plain)]) == 0

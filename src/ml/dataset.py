@@ -224,19 +224,6 @@ def select_cohort(batch_table: pd.DataFrame, spec: TaskSpec, result: TaskResult)
         log.info(MODULE, f"{label}: {len(cohort)} of {before} batches left")
         return cohort
 
-    if spec.cohort.sites:
-        if spec.cohort.site_column not in batch_table.columns:
-            raise TaskRefused(
-                f"cohort.site_column: '{spec.cohort.site_column}' is not a column of the "
-                "batch table, "
-                "so the cohort cannot be narrowed to a site"
-            )
-        step(
-            f"manufactured at {', '.join(spec.cohort.sites)}",
-            batch_table[spec.cohort.site_column].isin(list(spec.cohort.sites)),
-            "site",
-        )
-
     for number, rule in enumerate(spec.cohort.filters, start=1):
         if rule.column not in batch_table.columns:
             raise TaskRefused(
@@ -569,6 +556,44 @@ def _category_exclusions(catalog: pd.DataFrame, spec: TaskSpec) -> dict[str, str
                 )
                 out.setdefault(parameter, why + (", not an included category" if keep else ""))
     return out
+
+
+def task_site(spec: TaskSpec, configured: str | None, where: str = "config.yaml") -> str:
+    """The key of the site a task is about: its ``site:``, which config.yaml's (``configured``,
+    None for a rerun, which reads only its own folder) must match.
+
+    A task file without one (written before tasks were about one site) takes the
+    config's, with a warning.
+    """
+    if configured is not None:
+        if spec.site and spec.site != configured:
+            raise TaskRefused(
+                f"This task is about site {spec.site} ({names.site(spec.site)}), and {where} "
+                f"about site {configured} ({names.site(configured)}): run it with a config "
+                f"whose site: is {spec.site}"
+            )
+        if not spec.site:
+            log.warn(
+                MODULE,
+                f"task.yaml names no site, so it is about config.yaml's: {names.site(configured)}"
+                f" — add `site: {configured}` at its top",
+            )
+        return spec.site or configured
+    if not spec.site:
+        raise TaskRefused(
+            "task.yaml names no site (site: a or b), and there is no config.yaml to take it from"
+        )
+    return spec.site
+
+
+def check_batch_table_site(batch_table: pd.DataFrame, site: str) -> None:
+    """Refuse a batch table that is not the site's own: every batch must be from ``site``."""
+    found = sorted(map(str, batch_table["Site Merged"].dropna().unique()))
+    if found != [site]:
+        raise TaskRefused(
+            f"The batch table holds batches from {', '.join(found) or 'no site'}, and this task "
+            f"is about {site} only: rebuild it with `ml build` and site: set to {site}'s key"
+        )
 
 
 def candidate_predictors(
@@ -961,7 +986,7 @@ def fit_preprocessing(
     name_by = spec.clustering.name_by
     if name_by and name_by not in catalog.columns:
         raise TaskRefused(f"clustering.name_by: the catalog has no '{name_by}' column")
-    site_column = spec.cohort.site_column
+    site_column = "Site Merged"
     result.clusters = decorrelate.fit(
         numbers,
         pre.retained_numeric,

@@ -49,7 +49,7 @@ def params(**overrides) -> TaskParams:
 def minimal_task(**overrides) -> dict:
     task = {
         "task": {"name": "probe", "seed": 1},
-        "cohort": {"sites": [names.site("a")]},
+        "site": "a",
         "target": {"column": c("fp_car_pct")},
         "roles": {"id": "Patient Lot/Batch #", "group": c("vector_lot")},
     }

@@ -167,7 +167,7 @@ def load_catalog(catalog: str | Path | Source) -> tuple[list[str], dict[str, str
 
 
 def load_batch_table(batch_table: str | Path | Source) -> pd.DataFrame:
-    """The merged batch table, as ``ml build`` wrote it (Excel or its Parquet copy)."""
+    """A site's batch table, as ``ml build`` wrote it (Excel or its Parquet copy)."""
     source = as_source(batch_table, "batch_table")
     frame = _read(source, "Batch table")
     if "Site Merged" not in frame.columns:

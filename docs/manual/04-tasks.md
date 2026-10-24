@@ -1,8 +1,8 @@
 # 4. Tasks
 
-A **task** is one question asked of the batch table, such as *which
+A **task** is one question asked of one site's batch table, such as *which
 manufacturing parameters go with CAR+ expression at Northfield?* It lives in a
-folder of its own with a `task.yaml`. Every **run** of it writes a new folder
+folder of its own with a `task.yaml`, which names its site. Every **run** of it writes a new folder
 under `runs/` with the training dataset, the reason every parameter and batch is
 in or out, a report, and copies of everything it read.
 
@@ -20,14 +20,23 @@ cd tasks/car_expression
 ```
 
 The folder holds an annotated `task.yaml` that already points at the
-`config.yaml` you came from, so the task finds the batch table from anywhere.
-Every parameter the screening register excludes today (at any site) is already
-listed under `predictors.exclude`, with its decision:
+`config.yaml` you came from, so the task finds the batch table from anywhere,
+and names that config's site:
+
+```yaml
+site: a          # the site the task is about: its batch table and screening decisions
+```
+
+A run reads that site's batch table, and refuses to run with a config about the
+other site, or with a batch table that holds other batches. (A `task.yaml` from
+before, without `site:`, takes the config's site with a warning.) Every
+parameter the screening register excludes today at the site is already listed
+under `predictors.exclude`, with its decision:
 
 ```yaml
 predictors:
   exclude:
-    # Screened out by the screening register (last decision S-0003), at any site.
+    # Screened out by the screening register (last decision S-0001) at this site.
     - {column: "Day 1 mixing cycles", reason: "screened out by S-0001: irregular (Northfield)"}
 ```
 
@@ -125,9 +134,9 @@ runs/<run id>/
   config/task.yaml               every setting, defaults included
 ```
 
-It works, but it answers no particular question yet. Both sites and trial
-batches are mixed in, and the predictors include release tests and after-wash
-counts, measured after the outcome was decided.
+It works, but it answers no particular question yet. Trial batches are mixed
+in, and the predictors include release tests and after-wash counts, measured
+after the outcome was decided.
 
 ## 3. Say what the question is
 
@@ -137,7 +146,6 @@ known too late:
 
 ```yaml
 cohort:
-  sites: [Northfield]
   filters:
     - {column: Batch kind, op: equals, value: Routine, reason: manufactured routinely}
 

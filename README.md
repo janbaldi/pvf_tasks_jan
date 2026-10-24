@@ -1,8 +1,10 @@
 # ml — training datasets from CAR-T manufacturing data
 
-`ml` turns the batch records of both manufacturing sites into one checked
+`ml` turns the batch records of one manufacturing site at a time into a checked
 **batch table**, and cuts that table into a documented, reproducible **training
-dataset** for each question you want a model to answer. Every step leaves a
+dataset** for each question you want a model to answer. Which site is one
+setting, `site:` in `config.yaml`; each site's outputs stay in a folder of its
+own. Every step leaves a
 report and a record of what it read, what it decided and why.
 
 It does not fit models or split data. It hands your modelling tool a clean
@@ -14,7 +16,7 @@ table, and the means to refit the preprocessing inside every fold.
  once a month, when new batches are in                      whenever you have a question
  ─────────────────────────────────────                      ────────────────────────────
  ml check-catalog   is the catalog still complete?
- ml build           every batch, both sites, in one table   ml task new <folder>
+ ml build           every batch of the site, in one table   ml task new <folder>
         │           + build report, missingness,            ml task run
         │             correlation and shifts reports               │
         │                                                   reads the batch table,
@@ -33,9 +35,10 @@ loop, new task, reproduce a run) to highlight it.
 | Word | What it is |
 |---|---|
 | **catalog** | `catalog.xlsx` on SharePoint: every parameter the batch table may hold, with its type, stage and availability |
-| **batch table** | `batch_data.xlsx` on SharePoint: one row per batch, both sites, cleaned, with calculated features |
-| **missingness report** | `missingness_report.html`: how every parameter goes missing, per site, batch by batch |
-| **correlation report** | `correlation_report.html`: which numerical parameters rank the batches alike, per site, and which one could represent each group |
+| **site** | the manufacturing site everything is about: `site:` in `config.yaml` (`a` or `b`, as the vocabulary names them) |
+| **batch table** | `batch_data.xlsx` on SharePoint, in the site's folder: one row per batch of that site, cleaned, with calculated features |
+| **missingness report** | `missingness_report.html`: how every parameter goes missing at the site, batch by batch |
+| **correlation report** | `correlation_report.html`: which numerical parameters rank the site's batches alike, and which one could represent each group |
 | **shifts report** | `shifts_report.html`: which parameters run in groups over time, as a lot does, and which change on the same days, per manufacturing site; `ml task new --exclude-shifting` leaves them out of a task |
 | **task catalog** | `task_catalog.xlsx`, in a task folder: the catalog parameters that task can use as input features, written by `ml task new` (again: `ml task catalog`) |
 | **screening register** | `parameter_screening.xlsx` on SharePoint: the log of parameters you decided to leave out of every task, and why |
@@ -67,17 +70,21 @@ uv run python -m ml.demo demo      # write the demo into demo/
 cd demo
 uv run ml validate                 # is the setup sound? reads, writes nothing
 uv run ml check-catalog            # what do the sources record that the catalog lacks?
-uv run ml build                    # the batch table and its reports
-uv run ml screening status         # what is screened out today
+uv run ml build                    # site A's batch table and its reports
+uv run ml screening status         # what is screened out at site A today
 uv run ml task run --task tasks/expression
 ```
 
+The demo's `config.yaml` is about site A (Northfield); `config_site_b.yaml` is the
+same with `site: b`. The `release` task is about site B and names that config, so
+`uv run ml update --task tasks/release` builds site B and runs it.
+
 Then open, in a browser:
 
-- `sharepoint/DEMO_DRIVE/Data/batch_data/build_report.html`: where every column came from and what cleaning changed.
-- `sharepoint/DEMO_DRIVE/Data/batch_data/missingness_report.html`: how each parameter goes missing.
-- `sharepoint/DEMO_DRIVE/Data/batch_data/correlation_report.html`: which numerical parameters rank the batches alike.
-- `sharepoint/DEMO_DRIVE/Data/batch_data/shifts_report.html`: which parameters run in groups over time, as the lots do, and which change on the same days.
+- `sharepoint/DEMO_DRIVE/Data/batch_data/Northfield/build_report.html`: where every column came from and what cleaning changed.
+- `sharepoint/DEMO_DRIVE/Data/batch_data/Northfield/missingness_report.html`: how each parameter goes missing.
+- `sharepoint/DEMO_DRIVE/Data/batch_data/Northfield/correlation_report.html`: which numerical parameters rank the batches alike.
+- `sharepoint/DEMO_DRIVE/Data/batch_data/Northfield/shifts_report.html`: which parameters run in groups over time, as the lots do, and which change on the same days.
 - `tasks/expression/runs/<run id>/report/report.html`: the training dataset and every decision behind it.
 
 ## The manual

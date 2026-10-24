@@ -193,21 +193,22 @@ def _manifest_on_share(folder: share.Location, stage: str) -> dict | None:
 # Stage 1: the catalog
 # ---------------------------------------------------------------------------
 def run_catalog(config: dict[str, Any], config_path: str | Path | None = None) -> share.Location:
-    """Compare what the sources record against what the catalog lists.
+    """Compare what the configured site's sources record against what the catalog lists.
 
-    Reads the catalog and the sources from SharePoint, and writes the report, the
-    manifest and the new-parameters list into the catalog's SharePoint folder.
-    Returns where the report went.
+    Reads the catalog and the site's sources from SharePoint, and writes the report,
+    the manifest and the new-parameters list into the site's folder next to the
+    catalog. Returns where the report went.
     """
     run_start = datetime.now()
     mark = log.mark()
-    workspace.require(
-        config, ("vocabulary", "catalog", "phf_site_a", "phf_site_b", "param_mapping")
-    )
+    key = workspace.site_key(config)
+    labels = ["catalog", f"phf_site_{key}", *(["param_mapping"] if key == "b" else [])]
+    workspace.require(config, ("vocabulary", *labels))
     log.stage("Catalog")
     workspace.load_vocabulary(config)
+    the_site = names.site(key)
+    log.info(MODULE, f"Checking the catalog against {the_site}'s sources only (site: {key})")
 
-    labels = ["catalog", "phf_site_a", "phf_site_b", "param_mapping"]
     if workspace.has(config, "investigations"):
         labels.append("investigations")
     src = {label: workspace.source(config, label) for label in labels}
@@ -224,17 +225,19 @@ def run_catalog(config: dict[str, Any], config_path: str | Path | None = None) -
     log.section("Loading")
     catalog_frame = io.read_catalog(src["catalog"])
     catalog_cols = list(catalog_frame["Parameter"])
-    first = io.load_phf(src["phf_site_a"], "a")
-    second = io.load_phf(src["phf_site_b"], "b")
-    mapping = io.load_site_mapping(src["param_mapping"], exclude=_mapping_exclude(config))
+    records = io.load_phf(src[f"phf_site_{key}"], key)
+    mapping = (
+        io.load_site_mapping(src["param_mapping"], exclude=_mapping_exclude(config))
+        if key == "b"
+        else {}
+    )
     investigations = (
         io.load_investigations(src["investigations"]) if "investigations" in src else None
     )
     sources = [
         src["catalog"].record(catalog_frame),
-        src["phf_site_a"].record(first),
-        src["phf_site_b"].record(second),
-        src["param_mapping"].record(_mapping_table(mapping)),
+        src[f"phf_site_{key}"].record(records),
+        *([src["param_mapping"].record(_mapping_table(mapping))] if key == "b" else []),
         src["investigations"].record(investigations)
         if "investigations" in src
         else provenance.missing(
@@ -243,16 +246,12 @@ def run_catalog(config: dict[str, Any], config_path: str | Path | None = None) -
     ]
 
     log.section("Comparing")
-    second_label = f"{names.site('b')} batch records"
+    label = f"{the_site} batch records"
     found = catalog.find_new_parameters(
         catalog_cols,
-        {
-            f"{names.site('a')} batch records": first,
-            second_label: second,
-            "Investigations Power Query": investigations,
-        },
+        {label: records, "Investigations Power Query": investigations},
         site_mapping=mapping,
-        mapped=(second_label,),
+        mapped=(label,) if key == "b" else (),
     )
 
     log.section("Writing")
@@ -330,6 +329,18 @@ BUILD_INPUTS = (
     "lv_coa",
     "raw_materials",
 )
+#: What only site B's build reads: the mapping to site A's names, and the supplement.
+SITE_B_INPUTS = ("param_mapping", "remfg")
+
+
+def _build_inputs(key: str) -> tuple[str, ...]:
+    """The inputs one site's build reads: its own batch records, and what joins onto them."""
+    return tuple(
+        label
+        for label in BUILD_INPUTS
+        if not label.startswith("phf_site_") or label == f"phf_site_{key}"
+        if key == "b" or label not in SITE_B_INPUTS
+    )
 
 
 #: The vocabulary key of the date that puts the batches in order, unless build.date_column says.
@@ -337,22 +348,27 @@ DATE_COLUMN = "incubator_in_d0"
 
 
 def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> share.Location:
-    """Build the batch table from both sites, and write it with its report.
+    """Build the batch table of the configured site (``site:``), and write it with its report.
 
-    Reads every source from SharePoint, and writes the batch table, its Parquet
-    copy, the report and the manifest into the batch table's SharePoint folder.
-    Returns where the report went.
+    Reads that site's batch records and what joins onto them from SharePoint, and
+    writes the batch table, its Parquet copy, the reports and the manifest into the
+    site's folder next to ``sharepoint.batch_table``. The catalog parameters the
+    site never records are left out of the table. Returns where the report went.
     """
     run_start = datetime.now()
     mark = log.mark()
-    workspace.require(config, ("vocabulary", *BUILD_INPUTS, "batch_table"))
+    key = workspace.site_key(config)
+    inputs = _build_inputs(key)
+    workspace.require(config, ("vocabulary", *inputs, "batch_table"))
     params = features.Params(**(config.get("features") or {}))
     log.stage("Batch table build")
     workspace.load_vocabulary(config)
+    the_site = names.site(key)
+    log.info(MODULE, f"Building the batch table of {the_site} only (site: {key})")
     rules = workspace.load_corrections(config)
 
-    src = {label: workspace.source(config, label) for label in BUILD_INPUTS}
-    site_maps = workspace.site_map_sources(config)
+    src = {label: workspace.source(config, label) for label in inputs}
+    site_maps = workspace.site_map_sources(config) if key == "b" else []
     target_table = workspace.location(config, "batch_table")
     folder = target_table.folder
     write_parquet = (config.get("build") or {}).get("write_parquet", True)
@@ -372,15 +388,32 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
     catalog_cols = list(catalog_frame["Parameter"])
     catalog_mapping = dict(zip(catalog_frame["Parameter"], catalog_frame["Value Type"]))
 
-    df_first = io.load_phf(src["phf_site_a"], "a")
-    second_raw = io.load_phf(src["phf_site_b"], "b")
-    mapping = io.load_site_mapping(src["param_mapping"], exclude=_mapping_exclude(config))
-    df_second = io.apply_column_mapping(second_raw, mapping)
-
-    df_remfg = io.load_remanufacturing_supplement(src["remfg"])
-    df_second = io.attach_supplement(
-        df_second, df_remfg, "Patient Lot/Batch #", [names.col("prior_lines")]
-    )
+    raw = io.load_phf(src[f"phf_site_{key}"], key)
+    sources = [src["catalog"].record(catalog_frame), src[f"phf_site_{key}"].record(raw)]
+    origins: dict[str, list[str]] = {}
+    source_rows = [["Catalog", f"{len(catalog_cols):,}", f"{catalog_frame.shape[1]}", "loaded"]]
+    if key == "b":
+        # Site B's records name their columns its own way: renamed to the catalog's.
+        mapping = io.load_site_mapping(src["param_mapping"], exclude=_mapping_exclude(config))
+        records = io.apply_column_mapping(raw, mapping)
+        df_remfg = io.load_remanufacturing_supplement(src["remfg"])
+        records = io.attach_supplement(
+            records, df_remfg, "Patient Lot/Batch #", [names.col("prior_lines")]
+        )
+        sources += [
+            src["param_mapping"].record(_mapping_table(mapping)),
+            src["remfg"].record(df_remfg),
+        ]
+        source_rows.append(
+            [
+                "Re-manufacturing supplement",
+                f"{len(df_remfg):,}",
+                f"{df_remfg.shape[1]:,}",
+                "loaded",
+            ]
+        )
+    else:
+        records = raw
 
     lv_coa = config.get("lv_coa") or {}
     df_lv_coa = io.load_lv_coa(
@@ -393,31 +426,17 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
     df_raw = io.load_raw_materials(src["raw_materials"], catalog_cols)
 
     # Recorded now, as each source was actually read and before cleaning
-    # changes the site tables in place.
-    sources = [
-        src["catalog"].record(catalog_frame),
-        src["phf_site_a"].record(df_first),
-        src["phf_site_b"].record(second_raw),
-        src["param_mapping"].record(_mapping_table(mapping)),
-        src["remfg"].record(df_remfg),
-        src["lv_coa"].record(df_lv_coa),
-        src["raw_materials"].record(df_raw),
-    ]
+    # changes the site table in place.
+    sources += [src["lv_coa"].record(df_lv_coa), src["raw_materials"].record(df_raw)]
 
-    site_a, site_b = names.sites()
-    phf = {site_a: df_first, site_b: df_second}
+    phf = {the_site: records}
     site_shapes = {site: df.shape for site, df in phf.items()}
 
     # Where every column came from, collected as the columns arrive.
-    first_cols, second_cols = set(df_first.columns), set(df_second.columns)
-    origins: dict[str, list[str]] = {
-        "Both sites' batch records": sorted(first_cols & second_cols),
-        f"{site_a} batch records only": sorted(first_cols - second_cols),
-        f"{site_b} batch records only": sorted(second_cols - first_cols),
-        "Re-manufacturing supplement": [names.col("prior_lines")],
-    }
-    source_rows = [
-        ["Catalog", f"{len(catalog_cols):,}", f"{catalog_frame.shape[1]}", "loaded"],
+    origins[f"{the_site} batch records"] = sorted(map(str, records.columns))
+    if key == "b":
+        origins["Re-manufacturing supplement"] = [names.col("prior_lines")]
+    source_rows += [
         [
             "Vector certificates of analysis",
             f"{len(df_lv_coa):,}",
@@ -425,7 +444,6 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
             "loaded",
         ],
         ["Raw materials and consumables", f"{len(df_raw):,}", f"{df_raw.shape[1]:,}", "loaded"],
-        ["Re-manufacturing supplement", f"{len(df_remfg):,}", f"{df_remfg.shape[1]:,}", "loaded"],
     ]
 
     # ── Clean ──────────────────────────────────────────────────────────────
@@ -465,12 +483,15 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
     # ── Merge ──────────────────────────────────────────────────────────────
     log.section("05 · Merge and checks")
     result = merge.merge_sites(phf)
+    # The catalog parameters this site never records are not its parameters.
+    never_recorded = merge.drop_never_recorded(result, catalog_cols)
     merge_report = merge.run_sanity_checks(result, phf, catalog_cols, catalog_mapping)
+    merge_report.never_recorded = never_recorded
     origins["Merge"] = ["Site Merged"]
-    # Per site: the sites record differently, and pooled they read as each other's gaps.
+    # Keyed by the site, as every report and the evidence workbook are.
     missing_by_site, cohorts = {}, {}
-    for site in names.sites():
-        batches, cohort = _missingness_cohort(result[result["Site Merged"] == site], site, config)
+    for site in (the_site,):
+        batches, cohort = _missingness_cohort(result, site, config)
         analysed, counted = _analysed_batches(batches, site, config)
         cohorts[site] = batches, analysed
         missing_by_site[site] = missingness.for_build(
@@ -497,11 +518,9 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
         analysis.cohort = missing_by_site[site][1].cohort
         correlated_by_site[site] = rows, analysis
     shifted_by_site = _shifts_by_plant(cohorts, names.col(date_column))
-    register, never_recorded, register_note = _read_register(
-        missing_by_site, list(result.columns), config
-    )
-    decisions = (register.decisions if register else []) + never_recorded
-    _show_register(decisions, missing_by_site, correlated_by_site)
+    register, register_note = _read_register(the_site, list(result.columns), config)
+    decisions = screening.for_site(register.decisions, the_site) if register else []
+    _show_register(decisions, the_site, missing_by_site, correlated_by_site)
 
     # ── Write ──────────────────────────────────────────────────────────────
     log.section("06 · Output")
@@ -522,7 +541,6 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
             f"{target_table.name}, as a task will read it",
         )
         content_digest = provenance.frame_digest(io.read_table(files["batch table"]))
-        _write_never_recorded(config, register, never_recorded, content_digest, staged)
         if write_parquet:
             with _preparing("the batch table (Parquet)", staged / parquet_name, folder):
                 parquet = _write_parquet(result, staged / parquet_name)
@@ -711,70 +729,61 @@ def _register(config: dict[str, Any]) -> screening.Register | None:
 
 
 def _read_register(
-    missing_by_site: dict[str, tuple], columns: list[str], config: dict[str, Any]
-) -> tuple[screening.Register | None, list[screening.Decision], str]:
-    """The register as this build reads it, the build's own exclusions, and a line
-    for the reports that says which register they show (or why none).
+    site: str, columns: list[str], config: dict[str, Any]
+) -> tuple[screening.Register | None, str]:
+    """The register as this build reads it, and a line for the reports that says which
+    register they show (or why none).
 
-    The parameters missing in every batch of a site are excluded there on the
-    build's own account (:func:`ml.screening.never_recorded`); those decisions
-    count from here on, and :func:`_write_never_recorded` adds them to the register.
-    Decisions on a parameter or site this build does not have are named, since
-    they can match nothing.
+    Decisions at this site (or ``all``) on a parameter this batch table does not
+    have are named, since they can match nothing.
     """
     if not workspace.has(config, "screening"):
         log.info(MODULE, "No screening register is configured; the reports show none")
-        return None, [], "No screening register is configured."
+        return None, "No screening register is configured."
     try:
         register = _register(config)
     except Exception as exc:  # the reports are still worth having without it
         log.warn(MODULE, f"The screening register could not be read, so no report shows it: {exc}")
-        return None, [], f"The screening register could not be read: {exc}"
-    sites = names.sites()
-    automatic = screening.never_recorded(
-        register.decisions, {site: rows for site, (rows, _) in missing_by_site.items()}, "", sites
-    )
-    unknown = sorted({d.parameter for d in register.decisions} - set(columns))
+        return None, f"The screening register could not be read: {exc}"
+    here = screening.for_site(register.decisions, site)
+    unknown = sorted({d.parameter for d in here} - set(columns))
     if unknown:
         log.warn(
             MODULE,
-            f"The screening register decides on {len(unknown)} parameters that are not columns "
-            "of this batch table, so they match nothing",
+            f"The screening register decides on {len(unknown)} parameters at {site} that are "
+            "not columns of this batch table, so they match nothing",
             ", ".join(unknown[:10]),
         )
-    out = screening.standing(register.decisions + automatic, sites)
-    for site in sites:
-        counts = {
-            track: sum(
-                d.track == track for (_, s), found in out.items() if s == site for d in found
-            )
-            for track in screening.TRACKS
-        }
-        log.info(
-            MODULE,
-            f"Screening register at {site}: "
-            + ", ".join(f"{n} excluded in the {track} report" for track, n in counts.items()),
-        )
+    out = screening.standing(here, (site,))
+    counts = {
+        track: sum(d.track == track for found in out.values() for d in found)
+        for track in screening.TRACKS
+    }
+    log.info(
+        MODULE,
+        f"Screening register at {site}: "
+        + ", ".join(f"{n} excluded in the {track} report" for track, n in counts.items()),
+    )
     last = register.decisions[-1].id if register.decisions else "none"
     note = (
-        f"Screening register: {len(register.decisions)} rows, last decision {last}"
-        + (f", and {len(automatic)} never-recorded exclusions this build adds" if automatic else "")
-        + "."
+        f"Screening register: {len(here)} of its {len(register.decisions)} rows are about "
+        f"{site}, last decision {last}."
     )
-    return register, automatic, note
+    return register, note
 
 
 def _show_register(
     decisions: list[screening.Decision],
+    site: str,
     missing_by_site: dict[str, tuple],
     correlated_by_site: dict[str, tuple],
 ) -> None:
-    """Mark every parameter with what the register holds on it, in both reports.
+    """Mark every parameter with what the register holds on it at ``site``, in both reports.
 
     Each report lists its own decisions (``screened``: what it can reinstate) and the
-    other report's (``elsewhere``), and the conflicts at the site.
+    other report's (``elsewhere``), and the conflicts.
     """
-    sites = names.sites()
+    sites = (site,)
     out = screening.standing(decisions, sites)
     stands_for = screening.represented(decisions, sites)
     found = screening.conflicts(decisions, sites)
@@ -784,29 +793,11 @@ def _show_register(
         (missing_by_site, screening.MISSINGNESS, "Screening"),
         (correlated_by_site, screening.CORRELATION, "Register"),
     ):
-        for site, (rows, analysis) in results.items():
-            analysis.screened, analysis.elsewhere = screening.at_site(decisions, sites, site, track)
-            analysis.conflicts = [c for c in found if c["Site"] == site]
+        for here, (rows, analysis) in results.items():
+            analysis.screened, analysis.elsewhere = screening.at_site(decisions, sites, here, track)
+            analysis.conflicts = [c for c in found if c["Site"] == here]
             for row in rows:
-                row[column] = screening.note(row["Parameter"], site, out, stands_for)
-
-
-def _write_never_recorded(
-    config: dict[str, Any],
-    register: screening.Register | None,
-    automatic: list[screening.Decision],
-    content_digest: str,
-    staged: Path,
-) -> None:
-    """Append the build's own exclusions to the register, citing the batch table."""
-    if register is None or not automatic:
-        return
-    added = [replace(d, batch_table=content_digest) for d in automatic]
-    where = workspace.location(config, "screening")
-    path = staged / where.name
-    screening.write(register.decisions + added, path)
-    share.upload({"screening register": path}, where.folder)
-    screening.log_added(added)
+                row[column] = screening.note(row["Parameter"], here, out, stands_for)
 
 
 def _write_evidence(
@@ -848,7 +839,8 @@ def _write_evidence(
 def run_screening_add(
     config: dict[str, Any], proposal: str | Path, author: str, new: bool = False
 ) -> share.Location:
-    """Check a proposal against the latest build, and append it to the register."""
+    """Check a proposal against the configured site's latest build, and append it to the
+    register. Every row is about that site (or ``all``)."""
     mark = log.mark()
     log.stage("Screening: adding decisions")
     workspace.require(config, ("vocabulary", "batch_table", "screening"))
@@ -868,9 +860,19 @@ def run_screening_add(
         log.info(MODULE, "Starting a new screening register", str(where))
         register = screening.Register([], str(where))
     evidence, digest = _latest_evidence(config)
-    added = screening.add(
-        register.decisions, io.read_table(proposal), evidence, digest, author, sites
-    )
+    frame = io.read_table(proposal)
+    site = workspace.site_name(config)
+    if "Site" in frame.columns:
+        elsewhere = sorted(
+            {str(v).strip() for v in frame["Site"].dropna()} - {site, screening.ALL, ""}
+        )
+        if elsewhere:
+            raise screening.ScreeningError(
+                f"The proposal decides at {', '.join(elsewhere)}, and config.yaml is about "
+                f"{site} (site: {workspace.site_key(config)}): its latest build is the evidence "
+                f"checked, so a proposal is about {site} or {screening.ALL} only"
+            )
+    added = screening.add(register.decisions, frame, evidence, digest, author, sites)
     with tempfile.TemporaryDirectory(prefix="ml-screening-") as staging:
         path = Path(staging) / where.name
         screening.write(register.decisions + added, path)
@@ -889,16 +891,22 @@ def run_screening_add(
 
 
 def run_screening_status(config: dict[str, Any]) -> list[dict]:
-    """What the register excludes today, and which decisions the latest build questions."""
+    """What the register excludes today at the configured site, and which of those decisions
+    the site's latest build questions."""
     log.stage("Screening: status")
     workspace.require(config, ("vocabulary", "batch_table", "screening"))
     workspace.load_vocabulary(config)
-    sites = names.sites()
-    register = screening.read(workspace.location(config, "screening"), sites)
-    standing = screening.summary(register.decisions, sites)
+    register = screening.read(workspace.location(config, "screening"), names.sites())
+    site = workspace.site_name(config)
+    sites, decisions = (site,), screening.for_site(register.decisions, site)
+    standing = screening.summary(decisions, sites)
     log.facts(
         "Screening register",
-        [("Where", register.where), ("State", screening.status_line(register.decisions, sites))],
+        [
+            ("Where", register.where),
+            ("Site", f"{site} (site: {workspace.site_key(config)})"),
+            ("State", screening.status_line(decisions, sites)),
+        ],
     )
     log.names(
         "Excluded today",
@@ -908,14 +916,14 @@ def run_screening_status(config: dict[str, Any]) -> list[dict]:
             for r in standing.itertuples()
         ],
     )
-    found = screening.conflicts(register.decisions, sites)
+    found = screening.conflicts(decisions, sites)
     log.names(
         "Conflicts: representatives that are excluded themselves",
         [screening.conflict_line(c) for c in found],
         level="WARN",
     )
     evidence, _ = _latest_evidence(config)
-    findings = screening.review(register.decisions, evidence, sites)
+    findings = screening.review(decisions, evidence, sites)
     log.names(
         "Decisions to look at again",
         [
@@ -956,7 +964,7 @@ def run_screening_reset(config: dict[str, Any]) -> share.Location:
         [
             ("Register", str(where)),
             ("Kept", files["previous screening register"].name if old else "nothing to keep"),
-            ("Next", "`ml build` adds the never-recorded exclusions; the reports propose the rest"),
+            ("Next", "both sites start with no decision; their reports propose them again"),
         ],
     )
     return where
@@ -1073,7 +1081,12 @@ def _upstream_manifests(config: dict[str, Any] | None, spec: TaskSpec) -> dict[s
             where = Path(copy).parent / f"{stage}_manifest.json"
             found[stage] = (where.read_text(encoding="utf-8") if where.is_file() else None, where)
         else:
-            where = workspace.location(config, label).file(f"{stage}_manifest.json")
+            folder = (
+                workspace.catalog_folder(config)
+                if label == "catalog"
+                else workspace.batch_table_folder(config)
+            )
+            where = folder.file(f"{stage}_manifest.json")
             found[stage] = (share.read_text(where), where)
     return found
 
@@ -1137,13 +1150,23 @@ VOCABULARY_COPY = f"inputs/{workspace.RUN_VOCABULARY}"
 SCREENING_COPY = "inputs/screening.xlsx"
 
 
-def _warn_conflicts(decisions: list[screening.Decision], cohort: tuple[str, ...] = ()) -> list[str]:
-    """Warn about every representative that is excluded itself, at the cohort's sites (default:
-    all); returns them in words."""
+def _task_site(config: dict[str, Any] | None, spec: TaskSpec) -> str:
+    """The key of the site a task is about (:func:`ml.dataset.task_site`)."""
+    configured = workspace.site_key(config) if config and spec.batch_table is None else None
+    where = str((config or {}).get("__path__") or "config.yaml")
+    return dataset.task_site(spec, configured, where)
+
+
+def _check_batch_table_site(batch_table: pd.DataFrame, site: str) -> None:
+    dataset.check_batch_table_site(batch_table, site)
+
+
+def _warn_conflicts(decisions: list[screening.Decision], site: str) -> list[str]:
+    """Warn about every representative at ``site`` that is excluded itself; returns them in
+    words."""
     lines = [
         screening.conflict_line(c)
-        for c in screening.conflicts(decisions, names.sites())
-        if not cohort or c["Site"] in cohort
+        for c in screening.conflicts(screening.for_site(decisions, site), (site,))
     ]
     for line in lines:
         log.warn(MODULE, f"Screening conflict: {line} — resolve it in the correlation report")
@@ -1157,15 +1180,15 @@ def _check_listed_screening(spec: TaskSpec, screened: dict) -> None:
             log.warn(
                 MODULE,
                 f"task.yaml still excludes '{column}' ({reason}), but the screening register "
-                "no longer does at this task's sites — delete the line to use it again",
+                "no longer does at this task's site — delete the line to use it again",
             )
 
 
 def _screened_for_new_task(
     config: dict[str, Any] | None,
 ) -> tuple[list[tuple[str, str]], str, list[str]]:
-    """What the screening register excludes today, at any site, for a new task file;
-    its last decision; and its conflicts, in words."""
+    """What the screening register excludes today at config.yaml's site, for a new task
+    file; its last decision; and its conflicts there, in words."""
     if not config or not workspace.has(config, "screening"):
         return [], "", []
     try:
@@ -1174,9 +1197,10 @@ def _screened_for_new_task(
     except Exception as exc:  # the task is still worth making; its runs apply the register
         log.warn(MODULE, f"The screening register could not be read for the task file: {exc}")
         return [], "", []
-    excluded = screening.excluded(register.decisions, names.sites())
+    site = workspace.site_name(config)
+    excluded = screening.excluded(screening.for_site(register.decisions, site), (site,))
     last = register.decisions[-1].id if register.decisions else ""
-    found = _warn_conflicts(register.decisions)
+    found = _warn_conflicts(register.decisions, site)
     return (
         [(p, f"screened out by {screening.labels(ds)}") for p, ds in sorted(excluded.items())],
         last,
@@ -1231,14 +1255,16 @@ def write_task_catalog(config: dict[str, Any], spec: TaskSpec) -> Path:
     task.yaml, a new build or a new decision shows after ``ml task catalog``.
     """
     workspace.load_vocabulary(config)
+    site = names.site(_task_site(config, spec))
     batch_table_source = workspace.table_source(config, "batch_table", None)
     catalog_source = workspace.table_source(config, "catalog", None)
     _show_reads([batch_table_source, catalog_source], "Reading from SharePoint")
     batch_table = io.load_batch_table(batch_table_source)
+    _check_batch_table_site(batch_table, site)
     catalog_frame = io.read_catalog(catalog_source)
     register = _register(config)
-    decisions = register.decisions if register else []
-    screened = screening.excluded(decisions, names.sites(), spec.cohort.sites)
+    decisions = screening.for_site(register.decisions, site) if register else []
+    screened = screening.excluded(decisions, (site,))
     usable = dataset.candidate_predictors(
         batch_table,
         catalog_frame,
@@ -1246,9 +1272,7 @@ def write_task_catalog(config: dict[str, Any], spec: TaskSpec) -> Path:
         dataset.TaskResult(spec),
         screened={p: screening.labels(ds) for p, ds in screened.items()},
     )
-    table = screening.task_catalog(
-        catalog_frame, usable, decisions, names.sites(), spec.cohort.sites
-    )
+    table = screening.task_catalog(catalog_frame, usable, decisions, (site,))
     path = Path(spec.source).parent / TASK_CATALOG
     table.to_excel(path, index=False)
     log.success(
@@ -1269,10 +1293,11 @@ def _task_register(config: dict[str, Any] | None, spec: TaskSpec) -> screening.R
     if register is None:
         log.info(MODULE, "No screening register is configured; no parameter is screened out")
     else:
+        site = workspace.site_name(config)
         log.info(
             MODULE,
-            "Applying the screening register",
-            screening.status_line(register.decisions, names.sites()),
+            f"Applying the screening register at {site}",
+            screening.status_line(screening.for_site(register.decisions, site), (site,)),
         )
     return register
 
@@ -1317,6 +1342,9 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec) -> Path:
 
     try:
         vocabulary = workspace.task_vocabulary(config, spec.batch_table)
+        spec = replace(spec, site=_task_site(config, spec))
+        site = names.site(spec.site)
+        log.info(MODULE, f"About {site} only (site: {spec.site})")
         batch_table_source = workspace.table_source(config, "batch_table", spec.batch_table)
         catalog_source = workspace.table_source(config, "catalog", spec.catalog)
         _show_reads(
@@ -1329,6 +1357,7 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec) -> Path:
             "catalog": _input_name(catalog_source, "catalog"),
         }
         batch_table = io.load_batch_table(batch_table_source)
+        _check_batch_table_site(batch_table, site)
         catalog_frame = io.read_catalog(catalog_source)
         _copy_input(pkg, batch_table_source, batch_table, inputs["batch_table"])
         _copy_input(pkg, catalog_source, catalog_frame, inputs["catalog"])
@@ -1358,13 +1387,13 @@ def run_task(config: dict[str, Any] | None, spec: TaskSpec) -> Path:
             + yaml.safe_dump(settings, sort_keys=False, allow_unicode=True),
         )
         screened = (
-            screening.excluded(register.decisions, names.sites(), spec.cohort.sites)
+            screening.excluded(screening.for_site(register.decisions, site), (site,))
             if register is not None
             else {}
         )
         _check_listed_screening(spec, screened)
         if register is not None:
-            pkg.warnings += _warn_conflicts(register.decisions, spec.cohort.sites)
+            pkg.warnings += _warn_conflicts(register.decisions, site)
         final, result = dataset.build(
             batch_table,
             catalog_frame,
@@ -1570,10 +1599,11 @@ def validate(config: dict[str, Any] | None, specs: list[TaskSpec]) -> list[str]:
         try:
             register = _register(config)
             if register is not None:
+                site = workspace.site_name(config)
                 log.success(
                     MODULE,
-                    "Screening register",
-                    screening.status_line(register.decisions, names.sites()),
+                    f"Screening register at {site}",
+                    screening.status_line(screening.for_site(register.decisions, site), (site,)),
                 )
         except screening.ScreeningError as exc:
             problems.append(str(exc))
@@ -1727,9 +1757,10 @@ def _check_task(config: dict[str, Any] | None, spec: TaskSpec) -> list[str]:
         for name in wanted:
             if name and name not in columns:
                 problems.append(f"{where}: '{name}' is not a column of the batch table")
-    if spec.cohort.sites and spec.cohort.site_column not in columns:
+    if config and spec.site and spec.site != workspace.site_key(config):
         problems.append(
-            f"cohort.site_column: '{spec.cohort.site_column}' is not in the batch table"
+            f"site: the task is about site {spec.site}, and config.yaml about site "
+            f"{workspace.site_key(config)}"
         )
     try:
         frame = workspace.table_source(config, "catalog", spec.catalog).read()
@@ -1812,7 +1843,7 @@ def _parser() -> argparse.ArgumentParser:
     leaks_cmd.add_argument(
         "folder", nargs="?", default=".", help="the repository to search (default: here)"
     )
-    commands.add_parser("build", help="build the batch table from both sites")
+    commands.add_parser("build", help="build the batch table of config.yaml's site")
     update = commands.add_parser("update", help="check-catalog, build, then the given tasks")
     update.add_argument("--task", action="append", help="a task workspace (repeatable)")
 
@@ -1906,6 +1937,7 @@ def _run(args) -> int:
             screened=screened,
             screened_as_of=as_of,
             conflicts=conflicts,
+            site=workspace.site_key(found) if found else "",
             shifting=shifting,
             shifting_built=built,
         )

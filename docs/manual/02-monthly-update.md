@@ -4,6 +4,11 @@ When a new month of batches is in the sources, bring the batch table up to date.
 This chapter is the routine, in order, with what to look at in each report.
 Allow an hour the first time and a quarter of an hour after that.
 
+**Everything is about one site at a time**: the one `site:` in `config.yaml`
+names. Go through the checklist for that site; to bring the other site up to
+date too, switch `site:` (or pass `--config` with a config about it) and go
+through it again. Each site's outputs go into a folder named after it.
+
 ## Checklist
 
 1. `ml validate`: the setup still works.
@@ -33,21 +38,20 @@ nothing. Fix whatever it lists before going on.
 uv run ml check-catalog
 ```
 
-It compares every source's columns with the catalog, and ends with what it found:
+It compares the site's sources' columns with the catalog (site B's under the
+names the parameter mapping gives them), and ends with what it found:
 
 ```
 Northfield batch records: columns the catalog does not list (1)
   - Site note
-Southbank batch records: columns the catalog does not list (2)
-  - Plant code
-  - Remark
 ```
 
 These columns are in the sources but won't be in the batch table. **This is your
 to-do list:** add the rows you want to `catalog.xlsx` (with a value type and
 availability), and leave the rest out on purpose. The same list is in
 `new_parameters.csv`, and `catalog_report.html` shows it source by source; both
-are in the catalog's folder on SharePoint.
+are in the site's folder next to the catalog on SharePoint (`<catalog
+folder>/<site name>/`).
 
 ## 3. Build
 
@@ -56,7 +60,7 @@ uv run ml build
 ```
 
 ```
-Written to SharePoint — 70 batches × 230 columns
+Written to SharePoint — 40 batches × 227 columns
   batch table            batch_data.xlsx
   batch table (Parquet)  batch_data.parquet
   report                 build_report.html
@@ -68,7 +72,10 @@ Written to SharePoint — 70 batches × 230 columns
   manifest               batch_table_manifest.json
 ```
 
-Everything goes into the batch table's folder on SharePoint. The manifest records
+Everything goes into the site's folder next to the batch table on SharePoint
+(`<batch table folder>/<site name>/`). The batch table holds the site's batches
+only, and only the catalog parameters the site records: one empty in every batch
+is left out, and the build report lists it. The manifest records
 what was read (with digests), what was written, and every warning, so any batch
 table can be traced back to the sources it came from.
 
@@ -87,22 +94,22 @@ and 10 to 30 seconds to start. Look at these sections:
 
 | Section | Look for |
 |---|---|
-| **Overview** | The batch and column counts per site: do they match what you expect for the month? |
+| **Overview** | The batch and column counts: do they match what you expect for the month? |
 | **Cleaning** | Every correction that changed something, and every value that could not be read (a date that isn't a date, a number written as text). A new kind of error here usually means a new correction rule. |
-| **Catalog coverage** | Catalog parameters that are not in the batch table, and why: no source supplies it, or a calculated feature is blocked (an input missing, or a setting it waits for). |
+| **Catalog coverage** | Catalog parameters that are not in the batch table, and why: no source supplies it, or a calculated feature is blocked (an input missing, or a setting it waits for). And, collapsed, the ones this site never records. |
 | **Run log** | Every warning of the run. |
 
 ## 5. Read the missingness report
 
-Open `missingness_report.html`. It describes **commercial batches only**: Ghent
-batches whose `Type` is `Commercial`, and every Raritan batch. Of those, the
-**statistics and groups use only batches whose manufacturing is completed**
+Open `missingness_report.html`. It describes **commercial batches only**: at
+Ghent the batches whose `Type` is `Commercial`, at Raritan every batch. Of those,
+the **statistics and groups use only batches whose manufacturing is completed**
 (`Manufacturing Completed?` = `Y`). Batches still in production are drawn in the
 plot but counted nowhere else. Both rules are `build.missingness_cohort` in
-`config.yaml`. **About this report** in the sidebar says how many batches each
-site's analysis covers.
+`config.yaml`. **About this report** in the sidebar says how many batches the
+analysis covers.
 
-Pick a site in the sidebar. The tables work the same way in all three reports:
+The sidebar names the site. The tables work the same way in all three reports:
 **click a row** to draw it (the row is shaded), and **tick the box** at the
 start of rows, in any of the tables, to propose a screening decision about
 them. The page has these parts:
@@ -137,7 +144,7 @@ The pattern says how a parameter goes missing:
 
 | Pattern | Meaning | Usually |
 |---|---|---|
-| Never recorded | Missing on every batch. | Nothing to do: the build screens it out at that site. |
+| Never recorded | Missing on every batch described (it has a value in some other batch). | Screen it out, or check why the commercial batches lack it. |
 | Introduced late | Measured from some batch on. | Keep it, or screen it out until there is enough history. |
 | Retired | No longer measured. | Screen out: new batches will never have it. |
 | Measured in a window | Missing at the start and the end. | Look closer. |
@@ -147,7 +154,7 @@ The pattern says how a parameter goes missing:
 | Regular skipping | Every n-th batch skipped. | Look closer: a sampling plan? |
 
 The *Help* button in the sidebar explains every statistic. `missingness.xlsx`
-in the same folder holds every parameter's row, for both sites. The tables have
+in the same folder holds every parameter's row. The tables have
 no CSV download; the only download is the proposal.
 
 When you decide that a parameter or a group should not be used by any task,
@@ -208,9 +215,10 @@ such a parameter as a stand-in for time. The report also groups the parameters
 that **change on the same days**, since they say the same thing: which lot a
 batch was made with.
 
-It works **per manufacturing site** (the `Manufacturing Site` column) rather than
-per data source, since time and the lots run per plant, over the batches the
-missingness report counts in its statistics. Dates count by the day: the batches
+It works **per manufacturing site** (the `Manufacturing Site` column) within the
+site's batches, since time and the lots run per plant, over the batches the
+missingness report counts in its statistics; with one plant, the sidebar just
+names it. Dates count by the day: the batches
 of one day have no order, and on the day a lot changes some of them can have the
 old lot and some the new one; that day ends the old lot's group and starts the
 new one's.
@@ -256,7 +264,8 @@ Decisions to look at again (0)
 OK  The latest build gives no reason to revisit a decision
 ```
 
-It compares every standing exclusion with the new build. It lists a decision
+It compares every standing exclusion at the site (and at `all`) with the site's
+new build. It lists a decision
 when the parameter is measured again after being *retired* or *never recorded*,
 when its missing rate moved by 20 points or more, when it is no longer in the
 batch table, when the parameter that represents it is screened out too, or when
@@ -266,11 +275,14 @@ decide: see [Changing your mind](03-screening.md#changing-your-mind).
 ## 7. Rerun your tasks
 
 ```bash
-uv run ml task run --task tasks/expression --task tasks/release
+uv run ml task run --task tasks/expression
 ```
 
-Each run reads the new batch table and the current screening register, and
-writes a new run folder next to the previous ones. Nothing is overwritten.
+Each run reads its site's new batch table and the current screening decisions at
+that site, and writes a new run folder next to the previous ones. Nothing is
+overwritten. A task names its site (`site:` in its `task.yaml`), and refuses to
+run with a config about the other site: rerun each site's tasks after that
+site's build.
 
 `ml update --task …` does steps 2, 3 and 7 in one go. Run it unattended only
 when you don't need to read the reports in between.

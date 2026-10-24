@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import fields
+from dataclasses import fields, replace
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +47,7 @@ SHAREPOINT_SOURCES = (
 )
 TOP_KEYS = (
     "seed",
+    "site",
     "sources",
     "sharepoint",
     "catalog",
@@ -65,6 +66,8 @@ REMOVED = {
     "sources.fallback_to_local": "every input is read from SharePoint; there is no local option",
     "cleaning.corrections": "the corrections are the Corrections sheet of sharepoint.vocabulary",
 }
+#: The vocabulary keys of the sites; ``site:`` names one of them.
+SITE_KEYS = ("a", "b")
 CLEANING_KEYS = (
     "censored",
     "censored_flags",
@@ -220,10 +223,18 @@ def validate(config: dict[str, Any], source: str = "config") -> None:
     _mapping(config, "(root)", TOP_KEYS + ("paths", "sheets", "upload"), errors)
 
     for key, why in REMOVED.items():
-        section, _, name = key.partition(".")
-        holder = config if not name else config.get(section)
-        if isinstance(holder, dict) and (name or section) in holder:
+        *parents, name = key.split(".")
+        holder: Any = config
+        for part in parents:
+            holder = holder.get(part) if isinstance(holder, dict) else None
+        if isinstance(holder, dict) and name in holder:
             errors.append(f"{key}: no longer a setting — {why}")
+
+    if config.get("site") not in SITE_KEYS:
+        errors.append(
+            f"site: required — the site everything is about, {' or '.join(SITE_KEYS)} "
+            "(the vocabulary names them)"
+        )
 
     allowed = ("databricks", "location", "fallback_to_local")
     _mapping(config.get("sources"), "sources", allowed, errors)
@@ -305,8 +316,22 @@ def validate(config: dict[str, Any], source: str = "config") -> None:
 # ---------------------------------------------------------------------------
 # Where each input is read from, and each output written to
 # ---------------------------------------------------------------------------
+def site_key(config: dict[str, Any]) -> str:
+    """The key (``a`` or ``b``) of the site everything is about."""
+    return str(config["site"])
+
+
+def site_name(config: dict[str, Any]) -> str:
+    """The name of the site everything is about, as the vocabulary has it."""
+    return names.site(site_key(config))
+
+
 def location(config: dict[str, Any], label: str) -> share.Location:
-    """Where ``label`` is on SharePoint, with the sheet its data is on (or a CSV's delimiter)."""
+    """Where ``label`` is on SharePoint, with the sheet its data is on (or a CSV's delimiter).
+
+    The batch table is the site's own: ``<its folder>/<site name>/<its name>``, so
+    each site's build and everything read from it stay apart.
+    """
     entry = (config.get("sharepoint") or {}).get(label)
     if not entry or label == "site_maps":
         raise ConfigError(
@@ -315,7 +340,16 @@ def location(config: dict[str, Any], label: str) -> share.Location:
         )
     sheet = entry.get("sheet", names.sheet(label, 0))
     sep = entry.get("sep")
-    return share.Location(str(entry["drive_id"]), str(entry["path"]), sheet, sep)
+    found = share.Location(str(entry["drive_id"]), str(entry["path"]), sheet, sep)
+    if label == "batch_table":
+        return _in_site_folder(found, config)
+    return found
+
+
+def _in_site_folder(file: share.Location, config: dict[str, Any]) -> share.Location:
+    """The same file name, in a folder named after the site, inside the file's own folder."""
+    folder = file.folder.path
+    return replace(file, path=f"{folder}{site_name(config)}/{file.path[len(folder) :]}")
 
 
 def source(config: dict[str, Any], label: str) -> io.Source:
@@ -391,8 +425,8 @@ def load_corrections(config: dict[str, Any]) -> list[corrections.Rule]:
 
 
 def catalog_folder(config: dict[str, Any]) -> share.Location:
-    """Where ``ml check-catalog`` writes: the catalog's own folder."""
-    return location(config, "catalog").folder
+    """Where ``ml check-catalog`` writes: the site's folder inside the catalog's own folder."""
+    return _in_site_folder(location(config, "catalog"), config).folder
 
 
 def batch_table_folder(config: dict[str, Any]) -> share.Location:

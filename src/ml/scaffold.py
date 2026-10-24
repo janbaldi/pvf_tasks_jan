@@ -34,6 +34,7 @@ def init(
     shifting: list[tuple[str, str]] = (),
     shifting_built: str = "",
     conflicts: list[str] = (),
+    site: str = "",
 ) -> Path:
     """Write ``<folder>/task.yaml``, pointing at ``config``. Returns its path.
 
@@ -42,7 +43,8 @@ def init(
     build (run at ``shifting_built``) found running in groups over time, when asked
     for. They are written out as ``predictors.exclude`` entries, so the task file
     itself says what it leaves out and why; ``conflicts`` (representatives the
-    register excludes too) as comments above them.
+    register excludes too) as comments above them. ``site`` is the key of the site
+    the task is about (config.yaml's ``site:``).
     """
     path = (Path(folder).expanduser() / TASK_FILE).resolve()
     if path.exists() and not force:
@@ -57,6 +59,7 @@ def init(
         template("task.yaml")
         .replace("__CONFIG__", link)
         .replace("__NAME__", slug)
+        .replace("site: __SITE__", f"site: {site}" if site else "# site: a")
         .replace("__QUESTION__", question or f"What goes with {target or 'the target'}?")
         .replace("__TARGET__", target or "<the column to predict>")
         .replace("__TARGET_TYPE__", "numeric")
@@ -83,7 +86,7 @@ def _excludes(
     lines = ["  exclude:                        # single columns: [{column: ..., reason: ...}]"]
     if screened:
         lines += [
-            f"    # Screened out by the screening register (last decision {as_of}), at any site.",
+            f"    # Screened out by the screening register (last decision {as_of}) at this site.",
             "    # Every run applies the register anyway; these lines make it visible here.",
             "    # A run warns when one of them has since been reinstated: then delete the line.",
         ]

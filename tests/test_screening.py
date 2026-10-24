@@ -273,30 +273,22 @@ def test_a_proposal_with_problems_adds_nothing_and_names_them():
         screening.add([], proposal(row), EVIDENCE, "", " ", SITES)
 
 
-def test_the_build_excludes_what_a_site_never_records_unless_the_register_decided():
-    # Y reinstated in the missingness report stays in; X's correlation decision is not that.
+def test_a_site_sees_its_own_decisions_and_those_at_all():
     log = [
-        decision(1, "reinstate", "Y", "North"),
-        decision(9, "exclude", "X", "North", reason=screening.CORRELATED, represented_by="Z"),
+        decision(1, "exclude", "X", "North"),
+        decision(2, "exclude", "Y", "South"),
+        decision(3, "exclude", "Z", "all"),
     ]
-    missing = {
-        "North": [
-            {"Parameter": "X", "Missing %": 100.0, "Pattern": "Never recorded"},
-            {"Parameter": "Y", "Missing %": 100.0, "Pattern": "Never recorded"},
-            {"Parameter": "Z", "Missing %": 99.5, "Pattern": "Introduced late"},
-        ],
-        "South": [{"Parameter": "X", "Missing %": 100.0, "Pattern": "Never recorded"}],
-    }
-    added = screening.never_recorded(log, missing, "abc", SITES, today=date(2026, 10, 1))
-    assert [(d.id, d.parameter, d.site) for d in added] == [
-        ("S-0010", "X", "North"),
-        ("S-0011", "X", "South"),
-    ], "one decision per site; a reinstatement stands"
-    assert {(d.action, d.reason, d.author, d.batch_table, d.track) for d in added} == {
-        ("exclude", "never recorded", screening.BUILD_AUTHOR, "abc", "missingness")
-    }
-    assert added[0].review_by == "2026-12-31"
-    assert screening.never_recorded(log + added, missing, "abc", SITES) == [], "only once"
+    north = screening.for_site(log, "North")
+    assert [d.id for d in north] == ["S-0001", "S-0003"]
+    assert set(screening.excluded(north, ("North",))) == {"X", "Z"}
+    # The other site's conflict is not this site's either.
+    other = [
+        decision(4, "exclude", "W", "South", reason=screening.CORRELATED, represented_by="Y"),
+        *log,
+    ]
+    assert screening.conflicts(screening.for_site(other, "North"), ("North",)) == []
+    assert [c["Representative"] for c in screening.conflicts(other, SITES)] == ["Y"]
 
 
 # ---------------------------------------------------------------------------
@@ -326,22 +318,19 @@ def test_a_task_leaves_out_what_the_register_excludes_at_its_sites(built):
     row = decisions[decisions["Parameter"] == screened].iloc[0]
     assert (row["Decision"], row["Stage"]) == ("excluded", "screening")
     assert "S-0001" in row["Reason"]
-    # The release task is site B's, where the parameter is not excluded: what it
-    # screens out there is only what site B never records, which the build excluded.
+    # The release task is site B's, where nothing is excluded: it screens nothing out.
     other = csv(built, EXPLORATORY, "parameters.csv")
-    assert screened not in set(other.loc[other["Stage"] == "screening", "Parameter"])
-    assert other.loc[other["Stage"] == "screening", "Reason"].str.contains("never recorded").all()
+    assert not (other["Stage"] == "screening").any()
 
 
 def test_a_run_records_and_keeps_the_register_it_applied(built):
     run = built["packages"][PREDICTIVE]
     record = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
-    # S-0001 is the demo's; the build added one exclusion per site of what it never records.
-    assert record["screening"]["last_decision"] == "S-0003"
+    # S-0001 is the demo's; the build adds nothing to the register.
+    assert record["screening"]["last_decision"] == "S-0001"
     assert record["screening"]["intact"] is True
     copy_ = pd.read_excel(run / "inputs" / "screening.xlsx", sheet_name=screening.SHEET)
-    assert copy_["ID"].unique().tolist() == ["S-0001", "S-0002", "S-0003"]
-    assert set(copy_.loc[copy_["ID"] != "S-0001", "Author"]) == {screening.BUILD_AUTHOR}
+    assert copy_["ID"].unique().tolist() == ["S-0001"]
 
 
 def test_the_build_writes_the_evidence_and_marks_screened_parameters(built):
@@ -352,10 +341,8 @@ def test_the_build_writes_the_evidence_and_marks_screened_parameters(built):
     assert by_hand[["Site", "Parameter"]].values.tolist() == [
         [names.site("a"), dummy_data.screened_parameter()]
     ]
-    # Everything else marked is what the build excluded: missing in every batch of its site.
-    automatic = marked[~marked["Screening"].str.startswith("excluded S-0001 ")]
-    assert not automatic.empty and (automatic["Missing %"] == 100).all()
-    assert (table.loc[table["Missing %"] == 100, "Screening"].fillna("") != "").all()
+    # Nothing else is marked: the build adds no decision of its own.
+    assert len(marked) == 1 and set(table["Site"]) == {names.site("a")}
     about = pd.read_excel(path, sheet_name=screening.ABOUT_SHEET)
     assert "Batch table content digest" in set(about["Item"])
 
@@ -474,15 +461,14 @@ def test_the_missingness_report_shows_what_is_screened_out(built):
     viewer = next(b for b in payload["sections"][0]["blocks"] if b["kind"] == "missing_viewer")
     assert viewer["proposal"]["reasons"] == list(screening.TRACK_REASONS["missingness"])
     assert viewer["proposal"]["report"] == "missingness"
-    sites = {site["label"]: site for site in viewer["sites"]}
-    first = sites[names.site("a")]
+    (first,) = viewer["sites"]
+    assert first["label"] == names.site("a")
     assert first["screened"][dummy_data.screened_parameter()]["Decision"] == "S-0001"
-    assert {d["Reason"] for d in sites[names.site("b")]["screened"].values()} == {"never recorded"}
     assert first["elsewhere"] == {} and first["conflicts"] == []
     assert first["group_headers"][-2:] == ["Excluded here", "Excluded elsewhere"]
 
 
-def test_both_reports_show_every_decision_and_the_conflicts(monkeypatch):
+def test_both_reports_show_every_decision_and_the_conflicts():
     from types import SimpleNamespace
 
     log = [
@@ -490,16 +476,15 @@ def test_both_reports_show_every_decision_and_the_conflicts(monkeypatch):
         decision(2, "exclude", "Twin", "North", reason=screening.CORRELATED, represented_by="X"),
         decision(3, "exclude", "X", "North", reason="never recorded"),
     ]
-    monkeypatch.setattr(names, "sites", lambda: SITES)
 
     def analysis():
         return SimpleNamespace(screened={}, elsewhere={}, conflicts=[])
 
     rows = [{"Parameter": p} for p in ("Old", "Twin", "X", "Y")]
-    missing = {"North": (rows, analysis()), "South": ([], analysis())}
+    missing = {"North": (rows, analysis())}
     ranked = [{"Parameter": p} for p in ("Old", "Twin", "X")]
-    correlated = {"North": (ranked, analysis()), "South": ([], analysis())}
-    cli._show_register(log, missing, correlated)
+    correlated = {"North": (ranked, analysis())}
+    cli._show_register(log, "North", missing, correlated)
     here, there = missing["North"][1], correlated["North"][1]
     assert set(here.screened) == {"Old", "X"} and set(here.elsewhere) == {"Twin"}
     assert set(there.screened) == {"Twin"} and set(there.elsewhere) == {"Old", "X"}
@@ -508,7 +493,6 @@ def test_both_reports_show_every_decision_and_the_conflicts(monkeypatch):
         == ["X"]
         == [c["Representative"] for c in there.conflicts]
     )
-    assert missing["South"][1].conflicts == []
     assert rows[1]["Screening"] == (
         "excluded S-0002 (correlation: correlated with group, represented by X)"
     )
@@ -523,7 +507,7 @@ def test_a_new_task_file_lists_the_screened_parameters_as_exclusions(built, tmp_
     from ml import scaffold, taskconfig
 
     screened, as_of, conflicts = cli._screened_for_new_task(built["config"])
-    assert as_of == "S-0003", "the build's own exclusions come after the demo's S-0001"
+    assert as_of == "S-0001"
     assert conflicts == []
     assert (
         dummy_data.screened_parameter(),
@@ -535,14 +519,17 @@ def test_a_new_task_file_lists_the_screened_parameters_as_exclusions(built, tmp_
         config=built["config_path"],
         screened=screened,
         screened_as_of=as_of,
+        site="a",
     )
     text = path.read_text(encoding="utf-8")
-    assert "Screened out by the screening register (last decision S-0003)" in text
+    assert "Screened out by the screening register (last decision S-0001) at this site" in text
+    assert "\nsite: a\n" in text and taskconfig.load(path).site == "a"
     spec = taskconfig.load(path)
     assert dict(spec.predictors.exclude) == dict(screened)
     # Without a register there is nothing to list, and the template is as it was.
     plain = scaffold.init(tmp_path / "plain", dummy_data.target())
     assert "  exclude: []" in plain.read_text(encoding="utf-8")
+    assert taskconfig.load(plain).site == "", "no config, no site: it is left to fill in"
     flagged = scaffold.init(
         tmp_path / "flagged",
         dummy_data.target(),

@@ -20,9 +20,13 @@ reinstating one leaves the other. A parameter is excluded when any track
 excludes it.
 
 A representative that is itself excluded leaves its group with nothing: that
-is a conflict (:func:`conflicts`). ``ml screening add`` refuses to make one;
-the build's own exclusions can, and every report, ``ml screening status`` and
-every task names it.
+is a conflict (:func:`conflicts`). ``ml screening add`` refuses to make one; a
+decision at ``all`` made from the other site's build can, and every report,
+``ml screening status`` and every task names it.
+
+Everything is about one site at a time (``site:`` in config.yaml): a build, its
+reports and its tasks see only the decisions at that site and at ``all``
+(:func:`for_site`).
 
 Every task applies that state when it picks its predictors, records which
 decisions it applied, and keeps a copy of the register in its run folder, so a
@@ -272,6 +276,12 @@ def _sites(decision: Decision, sites: tuple[str, ...]) -> tuple[str, ...]:
     return sites if decision.site == ALL else (decision.site,)
 
 
+def for_site(decisions: list[Decision], site: str) -> list[Decision]:
+    """The decisions about one site: made at it, or at ``all``. Everything is about one site
+    at a time (``site:`` in config.yaml), so that is all a build, a report or a task sees."""
+    return [d for d in decisions if d.site in (site, ALL)]
+
+
 def current(
     decisions: list[Decision], sites: tuple[str, ...]
 ) -> dict[tuple[str, str, str], Decision]:
@@ -339,8 +349,8 @@ def excluded(
 ) -> dict[str, list[Decision]]:
     """Parameter → the decisions that exclude it, for a task over ``cohort``'s sites.
 
-    A task over both sites leaves a parameter out when either site excludes it:
-    a predictor that is unusable at one site would teach the model the site.
+    A task is about one site, so ``cohort`` is that site; over several (the register
+    on its own), a parameter is out when any of them excludes it.
     """
     out: dict[str, list[Decision]] = {}
     for (parameter, site), found in standing(decisions, sites).items():
@@ -580,66 +590,6 @@ def add(
     return added
 
 
-#: Who the register names for the decisions the build makes on its own.
-BUILD_AUTHOR = "ml build"
-
-
-def never_recorded(
-    decisions: list[Decision],
-    missing_by_site: dict[str, list[dict]],
-    batch_table: str,
-    sites: tuple[str, ...],
-    today: date | None = None,
-) -> list[Decision]:
-    """The exclusions the build adds on its own: parameters missing in every batch of a site.
-
-    A parameter that is never recorded at a site has nothing to predict with
-    there, so it needs no judgement. One decision ID per site covers them all.
-    A parameter the missingness report already decides on at that site is left
-    alone, so a reinstatement stands until someone excludes it again.
-    """
-    today = today or date.today()
-    state = current(decisions, sites)
-    numbers = [int(d.id.split("-")[-1]) for d in decisions if d.id.split("-")[-1].isdigit()]
-    next_number = max(numbers, default=0) + 1
-    added: list[Decision] = []
-    for site, rows in missing_by_site.items():
-        found = [
-            row
-            for row in rows
-            if pd.to_numeric(row.get("Missing %"), errors="coerce") == 100
-            and (row["Parameter"], site, MISSINGNESS) not in state
-        ]
-        if not found:
-            continue
-        identifier = f"S-{next_number:04d}"
-        next_number += 1
-        for row in found:
-            added.append(
-                Decision(
-                    id=identifier,
-                    date=today.isoformat(),
-                    author=BUILD_AUTHOR,
-                    action=EXCLUDE,
-                    parameter=row["Parameter"],
-                    site=site,
-                    group="",
-                    reason="never recorded",
-                    rationale=f"missing in every batch at {site}; excluded by the build",
-                    missing=_text(row.get("Missing %")),
-                    pattern=_text(row.get("Pattern")),
-                    last_measured=_text(row.get("Last measured")),
-                    batch_table=batch_table,
-                    review_by=(today + REVIEW_AFTER).isoformat(),
-                    report=MISSINGNESS,
-                )
-            )
-    return added
-
-
-# ---------------------------------------------------------------------------
-# Looking again
-# ---------------------------------------------------------------------------
 def review(
     decisions: list[Decision],
     evidence: pd.DataFrame,

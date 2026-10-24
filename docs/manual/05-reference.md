@@ -11,17 +11,20 @@ Run as `uv run ml [--config FILE] [--debug] [--quiet] COMMAND …`.
 | Command | What it does |
 |---|---|
 | `ml validate [--task T]` | Check `config.yaml`, the vocabulary, the corrections, the screening register and the given tasks. Writes nothing. Inside a task folder, also checks that task. |
-| `ml check-catalog` | Compare every source's columns with the catalog. Writes `catalog_report.html`, `catalog_manifest.json` and `new_parameters.csv` into the catalog's folder. |
-| `ml build` | Build the batch table. Writes `batch_data.xlsx`, `batch_data.parquet`, `build_report.html`, `missingness_report.html`, `missingness.xlsx`, `correlation_report.html`, `shifts_report.html`, `shifts.xlsx` and `batch_table_manifest.json` into the batch table's folder. |
-| `ml screening add PROPOSAL [--author NAME] [--new]` | Check a proposal (written by the missingness or correlation report, or by hand) against the latest build and add its decisions to the screening register. `--author` fills an empty `Author` column. `--new` starts the register when there is none. |
-| `ml screening status` | List what the register excludes today (per report), the conflicts, and the decisions the latest build gives a reason to look at again. |
-| `ml screening reset --yes` | Start the register over, empty. The old one is kept next to it, renamed `<name>_before_reset_<date>.xlsx`. |
+| `ml check-catalog` | Compare the site's sources' columns with the catalog. Writes `catalog_report.html`, `catalog_manifest.json` and `new_parameters.csv` into `<catalog folder>/<site name>/`. |
+| `ml build` | Build the site's batch table. Writes `batch_data.xlsx`, `batch_data.parquet`, `build_report.html`, `missingness_report.html`, `missingness.xlsx`, `correlation_report.html`, `shifts_report.html`, `shifts.xlsx` and `batch_table_manifest.json` into `<batch table folder>/<site name>/`. |
+| `ml screening add PROPOSAL [--author NAME] [--new]` | Check a proposal (written by the missingness or correlation report, or by hand) against the site's latest build and add its decisions to the screening register. Every row is about the site or `all`. `--author` fills an empty `Author` column. `--new` starts the register when there is none. |
+| `ml screening status` | List what the register excludes today at the site (per report), the conflicts there, and the decisions the site's latest build gives a reason to look at again. |
+| `ml screening reset --yes` | Start the register over, empty, for both sites. The old one is kept next to it, renamed `<name>_before_reset_<date>.xlsx`. |
 | `ml task new FOLDER [--target COL] [--question TEXT] [--force] [--exclude-shifting]` | Create a task folder with an annotated `task.yaml` and its `task_catalog.xlsx` (the catalog rows of the parameters the task can use as input features). It lists what the screening register excludes under `predictors.exclude`; `--exclude-shifting` also lists every parameter the latest build's `shifts.xlsx` holds, each with why. |
 | `ml task catalog [FOLDER]` | Write the task's `task_catalog.xlsx` again from its `task.yaml` as it is now, the latest batch table and the current register. |
 | `ml task run [--task T]` | Run tasks; without `--task`, the task in the current folder. |
 | `ml task rerun RUN_FOLDER` | Redo a run from its own folder, and say whether `dataset.csv` came out identical. |
 | `ml task encode --run RUN_FOLDER [--out FILE]` | Encode the batch table's batches with a run's fitted encoding. |
-| `ml update [--task T]` | `check-catalog`, `build`, then the given tasks. |
+| `ml update [--task T]` | `check-catalog`, `build`, then the given tasks, all about the config's site (with `--task` and no `--config`, the config the first task names). |
+
+Every command is about the site `config.yaml`'s `site:` names; `--config` with a
+config about the other site works on that one.
 | `ml check-leaks [FOLDER]` | Search the repository's tracked files for any name the private vocabulary holds. Run it before pushing. |
 
 `--task` takes a task folder, a `task.yaml`, or a folder of task folders, and can
@@ -36,8 +39,8 @@ The config is found in this order: `--config`, the `config:` line of the task,
 
 | Stage | Reads | Writes, into |
 |---|---|---|
-| `ml check-catalog` | vocabulary, catalog, both sites' batch records, parameter mapping, investigations | the catalog's folder |
-| `ml build` | vocabulary and corrections, catalog, every source, site maps, the catalog manifest, the screening register (for the reports) | the batch table's folder; the screening register (its `never recorded` exclusions) |
+| `ml check-catalog` | vocabulary, catalog, the site's batch records (site B: and the parameter mapping), investigations | `<catalog folder>/<site name>/` |
+| `ml build` | vocabulary and corrections, catalog, the site's batch records (site B: and the parameter mapping, re-manufacturing supplement and site maps), vector certificates, raw materials, the site's catalog manifest, the screening register (for the reports) | `<batch table folder>/<site name>/` |
 | `ml screening add` | vocabulary, screening register, the latest `missingness.xlsx` (with each parameter's correlation group) | the screening register |
 | `ml task new`, `ml task catalog` | vocabulary, batch table, catalog, screening register (`--exclude-shifting`: `shifts.xlsx`) | the task folder: `task.yaml` (`task new` only) and `task_catalog.xlsx` |
 | `ml screening reset` | vocabulary, screening register | the screening register, and a renamed copy of the old one |
@@ -52,6 +55,7 @@ The shipped `config.yaml` is annotated. Its shape:
 
 ```yaml
 seed: 20260917
+site:       a                     # the site everything is about: a or b
 sources:    {databricks: false}
 sharepoint: {vocabulary: {path: …, drive_id: …}, catalog: {…}, batch_table: {…},
              screening: {…}, phf_site_a: {…}, phf_site_b: {…}, …,
@@ -69,9 +73,10 @@ lv_coa:     {ph_nominal: 7.2, osmo_nominal: 300.0}
 
 | Setting | Meaning |
 |---|---|
-| `sharepoint.<input>` | Where each input is: `path`, `drive_id`, optional `sheet`. Values come from `.env` as `${NAME}`. `screening` is optional: without it, no parameter is screened out. |
+| `site` | Required. The key (`a` or `b`) of the site everything is about. Its outputs go into a folder named after it, next to `sharepoint.batch_table` and `sharepoint.catalog`; its tasks read only its batch table and its screening decisions. |
+| `sharepoint.<input>` | Where each input is: `path`, `drive_id`, optional `sheet`. Values come from `.env` as `${NAME}`. `screening` is optional: without it, no parameter is screened out. `batch_table` names the file; each site's is in `<its folder>/<site name>/`. |
 | `build.date_column` | The vocabulary key of the date that orders batches in the missingness, correlation and shifts reports. |
-| `build.missingness_cohort` | Which batches the missingness report describes (the correlation and shifts reports compare the analysed ones): those whose `column` holds `value` (vocabulary keys, case ignored), and every batch at the sites in `all_batches_at`. Leave it out to describe every batch. |
+| `build.missingness_cohort` | Which batches the missingness report describes (the correlation and shifts reports compare the analysed ones): those whose `column` holds `value` (vocabulary keys, case ignored), or every batch when the site is in `all_batches_at` (site keys), so one config serves both sites. Leave it out to describe every batch. |
 | `build.correlation_threshold` | The \|ρ\| every pair of parameters in a correlation group must reach (complete linkage), so a group's weakest pair is never below it. Default 0.9. |
 | `build.missingness_cohort.analyse_only` | Of those, the batches the statistics and groups are computed over: `column` holds `value`. The others are drawn in the plot, their missing cells in green. A site without the column has all its batches analysed. |
 | `cleaning.censored` | What `<0.5` becomes: `limit` (0.5), `half` (0.25) or `missing`. Applies to every source, the vector certificates included. |
@@ -93,9 +98,8 @@ Every key is optional except `target.column`. Quote a column name that holds
 | Key | Default | Meaning |
 |---|---|---|
 | `config` | — | The `config.yaml` that locates the batch table and catalog. `ml task new` fills it in. |
+| `site` | the config's, with a warning | The key (`a` or `b`) of the site the task is about. `ml task new` fills it in. A run refuses a config about another site, and a batch table with other batches. |
 | `task.name`, `task.question`, `task.seed` | `task`, —, `0` | Name, question in words, and the seed of the target-encoding folds. |
-| `cohort.sites` | all | Sites to keep. |
-| `cohort.site_column` | `Site Merged` | The column that says which site a batch is from. |
 | `cohort.filters` | — | Rules in order: `{column, op, value, missing, normalise, reason}`. Operators: `equals`, `not_equals`, `in`, `not_in`, `min`, `max`, `is_null`, `not_null`. |
 | `cohort.date_column`, `date_from`, `date_to` | — | Keep batches whose date is in this range (inclusive). |
 | `target.column` | required | The column to predict; for `periods`, the date that places a batch in a period. |
@@ -156,8 +160,7 @@ For each task, `ml task run`:
 Groups are found by complete linkage on `1 − |correlation|`, cut at `threshold`.
 Pairs with fewer than `min_overlap` shared batches never group. Each group is
 redrawn on 50 resamples of 80% of the batches, and only groups that come back in
-`min_stability` of them are acted on. Over several sites, each site's mean is
-removed first, so parameters that differ only by site don't group.
+`min_stability` of them are acted on.
 
 ## What a run writes
 
@@ -229,7 +232,12 @@ The Help page of each report gives the method in full.
 | `The catalog changed after the batch table was built` | Run `ml build`, then the task again. |
 | `The proposal was not added: …` | Fix each listed row; nothing was added. |
 | `… name the parameter that represents it in Represented by` | The build has no single suggestion for these parameters (or the site is `all`): fill in `Represented by`. |
-| `'…' at … represents … but is excluded itself` | A conflict. From `ml screening add`: the proposal would make it; pick another representative (*Best usable representative*), or don't exclude it. From a build, status or task: the build's own `never recorded` exclusion made it; move the group to another representative in the correlation report. |
+| `'…' at … represents … but is excluded itself` | A conflict. From `ml screening add`: the proposal would make it; pick another representative (*Best usable representative*), or don't exclude it. From a build, status or task: a decision at `all` made it; move the group to another representative in the correlation report. |
+| `This task is about site … and config.yaml about site …` | Run the task with a config whose `site:` is the task's (switch `site:`, or `--config` with the other site's config). |
+| `The batch table holds batches from …, and this task is about … only` | The batch table is another site's, or from before everything was about one site: `ml build` with `site:` set to the task's site. |
+| `cohort.sites: no longer a setting` | A task is about one site: delete `cohort.sites` and set `site: a` (or `b`) at the top of `task.yaml`. |
+| `site: required` | Add `site: a` (or `b`) to `config.yaml`. |
+| `The proposal decides at …, and config.yaml is about …` | A proposal is about the config's site (or `all`): add it with a config about that site. |
 | `Reason '…' is not decided in the … report` | Each report decides on its own reasons; leave `Report` empty or make it match. |
 | `SharePoint refused to replace … (409 Conflict)` | The file is open in Excel somewhere or checked out: close it everywhere, check it in, wait a minute, run again. Nothing was written. |
 | `The screening register could not be read … pass --new` | The first time: `ml screening add … --new`. Otherwise check `sharepoint.screening`. |

@@ -1220,6 +1220,7 @@ def write_config(
 
     config = {
         "seed": seed,
+        "site": "a",
         "sources": {"databricks": False},
         "sharepoint": sharepoint,
         "catalog": {"write_new_parameters": True},
@@ -1274,8 +1275,19 @@ def write_config(
         + yaml.safe_dump(config, sort_keys=False, allow_unicode=True),
         encoding="utf-8",
     )
+    # The same, about the other site: everything else is shared.
+    (directory / CONFIG_SITE_B).write_text(
+        "# The demo config about site B, written by `python -m ml.demo`: config.yaml with\n"
+        "# another site:. Each site's build goes into its own folder.\n"
+        + yaml.safe_dump({**config, "site": "b"}, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
     write_tasks(directory)
     return config_path
+
+
+#: The demo's config about site B, next to config.yaml (about site A).
+CONFIG_SITE_B = "config_site_b.yaml"
 
 
 #: The encoder and quality settings both example tasks share, sized for 40 batches.
@@ -1306,23 +1318,23 @@ TASK_FILES = ("tasks/expression", "tasks/release")
 
 
 def write_tasks(directory: Path) -> list[Path]:
-    """Two task workspaces over the same batch table, differing only in what their YAML says.
+    """Two task workspaces, one per site, differing only in what their YAML says.
 
     The point of the pair is that nothing else changes: same package, same
-    commands, same code. Cohort, target, roles, columns and clustering action
-    all move in YAML.
+    commands, same code. Site, cohort, target, roles, columns and clustering
+    action all move in YAML; each names the config about its site.
     """
     directory = Path(directory)
     a, b = names.site("a"), names.site("b")
     expression = {
         "config": "../../config.yaml",
+        "site": "a",
         "task": {
             "name": "expression",
             "question": f"Which manufacturing parameters go with final product expression at {a}?",
             "seed": SEED,
         },
         "cohort": {
-            "sites": [a],
             "filters": [
                 {
                     "column": c("batch_type"),
@@ -1373,14 +1385,14 @@ def write_tasks(directory: Path) -> list[Path]:
     }
 
     release = {
-        "config": "../../config.yaml",
+        "config": f"../../{CONFIG_SITE_B}",
+        "site": "b",
         "task": {
             "name": "release",
             "question": f"What does an accepted {b} batch look like, next to a scrapped one?",
             "seed": SEED,
         },
         "cohort": {
-            "sites": [b],
             "filters": [
                 {
                     "column": c("testing_done"),
@@ -1439,7 +1451,11 @@ def write_tasks(directory: Path) -> list[Path]:
 if __name__ == "__main__":
     target_folder = Path(sys.argv[1] if len(sys.argv) > 1 else "demo")
     write_config(target_folder)
+    expression, release = TASK_FILES
     print(
-        f"The demo is in {target_folder}/. Now run:  cd {target_folder} && ml update "
-        + " ".join(f"--task {name}" for name in TASK_FILES)
+        f"The demo is in {target_folder}/. Now run, one site at a time (each task names the\n"
+        f"config about its site, so each update builds that site):\n"
+        f"  cd {target_folder}\n"
+        f"  ml update --task {expression}\n"
+        f"  ml update --task {release}"
     )

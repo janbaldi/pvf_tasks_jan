@@ -8,10 +8,10 @@
 #   ml validate             validate this config without running anything
 #   ml check-catalog        what the sources record that the catalog does not list;
 #                           writes catalog_report.html, catalog_manifest.json and
-#                           new_parameters.csv into the catalog's folder (Data/catalog/)
-#   ml build                the batch table: every batch, cleaned and derived; writes
-#                           batch_data.xlsx, batch_data.parquet, build_report.html and
-#                           batch_table_manifest.json into its folder (Data/batch_data/)
+#                           new_parameters.csv into Data/catalog/<site>/
+#   ml build                the site's batch table: every batch, cleaned and derived;
+#                           writes batch_data.xlsx, batch_data.parquet, the reports and
+#                           batch_table_manifest.json into Data/batch_data/<site>/
 #   ml task new <folder>    a task workspace with an annotated task.yaml
 #   ml task run             run the task in this folder; runs go into <folder>/runs/
 #   ml check-leaks          search this repository for any name the private
@@ -22,6 +22,13 @@
 # the code: they are keys, and the private vocabulary workbook names them.
 
 seed: 20260917
+
+# The site everything is about: a or b (the vocabulary names them). `ml build` and
+# `ml check-catalog` read only this site's sources and write into a folder named
+# after it, next to sharepoint.batch_table and sharepoint.catalog; every task
+# reads that site's batch table and screening decisions. Switch it to work on the
+# other site: each site's outputs stay in their own folder.
+site: a
 
 sources:
   databricks: true        # join the Acridine Orange readings from Databricks

@@ -177,8 +177,8 @@ def test_sharepoint_locations_come_from_the_config(tmp_path, monkeypatch):
     ]
     maps = workspace.site_map_sources(config)
     assert [m.location.name for m in maps] == ["first.xlsx", "second.xlsx", "third.xlsx"]
-    # The certificate workbook keeps its two rows of furniture above the header.
-    assert workspace.source(config, "lv_coa").header == 2
+    # The certificate workbook's header is its first row, as every other source's.
+    assert workspace.source(config, "lv_coa").header == 0
 
 
 def test_outputs_are_uploaded_into_the_folder_of_their_stage(tmp_path, monkeypatch):
@@ -545,14 +545,17 @@ def test_a_manifest_names_the_files_it_describes_relative_to_itself(built):
     )
     assert record["batch_table"]["content_sha256"]
     labels = {entry["label"] for entry in record["inputs"]}
-    assert labels >= {"catalog", "phf_site_a"} and not labels & {"phf_site_b", "site_map_1"}
+    assert labels >= {"catalog", "phf_site_a"} and "site_map_1" not in labels
+    # Site B's records are read only for their vector lots, to tell test lots apart.
+    assert labels >= {"phf_site_b", "param_mapping"}
     # Site B's build reads its own records, and what only it needs.
     record_b = manifest.read(
         shared(built["directory"], built["config_b"], "batch_table", "batch_table_manifest.json")
     )
     labels_b = {entry["label"] for entry in record_b["inputs"]}
     assert labels_b >= {"phf_site_b", "param_mapping", "remfg", "site_map_1"}
-    assert "phf_site_a" not in labels_b
+    # And site A's, for their vector lots only.
+    assert "phf_site_a" in labels_b
 
 
 def test_a_changed_output_is_caught(built, tmp_path):

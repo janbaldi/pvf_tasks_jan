@@ -157,6 +157,7 @@ def orphan_parameters() -> tuple[str, ...]:
 
 UNMAPPED_ACRONYM = "XYZ"  # a clinical site no mapping file covers
 LOT_WITHOUT_COA = "LV-909"  # a vector lot with no certificate
+TEST_LOT = "LV-105"  # a certified vector lot no batch was made with
 BATCH = "Patient Lot/Batch #"
 
 # For the dataset stage: one categorical parameter per encoder, an ordinal one,
@@ -722,7 +723,8 @@ def lv_coa() -> pd.DataFrame:
     an impurity below the limit of quantitation as ``<0,5`` — all three are
     things the loader has to undo. ``LV-104`` has no certificate yet and is
     filtered out; ``LV-909`` never appears, so the batches built from it have no
-    certificate at all.
+    certificate at all. ``LV-105`` is a test lot: certified, and no batch at either
+    site was made with it, so it goes to the test-lot file, not a batch table.
     """
     yes, a_format, b_format = (
         v("coa_available_yes"),
@@ -800,6 +802,29 @@ def lv_coa() -> pd.DataFrame:
             "2025-12-05",
         ],
         [
+            TEST_LOT,
+            yes,
+            a_format,
+            "2,60E+07",
+            "2,50E+07",
+            "9,80E+10",
+            "3100",
+            "37,0%",
+            "36,5%",
+            "1100",
+            "1150",
+            "7,0",
+            "295",
+            "49,0",
+            "1,8",
+            "<0,5",
+            "2,2",
+            "1,0",
+            "0,6",
+            "0,3",
+            "2026-01-20",
+        ],
+        [
             "LV-104",
             "No",
             a_format,
@@ -823,9 +848,7 @@ def lv_coa() -> pd.DataFrame:
             "2026-01-09",
         ],
     ]
-    df = pd.DataFrame(rows, columns=list(coa_columns()))
-    df.insert(2, 1, np.nan)  # a section marker column, which the loader drops
-    return df
+    return pd.DataFrame(rows, columns=list(coa_columns()))
 
 
 def remanufacturing(n: int = SITE_B_BATCHES) -> pd.DataFrame:
@@ -1102,8 +1125,8 @@ def write_sources(directory: Path, seed: int = SEED) -> dict[str, object]:
         paths["param_mapping"], sheet_name=sheet("param_mapping"), index=False
     )
     remanufacturing().to_excel(paths["remfg"], sheet_name=sheet("remfg"), index=False)
-    # Two rows of workbook furniture above the header, as the real file has.
-    lv_coa().to_excel(paths["lv_coa"], sheet_name=sheet("lv_coa"), index=False, startrow=2)
+    # The header is the first row, and no column is empty, as the real file has it.
+    lv_coa().to_excel(paths["lv_coa"], sheet_name=sheet("lv_coa"), index=False)
     # A CSV export, as the real one is: semicolon-separated, with a byte-order mark.
     raw_materials().to_csv(paths["raw_materials"], sep=";", index=False, encoding="utf-8-sig")
     investigations().to_excel(

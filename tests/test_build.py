@@ -16,6 +16,7 @@ from conftest import (
     row_named,
     rows_naming,
     section,
+    shared,
     site_a,
     tables,
 )
@@ -135,6 +136,42 @@ def test_vector_certificates_join_where_there_is_one(built):
     assert pd.api.types.is_numeric_dtype(batch_table[c("coa_prefix") + c("coa_titer")])
     assert c("coa_prefix") + cs("coa_impurities")[0] + " below LOQ" in batch_table.columns
     assert f"{c('coa_prefix')}{c('coa_ph')} Abs Deviation" in batch_table.columns
+
+
+def test_a_certified_lot_no_batch_used_is_written_apart_as_a_test_lot(built):
+    lot, witness = c("vector_lot"), c("coa_prefix") + c("coa_site_format")
+    for config, batch_table in (
+        (built["config"], built["batch_table"]),
+        (built["config_b"], built["batch_table_b"]),
+    ):
+        assert dummy_data.TEST_LOT not in set(batch_table[lot])
+        test_lots = pd.read_csv(
+            shared(built["directory"], config, "batch_table", "lv_coa_test_lots.csv")
+        )
+        # A lot only the other site used is not a test lot: each site sees the same one.
+        assert list(test_lots[lot]) == [dummy_data.TEST_LOT]
+        # With the certificate's values, parsed, and the features computed from them.
+        assert test_lots[witness].notna().all()
+        assert pd.api.types.is_numeric_dtype(test_lots[c("coa_prefix") + c("coa_titer")])
+        assert c("coa_prefix") + c("coa_delivered_dose") in test_lots.columns
+        assert f"{c('coa_prefix')}{c('coa_ph')} Abs Deviation" in test_lots.columns
+        # The same columns the batch table carries from the certificate.
+        assert set(test_lots.columns) <= set(batch_table.columns) | {
+            col for col in test_lots.columns if test_lots[col].notna().any()
+        }
+
+
+def test_the_certificate_header_is_the_first_row(tmp_path):
+    from ml import io
+
+    path = tmp_path / "lv_coa.xlsx"
+    dummy_data.lv_coa().to_excel(path, index=False)
+    frame = io.load_lv_coa(path, [])
+    assert set(frame[c("vector_lot")]) == {"LV-101", "LV-102", "LV-103", dummy_data.TEST_LOT}
+    # Furniture above the header is the old layout: refused by name, not misread.
+    dummy_data.lv_coa().to_excel(path, index=False, startrow=2)
+    with pytest.raises(ValueError, match="first row"):
+        io.load_lv_coa(path, [])
 
 
 def test_raw_materials_and_clinical_sites_are_resolved(built):
@@ -399,7 +436,10 @@ def test_the_report_is_one_file_with_its_provenance_in_it(built):
     # Every input was read from SharePoint, and every table it read is digested.
     sources = {row[0].replace("\\", ""): row for row in panel[1]["rows"]}
     assert {"catalog", "phf_site_a", "lv_coa"} <= set(sources)
-    assert not {"phf_site_b", "param_mapping", "site_map_1"} & set(sources), "site A's only"
+    assert "site_map_1" not in sources, "site A's only"
+    # Site B's records are read for their vector lots alone, to tell test lots
+    # apart, and recorded as read; none of their batches is in site A's table.
+    assert {"phf_site_b", "param_mapping"} <= set(sources)
     assert all(row[1] == "SharePoint" for row in sources.values())
     assert all(len(row[3]) == 64 for name, row in sources.items() if "site_map" not in name)
     titles = [s["title"] for s in built["payloads"]["build"]["sections"]]
@@ -434,6 +474,7 @@ def test_the_build_writes_everything_into_the_batch_table_folder_on_sharepoint(b
         "correlation_report.html",
         "shifts_report.html",
         "shifts.xlsx",
+        "lv_coa_test_lots.csv",
         "batch_table_manifest.json",
     }
     record = json.loads((folder / "batch_table_manifest.json").read_text(encoding="utf-8"))
@@ -452,4 +493,5 @@ def test_the_build_writes_everything_into_the_batch_table_folder_on_sharepoint(b
         "correlation_report.html",
         "shifts_report.html",
         "shifts.xlsx",
+        "lv_coa_test_lots.csv",
     }

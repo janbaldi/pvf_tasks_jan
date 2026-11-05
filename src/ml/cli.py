@@ -113,6 +113,7 @@ BUILD_OUTPUTS = {
     "correlation report": "correlation_report.html",
     "shifts report": "shifts_report.html",
     "shifts table": "shifts.xlsx",
+    "LV CoA test lots": "lv_coa_test_lots.csv",
     "manifest": "batch_table_manifest.json",
 }
 #: Written next to a new task's task.yaml: the catalog rows it can use as input features.
@@ -343,6 +344,67 @@ def _build_inputs(key: str) -> tuple[str, ...]:
     )
 
 
+def _other_site_sources(config: dict[str, Any], key: str) -> list[io.Source]:
+    """What the build reads of the other site: its batch records, for their vector lots.
+
+    A certified vector lot no batch at either site was made with is a test lot. Site B's
+    records name the vector lot their own way, so a site A build reads the parameter
+    mapping too. Neither is required: without them, the test lots are judged by this
+    site's batches alone, and the build says so.
+    """
+    other = "b" if key == "a" else "a"
+    labels = [f"phf_site_{other}"] + (["param_mapping"] if other == "b" else [])
+    if not workspace.has(config, labels[0]):
+        return []
+    return [workspace.source(config, label) for label in labels if workspace.has(config, label)]
+
+
+def _vector_lots(records: pd.DataFrame, what: str) -> set[str]:
+    """The vector lots a site's batch records (under the catalog's names) were made with."""
+    lot = names.col("vector_lot")
+    if lot not in records.columns:
+        log.warn(MODULE, f"{what} have no '{lot}' column: no vector lots taken from them")
+        return set()
+    return set(io.normalise_key(records[lot]).dropna())
+
+
+def _vector_lots_elsewhere(
+    other_sources: list[io.Source], key: str, config: dict[str, Any]
+) -> tuple[set[str] | None, list[provenance.Source]]:
+    """The vector lots the other site's batches were made with, or None if not read."""
+    if not other_sources:
+        log.warn(
+            MODULE,
+            "The other site's batch records are not configured: a vector lot only it used "
+            "is listed as a test lot",
+        )
+        return None, []
+    other = "b" if key == "a" else "a"
+    what = f"{names.site(other)} batch records"
+    try:
+        records = io.load_phf(other_sources[0], other)
+        recorded = [other_sources[0].record(records)]
+        if other == "b":
+            if len(other_sources) > 1:
+                mapping = io.load_site_mapping(other_sources[1], exclude=_mapping_exclude(config))
+                recorded.append(other_sources[1].record(_mapping_table(mapping)))
+                lot = names.col("vector_lot")
+                own = [b for b, a in mapping.items() if a == lot and b in records.columns]
+                if own and lot not in records.columns:
+                    records = records.rename(columns={own[0]: lot})
+            else:
+                log.warn(MODULE, "No parameter mapping: site B's vector lot is looked up by name")
+    except Exception as exc:  # the other site is context here, not an input of this table
+        log.warn(
+            MODULE,
+            f"{what} not read ({exc}): a vector lot only that site used is listed as a test lot",
+        )
+        return None, []
+    lots = _vector_lots(records, what)
+    log.info(MODULE, f"{what}: {len(lots)} vector lots in use, to tell test lots apart")
+    return lots, recorded
+
+
 #: The vocabulary key of the date that puts the batches in order, unless build.date_column says.
 DATE_COLUMN = "incubator_in_d0"
 
@@ -369,6 +431,7 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
 
     src = {label: workspace.source(config, label) for label in inputs}
     site_maps = workspace.site_map_sources(config) if key == "b" else []
+    other_sources = _other_site_sources(config, key)
     target_table = workspace.location(config, "batch_table")
     folder = target_table.folder
     write_parquet = (config.get("build") or {}).get("write_parquet", True)
@@ -378,7 +441,7 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
     if write_parquet:
         outputs["batch table (Parquet)"] = parquet_name
     outputs.update(BUILD_OUTPUTS)
-    _show_reads([*src.values(), *site_maps])
+    _show_reads([*src.values(), *site_maps, *other_sources])
     _show_writes(folder, outputs)
     _check_catalog_is_current(config)
 
@@ -425,6 +488,13 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
     )
     df_raw = io.load_raw_materials(src["raw_materials"], catalog_cols)
 
+    # A certified lot no batch at either site was made with is a test lot: it has
+    # no patient batch, so it is written apart instead of into the batch table.
+    lots_in_use = _vector_lots(records, f"{the_site} batch records")
+    lots_elsewhere, elsewhere_sources = _vector_lots_elsewhere(other_sources, key, config)
+    df_test_lots = enrich.lv_coa_test_lots(df_lv_coa, lots_in_use | (lots_elsewhere or set()))
+    sources += elsewhere_sources
+
     # Recorded now, as each source was actually read and before cleaning
     # changes the site table in place.
     sources += [src["lv_coa"].record(df_lv_coa), src["raw_materials"].record(df_raw)]
@@ -444,6 +514,12 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
             "loaded",
         ],
         ["Raw materials and consumables", f"{len(df_raw):,}", f"{df_raw.shape[1]:,}", "loaded"],
+        [
+            "Vector test lots (certificate, no batch)",
+            f"{len(df_test_lots):,}",
+            f"{df_test_lots.shape[1]:,}",
+            f"written apart to {BUILD_OUTPUTS['LV CoA test lots']}",
+        ],
     ]
 
     # ── Clean ──────────────────────────────────────────────────────────────
@@ -589,6 +665,12 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
                 run_start,
             )
             files["missingness table"] = evidence
+        test_lots = staged / BUILD_OUTPUTS["LV CoA test lots"]
+        with _preparing(
+            f"the vector test lots ({len(df_test_lots):,} lots, CSV)", test_lots, folder
+        ):
+            df_test_lots.to_csv(test_lots, index=False)
+            files["LV CoA test lots"] = test_lots
         missing_report = staged / BUILD_OUTPUTS["missingness report"]
         with _preparing("the missingness report", missing_report, folder):
             files["missingness report"] = report.write(

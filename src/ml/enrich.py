@@ -170,6 +170,29 @@ def merge_lv_coa(
     return coverage, added
 
 
+def lv_coa_test_lots(df_lv_coa: pd.DataFrame, lots_in_use: set[str]) -> pd.DataFrame:
+    """The certificates of the vector lots no batch was made with: test lots.
+
+    They have no patient batch, so the left join on the vector lot never brings
+    them into the batch table. They are kept apart, with every certificate
+    feature the loader computed, rather than lost.
+    """
+    lot = col("vector_lot")
+    keys = normalise_key(df_lv_coa[lot])
+    test = df_lv_coa.loc[keys.notna() & ~keys.isin(lots_in_use)].copy()
+    test[lot] = normalise_key(test[lot])
+    test = test.sort_values(lot, kind="stable").reset_index(drop=True)
+    if len(test):
+        log.info(
+            MODULE,
+            f"{len(test)} vector lots have a certificate and no batch: written apart as test lots",
+            ", ".join(map(str, test[lot].head(20))),
+        )
+    else:
+        log.info(MODULE, "Every certified vector lot was used by a batch: no test lots")
+    return test
+
+
 def merge_raw_materials(
     phf: dict[str, pd.DataFrame],
     df_raw: pd.DataFrame,

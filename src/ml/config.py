@@ -354,7 +354,7 @@ def _in_site_folder(file: share.Location, config: dict[str, Any]) -> share.Locat
 
 def source(config: dict[str, Any], label: str) -> io.Source:
     """One input, read from its SharePoint location."""
-    return io.Source(label, location(config, label), header=io.DEFAULT_HEADERS.get(label, 0))
+    return io.Source(label, location(config, label))
 
 
 def has(config: dict[str, Any], label: str) -> bool:

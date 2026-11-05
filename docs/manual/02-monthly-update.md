@@ -69,6 +69,7 @@ Written to SharePoint — 40 batches × 227 columns
   correlation report     correlation_report.html
   shifts report          shifts_report.html
   shifts table           shifts.xlsx
+  LV CoA test lots       lv_coa_test_lots.csv
   manifest               batch_table_manifest.json
 ```
 
@@ -78,6 +79,15 @@ only, and only the catalog parameters the site records: one empty in every batch
 is left out, and the build report lists it. The manifest records
 what was read (with digests), what was written, and every warning, so any batch
 table can be traced back to the sources it came from.
+
+The vector certificates workbook has its header in the first row and no empty
+columns. A certified vector lot that no batch at either site was made with is a
+test lot: it has no patient batch, so it is not in the batch table. The build
+writes those lots, with every certificate value and feature it computed, to
+`lv_coa_test_lots.csv`. To tell them apart it reads the other site's batch
+records for their vector lots (site A's build: and the parameter mapping, for
+site B's name of the vector lot). If those are not configured or cannot be read,
+the build warns, and a lot only the other site used is listed as a test lot.
 
 If it warns that the last `ml check-catalog` found parameters the catalog
 doesn't list, that's step 2's list: the build goes ahead without them.

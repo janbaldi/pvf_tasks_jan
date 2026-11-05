@@ -30,9 +30,6 @@ MODULE = "io"
 #: The value types the catalog may declare, besides a bracketed ordinal category list.
 VALUE_TYPES = frozenset({"numeric", "categorical", "datetime", "duration", "ratio", "boolean"})
 
-#: Rows of workbook furniture above the header, where a source has any.
-DEFAULT_HEADERS = {"lv_coa": 2}
-
 
 def read_table(path: str | Path, sheet: str | int = 0, header: int = 0) -> pd.DataFrame:
     """A file this package wrote itself — a run's copy of its inputs — read by its extension."""
@@ -91,7 +88,7 @@ def as_source(value: str | Path | Source, label: str) -> Source:
     """A plain path is a run's own copy of an input."""
     if isinstance(value, Source):
         return value
-    return Source(label, header=DEFAULT_HEADERS.get(label, 0), path=str(value))
+    return Source(label, path=str(value))
 
 
 def _read(source: Source, what: str) -> pd.DataFrame:
@@ -405,14 +402,17 @@ def load_lv_coa(
     df = _read(as_source(lv_coa, "lv_coa"), "vector certificates of analysis")
     log.success(MODULE, f"Vector certificates loaded — {len(df):,} rows × {df.shape[1]} columns")
 
-    # --- drop section-marker columns (headers "1".."5","42","42 ", empty) ---
-    marker = [
-        c
-        for c in df.columns
-        if isinstance(c, (int, float, np.integer)) or (isinstance(c, str) and c.strip().isdigit())
-    ]
-    if marker:
-        df.drop(columns=marker, inplace=True)
+    # The header is the workbook's first row and it holds no empty columns. One
+    # without a header (pandas calls it "Unnamed: n") is left over formatting, not
+    # a certificate value.
+    unnamed = [c for c in df.columns if str(c).startswith("Unnamed:")]
+    if unnamed:
+        df.drop(columns=unnamed, inplace=True)
+    if col("coa_lot") not in df.columns:
+        raise ValueError(
+            f"The vector certificates have no '{col('coa_lot')}' column: is the header "
+            f"the first row? (found {', '.join(map(str, df.columns[:8]))})"
+        )
 
     df[col("coa_lot")] = df[col("coa_lot")].astype("string").str.strip()
     df = df[df[col("coa_available")] == value("coa_available_yes")].copy()
@@ -657,6 +657,8 @@ def load_lv_coa(
         if c and c in df.columns:
             df.drop(columns=c, inplace=True)
 
+    lot = col("coa_lot")
+    df = df[[lot, *(c for c in df.columns if c != lot)]]
     df.columns = [col("vector_lot")] + [prefix + str(c) for c in df.columns[1:]]
     engineered_prefixed = {prefix + n for n in engineered}
 

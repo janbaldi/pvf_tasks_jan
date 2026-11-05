@@ -12,7 +12,8 @@ Run as `uv run ml [--config FILE] [--debug] [--quiet] COMMAND …`.
 |---|---|
 | `ml validate [--task T]` | Check `config.yaml`, the vocabulary, the corrections, the screening register and the given tasks. Writes nothing. Inside a task folder, also checks that task. |
 | `ml check-catalog` | Compare the site's sources' columns with the catalog. Writes `catalog_report.html`, `catalog_manifest.json` and `new_parameters.csv` into `<catalog folder>/<site name>/`. |
-| `ml build` | Build the site's batch table. Writes `batch_data.xlsx`, `batch_data.parquet`, `build_report.html`, `missingness_report.html`, `missingness.xlsx`, `correlation_report.html`, `shifts_report.html`, `shifts.xlsx`, `lv_coa_test_lots.csv` and `batch_table_manifest.json` into `<batch table folder>/<site name>/`. |
+| `ml build` | Build the site's batch table. Writes `batch_data.xlsx`, `batch_data.parquet`, `build_report.html`, `missingness_report.html`, `missingness.xlsx`, `correlation_report.html`, `shifts_report.html`, `shifts.xlsx`, `lv_coa_test_lots.xlsx` and `batch_table_manifest.json` into `<batch table folder>/<site name>/`. |
+| `ml build --all-sites` | One batch table of every site's batches. Writes `batch_data.xlsx`, `lv_coa_test_lots.xlsx` (the certified vector lots no batch of any site was made with) and `batch_table_manifest.json` into `<batch table folder>/All sites/`. Ignores `site:`; writes no reports. |
 | `ml screening add PROPOSAL [--author NAME] [--new]` | Check a proposal (written by the missingness or correlation report, or by hand) against the site's latest build and add its decisions to the screening register. Every row is about the site or `all`. `--author` fills an empty `Author` column. `--new` starts the register when there is none. |
 | `ml screening status` | List what the register excludes today at the site (per report), the conflicts there, and the decisions the site's latest build gives a reason to look at again. |
 | `ml screening reset --yes` | Start the register over, empty, for both sites. The old one is kept next to it, renamed `<name>_before_reset_<date>.xlsx`. |
@@ -41,6 +42,7 @@ The config is found in this order: `--config`, the `config:` line of the task,
 |---|---|---|
 | `ml check-catalog` | vocabulary, catalog, the site's batch records (site B: and the parameter mapping), investigations | `<catalog folder>/<site name>/` |
 | `ml build` | vocabulary and corrections, catalog, the site's batch records (site B: and the parameter mapping, re-manufacturing supplement and site maps), vector certificates, raw materials, the other site's batch records for their vector lots (site A: and the parameter mapping), the site's catalog manifest, the screening register (for the reports) | `<batch table folder>/<site name>/` |
+| `ml build --all-sites` | vocabulary and corrections, catalog, both sites' batch records, the parameter mapping, re-manufacturing supplement, site maps, vector certificates, raw materials, both sites' catalog manifests | `<batch table folder>/All sites/` |
 | `ml screening add` | vocabulary, screening register, the latest `missingness.xlsx` (with each parameter's correlation group) | the screening register |
 | `ml task new`, `ml task catalog` | vocabulary, batch table, catalog, screening register (`--exclude-shifting`: `shifts.xlsx`) | the task folder: `task.yaml` (`task new` only) and `task_catalog.xlsx` |
 | `ml screening reset` | vocabulary, screening register | the screening register, and a renamed copy of the old one |

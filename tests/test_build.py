@@ -145,8 +145,8 @@ def test_a_certified_lot_no_batch_used_is_written_apart_as_a_test_lot(built):
         (built["config_b"], built["batch_table_b"]),
     ):
         assert dummy_data.TEST_LOT not in set(batch_table[lot])
-        test_lots = pd.read_csv(
-            shared(built["directory"], config, "batch_table", "lv_coa_test_lots.csv")
+        test_lots = pd.read_excel(
+            shared(built["directory"], config, "batch_table", "lv_coa_test_lots.xlsx")
         )
         # A lot only the other site used is not a test lot: each site sees the same one.
         assert list(test_lots[lot]) == [dummy_data.TEST_LOT]
@@ -159,6 +159,39 @@ def test_a_certified_lot_no_batch_used_is_written_apart_as_a_test_lot(built):
         assert set(test_lots.columns) <= set(batch_table.columns) | {
             col for col in test_lots.columns if test_lots[col].notna().any()
         }
+
+
+def test_all_sites_make_one_batch_table_and_one_test_lot_list(built):
+    from conftest import on_share
+    from ml import cli
+    from ml import config as workspace
+
+    config = built["config"]
+    where = cli.run_build_all_sites(config)
+    path = on_share(built["directory"], where)
+    assert path.parent.name == workspace.ALL_SITES_FOLDER and path.name == "batch_data.xlsx"
+    assert {p.name for p in path.parent.iterdir()} == {
+        "batch_data.xlsx",
+        "lv_coa_test_lots.xlsx",
+        "batch_table_manifest.json",
+    }
+    both = pd.read_excel(path)
+    first, second = built["batch_table"], built["batch_table_b"]
+    assert len(both) == len(first) + len(second)
+    assert both["Site Merged"].value_counts().to_dict() == {
+        names.site("a"): len(first),
+        names.site("b"): len(second),
+    }
+    # Each site's batches carry what its own build gives them, under the catalog's names.
+    assert set(first.columns) | set(second.columns) == set(both.columns)
+    on_b = both[both["Site Merged"] == names.site("b")]
+    assert on_b[c("prior_lines")].notna().all()
+    assert set(on_b[c("vector_lot")]) == set(second[c("vector_lot")])
+    test_lots = pd.read_excel(path.parent / "lv_coa_test_lots.xlsx")
+    assert list(test_lots[c("vector_lot")]) == [dummy_data.TEST_LOT]
+    assert dummy_data.TEST_LOT not in set(both[c("vector_lot")])
+    # The site folders are untouched: their own builds stand.
+    assert pd.read_excel(shared(built["directory"], config, "batch_table")).shape == first.shape
 
 
 def test_the_certificate_header_is_the_first_row(tmp_path):
@@ -474,7 +507,7 @@ def test_the_build_writes_everything_into_the_batch_table_folder_on_sharepoint(b
         "correlation_report.html",
         "shifts_report.html",
         "shifts.xlsx",
-        "lv_coa_test_lots.csv",
+        "lv_coa_test_lots.xlsx",
         "batch_table_manifest.json",
     }
     record = json.loads((folder / "batch_table_manifest.json").read_text(encoding="utf-8"))
@@ -493,5 +526,5 @@ def test_the_build_writes_everything_into_the_batch_table_folder_on_sharepoint(b
         "correlation_report.html",
         "shifts_report.html",
         "shifts.xlsx",
-        "lv_coa_test_lots.csv",
+        "lv_coa_test_lots.xlsx",
     }

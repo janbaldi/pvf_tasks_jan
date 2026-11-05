@@ -113,7 +113,7 @@ BUILD_OUTPUTS = {
     "correlation report": "correlation_report.html",
     "shifts report": "shifts_report.html",
     "shifts table": "shifts.xlsx",
-    "LV CoA test lots": "lv_coa_test_lots.csv",
+    "LV CoA test lots": "lv_coa_test_lots.xlsx",
     "manifest": "batch_table_manifest.json",
 }
 #: Written next to a new task's task.yaml: the catalog rows it can use as input features.
@@ -344,6 +344,34 @@ def _build_inputs(key: str) -> tuple[str, ...]:
     )
 
 
+def _site_records(
+    config: dict[str, Any], key: str, src: dict[str, io.Source]
+) -> tuple[pd.DataFrame, list[provenance.Source], list[list[str]]]:
+    """A site's batch records under the catalog's names, what was read, and its report rows.
+
+    Site B's records name their columns its own way and are renamed to the
+    catalog's; its re-manufacturing supplement is joined on.
+    """
+    raw = io.load_phf(src[f"phf_site_{key}"], key)
+    sources = [src[f"phf_site_{key}"].record(raw)]
+    if key != "b":
+        return raw, sources, []
+    mapping = io.load_site_mapping(src["param_mapping"], exclude=_mapping_exclude(config))
+    records = io.apply_column_mapping(raw, mapping)
+    df_remfg = io.load_remanufacturing_supplement(src["remfg"])
+    records = io.attach_supplement(
+        records, df_remfg, "Patient Lot/Batch #", [names.col("prior_lines")]
+    )
+    sources += [
+        src["param_mapping"].record(_mapping_table(mapping)),
+        src["remfg"].record(df_remfg),
+    ]
+    rows = [
+        ["Re-manufacturing supplement", f"{len(df_remfg):,}", f"{df_remfg.shape[1]:,}", "loaded"]
+    ]
+    return records, sources, rows
+
+
 def _other_site_sources(config: dict[str, Any], key: str) -> list[io.Source]:
     """What the build reads of the other site: its batch records, for their vector lots.
 
@@ -451,32 +479,12 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
     catalog_cols = list(catalog_frame["Parameter"])
     catalog_mapping = dict(zip(catalog_frame["Parameter"], catalog_frame["Value Type"]))
 
-    raw = io.load_phf(src[f"phf_site_{key}"], key)
-    sources = [src["catalog"].record(catalog_frame), src[f"phf_site_{key}"].record(raw)]
+    sources = [src["catalog"].record(catalog_frame)]
     origins: dict[str, list[str]] = {}
     source_rows = [["Catalog", f"{len(catalog_cols):,}", f"{catalog_frame.shape[1]}", "loaded"]]
-    if key == "b":
-        # Site B's records name their columns its own way: renamed to the catalog's.
-        mapping = io.load_site_mapping(src["param_mapping"], exclude=_mapping_exclude(config))
-        records = io.apply_column_mapping(raw, mapping)
-        df_remfg = io.load_remanufacturing_supplement(src["remfg"])
-        records = io.attach_supplement(
-            records, df_remfg, "Patient Lot/Batch #", [names.col("prior_lines")]
-        )
-        sources += [
-            src["param_mapping"].record(_mapping_table(mapping)),
-            src["remfg"].record(df_remfg),
-        ]
-        source_rows.append(
-            [
-                "Re-manufacturing supplement",
-                f"{len(df_remfg):,}",
-                f"{df_remfg.shape[1]:,}",
-                "loaded",
-            ]
-        )
-    else:
-        records = raw
+    records, read, rows = _site_records(config, key, src)
+    sources += read
+    source_rows += rows
 
     lv_coa = config.get("lv_coa") or {}
     df_lv_coa = io.load_lv_coa(
@@ -667,9 +675,9 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
             files["missingness table"] = evidence
         test_lots = staged / BUILD_OUTPUTS["LV CoA test lots"]
         with _preparing(
-            f"the vector test lots ({len(df_test_lots):,} lots, CSV)", test_lots, folder
+            f"the vector test lots ({len(df_test_lots):,} lots, Excel)", test_lots, folder
         ):
-            df_test_lots.to_csv(test_lots, index=False)
+            df_test_lots.to_excel(test_lots, index=False)
             files["LV CoA test lots"] = test_lots
         missing_report = staged / BUILD_OUTPUTS["missingness report"]
         with _preparing("the missingness report", missing_report, folder):
@@ -734,6 +742,176 @@ def run_build(config: dict[str, Any], config_path: str | Path | None = None) -> 
     )
     log.summary(mark)
     return dict(uploaded)["report"]
+
+
+#: What ``ml build --all-sites`` writes besides the batch table.
+ALL_SITES_OUTPUTS = {
+    "LV CoA test lots": BUILD_OUTPUTS["LV CoA test lots"],
+    "manifest": BUILD_OUTPUTS["manifest"],
+}
+
+
+def run_build_all_sites(
+    config: dict[str, Any], config_path: str | Path | None = None
+) -> share.Location:
+    """Build one batch table of every site's batches, and the vector test lots of all of them.
+
+    Each site's records are loaded as its own build loads them (site B's renamed
+    to the catalog's names, with its supplement), cleaned, joined and given the
+    same features, then stacked with a ``Site Merged`` column. A catalog
+    parameter empty in every batch of every site is left out. A certified vector
+    lot no batch of any site was made with is a test lot.
+
+    Writes ``batch_data.xlsx``, ``lv_coa_test_lots.xlsx`` and the manifest into
+    ``<batch table folder>/All sites/``; ``site:`` in the config is not used. The
+    per-site reports stay with each site's own build. Returns where the batch
+    table went.
+    """
+    run_start = datetime.now()
+    mark = log.mark()
+    keys = ("a", "b")
+    workspace.require(config, ("vocabulary", *BUILD_INPUTS, "batch_table"))
+    params = features.Params(**(config.get("features") or {}))
+    log.stage("Batch table build — all sites")
+    workspace.load_vocabulary(config)
+    every = [names.site(key) for key in keys]
+    log.info(MODULE, f"Building one batch table of {' and '.join(every)}")
+    rules = workspace.load_corrections(config)
+
+    src = {label: workspace.source(config, label) for label in BUILD_INPUTS}
+    site_maps = workspace.site_map_sources(config)
+    target_table = workspace.all_sites_location(config)
+    folder = target_table.folder
+    outputs = {"batch table": target_table.name, **ALL_SITES_OUTPUTS}
+    _show_reads([*src.values(), *site_maps])
+    _show_writes(folder, outputs)
+    for key in keys:
+        _check_catalog_is_current({**config, "site": key})
+
+    # ── Load ───────────────────────────────────────────────────────────────
+    log.section("01 · Loading")
+    catalog_frame = io.read_catalog(src["catalog"])
+    catalog_cols = list(catalog_frame["Parameter"])
+    catalog_mapping = dict(zip(catalog_frame["Parameter"], catalog_frame["Value Type"]))
+    sources = [src["catalog"].record(catalog_frame)]
+    phf: dict[str, pd.DataFrame] = {}
+    for key in keys:
+        records, read, _ = _site_records(config, key, src)
+        phf[names.site(key)] = records
+        sources += read
+
+    lv_coa = config.get("lv_coa") or {}
+    df_lv_coa = io.load_lv_coa(
+        src["lv_coa"],
+        catalog_cols,
+        ph_nominal=lv_coa.get("ph_nominal"),
+        osmo_nominal=lv_coa.get("osmo_nominal"),
+        censored=(config.get("cleaning") or {}).get("censored", "limit"),
+    )
+    df_raw = io.load_raw_materials(src["raw_materials"], catalog_cols)
+    lots_in_use = set().union(
+        *(_vector_lots(df, f"{name} batch records") for name, df in phf.items())
+    )
+    df_test_lots = enrich.lv_coa_test_lots(df_lv_coa, lots_in_use)
+    sources += [src["lv_coa"].record(df_lv_coa), src["raw_materials"].record(df_raw)]
+
+    # ── Clean, join, derive: as each site's own build does ────────────────
+    log.section("02 · Cleaning")
+    clean.run_all(
+        phf,
+        catalog_cols,
+        catalog_mapping,
+        config.get("cleaning") or {},
+        rules=rules,
+        corrections_source=str(
+            workspace.location(config, "vocabulary").with_sheet(names.CORRECTIONS_SHEET)
+        ),
+    )
+    log.section("03 · Joining sources")
+    enrich.add_viability_parameters(
+        phf, catalog_cols, enabled=bool((config.get("sources") or {}).get("databricks"))
+    )
+    enrich.merge_lv_coa(phf, df_lv_coa)
+    enrich.merge_raw_materials(phf, df_raw)
+    enrich.enrich_clinical_sites(phf, site_maps)
+    enrich.harmonise_countries(phf)
+    sources += [_site_map_record(site_map) for site_map in site_maps]
+    log.section("04 · Derived features")
+    for name, df in phf.items():
+        features.apply(df, catalog_cols, params, site=name)
+
+    # ── Merge ──────────────────────────────────────────────────────────────
+    log.section("05 · Merge and checks")
+    result = merge.merge_sites(phf)
+    never_recorded = merge.drop_never_recorded(result, catalog_cols)
+    merge_report = merge.run_sanity_checks(result, phf, catalog_cols, catalog_mapping)
+    merge_report.never_recorded = never_recorded
+
+    # ── Write ──────────────────────────────────────────────────────────────
+    log.section("06 · Output")
+    with tempfile.TemporaryDirectory(prefix="ml-build-all-") as staging:
+        staged = Path(staging)
+        files: dict[str, Path] = {"batch table": staged / target_table.name}
+        with _preparing(
+            f"the batch table of all sites ({result.shape[0]:,} × {result.shape[1]:,}, Excel)",
+            files["batch table"],
+            folder,
+        ):
+            result.to_excel(files["batch table"], index=False)
+        test_lots = staged / ALL_SITES_OUTPUTS["LV CoA test lots"]
+        with _preparing(
+            f"the vector test lots ({len(df_test_lots):,} lots, Excel)", test_lots, folder
+        ):
+            df_test_lots.to_excel(test_lots, index=False)
+            files["LV CoA test lots"] = test_lots
+        content_digest = provenance.frame_digest(io.read_table(files["batch table"]))
+        warnings, errors = _events(mark)
+        record = manifest.dumps(
+            manifest.envelope(
+                "batch_table",
+                run_id=package.run_id(run_start),
+                started=run_start,
+                config_path=str(config.get("__path__") or config_path or ""),
+                prov=_provenance(config, sources),
+                sources=sources,
+                written=manifest.outputs(staged, files),
+                warnings=warnings,
+                errors=errors,
+                written_to=str(folder),
+                sites=every,
+                batch_table={
+                    "path": target_table.name,
+                    "location": str(target_table),
+                    "sha256": provenance.file_sha256(str(files["batch table"])),
+                    "content_sha256": content_digest,
+                    "parquet": None,
+                    "rows": int(result.shape[0]),
+                    "columns": int(result.shape[1]),
+                    "site_rows": merge_report.site_rows,
+                },
+                lv_coa_test_lots={
+                    "path": test_lots.name,
+                    "lots": [str(lot) for lot in df_test_lots[names.col("vector_lot")]],
+                },
+                catalog={"location": src["catalog"].where, "parameters": len(catalog_cols)},
+                catalog_parameters_not_in_batch_table=merge_report.catalog_missing,
+                batch_table_parameters_not_in_catalog=[
+                    str(c) for c in result.columns if c not in set(catalog_cols)
+                ],
+                duplicate_batches=merge_report.duplicate_batches,
+            )
+        )
+        uploaded = share.upload(files, folder)
+        target = folder.file(ALL_SITES_OUTPUTS["manifest"])
+        uploaded.append(("manifest", share.write_text("the manifest", record, target)))
+
+    _show_written(
+        f"Written to SharePoint — {result.shape[0]:,} batches of {' and '.join(every)} × "
+        f"{result.shape[1]:,} columns; {len(df_test_lots):,} vector test lots",
+        uploaded,
+    )
+    log.summary(mark)
+    return dict(uploaded)["batch table"]
 
 
 def _shifts_by_plant(
@@ -1929,7 +2107,13 @@ def _parser() -> argparse.ArgumentParser:
     leaks_cmd.add_argument(
         "folder", nargs="?", default=".", help="the repository to search (default: here)"
     )
-    commands.add_parser("build", help="build the batch table of config.yaml's site")
+    build = commands.add_parser("build", help="build the batch table of config.yaml's site")
+    build.add_argument(
+        "--all-sites",
+        action="store_true",
+        help="one batch table and one test-lot list of every site, into <batch table folder>/"
+        f"{workspace.ALL_SITES_FOLDER}/ (site: is not used)",
+    )
     update = commands.add_parser("update", help="check-catalog, build, then the given tasks")
     update.add_argument("--task", action="append", help="a task workspace (repeatable)")
 
@@ -2118,7 +2302,9 @@ def _run(args) -> int:
     config = _config(args, start=first_task)
     if command in ("check-catalog", "update"):
         run_catalog(config)
-    if command in ("build", "update"):
+    if command == "build" and args.all_sites:
+        run_build_all_sites(config)
+    elif command in ("build", "update"):
         run_build(config)
     if command == "update" and args.task:
         for spec in load_tasks(args, config):

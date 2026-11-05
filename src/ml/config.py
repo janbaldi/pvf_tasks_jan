@@ -352,6 +352,23 @@ def _in_site_folder(file: share.Location, config: dict[str, Any]) -> share.Locat
     return replace(file, path=f"{folder}{site_name(config)}/{file.path[len(folder) :]}")
 
 
+#: The folder, next to the sites' own, that ``ml build --all-sites`` writes into.
+ALL_SITES_FOLDER = "All sites"
+
+
+def all_sites_location(config: dict[str, Any]) -> share.Location:
+    """Where ``ml build --all-sites`` writes its batch table: ``<its folder>/All sites/<name>``."""
+    entry = (config.get("sharepoint") or {}).get("batch_table")
+    if not entry:
+        raise ConfigError(
+            f"{config.get('__path__', 'config')}: sharepoint.batch_table is not set — "
+            "it names the folder and file name the build writes"
+        )
+    file = share.Location(str(entry["drive_id"]), str(entry["path"]))
+    folder = file.folder.path
+    return replace(file, path=f"{folder}{ALL_SITES_FOLDER}/{file.path[len(folder) :]}")
+
+
 def source(config: dict[str, Any], label: str) -> io.Source:
     """One input, read from its SharePoint location."""
     return io.Source(label, location(config, label))

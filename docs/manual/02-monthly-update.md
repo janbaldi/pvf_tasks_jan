@@ -69,7 +69,7 @@ Written to SharePoint — 40 batches × 227 columns
   correlation report     correlation_report.html
   shifts report          shifts_report.html
   shifts table           shifts.xlsx
-  LV CoA test lots       lv_coa_test_lots.csv
+  LV CoA test lots       lv_coa_test_lots.xlsx
   manifest               batch_table_manifest.json
 ```
 
@@ -84,10 +84,25 @@ The vector certificates workbook has its header in the first row and no empty
 columns. A certified vector lot that no batch at either site was made with is a
 test lot: it has no patient batch, so it is not in the batch table. The build
 writes those lots, with every certificate value and feature it computed, to
-`lv_coa_test_lots.csv`. To tell them apart it reads the other site's batch
+`lv_coa_test_lots.xlsx`. To tell them apart it reads the other site's batch
 records for their vector lots (site A's build: and the parameter mapping, for
 site B's name of the vector lot). If those are not configured or cannot be read,
 the build warns, and a lot only the other site used is listed as a test lot.
+
+### All sites in one table
+
+```bash
+uv run ml build --all-sites
+```
+
+builds one `batch_data.xlsx` of every site's batches (a `Site Merged` column says
+whose), and one `lv_coa_test_lots.xlsx` of the certified vector lots no batch of
+any site was made with, into `<batch table folder>/All sites/`, with a
+`batch_table_manifest.json`. Each site's records are loaded, cleaned, joined and
+given features as its own build does them; `site:` in the config is not used,
+and every site's sources must be configured. It writes no reports, and does not
+replace the per-site builds: tasks and screening keep reading each site's own
+folder.
 
 If it warns that the last `ml check-catalog` found parameters the catalog
 doesn't list, that's step 2's list: the build goes ahead without them.
